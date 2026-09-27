@@ -6,13 +6,13 @@ import { BADGES, badgeById, type BadgeDef } from '@/lib/badges';
 import { getStreak } from './profile';
 
 /** Checks every badge rule for the learner and awards anything new. Returns the newly earned badges. */
-export async function evaluateBadges(userId: string, timeZone = 'UTC'): Promise<BadgeDef[]> {
+export async function evaluateBadges(userId: string, _timeZone?: string): Promise<BadgeDef[]> {
   const have = new Set((await db.select({ b: userBadge.badge }).from(userBadge).where(eq(userBadge.userId, userId))).map((r) => r.b));
   if (have.size === BADGES.length) return [];
 
   const [[answered], streak, finished, [interviews]] = await Promise.all([
     db.select({ n: count() }).from(attemptItem).where(and(eq(attemptItem.userId, userId), eq(attemptItem.answered, true))),
-    getStreak(userId, timeZone),
+    getStreak(userId),
     db.select({ kind: attempt.kind, passed: attempt.passed, summary: attempt.summary })
       .from(attempt).where(and(eq(attempt.userId, userId), eq(attempt.status, 'submitted'))).orderBy(desc(attempt.finishedAt)).limit(300),
     db.select({ n: count() }).from(interview).where(and(eq(interview.userId, userId), eq(interview.status, 'completed'))),

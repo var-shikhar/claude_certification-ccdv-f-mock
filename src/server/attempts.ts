@@ -433,10 +433,12 @@ export async function getResult(userId: string, attemptId: string): Promise<Resu
   const ex = (await getExam(a.examId))!;
   const cfg = ex.config;
   const names = nameMaps(cfg);
-  const questions = await getQuestionsByIds(a.itemIds);
-  const [cert] = await db.select({ id: certificate.id }).from(certificate).where(eq(certificate.attemptId, a.id)).limit(1);
-  const saved = new Set((await db.select({ q: bookmark.questionId }).from(bookmark)
-    .where(and(eq(bookmark.userId, userId), inArray(bookmark.questionId, a.itemIds)))).map((r) => r.q));
+  const [questions, [cert], savedRows] = await Promise.all([
+    getQuestionsByIds(a.itemIds),
+    db.select({ id: certificate.id }).from(certificate).where(eq(certificate.attemptId, a.id)).limit(1),
+    db.select({ q: bookmark.questionId }).from(bookmark).where(and(eq(bookmark.userId, userId), inArray(bookmark.questionId, a.itemIds))),
+  ]);
+  const saved = new Set(savedRows.map((r) => r.q));
 
   return {
     id: a.id,

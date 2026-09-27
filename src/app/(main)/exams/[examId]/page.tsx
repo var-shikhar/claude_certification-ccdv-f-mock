@@ -27,10 +27,9 @@ export async function generateMetadata({ params }: { params: Promise<{ examId: s
 export default async function ExamHubPage({ params, searchParams }: { params: Promise<{ examId: string }>; searchParams: Promise<{ start?: string }> }) {
   const { examId } = await params;
   const { start } = await searchParams;
-  const ex = await getExam(examId);
+  const [ex, user] = await Promise.all([getExam(examId), getUser()]);
   if (!ex || !ex.isPublished) notFound();
   const cfg = ex.config;
-  const user = await getUser();
   const [hub, counts, notes, pools, plan] = await Promise.all([
     user ? getExamHubData(user.id, ex.id) : Promise.resolve(null),
     getSkillCounts(ex.id),

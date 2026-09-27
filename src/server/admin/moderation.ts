@@ -5,6 +5,7 @@ import { exam, question, questionReport, user, type QuestionPool, type QuestionS
 import { convertUdemyCsv, parseCsv } from '@/lib/content/csv';
 import { validateQuestion } from '@/lib/content/validate';
 import type { Question } from '@/lib/engine';
+import { invalidateCatalog } from '../cache';
 import { AppError, notFound } from '../errors';
 import { getExam, rowToQuestion } from '../exams';
 
@@ -99,6 +100,7 @@ export async function commitImport(userId: string, examId: string, format: 'csv'
       : await q.onConflictDoNothing().returning({ id: question.id });
     inserted += res.length;
   }
+  invalidateCatalog();
   return { imported: inserted, skippedInvalid: items.length - valid.length, skippedExisting: valid.length - inserted };
 }
 

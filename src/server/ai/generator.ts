@@ -5,6 +5,7 @@ import { db } from '@/db';
 import { question } from '@/db/schema';
 import { validateQuestion } from '@/lib/content/validate';
 import type { Question } from '@/lib/engine';
+import { invalidateCatalog } from '../cache';
 import { AppError, notFound } from '../errors';
 import { getExam, getStudyNotes } from '../exams';
 import { jsonCompletion, consumeAiQuota } from './client';
@@ -131,5 +132,6 @@ export async function generateQuestions(userId: string, role: string, input: Gen
     });
     created.push({ id, stem: q.stem, type: q.type, warnings: warnings.map((w) => w.replace(/^[^:]+: /, '')) });
   }
+  if (created.length) invalidateCatalog();
   return { created, rejected };
 }
