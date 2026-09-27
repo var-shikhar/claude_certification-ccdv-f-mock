@@ -51,3 +51,53 @@ export const settingsSchema = z.object({
   timezone: z.string().max(64).optional(),
   leaderboardOptIn: z.boolean().optional(),
 });
+
+// ---------------------------------------------------------------- admin
+
+const optionSchema = z.object({
+  id: z.string().regex(/^[A-H]$/),
+  text: z.string().max(4000),
+  correct: z.boolean().optional(),
+  why: z.string().max(4000).optional(),
+});
+
+export const questionDraftSchema = z.object({
+  id: z.string().max(80).default(''),
+  domain: z.number().int().default(0),
+  skill: z.string().max(80),
+  difficulty: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
+  type: z.enum(['single', 'multi', 'truefalse', 'order', 'match', 'fill']),
+  select: z.number().int().min(1).max(8).default(1),
+  stem: z.string().max(10_000),
+  options: z.array(optionSchema).max(8),
+  answerOrder: z.array(z.string().max(4)).max(8).optional(),
+  prompts: z.array(z.object({ id: z.string().max(10), text: z.string().max(2000), answer: z.string().max(4) })).max(10).optional(),
+  accepted: z.array(z.string().max(200)).max(20).optional(),
+  explanation: z.string().max(10_000),
+  reference: z.string().max(500).nullish(),
+  caseId: z.string().max(120).nullish(),
+  status: z.enum(['draft', 'review', 'published', 'retired']),
+  pool: z.enum(['bank', 'imported']),
+});
+
+export const saveQuestionSchema = z.object({ examId: id, draft: questionDraftSchema, note: z.string().max(500).optional() });
+
+export const bulkStatusSchema = z.object({ ids: z.array(id).min(1).max(500), status: z.enum(['draft', 'review', 'published', 'retired']) });
+
+export const resolveReportsSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(200),
+  status: z.enum(['resolved', 'dismissed']),
+  resolution: z.string().max(1000).optional(),
+});
+
+export const importSchema = z.object({
+  examId: id,
+  format: z.enum(['csv', 'json']),
+  text: z.string().max(5_000_000),
+  setName: z.string().regex(/^[a-z0-9-]{1,40}$/i).optional(),
+  pool: z.enum(['bank', 'imported']).default('imported'),
+  status: z.enum(['draft', 'review', 'published']).default('draft'),
+  overwrite: z.boolean().default(false),
+});
+
+export const setRoleSchema = z.object({ role: z.enum(['learner', 'author', 'admin']) });

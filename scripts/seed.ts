@@ -41,8 +41,9 @@ function toRow(examId: string, q: ContentQuestion, pool: 'bank' | 'imported') {
   };
 }
 
-async function seedExam(id: string, sortOrder: number) {
+async function seedExam(id: string) {
   const bundle = loadExamBundle(id);
+  const { sortOrder } = bundle;
   const { config } = bundle;
 
   await db.insert(exam).values({
@@ -56,7 +57,7 @@ async function seedExam(id: string, sortOrder: number) {
     sortOrder,
   }).onConflictDoUpdate({
     target: exam.id,
-    set: { code: config.code, title: config.title, vendor: bundle.vendor, category: bundle.category, config, meta: bundle.meta, updatedAt: new Date() },
+    set: { code: config.code, title: config.title, vendor: bundle.vendor, category: bundle.category, config, meta: bundle.meta, sortOrder, updatedAt: new Date() },
   });
 
   for (const s of bundle.scenarios) {
@@ -96,7 +97,7 @@ async function main() {
   const only = process.argv[2];
   const ids = only ? [only] : loadAllExams().map((b) => b.config.id);
   console.log(`Seeding ${ids.length} exam(s) into ${usingPglite() ? 'local PGlite' : 'Neon'}:`);
-  for (const [i, id] of ids.entries()) await seedExam(id, i);
+  for (const id of ids) await seedExam(id);
   process.exit(0);
 }
 

@@ -1,0 +1,704 @@
+[
+  {
+    "id": "ARP-D7-T1-001",
+    "domain": 7,
+    "skill": "team-tooling",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A fintech platform team is rolling Claude Code out to 40 developers who all work in the same monorepo. The lead wants every developer to get the same permission allow-list and the same pre-commit formatting hook automatically, while each developer keeps their own theme, editor mode and default model. Where should the shared configuration live?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "In each developer's `~/.claude/settings.json`, copied from an onboarding document and updated whenever the lead announces a change.",
+        "why": "User settings are per machine and drift the moment someone edits their copy; nothing keeps 40 files in sync or reviews changes to them."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "In `.claude/settings.local.json`, committed to the repository so it overrides everything else.",
+        "why": "The local file is the personal, gitignored override for one project; Claude Code creates it outside version control precisely so it is never shared."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "In a committed `.claude/settings.json`, with personal preferences left in each developer's user settings.",
+        "why": "The shared project file applies to everyone working in the folder, travels through version control and code review, and sits above user settings so team rules win while personal preferences still apply."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "In `~/.claude.json`, because that file holds Claude Code's global configuration.",
+        "why": "`~/.claude.json` holds app state and UI toggles; `permissions`, `hooks` and `env` are read from `settings.json` files, and this file is not shared anyway."
+      }
+    ],
+    "explanation": "Claude Code reads settings from a stack of files with different scopes: `~/.claude/settings.json` for one person on every project, `.claude/settings.json` for everyone in a project (commit it), `.claude/settings.local.json` for one person in one project (gitignored), and managed settings for the whole organization. Team-wide permissions and hooks belong in the shared project file; preferences belong in the user file.",
+    "reference": "Claude Code docs — Settings files and precedence"
+  },
+  {
+    "id": "ARP-D7-T1-002",
+    "domain": 7,
+    "skill": "team-tooling",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A retail engineering team commits a `.mcp.json` so everyone gets the same Jira MCP server. During review, the lead notices a developer pasted a personal Jira API token into the `headers` block of the committed file. The team wants to keep one shared server definition in the repository and keep the credential out of git. What should they do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Reference the token as `${JIRA_TOKEN}` in `.mcp.json` and have each developer set that variable in their own environment.",
+        "why": "`.mcp.json` expands `${VAR}` (and `${VAR:-default}`) in `command`, `args`, `env`, `url` and `headers`, so the shared file stays generic and the secret is supplied per machine."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Move the token into the `env` block of the committed `.claude/settings.json` so it is separated from the server definition.",
+        "why": "The shared settings file is also committed, so the credential would still be in version control; separating it from the server entry changes nothing about exposure."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add `.mcp.json` to `.gitignore` and ask each developer to recreate the server with `claude mcp add`.",
+        "why": "This removes the secret but also throws away the shared, reviewed configuration the team wanted, and every developer's setup will drift."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Keep the token in the file but restrict the repository to internal contributors only.",
+        "why": "A secret in git history is copied to every clone, backup and CI runner; repository visibility is not a substitute for keeping credentials out of the file."
+      }
+    ],
+    "explanation": "Project-scoped MCP servers are shared through a committed `.mcp.json`, and credentials are injected with environment-variable expansion so the file never contains the secret. Personal or secret-bearing servers can instead be added at local or user scope, which is stored in `~/.claude.json` rather than in the repository.",
+    "reference": "Claude Code docs — Connect to MCP servers (environment variable expansion in .mcp.json)"
+  },
+  {
+    "id": "ARP-D7-T1-003",
+    "domain": 7,
+    "skill": "team-tooling",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A healthcare company's security team has two non-negotiable requirements for Claude Code on developer laptops: Claude must never read `.env` files in any repository, and the `bypassPermissions` mode must not be usable, even if a developer edits their own settings files. Which two configuration choices deliver these guarantees? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add the line \"Never read `.env` files\" to an organization-wide managed `CLAUDE.md`.",
+        "why": "CLAUDE.md is context, not enforcement; Claude treats it as guidance and can still be led to read the file. Blocking an action regardless of what the model decides needs a permission rule or hook."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Deploy managed settings (for example `managed-settings.json` in the system directory, or server-managed settings) containing a `permissions.deny` rule of `Read(./.env)`.",
+        "why": "Managed settings sit above user, project, local and `--settings` values, so a deny rule there applies on every repository and cannot be removed by a developer."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Ask every developer to add the deny rule to `~/.claude/settings.json` during onboarding.",
+        "why": "A user-level rule is voluntary: the same developer can delete it, and nothing verifies that it is present on every machine."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Set `permissions.disableBypassPermissionsMode` to `\"disable\"` in the same managed settings.",
+        "why": "This key removes bypass mode from the session and is most useful in managed settings precisely because a lower-level file cannot override it there."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Set `permissions.defaultMode` to `\"plan\"` in each repository's `.claude/settings.json`.",
+        "why": "A default mode only decides how a session starts; developers can cycle modes with Shift+Tab, and a starting mode does not stop file reads or remove bypass mode."
+      }
+    ],
+    "explanation": "Guarantees come from managed settings, which the organization deploys and no user, project or local file can override. Use `permissions.deny` for things that must never happen and `disableBypassPermissionsMode` to remove the escape hatch; CLAUDE.md guidance and per-developer settings are advisory by comparison.",
+    "reference": "Claude Code docs — Deploy managed settings; Configure permissions"
+  },
+  {
+    "id": "ARP-D7-T1-004",
+    "domain": 7,
+    "skill": "team-tooling",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A bank's security review found developers adding arbitrary MCP servers at user scope and committing untested servers in `.mcp.json` across 60 repositories. The security team has vetted three servers (an internal ticketing server, a documentation server and a GitHub server) and wants Claude Code to connect only to those, no matter what a repository or a developer configures. Which approach enforces this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Set `enableAllProjectMcpServers` to `true` in every repository's `.claude/settings.json` so the trust dialog no longer distracts developers.",
+        "why": "This does the opposite of what is required: it auto-approves every server in `.mcp.json`, removing the one check that currently stops unvetted project servers."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add a `disabledMcpjsonServers` list naming every known-bad server to each repository's `.claude/settings.json`, and review the list during each release.",
+        "why": "A per-repository blocklist only affects `.mcp.json` servers, must be maintained in 60 places, can be edited by any contributor, and does nothing about servers added at user scope."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Publish the approved list in the organization-wide managed `CLAUDE.md` and instruct Claude not to use other servers.",
+        "why": "Instructions in CLAUDE.md shape model behaviour but cannot prevent a configured server from connecting or its tools from being offered; this is guidance, not a control."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Deploy an `allowedMcpServers` list naming the three vetted servers through managed settings.",
+        "why": "`allowedMcpServers` (with its `deniedMcpServers` counterpart) is the managed, organization-level control for MCP; it applies above user and project configuration and can name servers by name or URL pattern."
+      }
+    ],
+    "explanation": "Per-repository keys such as `enabledMcpjsonServers` and `disabledMcpjsonServers` govern approval of project servers, but an organization-wide approved list is enforced with `allowedMcpServers` and `deniedMcpServers` in managed settings, which developers and repositories cannot override.",
+    "reference": "Claude Code docs — Connect to MCP servers (enterprise controls); Deploy managed settings"
+  },
+  {
+    "id": "ARP-D7-T1-005",
+    "domain": 7,
+    "skill": "team-tooling",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A public-sector agency is standardizing Claude Code for 120 developers. Constraints: all model inference must run inside the agency's AWS account (Amazon Bedrock) for data-residency reasons; finance needs cost per developer and per department in the agency's existing Grafana stack, updated the same day; and the provider and telemetry configuration must be identical on every laptop without relying on developers to set it. Which setup satisfies all three?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Point developers at Bedrock with `CLAUDE_CODE_USE_BEDROCK=1` in their shell profiles, and use the Claude Code analytics dashboard in the Claude Console for per-user spend, exporting its team-insights table to finance each week.",
+        "why": "Usage through Bedrock is billed to the cloud account and is not sent back to Anthropic, so the Console analytics dashboard and Analytics API do not cover it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Set `CLAUDE_CODE_USE_BEDROCK=1` and the OpenTelemetry exporter variables in managed settings' `env`, add a department tag via `OTEL_RESOURCE_ATTRIBUTES`, and chart `claude_code.cost.usage` in Grafana.",
+        "why": "Managed settings make the provider and telemetry identical and non-overridable on every machine, and OpenTelemetry export is the option that streams per-user cost and token metrics, with custom team or department attributes, into your own observability stack on every provider including Bedrock."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Use the Anthropic API directly with one Console workspace per department, workspace spend limits for attribution, and the Console usage page as finance's daily report.",
+        "why": "Workspaces give departmental reporting, but routing inference to the Anthropic API violates the requirement that inference stays inside the agency's AWS account."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use Bedrock and ask each developer to run `/usage` at the end of the week and paste the total into a spreadsheet.",
+        "why": "Self-reported session totals are manual, incomplete (they reset with `/clear`), not per department, and not same-day; this is not an operational reporting design."
+      }
+    ],
+    "explanation": "For cloud-provider deployments (Bedrock, Vertex AI, Foundry) the Anthropic analytics dashboards do not see usage, so per-user attribution comes from OpenTelemetry export (or an LLM gateway). Organization-wide provider and telemetry settings are delivered through managed settings' `env` block, which also prevents repositories or users from redirecting the telemetry endpoint.",
+    "reference": "Claude Code docs — Monitoring with OpenTelemetry; Manage costs effectively (cloud providers); Enterprise deployment overview"
+  },
+  {
+    "id": "ARP-D7-T1-006",
+    "domain": 7,
+    "skill": "team-tooling",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A SaaS company's managed settings contain `\"permissions\": { \"deny\": [\"Bash(curl *)\"] }` to stop Claude Code from making ad-hoc network calls. A developer reports two things: their own `permissions.allow` entry for `Bash(curl *)` in `.claude/settings.local.json` \"does nothing\", and yet during a session Claude successfully ran `sh -c 'curl https://internal-api/...'`. The platform lead must explain both observations and choose a change that makes the restriction actually hold. Which response is correct?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The allow rule failed because local settings sit below managed settings; close the gap by adding further deny patterns such as `Bash(sh -c *)`, `Bash(bash -c *)`, `Bash(/usr/bin/curl *)` and `Bash(env *)` to the managed list and re-deploying it to every laptop.",
+        "why": "The precedence explanation is right, but enumerating wrappers is a losing game: Bash rules match the literal command text, so `bash -c`, `env curl`, a symlink or a script will always find another spelling."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Move the deny rule from managed settings into each repository's `.claude/settings.json` so it is evaluated closer to the working directory.",
+        "why": "Managed settings already have the highest precedence; moving the rule down makes it weaker, and it does nothing about the `sh -c` bypass, which is a matching limitation rather than a precedence problem."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Deny rules are evaluated before allow rules, so the local allow is ignored by design; Bash rules match the command text rather than the executable, so enforce the restriction with the sandbox network allow-list or a `PreToolUse` hook instead.",
+        "why": "This combines both facts: rule evaluation order (deny, then ask, then allow) explains the first observation, and the documented limits of Bash pattern matching explain the second. The docs point to sandboxing or a hook for enforcement that does not depend on command text."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Set `allowManagedPermissionRulesOnly` to `true` so the developer's allow rule is discarded, which will also stop the wrapped `curl` call.",
+        "why": "That key makes Claude Code ignore user, project and local rules, but the allow rule was already ineffective; it changes nothing about `sh -c 'curl ...'`, which slipped past the deny pattern rather than through an allow."
+      }
+    ],
+    "explanation": "Two facts together explain the incident: permission rules are evaluated deny first, then ask, then allow, regardless of specificity or which file they come from; and `Bash(...)` patterns match the literal command, so a deny for `curl` does not match `/usr/bin/curl` or `sh -c 'curl ...'`. For a hard guarantee, use the sandbox's network isolation or a `PreToolUse` hook rather than more patterns.",
+    "reference": "Claude Code docs — Configure permissions (rule evaluation order; what a Bash rule doesn't match); Sandboxing"
+  },
+  {
+    "id": "ARP-D7-T2-001",
+    "domain": 7,
+    "skill": "developer-workflows",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Developers on an insurance claims team each keep a 15-line prompt in a personal notes file that they paste into Claude Code before reviewing a pull request. The prompt encodes the team's review checklist and changes every few sprints. The lead wants one shared, versioned copy that any developer can trigger with a short command. Which mechanism fits?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Paste the checklist into the repository's `CLAUDE.md` so it is always in context.",
+        "why": "CLAUDE.md loads into every session, so a review-only procedure would cost tokens during unrelated work and dilute the file's core instructions."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Create a skill at `.claude/skills/review-pr/SKILL.md` in the repository, invoked as `/review-pr`.",
+        "why": "A project skill is committed with the code, loads only when invoked, can take `$ARGUMENTS` such as a PR number, and supersedes the older `.claude/commands/` custom-command format."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Have each developer save it under `~/.claude/skills/` so it works in all their projects.",
+        "why": "Personal skills are not shared through the repository, so the team would still have many diverging copies to keep in sync."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Configure a `UserPromptSubmit` hook in the shared project settings that appends the checklist to every prompt a developer submits.",
+        "why": "A hook would inject review instructions into every prompt, including ones that have nothing to do with reviews, and hides the behaviour from the developer."
+      }
+    ],
+    "explanation": "Reusable workflows belong in skills (`.claude/skills/<name>/SKILL.md`), which are invoked as slash commands, load on demand, accept arguments, and are shared and versioned with the repository. CLAUDE.md is for always-on project context, not for task-specific procedures.",
+    "reference": "Claude Code docs — Extend Claude with skills"
+  },
+  {
+    "id": "ARP-D7-T2-002",
+    "domain": 7,
+    "skill": "developer-workflows",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer on a logistics platform asks Claude Code to migrate 14 services from a deprecated message-queue client to a new one. Last time a similar request produced edits in the wrong order and half a day of rework. The developer wants Claude to explore the codebase and propose the full approach for review before any file is touched. What is the recommended way to work?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Start with `--dangerously-skip-permissions` so the migration finishes in one pass without interruptions, then review the whole diff with `git diff` at the end.",
+        "why": "Skipping permissions speeds up execution but removes every checkpoint; the failure last time was a wrong plan, which a bigger unreviewed diff makes worse."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add \"always ask before editing\" to the project's `CLAUDE.md`.",
+        "why": "This is guidance the model may or may not follow; it does not block edits and does not produce a reviewable plan."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Open 14 separate sessions, one per service, and give each the same instructions.",
+        "why": "Splitting the work discards the cross-service context needed to sequence the migration and multiplies the review burden without giving a plan to approve."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Use plan mode (Shift+Tab or `--permission-mode plan`) so Claude proposes a plan that the developer approves before any edit.",
+        "why": "Plan mode is read-only: Claude explores and proposes; edits stay blocked until the plan is approved, which is exactly the checkpoint that prevents expensive re-work on large changes."
+      }
+    ],
+    "explanation": "For large or risky changes, plan mode gives a research-then-approve loop: Claude reads and proposes, the developer corrects direction cheaply, and implementation begins only after approval. It is a mode enforced by Claude Code, unlike CLAUDE.md wording, and it is the documented cost-saving habit for complex tasks.",
+    "reference": "Claude Code docs — Choose a permission mode (plan mode); Manage costs effectively"
+  },
+  {
+    "id": "ARP-D7-T2-003",
+    "domain": 7,
+    "skill": "developer-workflows",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A payments team's `CLAUDE.md` has grown to about 900 lines: build commands, a 200-line database-migration runbook, the release procedure, and conventions for each of six packages. Developers complain that Claude ignores rules more often than it used to and that every session starts with a large context cost. Which two changes best address both problems? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Move the migration runbook and release procedure into skills under `.claude/skills/`, so they load only when invoked or relevant.",
+        "why": "Skills keep multi-step procedures out of the always-on context; only their descriptions are present until they are used, which cuts base tokens and shortens CLAUDE.md."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Prefix every rule with \"IMPORTANT: you MUST\" so the model weighs them more heavily.",
+        "why": "Emphasis does not fix a file that is too long and unfocused; the docs attribute low adherence to length, vagueness and conflicting rules, none of which capital letters change."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Split the file into six files pulled in with `@path` imports from `CLAUDE.md`.",
+        "why": "Imports are expanded at launch and still enter the context window, so this organizes the text without reducing what loads or improving adherence."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Move each package's conventions into `.claude/rules/` files with a `paths:` frontmatter glob, so they load only when Claude works on matching files.",
+        "why": "Path-scoped rules load on demand when matching files are read, which keeps unrelated package conventions out of context and the root file short and specific."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Switch the team's default model to the largest available so the longer file fits comfortably.",
+        "why": "The file already fits; the problems are per-session cost and instruction dilution, which a larger model does not solve and may make more expensive."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Add a `SessionStart` hook that re-injects the full `CLAUDE.md` as additional context so nothing is missed.",
+        "why": "Duplicating the file in context doubles the token cost and does nothing for adherence."
+      }
+    ],
+    "explanation": "The docs recommend keeping CLAUDE.md under roughly 200 lines of facts Claude needs in every session, moving procedures into on-demand skills and scoping area-specific conventions with path-scoped `.claude/rules/`. Imports and emphasis do not reduce what loads, and adherence drops as the file grows.",
+    "reference": "Claude Code docs — How Claude remembers your project (write effective instructions; .claude/rules/); Manage costs effectively"
+  },
+  {
+    "id": "ARP-D7-T2-004",
+    "domain": 7,
+    "skill": "developer-workflows",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A SaaS company wants an automated Claude review on every pull request across 25 GitHub repositories. Requirements: no API key or token may appear in workflow files; findings must appear as review comments on the PR; a runaway review must not consume unbounded tokens; and the credential must not be tied to any individual employee's account. Which design meets all four?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Use `anthropics/claude-code-action` in a reusable workflow with an org-level secret or OIDC federation for the credential, inline review comments, and `--max-turns` plus a job timeout.",
+        "why": "This is the documented organization rollout: secrets referenced as `${{ secrets.ANTHROPIC_API_KEY }}` or replaced by OIDC federation, an org-owned Console key rather than a personal token, `--max-turns` and timeouts to cap cost, and the action's comment tooling for inline findings."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Generate a subscription token with `claude setup-token` on the tech lead's laptop and store it as `CLAUDE_CODE_OAUTH_TOKEN` in each repository.",
+        "why": "An OAuth token is tied to the subscription of the person who generated it, which violates the requirement that the credential not depend on an individual; it also has to be copied into 25 repositories."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Run `claude -p --dangerously-skip-permissions` on a self-hosted runner with the API key exported in the workflow YAML, so the review needs no GitHub App installation, and post its output as a PR comment through a shell script.",
+        "why": "Putting the key in the YAML commits it to the repository, and skipping all permission checks on a shared runner is the opposite of least privilege; there is also no turn cap."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Ask developers to run a local `/review` skill before opening each PR and paste the output into the description.",
+        "why": "This is a manual step that depends on every developer remembering it, produces no PR review comments, and is not the automated gate that was asked for."
+      }
+    ],
+    "explanation": "The GitHub Action pattern for organizations is: install the app once at the org level, keep the credential in an org-level secret or use OIDC federation so no static key is stored, prefer an org-owned API key over a personal OAuth token, and bound cost with `--max-turns`, workflow timeouts and concurrency controls.",
+    "reference": "Claude Code docs — Claude Code GitHub Actions (set up for an organization; manage costs; protect your credentials)"
+  },
+  {
+    "id": "ARP-D7-T2-005",
+    "domain": 7,
+    "skill": "developer-workflows",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "On a data-platform team, sessions routinely hit auto-compaction because Claude runs a test suite that prints about 4,000 lines and reads multi-megabyte pipeline logs into the main conversation. The team also wants this investigative work done by something that cannot edit files, while the main session keeps only the conclusions. Which change satisfies both requirements?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Raise `MAX_MCP_OUTPUT_TOKENS` so large outputs are no longer truncated.",
+        "why": "That variable governs MCP tool output limits, not Bash or file reads, and raising any limit puts more, not less, into the main context."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add a `PreToolUse` hook on `Bash` that rewrites test commands to pipe through `grep` for failures, and ask developers to read logs with `head` and `tail` instead of whole files.",
+        "why": "Filtering output is a real cost-saving technique, but it only trims test output; log reading still lands in the main context and nothing stops the work from editing files."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Define a read-only project subagent in `.claude/agents/` with a `tools` allow-list, and delegate test runs and log analysis to it.",
+        "why": "Subagents run in their own context window, so verbose output stays there and a summary comes back; the frontmatter `tools` allow-list enforces that the subagent cannot edit files, and the definition is shared through version control."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Run `/compact` immediately after each test run and log read.",
+        "why": "Compaction is reactive and lossy: the verbose output has already consumed context and a summarization request, and it does nothing to restrict editing."
+      }
+    ],
+    "explanation": "Subagents are the documented way to isolate high-volume operations: the verbose output lives in the subagent's context and only a summary returns to the main conversation. Their frontmatter also restricts tools, model and permission mode, giving a deterministic read-only explorer that a hook or compaction cannot provide.",
+    "reference": "Claude Code docs — Create custom subagents (isolate high-volume operations); Manage costs effectively"
+  },
+  {
+    "id": "ARP-D7-T2-006",
+    "domain": 7,
+    "skill": "developer-workflows",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "An engineering director at a 300-developer retailer on Claude for Enterprise must report quarterly on Claude Code: adoption trend (daily active users and sessions), the share of merged PRs that contain Claude-assisted code, and cost per developer broken down by squad. Two squads run inference through Amazon Bedrock for a regulated workload. Which two data sources together satisfy every requirement without collecting developers' prompt text? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Use the Claude Code analytics dashboard alone; it reports adoption, PR contribution and per-user spend for every developer.",
+        "why": "The dashboard covers adoption and contribution metrics for the claude.ai organization, but usage routed through Bedrock is not sent to Anthropic, so the two regulated squads' cost would be missing."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Enable the analytics dashboard with the GitHub integration for adoption charts and the \"PRs with Claude Code\" contribution metrics.",
+        "why": "The Team and Enterprise dashboard provides daily active users, sessions and, once the GitHub app is connected, the count and percentage of merged PRs with Claude-assisted lines, with CSV export."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Write a nightly job that parses every developer's `~/.claude/projects/**/*.jsonl` transcripts to compute tokens per squad.",
+        "why": "Transcripts are an internal format that changes between versions, the job would have to reach into personal machines, and it would ingest full conversation content, which the requirement rules out."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Set `OTEL_LOG_USER_PROMPTS=1` so the observability stack can measure how effectively each squad prompts.",
+        "why": "That flag adds prompt text to exported events, which the director explicitly excluded, and prompt text is not needed for adoption, PR or cost metrics."
+      },
+      {
+        "id": "E",
+        "correct": true,
+        "text": "Deploy OpenTelemetry export through managed settings with `OTEL_RESOURCE_ATTRIBUTES` carrying a squad identifier, and aggregate `claude_code.cost.usage` and `claude_code.token.usage` per `user.id` and squad.",
+        "why": "OpenTelemetry export works on every provider, including Bedrock, streams per-user cost and token metrics into your own stack, and custom resource attributes provide the squad dimension; prompt content stays off by default."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Survey squad leads each quarter for estimated hours saved and divide the invoice by headcount.",
+        "why": "Self-reported estimates and an even split do not give per-developer cost or verifiable adoption data; the platform already emits the measurements directly."
+      }
+    ],
+    "explanation": "Adoption and contribution metrics come from the analytics dashboard (with GitHub integration for PR attribution), while per-user cost across all providers, including Bedrock and Vertex where the dashboards have no visibility, comes from OpenTelemetry export with `user.id`, `organization.id` and custom `OTEL_RESOURCE_ATTRIBUTES`. Prompt logging is off by default and unnecessary for these measures.",
+    "reference": "Claude Code docs — Track team usage with analytics; Monitoring with OpenTelemetry; Manage costs effectively"
+  },
+  {
+    "id": "ARP-D7-T3-001",
+    "domain": 7,
+    "skill": "operational-debugging",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer on a logistics team clones a repository whose committed `.mcp.json` defines a Jira MCP server, starts Claude Code, and finds that Claude has no Jira tools. The same configuration works for teammates. What should the developer check first?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Run `/mcp` to check the server's status; a project server stays disabled until its trust prompt is approved.",
+        "why": "`/mcp` shows every configured server with its connection state (connected, needs authentication, failed, pending approval) and lets the developer approve, authenticate or reconnect from the same screen."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Reinstall Claude Code, because a missing tool set indicates a corrupted installation.",
+        "why": "A teammate's identical configuration works, so the installation is the least likely cause; reinstalling skips the diagnostic step that explains the difference."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add the server again with `claude mcp add --scope user`, copying the command and arguments from `.mcp.json`, so it no longer depends on the project file.",
+        "why": "This creates a second definition instead of finding out why the shared one is not active, and drifts from the team's reviewed configuration."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add \"use the Jira MCP server for ticket questions\" to `CLAUDE.md`.",
+        "why": "Instructions cannot make tools appear; if the server is not connected, no wording in CLAUDE.md changes that."
+      }
+    ],
+    "explanation": "Servers defined in a project's `.mcp.json` require approval before they load; `/mcp` shows the status of every server and is the first stop when tools are missing. Deeper failures are diagnosed with `claude mcp get <name>` or `claude --debug`, where the server's stderr appears in the debug log.",
+    "reference": "Claude Code docs — Debug your configuration (check MCP servers); Connect to MCP servers"
+  },
+  {
+    "id": "ARP-D7-T3-002",
+    "domain": 7,
+    "skill": "operational-debugging",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Midway through implementing a plan, a developer pastes a 10,000-line application log into Claude Code and immediately sees `Context limit reached · /compact or /clear to continue`. The session holds an approved implementation plan and a partially finished diff that the developer does not want to lose. What is the best next action?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Run `/clear`, then re-explain the task, re-paste the plan from memory and ask Claude to redo the changes in a fresh session.",
+        "why": "`/clear` empties the context; the plan and in-progress diff would have to be reconstructed by hand, which is exactly what the developer wants to avoid."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Run `/compact` with instructions to keep the plan and the current diff and drop the pasted log.",
+        "why": "`/compact` accepts custom instructions that tell the summarizer what to preserve, so the large paste is summarized away while the plan and change set survive."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Restart Claude Code and use `claude --continue` to resume the conversation.",
+        "why": "Resuming reloads the same oversized transcript, so the context limit error returns immediately."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Increase `MAX_MCP_OUTPUT_TOKENS` so larger inputs are accepted.",
+        "why": "That variable limits MCP tool results; it has nothing to do with a pasted log or with the model's context window."
+      }
+    ],
+    "explanation": "When context overflows, `/compact` replaces history with a summary and takes optional instructions about what to keep; `/clear` is for starting unrelated work. The better long-term habit is to keep large inputs out of the main context: read files in ranges, filter logs with a hook, or delegate log analysis to a subagent.",
+    "reference": "Claude Code docs — Manage costs effectively (manage context proactively); Troubleshooting (auto-compaction)"
+  },
+  {
+    "id": "ARP-D7-T3-003",
+    "domain": 7,
+    "skill": "operational-debugging",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "During a live Claude Code training session for 60 developers at a telecom, most attendees see `API Error: Repeated 529 Overloaded errors` and several see `Request rejected (429)`. The facilitator has to keep the session moving and prevent a repeat next week. Which two actions are appropriate? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Have attendees rotate to a fresh API key so their request counters reset.",
+        "why": "Rate limits apply at the organization level, not per key, so a new key shares the same limit; this also encourages uncontrolled key sprawl."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Tell attendees to wait briefly (Claude Code already retries 529s with backoff) and, if the overload persists, switch to a less-loaded model with `/model`.",
+        "why": "A 529 means the API is overloaded; Claude Code retries automatically with backoff, and the documented user actions are to wait, reduce request frequency or switch models."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Set `--dangerously-skip-permissions` for everyone so fewer round-trips are needed.",
+        "why": "Permission prompts are local and do not generate API requests; skipping them changes nothing about server load or rate limits while removing safety checks."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Turn off OpenTelemetry export for the session to reduce API traffic.",
+        "why": "Telemetry goes to the organization's collector, not the model API, so it has no effect on 429 or 529 responses."
+      },
+      {
+        "id": "E",
+        "correct": true,
+        "text": "Before next week, check the organization's tokens-per-minute and requests-per-minute limits in the Console and request a higher allocation for the unusually high concurrency of a training session.",
+        "why": "429 is a rate-limit rejection; the cost guidance sizes TPM/RPM per user by team size and notes that events with high concurrent usage, such as large training sessions, may need higher allocations."
+      }
+    ],
+    "explanation": "Separate the two errors: 529 is provider overload (retry with backoff is automatic; wait, slow down or change model), while 429 is your organization's rate limit (check usage, space requests, and raise the limit for known concurrency spikes). Key rotation, permission modes and telemetry are unrelated to either.",
+    "reference": "Claude Code docs — Error reference (429, 529); Manage costs effectively (rate limit recommendations)"
+  },
+  {
+    "id": "ARP-D7-T3-004",
+    "domain": 7,
+    "skill": "operational-debugging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A fintech team runs `claude -p \"run the tests and fix failures\" --permission-mode dontAsk --output-format json` in CI. The job exits without fixing anything; the JSON result lists `Bash(npm test)` under `permission_denials`, and the text says Claude could not run the test suite. The runner also holds deployment credentials, so the team wants the smallest change that makes the job work. What should they do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add \"You are allowed to run npm test\" to the prompt so Claude stops refusing.",
+        "why": "Claude did not refuse; the harness denied the call. Permission decisions are made by Claude Code's rules, not by anything the model reads in the prompt."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Replace `--permission-mode dontAsk` with `--dangerously-skip-permissions`, since the job runs unattended and prompts can never be answered there anyway.",
+        "why": "This makes the job run but grants every tool call on a runner that holds deployment credentials, which is far more than the smallest change and contradicts least privilege."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Remove `--permission-mode dontAsk` so Claude Code can ask for approval when it needs it.",
+        "why": "Nobody is present to answer in a non-interactive run; prompts that cannot be answered are denied, so the outcome is the same failure."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Add `--allowedTools \"Bash(npm test *),Edit\"` (or an equivalent `permissions.allow` rule) so only the needed calls are pre-approved.",
+        "why": "`dontAsk` denies anything that would prompt, so the fix is a targeted allow rule for the specific commands and edits the job needs; the prefix rule keeps the grant narrow and the denial disappears deterministically."
+      }
+    ],
+    "explanation": "In headless mode, permission denials are reported in the result (`permission_denials`, or `permission_denied` events in `stream-json`), and the remedy is a precise allow rule via `--allowedTools` or `permissions.allow`, not prompt wording and not blanket bypass. Reading the structured output is what turns \"Claude refused\" into a specific, fixable denial.",
+    "reference": "Claude Code docs — Run Claude Code programmatically (auto-approve tools; permission modes for -p); Configure permissions"
+  },
+  {
+    "id": "ARP-D7-T3-005",
+    "domain": 7,
+    "skill": "operational-debugging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A healthcare team added a hook to `.claude/settings.json` to block destructive shell commands:\n\n```json\n{\n  \"hooks\": {\n    \"PreToolUse\": [\n      { \"matcher\": \"bash\",\n        \"hooks\": [ { \"type\": \"command\", \"command\": \"${CLAUDE_PROJECT_DIR}/.claude/hooks/block-rm.sh\" } ] }\n    ]\n  }\n}\n```\n\nThe script prints a denial message and exits with code 1 when it sees `rm -rf`. `/hooks` lists the hook under PreToolUse, but a `claude --debug` session shows the PreToolUse event evaluated for `rm -rf build/` with no matcher match and the command running. Which change fixes the reported problem?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Change the matcher to `Bash`; tool-name matching is case-sensitive, so `bash` never matches.",
+        "why": "The debug log shows the event fired and no matcher matched, which is exactly the symptom of a misspelled or lowercase tool name; `Bash`, `Edit`, `Write` and `Read` are capitalized."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Change the script to exit with code 2 instead of 1.",
+        "why": "Exit code 2 is indeed what blocks a call (or JSON with `permissionDecision: \"deny\"`), and this will matter next, but the script never ran: the debug log shows the matcher did not match, so the exit code cannot be the cause of the reported behaviour."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Move the hook into `~/.claude/settings.json` because project hooks do not run for shell commands.",
+        "why": "Project hooks run for any tool once the workspace is trusted, and `/hooks` already shows the hook loaded; scope is not the problem."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Convert the matcher to the array form `[\"Bash\", \"PowerShell\"]` so it covers both shells.",
+        "why": "An array matcher is a schema error that makes Claude Code reject the whole settings file; the matcher is a single string using `|` to combine names."
+      }
+    ],
+    "explanation": "Diagnose hooks in order: `/hooks` confirms the hook loaded, `claude --debug` shows whether the matcher matched and what the script returned. Case-sensitive tool names are a common cause of a hook that never fires; a separate, later requirement is that a blocking hook must exit 2 or return a JSON `permissionDecision` of `deny`.",
+    "reference": "Claude Code docs — Debug your configuration (check hooks; common causes); Hooks reference (exit codes)"
+  },
+  {
+    "id": "ARP-D7-T3-006",
+    "domain": 7,
+    "skill": "operational-debugging",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A platform team at a media company supports eight squads on Claude Code. This week two squads report that sessions \"got slower and much more expensive\", while the other six report nothing. OpenTelemetry export is enabled fleet-wide with `OTEL_RESOURCE_ATTRIBUTES` carrying `team.id`, and prompt logging is off. The team wants to resolve the complaint with evidence rather than guesswork and without collecting conversation content. What should they do first?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Change the organization's default model to a cheaper tier for all eight squads through managed settings, which brings cost down immediately, and revisit the model choice next quarter if complaints continue.",
+        "why": "This treats an unexplained, two-squad anomaly as a fleet-wide model problem; it may degrade the six healthy squads and leaves the real cause, which may be an MCP server or a workflow change, in place."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Turn on `OTEL_LOG_USER_PROMPTS` for the two squads so the team can read what developers are asking.",
+        "why": "Prompt content is unnecessary for a cost and latency investigation and was ruled out; the existing metrics and events already carry the dimensions needed."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Slice `claude_code.cost.usage` and `claude_code.token.usage` by `team.id`, `model` and `mcp_server.name`, plus `api_error` events, comparing the two squads with the six over the week before changing anything.",
+        "why": "The exported metrics carry `model`, `query_source`, `mcp_server.name` and custom resource attributes, and the events include `api_error` with status codes; comparing affected and unaffected squads over time isolates the cause (a new MCP server, a model change, retries from overloads) with data."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Send both squads a reminder to run `/compact` and `/clear` between tasks, keep sessions short, and re-check the invoice next week.",
+        "why": "Context hygiene is good advice in general but is a guess here; without data, the team cannot tell whether long sessions, a new tool, or API retries caused the change, and a week is lost either way."
+      }
+    ],
+    "explanation": "Operational debugging escalates through observability data: Claude Code's OpenTelemetry metrics and events carry per-user, per-model, per-MCP-server and custom team attributes, so an anomaly is localized by comparing affected against unaffected groups before any remediation. Changing models or issuing generic advice without that comparison is guesswork, and prompt logging is neither needed nor appropriate.",
+    "reference": "Claude Code docs — Monitoring with OpenTelemetry (metrics, events and attributes); Manage costs effectively"
+  }
+]

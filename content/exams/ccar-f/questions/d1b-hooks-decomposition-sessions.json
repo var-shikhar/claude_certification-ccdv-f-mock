@@ -1,0 +1,692 @@
+[
+  {
+    "id": "ARF-D1-T5-001",
+    "domain": 1,
+    "skill": "sdk-hooks",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A customer support agent built on the Agent SDK can call `process_refund` directly. Finance policy says any refund above $500 must be approved by a human, with no exceptions. The team needs this rule to hold on every single request, even when the customer is persuasive. Which implementation best meets that requirement?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add \"You MUST NOT refund more than $500 under any circumstances; always escalate such requests to a human instead\" in capital letters to the system prompt.",
+        "why": "A prompt instruction is followed probabilistically; it usually works but cannot guarantee compliance on every request, which is what the policy demands."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add few-shot examples in which the agent escalates every large refund to a human.",
+        "why": "Examples shape behaviour but do not enforce it; a sufficiently unusual conversation can still lead the model to call the tool with a large amount."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Lower the sampling temperature so the agent's refund decisions become more consistent.",
+        "why": "Temperature affects randomness, not policy; a deterministic model can still consistently choose to call the tool with an amount above the limit."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Register a `PreToolUse` hook on `process_refund` that denies any call with `amount` over 500 and points the agent to `escalate_to_human`.",
+        "why": "A `PreToolUse` hook runs in your code before the tool executes and returns `permissionDecision: \"deny\"`, so refunds above the threshold can never reach the backend regardless of what the model decides."
+      }
+    ],
+    "explanation": "When a business rule requires guaranteed compliance, enforce it in code with a hook rather than asking the model. `PreToolUse` hooks intercept the outgoing tool call, can deny it, and can return a reason that redirects the agent to an alternative workflow such as human escalation. Prompt wording, examples and sampling settings only make compliance more likely.",
+    "reference": "Claude Agent SDK docs — Hooks (block dangerous operations)"
+  },
+  {
+    "id": "ARF-D1-T5-002",
+    "domain": 1,
+    "skill": "sdk-hooks",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A support agent uses three MCP servers owned by different teams. The orders server returns Unix timestamps and numeric status codes (`3` = shipped), the CRM server returns ISO 8601 strings, and the shipping server returns dates as `DD/MM/YYYY`. The agent occasionally tells customers an order shipped before it was placed, and it misreads status `3` as a quantity. The other teams will not change their servers this quarter. What is the most effective fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Add a `PostToolUse` hook on the three servers' tools that rewrites each result into one canonical schema before the model sees it.",
+        "why": "`PostToolUse` hooks intercept tool results and can replace the output before it is returned to the model, so heterogeneous formats are normalised deterministically in code and the agent only ever reasons over one schema."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Describe all three date formats and the full status-code table in the system prompt and instruct the agent to convert every value to ISO 8601 before comparing dates or reading statuses.",
+        "why": "This makes every comparison depend on the model doing arithmetic on three formats correctly each time; it reduces errors but does not remove them, and it spends context on conversion instructions."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add a `PreToolUse` hook that rewrites the tool input so each server is asked to return ISO 8601 dates.",
+        "why": "`PreToolUse` runs before the call and can only change the request; these servers do not accept a format parameter, and the problem is in the results, not the inputs."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Delegate every lookup to a `data-cleaner` subagent that reads the raw result and returns a tidy summary.",
+        "why": "This adds a full model round-trip per lookup and still relies on a model to perform the conversion; a few lines of deterministic code do the same job faster and without error."
+      }
+    ],
+    "explanation": "Normalising heterogeneous tool output is a textbook `PostToolUse` job: the hook receives the tool result, transforms it in code, and returns the replacement output so the model works with a single consistent representation. Prompt-based conversion and model-based cleaning are probabilistic and cost tokens on every call.",
+    "reference": "Claude Agent SDK docs — Hooks (PostToolUse, transform outputs)"
+  },
+  {
+    "id": "ARF-D1-T5-003",
+    "domain": 1,
+    "skill": "sdk-hooks",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team is deciding which behaviours of its developer-productivity agent (built-in Read, Write, Edit, Bash tools plus an internal MCP server) should be enforced with `PreToolUse` hooks and which belong in the system prompt. Which two rules are best enforced with a hook rather than a prompt instruction? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The agent must never write outside the repository's `/workspace` directory.",
+        "why": "A path boundary is a hard rule with an exact check; a hook on `Write|Edit` can inspect `tool_input.file_path` and deny or rewrite it every time, which a prompt cannot guarantee."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Explanations of generated code should be concise and written for a senior engineer.",
+        "why": "Tone and length are stylistic preferences that hooks cannot evaluate at a tool-call boundary; they belong in the system prompt."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Any `Bash` command containing `git push --force` to a protected branch must be blocked.",
+        "why": "This is a destructive, exactly recognisable action; a `PreToolUse` hook on `Bash` can deny it deterministically and return a reason so the agent chooses another route."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "When a ticket is ambiguous, the agent should ask one clarifying question before editing code.",
+        "why": "Deciding that a request is ambiguous is a judgment call made before any tool call; it is guidance for the model, not a rule a hook can check."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The agent should prefer the team's internal HTTP client library over writing raw `fetch` calls.",
+        "why": "Coding conventions are preferences the model applies while writing; they are best expressed in CLAUDE.md or the system prompt, not enforced by intercepting tool calls."
+      }
+    ],
+    "explanation": "Hooks are the right tool when a rule can be checked mechanically at a tool-call boundary and must hold every time: path restrictions, destructive-command blocks, financial thresholds. Style, tone, judgment and conventions are probabilistic by nature and are steered through prompts and CLAUDE.md.",
+    "reference": "Claude Agent SDK docs — Hooks; Claude Code docs — Hooks reference"
+  },
+  {
+    "id": "ARF-D1-T5-004",
+    "domain": 1,
+    "skill": "sdk-hooks",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "To enforce the $500 refund limit, a developer wrote a `PostToolUse` hook matching `mcp__support__process_refund`. When the result shows `amount > 500`, the hook returns `decision: \"block\"` with the reason \"Refund exceeds limit\". In testing, the agent apologises and escalates as intended, yet finance reports that the oversized refunds were still paid out. What is wrong?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The matcher should be `process_refund`; the `mcp__support__` prefix stops the hook from matching the real tool name on most calls.",
+        "why": "MCP tools are named `mcp__<server>__<tool>`, so the matcher is correct, and the agent's apology shows the hook did fire."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`PostToolUse` runs after the tool has executed, so the refund is already paid; move the check to a `PreToolUse` hook that denies the call.",
+        "why": "Blocking in `PostToolUse` only feeds a reason back to the model after the fact; to prevent the side effect, the interception must happen before execution, which is what `PreToolUse` with `permissionDecision: \"deny\"` does."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The hook must also return `permissionDecision: \"deny\"` alongside `decision: \"block\"` so that the SDK rolls the completed refund back.",
+        "why": "`permissionDecision` is a `PreToolUse` field, and no hook output can roll back a backend action that has already executed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The hook should return `additionalContext` instead of `decision: \"block\"` so the model understands the policy.",
+        "why": "Changing what the model reads after the refund changes nothing about the money already sent; the timing of the hook is the problem."
+      }
+    ],
+    "explanation": "The two hook phases have different powers. `PreToolUse` runs before execution and can allow, deny or rewrite the call; `PostToolUse` runs after execution and can only transform the result or give the model feedback. A compliance gate that must prevent a side effect has to be a `PreToolUse` hook.",
+    "reference": "Claude Agent SDK docs — Hooks (available hooks, PreToolUse vs PostToolUse)"
+  },
+  {
+    "id": "ARF-D1-T5-005",
+    "domain": 1,
+    "skill": "sdk-hooks",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A support agent runs unattended in a headless deployment with no operator console. Its `PreToolUse` hook on `process_refund` must stop refunds above $500 and route them to a human, without misleading the customer about what happened. When the hook intercepts a $740 refund, what should it return?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`permissionDecision: \"allow\"` with `updatedInput` capping `amount` at 500, so the customer immediately receives the maximum the agent is permitted to approve.",
+        "why": "Silently rewriting a financial action means the agent believes it refunded $740 while $500 was paid; policy says escalate the exception, not partially satisfy it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`permissionDecision: \"ask\"` so a human decides whether this particular refund can proceed.",
+        "why": "`ask` hands the decision to an interactive permission prompt; in an unattended deployment there is no one to answer it, so the request stalls instead of escalating."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "No decision, but log the attempt so finance can review large refunds in the weekly audit.",
+        "why": "Logging is a detective control; without a deny the $740 refund executes and the review happens after the money has left."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "`permissionDecision: \"deny\"` with a `permissionDecisionReason` naming the limit and directing the agent to `escalate_to_human`.",
+        "why": "Denying prevents the payment, and the reason is shown to the model so it does not retry blindly and instead follows the alternative workflow the business wants."
+      }
+    ],
+    "explanation": "A blocking hook should both stop the action and tell the model why, because the `permissionDecisionReason` is what the agent sees and uses to choose the redirect path. Rewriting inputs is appropriate for sandboxing or sanitising, not for silently altering a customer-facing financial action, and `ask` requires someone to answer.",
+    "reference": "Claude Agent SDK docs — Hooks (block dangerous operations, modify tool input)"
+  },
+  {
+    "id": "ARF-D1-T5-006",
+    "domain": 1,
+    "skill": "sdk-hooks",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A `PostToolUse` normalisation hook converts every MCP result to a canonical schema. It works in local tests, but in production roughly one call in twenty still reaches the model with raw Unix timestamps, across all three servers. Logs show the hook started on those calls and that it calls an external time-zone service that has p99 latency of several minutes during peak hours. The hook's `HookMatcher` sets no `timeout`. What is the most likely cause and the best fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The hook exceeds its timeout under load and the SDK keeps the raw result; make the conversion a local pure function and set an explicit `timeout`.",
+        "why": "Intermittent, load-correlated failures plus a slow external dependency point at timeouts, and the documented behaviour on a `PostToolUse` timeout is to pass the raw result through. A dependency-free conversion removes the failure mode entirely."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The matcher regex only matches some server names and misses tools whose names contain digits; tighten it to `^mcp__` so every MCP tool is covered.",
+        "why": "A matcher problem would fail consistently for particular tools, not intermittently across all three servers, and the logs show the hook did start."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The model sometimes ignores the normalised output and reuses a raw value it remembers from an earlier turn; add a system prompt instruction to always treat the latest tool result as canonical.",
+        "why": "The raw timestamps are present in the tool result the model receives, so this is a hook delivery problem, not a model comprehension problem."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Move the conversion to a `PreToolUse` hook so it runs before the result exists and cannot be skipped.",
+        "why": "`PreToolUse` sees the request, not the response; there is nothing to normalise before the tool has returned data."
+      }
+    ],
+    "explanation": "Hooks run with a timeout, and a timed-out `PostToolUse` callback does not fail the turn; the SDK keeps the original result and continues. A normaliser that depends on a slow network call will therefore silently let raw data through under load. Keep normalisation hooks fast and self-contained, and set `timeout` deliberately when a hook must do more.",
+    "reference": "Claude Agent SDK docs — Hooks (timeouts, PostToolUse)"
+  },
+  {
+    "id": "ARF-D1-T6-001",
+    "domain": 1,
+    "skill": "task-decomposition",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A CI pipeline reviews every pull request for three things: security issues, adherence to the style guide, and missing tests. The three checks are the same for every PR, are independent of each other, and each needs a different rubric. Which decomposition best fits?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A single prompt that asks for security, style and test feedback together in one pass.",
+        "why": "One combined pass dilutes attention across three rubrics and tends to produce uneven depth, which is exactly what focused passes avoid."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "An autonomous agent that decides at run time which of the three checks each PR needs.",
+        "why": "The checks are fixed and always required, so letting the model plan them adds variability and cost without any benefit."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "A fixed pipeline of three focused passes, one rubric each, with results merged by code.",
+        "why": "When the aspects are known in advance and predictable, prompt chaining into focused single-concern steps gives consistent depth, easy debugging and stable cost."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A coordinator that spawns one subagent per changed file and asks each subagent to cover security, style and tests for its file.",
+        "why": "Splitting by file while asking each subagent to juggle three rubrics reintroduces the multi-aspect dilution within every subagent."
+      }
+    ],
+    "explanation": "Fixed sequential (or parallel) pipelines of focused prompts suit predictable multi-aspect work such as a standard code review; each step gets one job and one rubric. Adaptive decomposition is reserved for open-ended tasks whose steps cannot be known up front.",
+    "reference": "Anthropic — Building effective agents (prompt chaining); CCAR-F exam guide, Task 1.6"
+  },
+  {
+    "id": "ARF-D1-T6-002",
+    "domain": 1,
+    "skill": "task-decomposition",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A team's CI reviewer already analyses each file of a PR in its own pass, which fixed the uneven-depth problem. But last week a 22-file PR renamed `calculateTax` to `computeTax` and updated only 19 of the 21 call sites; every per-file pass approved its file and the two broken callers shipped. How should the review be restructured?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Keep the per-file passes and add a separate integration pass fed with the per-file summaries plus cross-file signals such as renamed symbols.",
+        "why": "Cross-file consistency is a different question from local correctness; a dedicated integration pass with the right inputs catches broken references without overloading the local passes."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Give every per-file pass the full 22-file PR diff as context, so each pass can check that the other files still agree with the one it is reviewing.",
+        "why": "Loading all 22 files into each pass brings back the attention dilution that per-file passes were introduced to remove, and does it 22 times over."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Return to a single whole-PR pass, since only a pass that sees everything can notice a rename.",
+        "why": "The single pass was abandoned because it missed obvious bugs and contradicted itself; it trades one class of miss for another."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Run the per-file passes three times and only report findings that appear in at least two runs.",
+        "why": "Repeating passes that never look across files cannot surface a cross-file defect no matter how many times they agree."
+      }
+    ],
+    "explanation": "Decompose reviews by level of concern: per-file passes for local issues, then a separate cross-file integration pass fed with summaries and structural signals (renames, changed signatures, data flow). Each pass stays focused, and the integration pass is where cross-file defects belong.",
+    "reference": "CCAR-F exam guide, Task 1.6 (per-file passes plus integration pass); Anthropic — Building effective agents"
+  },
+  {
+    "id": "ARF-D1-T6-003",
+    "domain": 1,
+    "skill": "task-decomposition",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An engineer asks a developer-productivity agent to \"add comprehensive tests to this legacy codebase\": 480 files, no existing tests, unknown module boundaries, and a budget that covers perhaps a third of the files. How should the agent decompose the work?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Iterate through the 480 files in alphabetical order, generating a test file for each one until the budget runs out, so coverage is at least systematic.",
+        "why": "A fixed file-by-file sweep spends the budget on whatever sorts first and has no way to react when the structure turns out to matter."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Spawn one subagent per file so all 480 test files are written in parallel within the budget.",
+        "why": "Parallelism does not change the total work, it multiplies it; 480 uncoordinated subagents blow the budget and produce tests with no sense of priority."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Send the whole repository to the model in one prompt and ask for the complete test suite.",
+        "why": "One giant prompt cannot hold or reason over 480 files well, and it gives no checkpoints where discovered dependencies can change the plan."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Map the structure first, identify high-impact areas, then build a prioritised plan that is revised as dependencies are discovered.",
+        "why": "Open-ended work with an unknown shape needs adaptive decomposition: investigate first, prioritise by impact, and let each finding reshape the remaining subtasks."
+      }
+    ],
+    "explanation": "When the task is open-ended and its steps cannot be known in advance, decompose adaptively: map the territory, rank areas by impact, build a prioritised plan, and update it as each step reveals new dependencies. Fixed sweeps and brute-force parallelism ignore what is learned along the way.",
+    "reference": "CCAR-F exam guide, Task 1.6 (adaptive investigation plans); Anthropic — Building effective agents"
+  },
+  {
+    "id": "ARF-D1-T6-004",
+    "domain": 1,
+    "skill": "task-decomposition",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A multi-agent research coordinator investigates production incidents whose causes are unknown up front. Its current fixed pipeline (logs, then deploys, then config, then synthesis) misses incidents caused by an upstream vendor, and wastes effort on irrelevant steps. Which two design changes most directly enable adaptive decomposition? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Have the coordinator decide the next subtasks after reading each subagent's findings, instead of executing a predetermined list.",
+        "why": "Adaptive decomposition means the plan is generated from what has been discovered so far; the coordinator must re-plan between steps rather than run a fixed script."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add \"check upstream vendors\" as a fifth fixed step so that category of incident is always covered.",
+        "why": "Adding one more fixed step patches this failure but keeps the pipeline blind to the next unforeseen cause and still runs irrelevant steps every time."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Require each subagent to return structured findings including open questions and suggested leads, so the coordinator has material to plan from.",
+        "why": "A coordinator can only adapt if subagent output carries the signals that drive the next decision; unstructured summaries hide the leads."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Launch every conceivable investigation subtask in parallel at the start so nothing is missed.",
+        "why": "Brute-force parallelism removes adaptivity and multiplies cost; the point is to let discoveries prune and direct the search."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Let subagents message each other directly to agree on what to look at next.",
+        "why": "Peer-to-peer coordination leaves no single owner of the plan and produces ownerless loops; the coordinator should own decomposition."
+      }
+    ],
+    "explanation": "Adaptive decomposition has two halves: a coordinator that plans the next step from intermediate findings, and subagent outputs structured so those findings actually carry the leads. Extending the fixed list, brute-force parallelism and peer-to-peer chatter all fail to make the plan responsive to what is discovered.",
+    "reference": "CCAR-F exam guide, Task 1.6; Anthropic — How we built our multi-agent research system"
+  },
+  {
+    "id": "ARF-D1-T6-005",
+    "domain": 1,
+    "skill": "task-decomposition",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An invoice-extraction team replaced its four-step chain (classify document, extract fields, validate against the JSON schema, post to the ledger) with an autonomous agent \"for flexibility\". Since then, cost per invoice has doubled, steps run in varying order, and auditors cannot reconstruct why a record was posted. Analysis shows 97% of invoices follow the same four steps; the rest reference attachments that need extra lookups. What should the architect do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Keep the agent and add a system prompt rule stating that the four steps must always run in the stated order and that every decision must be logged for auditors.",
+        "why": "This asks the model to emulate a pipeline it could simply be; ordering stays probabilistic and the cost of planning each invoice remains."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Restore the fixed four-step chain with programmatic gates and route only attachment-referencing invoices to an adaptive path.",
+        "why": "The dominant path is predictable, so prompt chaining restores stable cost and an auditable sequence; the small open-ended minority is where adaptive handling earns its overhead."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Keep the agent and give it more tools so the attachment cases resolve faster.",
+        "why": "More tools address the 3% while leaving the cost and auditability problems of the 97% untouched."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Split the agent into four specialist agents that negotiate the order of steps among themselves.",
+        "why": "A multi-agent negotiation adds coordination cost and makes the trace harder to audit, the opposite of what the auditors need."
+      }
+    ],
+    "explanation": "Match the decomposition strategy to the predictability of the work. A known, repeated sequence should be a fixed chain with gates; reserve dynamic decomposition for the genuinely open-ended cases, and route between the two rather than forcing everything through the more expensive path.",
+    "reference": "Anthropic — Building effective agents (workflows vs agents, routing)"
+  },
+  {
+    "id": "ARF-D1-T6-006",
+    "domain": 1,
+    "skill": "task-decomposition",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A CI review uses per-file passes followed by an integration pass. To make the per-file passes \"consistent with each other\", an engineer changed every per-file pass to receive the full PR diff alongside its target file. Afterwards, contradictory feedback returned: the same pattern is flagged in one file and approved in another, and the per-file passes started commenting on files they were not assigned. The integration pass is unchanged. Which change restores consistent, focused reviews?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Keep the full diff in each per-file pass but add an explicit instruction that it may comment only on its assigned file and must ignore the rest.",
+        "why": "The instruction addresses the scope creep but not the dilution; every pass still reasons over the whole PR, which is what produced the uneven, contradictory judgments."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Replace the per-file passes with one whole-PR pass so a single reviewer cannot contradict itself.",
+        "why": "A single whole-PR pass was what the team moved away from; it produces exactly the contradictory, uneven output described."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Give each per-file pass only its file plus a shared explicit rubric, and leave cross-file consistency to the integration pass.",
+        "why": "Consistency across passes comes from a shared rubric and a dedicated integration step, not from shared context; narrow inputs keep each pass focused and comparable."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Drop the integration pass, since the per-file passes now see the whole diff anyway.",
+        "why": "Removing the only step designed for cross-file reasoning makes the structure worse and does nothing about the per-file dilution."
+      }
+    ],
+    "explanation": "Focused passes work because their inputs are narrow. Widening each pass's context to the whole PR reintroduces attention dilution and scope creep. Achieve consistency with explicit shared criteria and a separate integration pass over the collected findings, not by giving every step everything.",
+    "reference": "CCAR-F exam guide, Task 1.6 (attention dilution); Anthropic — Building effective agents"
+  },
+  {
+    "id": "ARF-D1-T7-001",
+    "domain": 1,
+    "skill": "session-management",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Yesterday an engineer started `claude --name billing-audit` and spent an hour having Claude Code map the legacy billing module. Today, after running several unrelated Claude Code sessions in the same repository, they want to continue exactly that investigation. Which command does this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`claude --resume billing-audit`",
+        "why": "`--resume` accepts a session ID or the name given with `--name`, and reopens that specific conversation with its full history."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`claude --continue`",
+        "why": "`--continue` loads the most recent session in the directory, which after several unrelated sessions is not the billing investigation."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`claude --fork-session billing-audit`",
+        "why": "`--fork-session` is a modifier used with `--resume` or `--continue` to branch a session under a new ID; on its own it does not select a session."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`claude` followed by pasting yesterday's notes about the billing module.",
+        "why": "A fresh session with pasted notes throws away the files Claude already read and the analysis it already did, which is what resumption preserves."
+      }
+    ],
+    "explanation": "Named sessions exist so that a specific prior conversation can be reopened with `--resume <name>` regardless of what was run since. `--continue` only picks the most recent session, and `--fork-session` branches rather than selects.",
+    "reference": "Claude Code docs — CLI reference (--resume, --name, --fork-session)"
+  },
+  {
+    "id": "ARF-D1-T7-002",
+    "domain": 1,
+    "skill": "session-management",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "An Agent SDK session has just finished a 40-minute analysis of a service's test gaps. The team wants to compare two testing strategies (property-based versus snapshot) starting from that identical analysis, without either exploration seeing the other's conclusions and without losing the baseline. Which two steps correctly set this up? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Read `session_id` from the result message of the baseline query and store it.",
+        "why": "Both `resume` and forking need the baseline's session ID, which is carried on the result message of every query."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Run the property-based prompt with `resume` on the baseline, then run the snapshot prompt with `resume` on the same ID.",
+        "why": "Resuming appends to the session, so the second exploration inherits the first one's conclusions and the baseline itself is no longer clean."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Issue two queries, each with `resume` set to the baseline ID and `fork_session` enabled, one per strategy.",
+        "why": "Each fork gets its own session ID and a copy of the baseline history, so the two branches diverge independently while the original stays unchanged."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use `continue` for the second strategy so it picks up the shared analysis automatically.",
+        "why": "`continue` resumes the most recent session in the directory, which by then is the first strategy's branch, not the baseline."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Delete the baseline session once both forks exist to avoid confusion about which is current.",
+        "why": "The untouched baseline is the whole point: it can be forked again for a third strategy or resumed to act on whichever approach wins."
+      }
+    ],
+    "explanation": "Forking creates a new session that starts with a copy of the original's history and then diverges; the original keeps its ID and history. Capture the baseline `session_id`, then fork once per branch. Plain `resume` on the same ID would chain the explorations together.",
+    "reference": "Claude Agent SDK docs — Sessions (fork to explore alternatives)"
+  },
+  {
+    "id": "ARF-D1-T7-003",
+    "domain": 1,
+    "skill": "session-management",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer-productivity agent analysed 40 files of a payments service on Monday in a named session. Overnight a teammate merged a change touching three of those files (`ledger.py`, `fees.py`, `tests/test_fees.py`); the other 37 are unchanged. On Tuesday the developer wants the agent to continue implementing the refactor it proposed. What is the best way to pick the work up?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Resume the session and continue as if nothing changed; the agent will re-read any file it needs when it opens it for editing.",
+        "why": "The agent's context still contains Monday's versions of the three files and it has no reason to suspect they are stale, so it may edit against outdated code."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Resume the session, name the three changed files, and ask the agent to re-read them before continuing.",
+        "why": "When most prior context is still valid, resuming and pointing the agent at exactly what changed gives targeted re-analysis at minimal cost."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Start a fresh session and have the agent re-explore all 40 files from scratch.",
+        "why": "Full re-exploration discards a mostly valid analysis to refresh 3 of 40 files; it is the expensive option for a small change."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Fork the session so the stale file contents stay in the original and the fork starts clean.",
+        "why": "A fork copies the same history, stale tool results included; branching does not refresh anything."
+      }
+    ],
+    "explanation": "Sessions persist the conversation, not the filesystem, so a resumed agent believes its earlier tool results are current. When only a few analysed files changed, resume and explicitly tell the agent which files to re-read; reserve a fresh session for when most of the prior results are stale.",
+    "reference": "Claude Agent SDK docs — Sessions; CCAR-F exam guide, Task 1.7"
+  },
+  {
+    "id": "ARF-D1-T7-004",
+    "domain": 1,
+    "skill": "session-management",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team runs long-lived Agent SDK sessions for codebase investigations. In which two situations is starting a new session with a structured summary of prior findings more reliable than resuming the old session? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Since the session ended, a large refactor rewrote most of the modules the agent had read and reasoned about.",
+        "why": "When most prior tool results are stale, a resumed agent would reason from contradictory evidence; a fresh session with the still-valid conclusions avoids that trap."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The session stopped with `error_max_turns` in the middle of applying a planned change and nothing else has changed.",
+        "why": "This is the canonical case for `resume` with a higher limit; the context is fully valid and the agent should simply continue."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The transcript is enormous, dominated by obsolete tool outputs from dead ends, and only the final decisions matter for the next phase.",
+        "why": "Carrying a bloated history forward wastes context on noise; injecting a concise structured summary of the decisions gives the next session a clean, relevant starting point."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The team wants to explore two alternative designs from the same completed analysis.",
+        "why": "Divergent branches from a shared baseline are what forking is for; a summary would lose the detailed analysis both branches should build on."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The developer returns after lunch to the same repository with no commits in between.",
+        "why": "Nothing has changed, so the prior context is entirely valid and resuming is cheaper and more faithful than summarising."
+      }
+    ],
+    "explanation": "Resume when the prior context is mostly valid; start fresh with an injected structured summary when the prior tool results are stale or the transcript is mostly noise. Forking covers divergent exploration, and turn-limit interruptions are simply resumed.",
+    "reference": "Claude Agent SDK docs — Sessions (resume by ID, resume across hosts); CCAR-F exam guide, Task 1.7"
+  },
+  {
+    "id": "ARF-D1-T7-005",
+    "domain": 1,
+    "skill": "session-management",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A CI job runs Claude Code on each push to a pull request. The first run performs a deep analysis of the PR; later pushes should build on it. The engineer stored the first run's session ID and passes it with `resume` on later runs, but every later run fails with a session-not-found error because CI uses a fresh ephemeral runner each time. Later runs only need the findings and decisions from the first run, not its full transcript. What is the most robust fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Switch to `continue: true` so the SDK finds the most recent session without needing the ID.",
+        "why": "`continue` looks for the most recent session in the local directory, and on a fresh runner there is none; the storage problem is unchanged."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Commit the session's `.jsonl` transcript into the repository so every runner can read it.",
+        "why": "Transcripts contain full tool outputs and possibly sensitive content, change on every run, and are the wrong thing to version alongside source."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Pin all of the pull request's jobs to a single long-lived, labelled runner so the session file from the first run is always present on disk.",
+        "why": "This couples correctness to infrastructure scheduling and breaks the moment the runner is recycled; it also keeps stale transcripts alive across pushes that change the code."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Have the first run emit a structured findings artifact and start each later run as a new session with that summary in the prompt.",
+        "why": "Sessions are local to the machine that created them; when only the results matter, capturing them as application state and feeding a fresh session is more robust than shipping transcripts around."
+      }
+    ],
+    "explanation": "Session files live under the local `~/.claude/projects/` directory of the host that created them. For cross-host continuity you can mirror transcripts to a session store, but when later runs need only the conclusions, the documented and more robust choice is to capture findings as application state and start a fresh session with a structured summary.",
+    "reference": "Claude Agent SDK docs — Sessions (resume across hosts)"
+  },
+  {
+    "id": "ARF-D1-T7-006",
+    "domain": 1,
+    "skill": "session-management",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "From a baseline session that analysed a monolith, an architect forks two sessions and asks each to implement a different refactoring approach in the same checkout, planning to compare the resulting diffs. Both forks start correctly with the baseline's context, but partway through each one reports that files it edited \"have been modified unexpectedly\", and the final diff is a mix of both approaches. What is the cause, and what fixes it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The forks share conversation history, so each one sees the other's edits in its context; use `resume` on the baseline for the second approach instead of a fork.",
+        "why": "Forks have independent histories and IDs; resuming the same session for both approaches would make the contamination worse, not better."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add an instruction to each fork's prompt telling it not to touch files the other fork is editing.",
+        "why": "Neither agent knows what the other will edit, and a prompt cannot prevent two processes from writing to the same files."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Forking branches the conversation, not the filesystem; run each fork in its own worktree or checkout and compare the diffs.",
+        "why": "Session state and file state are separate: a forked agent's edits are real and visible to anything working in that directory, so divergent implementations need isolated working directories."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Start both approaches as fresh sessions with a summary of the baseline so they no longer share state.",
+        "why": "The shared state causing the problem is the working directory, not the session; fresh sessions in the same checkout would collide in exactly the same way."
+      }
+    ],
+    "explanation": "Forking copies the conversation history and nothing else. Two forks running concurrently in one directory operate on the same files, so their edits interleave. Isolate the filesystem per branch (a worktree or separate checkout, or checkpoint-and-revert between sequential runs) when forks will make changes rather than just reason.",
+    "reference": "Claude Agent SDK docs — Sessions (fork to explore alternatives; sessions persist the conversation, not the filesystem)"
+  }
+]

@@ -1,0 +1,68 @@
+{
+  "sdk-hooks": {
+    "summary": "Use Agent SDK hooks to intercept tool calls and tool results in code: block or redirect policy-violating actions before they execute, and normalise heterogeneous tool output before the model reads it, choosing hooks whenever a rule must hold every time.",
+    "points": [
+      "Hooks are callback functions (Python or TypeScript) registered in `options.hooks`, keyed by event name (`PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `Stop`, `SubagentStop`, `UserPromptSubmit`, `SessionStart`, ...), each with an optional `matcher` and a list of callbacks. They run in your process, so their behaviour is deterministic; prompt instructions are followed probabilistically.",
+      "Rule of thumb the exam relies on: if a business rule needs guaranteed compliance (refund thresholds, path restrictions, destructive commands, ordering prerequisites), enforce it with a hook or programmatic gate. Prompt wording such as \"MUST\", few-shot examples, lower temperature or a bigger model only make compliance more likely.",
+      "`PreToolUse` fires before the tool executes. The callback returns `hookSpecificOutput` with `permissionDecision` set to `\"allow\"`, `\"deny\"` or `\"ask\"`, an optional `permissionDecisionReason`, and optionally `updatedInput` to rewrite the tool's arguments (for example redirecting file writes into a sandbox).",
+      "A deny reason is shown to the model, so a blocking hook should say why and what to do instead (\"refunds over $500 must go through `escalate_to_human`\"). Denying without a reason invites blind retries; `ask` needs an interactive operator and stalls in unattended deployments.",
+      "Do not use `updatedInput` to silently alter customer-facing financial actions (capping a $740 refund to $500). Rewriting inputs is for sanitising, sandboxing or injecting credentials; policy exceptions should be denied and redirected to the alternative workflow.",
+      "`PostToolUse` fires after the tool has returned. It can append `additionalContext` for the model or replace the tool output entirely (`updatedToolOutput`; the older `updatedMCPToolOutput` covered MCP tools only). It cannot undo a side effect: a `block` decision in `PostToolUse` only gives the model feedback after the action already happened.",
+      "Classic `PostToolUse` use: normalise heterogeneous data from different MCP servers (Unix timestamps vs ISO 8601 strings, numeric vs named status codes, mixed currencies) into one canonical schema so the model reasons over a single representation. Doing the conversion in code is faster and more reliable than asking the model or a subagent to convert.",
+      "Matchers match tool names, not arguments. Built-in tools are `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `Agent`...; MCP tools are named `mcp__<server>__<tool>` (regex such as `^mcp__` or `mcp__orders__.*` matches a server's tools). To filter on a path or amount, inspect `tool_input` inside the callback. Omitting the matcher runs the hook for every tool call (useful for audit logging).",
+      "When several hooks match one event they run in parallel and the most restrictive decision wins (one `deny` blocks the call). Completion order is not guaranteed, so each hook must act independently rather than relying on another hook having run first.",
+      "Each callback has a timeout (set `timeout` on the `HookMatcher`). If a `PostToolUse` hook times out the SDK keeps the original tool result and the turn continues, so a normaliser that depends on a slow external service will intermittently let raw data through under load. Keep normalisation hooks fast and self-contained.",
+      "`systemMessage` in hook output is shown to the user, not the model; use `additionalContext` (or a deny reason) to inform the model. Hook input includes `tool_name`, `tool_input`, `tool_use_id` (to correlate pre and post events), and `agent_id`/`agent_type` when the hook fires inside a subagent.",
+      "Hooks complement, not replace, other controls: tool availability decides what an agent can call, hooks decide whether a particular call may proceed and how its result looks, and the prompt guides judgment (tone, when to ask a clarifying question, coding conventions)."
+    ],
+    "docs": [
+      { "title": "Agent SDK — Intercept and control agent behavior with hooks", "url": "https://platform.claude.com/docs/en/agent-sdk/hooks" },
+      { "title": "Claude Code — Hooks reference", "url": "https://code.claude.com/docs/en/hooks" },
+      { "title": "Agent SDK — Permissions", "url": "https://platform.claude.com/docs/en/agent-sdk/permissions" }
+    ]
+  },
+  "task-decomposition": {
+    "summary": "Choose between fixed sequential pipelines (prompt chaining) and adaptive, discovery-driven decomposition based on how predictable the work is, and split large reviews into focused per-file passes plus a separate cross-file integration pass.",
+    "points": [
+      "Prompt chaining breaks a task into a fixed sequence of focused LLM calls with programmatic checks between steps. It suits work whose steps are known in advance and repeat every time: a standard multi-aspect code review (security, style, tests), a classify-extract-validate-post extraction pipeline. Benefits: consistent depth, predictable cost, easy debugging and auditing.",
+      "Adaptive (dynamic) decomposition lets a coordinator generate the next subtasks from what the previous step discovered. It suits open-ended work whose shape is unknown up front: incident investigation, \"add comprehensive tests to a legacy codebase\", research on a broad topic.",
+      "Signals that a fixed pipeline is the wrong choice: steps run that are irrelevant to most inputs, real causes fall outside the predefined steps, and patching by adding one more fixed step keeps happening. Signals that an autonomous agent is the wrong choice: 95%+ of inputs follow the same path, cost has climbed, and auditors cannot reconstruct the sequence.",
+      "Hybrid is often best: run the predictable majority through a fixed chain with gates and route the genuinely open-ended minority (documents with attachments, unusual incidents) to an adaptive path or a human.",
+      "Attention dilution: one pass over many files (a 14- or 22-file PR) produces uneven depth, missed obvious bugs and contradictory verdicts on identical code. A bigger context window does not fix attention quality, and running the same pass three times and voting suppresses real findings.",
+      "The fix for large reviews is two levels of pass: per-file passes that see only their file plus a shared explicit rubric (local issues), then a separate integration pass that receives the per-file findings and cross-file signals (renamed symbols, changed signatures, data flow) to catch cross-file defects.",
+      "Consistency between per-file passes comes from the shared rubric and the integration pass, not from giving every pass the whole diff; widening each pass's context reintroduces dilution and scope creep.",
+      "For open-ended codebase tasks, decompose as: map structure (entry points, dependency graph, shared modules), identify high-impact and high-risk areas, build a prioritised plan, then revise the plan as dependencies are discovered (a shared utility with 60 dependents jumps to the front; an untestable global needs a refactor subtask first).",
+      "Adaptive decomposition needs two things: a coordinator that re-plans between steps and owns the plan, and subagent outputs structured to carry the leads (findings, open questions, suggested next queries). Peer-to-peer coordination between subagents produces ownerless loops.",
+      "Too-narrow decomposition is a coordinator failure, not a subagent failure: if \"creative industries\" is split into three visual-arts subtasks, every subagent can succeed and the report still misses music, writing and film. Check the coordinator's decomposition first when coverage is missing.",
+      "Brute-force parallelism (one subagent per file, every conceivable subtask up front) is not decomposition; it multiplies cost and removes the feedback that should prune and direct the work. Parallelise independent subtasks once the plan says they are worth doing.",
+      "Common distractors: \"switch to a larger context model\", \"make developers submit smaller PRs\", \"ask the agent in the prompt to follow the order\", and \"add a fifth fixed step\" all avoid changing the decomposition itself."
+    ],
+    "docs": [
+      { "title": "Anthropic — Building effective agents", "url": "https://www.anthropic.com/engineering/building-effective-agents" },
+      { "title": "Anthropic — How we built our multi-agent research system", "url": "https://www.anthropic.com/engineering/multi-agent-research-system" },
+      { "title": "Agent SDK — Subagents", "url": "https://platform.claude.com/docs/en/agent-sdk/subagents" }
+    ]
+  },
+  "session-management": {
+    "summary": "Continue, resume, fork or restart agent sessions appropriately: resume named sessions when prior context is valid, fork to explore divergent approaches from a shared baseline, tell a resumed agent what changed, and start fresh with a structured summary when prior tool results are stale.",
+    "points": [
+      "A session is the persisted conversation: prompts, every tool call and result, and every response, written to `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl` on the machine that ran it. Sessions persist the conversation, not the filesystem; file changes are real and shared with anything else in that directory (use file checkpointing to snapshot and revert files).",
+      "Claude Code CLI: `claude --name <name>` (or `/rename`) labels a session; `claude --resume <name-or-id>` (`-r`) reopens that specific conversation; `claude --continue` (`-c`) reopens only the most recent session in the directory; `--fork-session` combined with `--resume` or `--continue` branches under a new session ID.",
+      "Agent SDK: capture `session_id` from the result message (or the init system message); pass it as `resume` to continue that session, or `resume` plus `fork_session=True` (`forkSession: true`) to branch. `continue_conversation=True` / `continue: true` picks up the most recent session without an ID. Python's `ClaudeSDKClient` keeps the same session across `client.query()` calls automatically.",
+      "Forking creates a new session that starts with a copy of the original's history and diverges from there; the original ID and history stay untouched. Fork once per branch to compare two testing or refactoring strategies from the same analysis; resuming the same ID sequentially would chain the branches together.",
+      "Because forks share a working directory, two forks that both edit files clobber each other. Isolate the filesystem per branch (separate checkout or git worktree, or run sequentially with checkpoint revert) when forks will make changes rather than just reason.",
+      "Resume when the prior context is mostly valid: following up on a completed analysis, recovering from `error_max_turns` or `error_max_budget_usd` with a higher limit, or restarting the process after a shutdown. The agent then acts without re-reading files.",
+      "A resumed agent still holds the old tool results and has no way to know files changed. When a few analysed files were modified, resume and open with a message that names the changed files and asks for targeted re-analysis, rather than forcing a full re-exploration.",
+      "When most prior tool results are stale (a large refactor), or the transcript is bloated with dead-end output and only the decisions matter, start a new session with a structured summary of the valid findings injected into the prompt. This is more reliable than resuming into contradictory, outdated evidence.",
+      "Session files are local. On ephemeral CI runners or other hosts, `resume` fails with session-not-found and `continue` finds nothing. Options: mirror transcripts via a `session_store` adapter, move the `.jsonl` file, or (most robust when only results matter) capture findings as application state and feed a fresh session. Do not commit transcripts to the repo.",
+      "Subagents can be resumed too: the Agent tool result carries an `agentId`; resume the parent `session_id` and reference that agent ID in the prompt, passing the same `agents` definitions.",
+      "Common distractors: `--continue` when a specific older session is wanted; `--fork-session` used alone as if it selected a session; forking to \"refresh\" stale context (a fork copies the same stale results); resuming silently after code changed; re-exploring everything when only a handful of files changed."
+    ],
+    "docs": [
+      { "title": "Agent SDK — Work with sessions", "url": "https://platform.claude.com/docs/en/agent-sdk/sessions" },
+      { "title": "Claude Code — CLI reference", "url": "https://code.claude.com/docs/en/cli-reference" },
+      { "title": "Claude Code — Sessions", "url": "https://code.claude.com/docs/en/sessions" },
+      { "title": "Agent SDK — Session storage", "url": "https://platform.claude.com/docs/en/agent-sdk/session-storage" }
+    ]
+  }
+}

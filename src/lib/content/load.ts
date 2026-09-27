@@ -24,6 +24,8 @@ export interface ExamBundle {
   vendor: string | null;
   category: ExamCategory;
   meta: ExamMeta;
+  /** position in the catalog (lower first) */
+  sortOrder: number;
   questions: ContentQuestion[];
   imported: ContentQuestion[];
   study: Record<string, StudyNote>;
@@ -65,6 +67,7 @@ export function loadExamBundle(id: string, root = CONTENT_ROOT): ExamBundle {
     vendor: (raw.vendor as string) ?? null,
     category: (raw.category as ExamCategory) ?? 'certification',
     meta: (raw.meta as ExamMeta) ?? {},
+    sortOrder: Number(raw.sortOrder ?? 100),
     questions: readFolder<ContentQuestion[]>(path.join(dir, 'questions')).flat(),
     imported: readFolder<ContentQuestion[]>(path.join(dir, 'imported')).flat(),
     study: Object.assign({}, ...readFolder<Record<string, StudyNote>>(path.join(dir, 'study'))),
