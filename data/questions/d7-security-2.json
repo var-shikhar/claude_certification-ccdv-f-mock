@@ -1,0 +1,803 @@
+[
+  {
+    "id": "D7-SEC-007",
+    "domain": 7,
+    "skill": "ai-security",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A sales chatbot's system prompt contains the company's internal discount codes so Claude can \"use judgment\" about offering them. Testers have already coaxed Claude into listing several codes. What should the developer do first?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add \"NEVER reveal these codes under any circumstances\" in capital letters to the system prompt.",
+        "why": "Stronger wording lowers the odds of a leak but cannot prevent it; anything in the prompt can still be extracted."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Remove the codes from the prompt and let a backend tool issue one only when rules allow.",
+        "why": "Data that is never in the context cannot leak, and moving the decision into code enforces the business rule deterministically."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Base64-encode the codes in the system prompt so they are not readable if the prompt is quoted.",
+        "why": "Claude can decode base64 on request, so encoding only adds one step for an attacker."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Move the codes to the end of the system prompt, where they are less likely to be repeated back.",
+        "why": "Position in the prompt does not keep content confidential; it remains fully available to the model."
+      }
+    ],
+    "explanation": "Treat everything in a prompt as potentially extractable. The most reliable way to reduce prompt leak is to leave out sensitive details the model does not need and to put confidential values and decisions behind tools and application logic. Prompt wording, encoding and placement are not confidentiality controls.",
+    "reference": "Claude API docs — Reduce prompt leak"
+  },
+  {
+    "id": "D7-SEC-008",
+    "domain": 7,
+    "skill": "ai-security",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A research assistant uses a custom fetch_page tool to read web pages on behalf of a trusted user. The developer is deciding how to pass the fetched page text back to Claude so embedded instructions are least likely to be followed. Which approach is recommended?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Append the page text to the system prompt for the next request so Claude has the full context.",
+        "why": "The system prompt is the most trusted channel; putting third-party text there gives injected instructions maximum authority."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Insert the page text into the next user message, directly after the user's original question.",
+        "why": "Plain user text is treated as coming from the user, so injected instructions blend in with legitimate requests."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Return it in a labeled tool_result and state in the system prompt that tool content is data.",
+        "why": "Claude treats instructions inside tool results with skepticism, and labeling the source plus an explicit policy helps it calibrate trust."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Have a second model rewrite the page as a list of instructions and pass those to Claude as guidance.",
+        "why": "Converting untrusted text into instructions does the attacker's work for them and removes the data/instruction boundary."
+      }
+    ],
+    "explanation": "For indirect prompt injection, deliver third-party content only inside tool_result blocks, say what the content is and where it came from, and state in the system prompt that tool content is untrusted data that must not override the user's request. Pair this with least privilege, since no prompt structure is a complete defense.",
+    "reference": "Claude API docs — Mitigate jailbreaks and prompt injections"
+  },
+  {
+    "id": "D7-SEC-009",
+    "domain": 7,
+    "skill": "ai-security",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A support agent can read customer records and can also fetch arbitrary URLs to research product issues. Security worries that an injected web page could make the agent leak records by embedding them in a URL it fetches. Both capabilities are required. Which design most reduces this risk?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "State in the system prompt that fetched content is untrusted and must never cause data to be sent anywhere.",
+        "why": "A useful layer, but it depends on the model resisting every injection; the exfiltration path stays open."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Log every URL the agent fetches and alert the security team when a URL contains customer data.",
+        "why": "Detection after the request has been sent means the data has already left."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Screen each fetched page with a lightweight classifier and drop pages that look like injection attempts.",
+        "why": "Screening helps but is probabilistic; a novel injection that passes the screen still reaches an agent that holds both capabilities."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Split roles: a browsing subagent without data access, and a data agent that cannot fetch URLs.",
+        "why": "Removing the combination of private data and outbound fetches from any single context closes the exfiltration path structurally."
+      }
+    ],
+    "explanation": "Exfiltration needs untrusted input, access to private data and an outbound channel in the same place. Separating those capabilities by least privilege is structural and holds even if the model is fooled; prompt policy, screening and logging are valuable extra layers but leave the path open.",
+    "reference": "Claude API docs — Mitigate jailbreaks and prompt injections"
+  },
+  {
+    "id": "D7-SEC-010",
+    "domain": 7,
+    "skill": "ai-security",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An agent reads text extracted from customer-uploaded PDFs and can call update_ticket and send_email. Uploaded content already arrives in tool_result blocks, and the system prompt marks it as untrusted, yet red-teaming still produces occasional unwanted emails. The email feature must stay, and staff should not have to approve routine ticket updates. What should the team add?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Require a human to approve every tool call the agent makes, including ticket updates.",
+        "why": "This stops the emails but violates the constraint that routine ticket updates must not need approval."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Hold each send_email call for staff review of the recipient and body before it is sent.",
+        "why": "It gates only the high-impact action that injections are abusing, deterministically, while ticket updates stay automatic and users see no change."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add a second system-prompt paragraph warning Claude again about instructions hidden in PDFs.",
+        "why": "The prompt already states the policy; repeating it adds little and remains a probabilistic control."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Run each request twice and send the email only when both runs produce the same send_email call.",
+        "why": "A consistent injection fools both runs; agreement between samples is not a security control."
+      }
+    ],
+    "explanation": "When prompt structure alone leaves residual risk, gate the specific high-impact action behind human approval rather than every action. Targeted approval keeps low-risk automation fast while ensuring an injected instruction cannot complete an irreversible side effect on its own.",
+    "reference": "Claude API docs — Mitigate jailbreaks and prompt injections"
+  },
+  {
+    "id": "D7-SEC-011",
+    "domain": 7,
+    "skill": "ai-security",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A B2B SaaS product adds a Claude assistant. To save cost, it keeps one shared conversation history per customer account used by all of that account's users, and a global cache of answers keyed only on the question text across all customers. Users within an account have different permission levels. Which two changes are needed to prevent data leakage? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Scope the answer cache by tenant and permission level so cached answers are never served across those boundaries.",
+        "why": "A cache keyed only on question text can return one customer's data-bearing answer to another customer asking the same question."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add a system-prompt rule telling Claude not to repeat information from other users' earlier questions.",
+        "why": "Once other users' data is in the context, a prompt rule cannot reliably keep it out of responses."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Keep conversation history per user, so a user's context only ever holds data they are authorized to see.",
+        "why": "A shared history mixes data retrieved for high-privilege users into the context of low-privilege users."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Encrypt the cache and conversation store at rest with a key managed by a cloud KMS.",
+        "why": "Encryption at rest protects against storage compromise, not against the application serving data to the wrong user."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Truncate the shared history to the last ten messages so older data ages out quickly.",
+        "why": "A shorter shared window still exposes recent messages from other users; it narrows the leak rather than closing it."
+      }
+    ],
+    "explanation": "Context and caches are data stores and need the same authorization boundaries as any other store. Scope conversation state and cached responses to the identity and tenant allowed to see them; prompt rules, encryption at rest and truncation do not create those boundaries.",
+    "reference": "Claude API docs — Mitigate jailbreaks and prompt injections"
+  },
+  {
+    "id": "D7-SEC-012",
+    "domain": 7,
+    "skill": "ai-security",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An internal HR agent calls the HR system through a single service account that can read every employee record, and Claude chooses which records to fetch from the user's question. An audit requires that each employee can access only what their own HR permissions allow, with per-user audit trails. Which change best meets the requirement?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Call the HR API with the signed-in user's delegated credentials so HR enforces their permissions.",
+        "why": "The downstream system authorizes each request against the real user and logs it under that identity, whatever Claude asks for."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep the service account but instruct Claude to fetch only records the user is entitled to see.",
+        "why": "Claude cannot verify entitlements and can be manipulated; the service account still reads everything."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Keep the service account and filter Claude's final answer to remove other employees' names.",
+        "why": "The data has already been retrieved into context, and name filtering misses indirect disclosures and gives no per-user audit trail."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Create one service account per department and choose it based on the department the user belongs to.",
+        "why": "This narrows access to department level, but individuals still see colleagues' records and audits cannot attribute requests to a person."
+      }
+    ],
+    "explanation": "An agent acting on behalf of a user should not hold more privilege than that user. Propagating the authenticated user's identity to downstream systems keeps authorization and audit where they belong, independent of what the model requests.",
+    "reference": "Claude API docs — Mitigate jailbreaks and prompt injections"
+  },
+  {
+    "id": "D7-GRD-006",
+    "domain": 7,
+    "skill": "guardrails",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A data-analysis app lets Claude write Python and run it through a custom run_code tool. The code is shaped by user-uploaded spreadsheets, which may contain injected instructions. The code must run on the company's own infrastructure, and the application server holds database credentials and has internet access. Which control most effectively limits the damage a malicious snippet could do?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Run each snippet in a throwaway sandbox with no credentials, no internal access and no outbound network.",
+        "correct": true,
+        "why": "Isolation bounds what any code can reach, even code an injection fully controls: there are no secrets to steal, no internal systems to touch and no channel to exfiltrate through."
+      },
+      {
+        "id": "B",
+        "text": "Add a system-prompt rule that generated code must never read environment variables or open network connections.",
+        "correct": false,
+        "why": "An instruction to the model is a probabilistic control; injected content can override it, and the server would still expose the credentials and network."
+      },
+      {
+        "id": "C",
+        "text": "Scan the generated code for os.environ, socket and requests before running it directly on the application server.",
+        "correct": false,
+        "why": "Pattern scanning is easy to evade (subprocess, importlib, encoded strings) and leaves the code running with the server's credentials and network access."
+      },
+      {
+        "id": "D",
+        "text": "Run the code on the application server but ask the user to confirm each execution in the UI before it starts.",
+        "correct": false,
+        "why": "End users cannot reliably judge code safety, and the injection comes from content they uploaded; approval does not limit what approved code can reach."
+      }
+    ],
+    "explanation": "Model-generated code is untrusted, especially when it is shaped by third-party content. Secure-by-design deployments execute it in an isolated, least-privilege sandbox with no secrets and restricted network egress, so the blast radius stays small even if every prompt-level defense fails. Prompt rules, pattern scans and end-user approval are weaker, bypassable layers.",
+    "reference": "Claude API docs — Mitigate jailbreaks and prompt injections"
+  },
+  {
+    "id": "D7-GRD-007",
+    "domain": 7,
+    "skill": "guardrails",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A security team wants every developer's Claude Code to deny reading secrets directories and deny running deployment commands, across all repositories. Developers must not be able to override these rules. How should the rules be delivered?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Commit the deny rules to .claude/settings.json in every repository the company owns.",
+        "why": "Project files only cover repos that include them, and developers can edit them or work in repos without them."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Have an onboarding script write the rules into each developer's ~/.claude/settings.json.",
+        "why": "User settings belong to the developer, who can edit or remove the rules at any time."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Publish the rules in an organization-wide CLAUDE.md that every session loads.",
+        "why": "CLAUDE.md contains instructions for the model, not enforced permission rules."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Deploy them as permissions.deny rules in managed settings pushed to every developer machine.",
+        "why": "Managed settings have the highest precedence and cannot be overridden by user, project or command-line settings."
+      }
+    ],
+    "explanation": "Managed settings (delivered by file, MDM policy or server-managed settings) sit at the top of Claude Code's settings precedence, so organization policy such as deny rules applies everywhere and cannot be overridden locally. Deny rules are also checked before ask and allow rules, so no allow rule can carve an exception out of them.",
+    "reference": "Claude Code docs — Configure permissions"
+  },
+  {
+    "id": "D7-GRD-008",
+    "domain": 7,
+    "skill": "guardrails",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A CI job runs Claude Code headlessly with --dangerously-skip-permissions so it never stalls on a prompt. The job fixes lint errors and runs unit tests, but its environment also holds production deployment credentials. Which change best reduces risk while keeping the job unattended?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Keep bypass mode and add a CLAUDE.md rule that forbids running any deployment commands from CI runs.",
+        "why": "The credentials and the unrestricted mode remain; an instruction does not stop a manipulated or mistaken run."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Use dontAsk mode with exact allow rules for lint and test, and remove the production credentials.",
+        "why": "Only pre-approved commands can run and anything else is denied without prompting, while the credentials the task never needed are gone."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Keep bypass mode but add a PreToolUse hook that blocks commands containing the word \"deploy\".",
+        "why": "String matching is easy to sidestep, and the job still carries production credentials it does not need."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Switch to the default permission mode so Claude asks before running anything risky.",
+        "why": "In an unattended job nobody can answer the prompts, so it stalls or fails, which violates the requirement."
+      }
+    ],
+    "explanation": "Bypass mode is intended only for isolated containers or VMs. For unattended automation, grant exactly the tools the job needs (for example dontAsk mode plus precise allow rules) and apply least privilege to the environment by removing credentials the task does not require.",
+    "reference": "Claude Code docs — Choose a permission mode"
+  },
+  {
+    "id": "D7-GRD-009",
+    "domain": 7,
+    "skill": "guardrails",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A health-information app uses a Claude classifier on outputs to enforce its policy against giving medication dosing advice for children. The classifier now blocks about 8% of legitimate general-health answers, and complaints are rising, but the policy must still be enforced. What should the team do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Remove the output classifier and rely on a stronger system prompt that states the dosing policy clearly.",
+        "why": "Dropping the independent check removes a guardrail layer the policy still requires."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep the classifier but show blocked answers anyway with a disclaimer that they may violate policy.",
+        "why": "Showing flagged content means the policy is no longer enforced at all."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Refine the classifier prompt with clear definitions and edge-case examples; track both error rates.",
+        "why": "Clear definitions and edge-case examples reduce over-blocking, and tracking false positives and false negatives shows the fix keeps enforcement intact."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Switch the classifier to the largest model tier and redeploy without further changes.",
+        "why": "A larger model might help, but without clearer definitions and measurement the team cannot tell whether either error rate improved."
+      }
+    ],
+    "explanation": "Guardrails must be tuned, not just added or removed. For a model-based content classifier, define the policy categories precisely, give examples of content that should and should not be flagged, and track precision and recall on a labeled set so over-blocking falls without weakening enforcement.",
+    "reference": "Claude API docs — Content moderation"
+  },
+  {
+    "id": "D7-GRD-010",
+    "domain": 7,
+    "skill": "guardrails",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "An infrastructure agent should run terraform plan freely, but applying changes to production must be approved by an on-call engineer, and the agent must never be able to approve its own changes. Which two design choices together meet these requirements? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Give the agent credentials that can run plans and apply to non-production, but not apply to production.",
+        "why": "Least privilege makes a production apply by the agent impossible, not just discouraged."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Let the agent apply to production after the user types \"approved\" in the chat conversation.",
+        "why": "Chat text is part of the model's input and can be spoofed or injected; it is not an approval tied to an accountable identity."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Route production applies through a pipeline gate that requires approval from a separate engineer identity.",
+        "why": "The approval happens outside the agent, under a distinct identity, and is recorded, so the agent cannot approve itself."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Give the agent production credentials and a system-prompt rule to wait for on-call approval first.",
+        "why": "The agent would still hold the power to apply; the rule is guidance, not enforcement."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Let the agent apply to production and roll back automatically if monitoring detects errors afterwards.",
+        "why": "Rollback is recovery, not approval, and some infrastructure changes cannot be cleanly undone."
+      }
+    ],
+    "explanation": "Human-approval guardrails are only meaningful when the agent lacks the privilege to act without them and the approval comes from a separate, authenticated identity outside the model's control. Least-privilege credentials plus an external approval gate satisfy both requirements.",
+    "reference": "Claude Code docs — Configure permissions"
+  },
+  {
+    "id": "D7-HK-006",
+    "domain": 7,
+    "skill": "hooks",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A compliance team wants a record of every shell command Claude Code attempts in their repositories, including commands that are later denied. Nothing should be blocked by this logging. Which configuration fits?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A PreToolUse hook with matcher \"Bash\" that appends the command from its input to a log file and exits 0.",
+        "why": "PreToolUse fires before every Bash call, including ones later denied, and exiting 0 lets the call proceed normally."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A CLAUDE.md instruction asking Claude to write each command it runs to an audit log file.",
+        "why": "Logging would depend on the model remembering to do it and would miss commands it forgets to record."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A Stop hook that reads Claude's last message when the turn ends and extracts any commands it mentions.",
+        "why": "The final message does not reliably list every command run during the turn."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A UserPromptSubmit hook that records each prompt the developer types into a shared session log file.",
+        "why": "This captures what the user asked, not the shell commands Claude actually attempted."
+      }
+    ],
+    "explanation": "Hooks give deterministic observability as well as enforcement. A PreToolUse hook matched to Bash receives the tool input (including the command) on stdin for every attempted call, so it can log and then exit 0 to allow the call to continue.",
+    "reference": "Claude Code docs — Hooks reference"
+  },
+  {
+    "id": "D7-HK-007",
+    "domain": 7,
+    "skill": "hooks",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A team's Claude Code setup has a PreToolUse hook with matcher \"Bash\" that exits 2 when a command runs DROP or TRUNCATE against their warehouse database. They later add an MCP server named warehouse whose execute_sql tool accepts any SQL. In testing, Claude drops a staging table through that tool and the hook never fires. What is the most direct fix?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Add a PreToolUse hook matching \"mcp__warehouse__.*\" that checks the SQL in tool_input and exits 2 if destructive.",
+        "correct": true,
+        "why": "MCP tools have their own names (mcp__<server>__<tool>), so a Bash matcher never sees them. Matching the server's tools lets the hook read the SQL and block it before it runs."
+      },
+      {
+        "id": "B",
+        "text": "Add a CLAUDE.md rule stating that SQL sent through the warehouse tool must never drop or truncate any table.",
+        "correct": false,
+        "why": "An instruction is guidance the model may not follow; it does not enforce anything, which is why the Bash hook existed in the first place."
+      },
+      {
+        "id": "C",
+        "text": "Add a PostToolUse hook on the warehouse tool that exits 2 and tells Claude destructive SQL is not allowed.",
+        "correct": false,
+        "why": "PostToolUse runs after the statement has executed; exit 2 there only shows feedback to Claude, and the table is already gone."
+      },
+      {
+        "id": "D",
+        "text": "Add a UserPromptSubmit hook that blocks any prompt containing the words DROP or TRUNCATE before Claude sees it.",
+        "correct": false,
+        "why": "Claude writes the SQL itself, so destructive statements can appear without the user ever typing those words."
+      }
+    ],
+    "explanation": "A hook only guards the tools its matcher names. When new tools are added, including MCP tools named mcp__<server>__<tool>, extend PreToolUse coverage to them so destructive inputs are inspected and blocked before execution. Pair hooks with least privilege, such as a database role for the MCP server that cannot drop tables.",
+    "reference": "Claude Code docs — Hooks reference"
+  },
+  {
+    "id": "D7-HK-008",
+    "domain": 7,
+    "skill": "hooks",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team adds a PreToolUse hook that returns permissionDecision \"allow\" for commands it considers safe, to reduce prompts. The organization also has permission deny rules in settings. Security asks how the hook and the rules interact. Which two statements are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A hook that returns \"allow\" overrides any matching deny rule, so a buggy hook could unlock denied commands.",
+        "why": "Deny and ask rules are still evaluated regardless of what the hook returns, so a hook \"allow\" cannot unlock a denied command."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A matching deny rule still blocks the call even when the hook returned \"allow\".",
+        "why": "Hook decisions do not bypass deny rules; the deny-first evaluation is preserved."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "A hook that exits 2 blocks the call even if an allow rule would otherwise permit it.",
+        "why": "A blocking hook stops the call before allow rules can approve it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The hook receives only the tool name, so it cannot tell a safe command from a dangerous one.",
+        "why": "PreToolUse input includes tool_input, such as the full Bash command, so the hook can inspect arguments."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Exiting with code 1 is the standard way for the hook to deny a command it considers unsafe.",
+        "why": "Exit code 1 is a non-blocking error and the call proceeds; blocking uses exit 2 or a \"deny\" decision."
+      }
+    ],
+    "explanation": "In Claude Code, hooks and permission rules layer rather than override each other. A hook can tighten (exit 2 or \"deny\" blocks even over allow rules) or skip a prompt with \"allow\", but deny and ask rules are still evaluated, so a hook cannot loosen organizational deny rules.",
+    "reference": "Claude Code docs — Configure permissions"
+  },
+  {
+    "id": "D7-HK-009",
+    "domain": 7,
+    "skill": "hooks",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A Stop hook blocks Claude from finishing while the test suite fails. One day an external service the integration tests depend on is down, so Claude repeatedly retries fixes that cannot work, wasting time and tokens before the turn finally ends. How should the hook be improved?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Change the hook to exit 1 on test failure so the block is softer.",
+        "why": "Exit 1 is non-blocking, so the hook would never hold Claude to a failing suite, which removes the guardrail entirely."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Check stop_hook_active and, if Claude is already continuing from a block, allow the stop with a report.",
+        "why": "This keeps the test gate for normal turns while preventing repeated continuations on a condition Claude cannot fix."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Move the test check into a PostToolUse hook on Edit so the tests run again after every single file change.",
+        "why": "This produces feedback after edits, but it no longer prevents Claude from finishing with failing tests and runs the slow suite far more often."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Delete the hook and add a CLAUDE.md rule asking Claude to finish only when tests pass.",
+        "why": "This trades an enforced gate for a request that Claude may not follow."
+      }
+    ],
+    "explanation": "Blocking Stop hooks are powerful gates but must avoid blocking on conditions that will never resolve. The Stop input's stop_hook_active field tells the hook that Claude is already continuing because of an earlier block, so the hook can let the turn end and report the problem instead of looping.",
+    "reference": "Claude Code docs — Hooks reference"
+  },
+  {
+    "id": "D7-HK-010",
+    "domain": 7,
+    "skill": "hooks",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A security team has written a PreToolUse hook that blocks commands exposing credentials. It must run for every developer in the company, and individual developers must not be able to disable it. Where should the hook be configured?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "In each repository's .claude/settings.json, committed so that everyone who clones gets it.",
+        "why": "It covers only repos that include it, and project-level settings can be changed by developers or overridden locally."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "In managed settings deployed to every machine, which user and project settings cannot disable.",
+        "why": "Managed hooks always run; disableAllHooks set in user, project or local settings cannot turn them off."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "In a plugin published to the company marketplace and recommended to all developers.",
+        "why": "A plugin that developers install themselves can also be disabled or removed by them."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "In each developer's ~/.claude/settings.json, written by the laptop provisioning script.",
+        "why": "User settings belong to the developer, who can edit or delete the hook."
+      }
+    ],
+    "explanation": "Hook configurations merge across settings levels, but only managed settings are outside developers' control: managed hooks keep running even when a developer sets disableAllHooks in their own settings. Administrators can also use allowManagedHooksOnly to block other hooks.",
+    "reference": "Claude Code docs — Hooks reference"
+  },
+  {
+    "id": "D7-SCR-006",
+    "domain": 7,
+    "skill": "secrets",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A startup is building a mobile app with a Claude-powered chat feature. The quickest prototype calls the Claude API directly from the app using the company's API key. How should the production version handle the key?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Ship the key inside the app binary but obfuscate it so it is hard to find by inspection.",
+        "why": "Anything shipped to devices can be extracted; obfuscation only delays an attacker."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Download the key from a config endpoint when the app starts and keep it only in device memory.",
+        "why": "The key still reaches every device and can be captured from traffic or memory."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Keep the key on a backend that authenticates each user, applies limits and calls Claude.",
+        "why": "The secret never leaves your servers, and the backend can enforce per-user authentication, quotas and monitoring."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Store the key in the device keychain after the first launch so it is encrypted at rest.",
+        "why": "The key still has to be delivered to every device; keychain storage does not stop a user from extracting it."
+      }
+    ],
+    "explanation": "An organization API key must never be distributed to client devices. Route requests through a backend that holds the key, authenticates end users and enforces per-user limits, so a single user cannot extract the key or run up unbounded usage.",
+    "reference": "Claude API docs — Authentication"
+  },
+  {
+    "id": "D7-SCR-007",
+    "domain": 7,
+    "skill": "secrets",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A team's CI pipeline runs integration tests against the Claude API. Currently the tech lead's personal API key is pasted into the workflow YAML file. How should they set this up instead?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Keep the tech lead's personal key but move it into the CI system's encrypted secrets store instead.",
+        "why": "Storage improves, but a shared personal key acts as one person, mixes CI usage with theirs, and stops working when that person leaves the organization."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Base64-encode the existing key in the workflow YAML so it is no longer visible in plain text.",
+        "why": "Base64 is trivially reversible, and the key remains committed to the repository."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Commit a .env file with the key next to the workflow and load it at the start of the job.",
+        "why": "The key is still committed to source control, where anyone with repo access can read it."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Use a non-personal (service account) key for a test workspace, kept in CI secrets for the test step.",
+        "why": "The workload gets its own identity instead of borrowing a person's, the test workspace limits its reach and spend, and CI secrets keep it out of the repository."
+      }
+    ],
+    "explanation": "Shared or automated workloads should not borrow a person's key. Give them their own non-personal credential, scope it to the workspace they need, keep it in the CI platform's secret store, and expose it only to the step that uses it. Encoding or committing a key is never a substitute for a secret store.",
+    "reference": "Claude API docs — Authentication"
+  },
+  {
+    "id": "D7-SCR-008",
+    "domain": 7,
+    "skill": "secrets",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A production service reads its Claude API key from a secrets manager. A new policy requires rotating the key every 90 days with no failed requests during the change. Several service instances cache the key until they restart. Which rotation procedure should the team adopt?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Add a new key via the secrets manager, confirm the old key's traffic has stopped, then disable and delete it.",
+        "correct": true,
+        "why": "Overlapping keys avoid an outage; checking usage by key confirms every instance has switched, and disabling first is reversible if something was missed."
+      },
+      {
+        "id": "B",
+        "text": "Create a new key, update the secret, and delete the old key at the same moment so no two keys are ever active.",
+        "correct": false,
+        "why": "Instances still holding the cached old key start failing with authentication errors until they restart, which breaks the no-failed-requests rule."
+      },
+      {
+        "id": "C",
+        "text": "Create each key with a 90-day expiration and generate its replacement once requests begin returning 401 errors.",
+        "correct": false,
+        "why": "Expiration enforces the lifetime, but waiting for 401s means production fails first; replacements must be rolled out before the old key expires."
+      },
+      {
+        "id": "D",
+        "text": "Keep one key that never expires and rotate it only when a leak is suspected, since each rotation risks downtime.",
+        "correct": false,
+        "why": "This ignores the policy; periodic rotation limits the value of a leak nobody has detected, and overlap makes rotation safe."
+      }
+    ],
+    "explanation": "Rotate keys with an overlap: issue the new key, deliver it through the secrets manager, verify with per-key usage data that the old key is idle, then disable (reversible) and delete it. Expiration dates bound a leaked key's lifetime but must be paired with proactive replacement, and never-rotated keys stay valuable to an attacker indefinitely.",
+    "reference": "Claude API docs — Authentication"
+  },
+  {
+    "id": "D7-SCR-009",
+    "domain": 7,
+    "skill": "secrets",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Finance reports that Claude API spend doubled last week. The organization has several workspaces and many API keys, and nobody knows which integration is responsible. There is no evidence of a leak yet. Which two actions should the team take first? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Break down usage by API key and workspace with the Usage and Cost API to find where the growth came from.",
+        "why": "Usage reports can be filtered and grouped by key and workspace, which attributes the spike to specific credentials and integrations."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Immediately revoke every API key in the organization and issue new ones.",
+        "why": "Revoking everything without evidence causes an outage across all integrations and does not identify the cause."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Set workspace spend limits and alerts so a repeat surge is capped and noticed quickly.",
+        "why": "Per-workspace limits and threshold alerts bound the impact of runaway or unauthorized usage while the investigation continues."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lower the organization-wide rate limit until spending returns to last month's level.",
+        "why": "A blanket cut throttles every legitimate integration and still does not show which one caused the spike."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Check the logs of the largest application, since it is most likely to be the source.",
+        "why": "Guessing at one application may miss the real source; attribution should start from usage data across all keys."
+      }
+    ],
+    "explanation": "Monitoring authorized access means being able to attribute usage to specific keys and workspaces. Start from usage data grouped by key and workspace to find the source, and put workspace spend limits and alerts in place, before taking disruptive actions such as mass key revocation.",
+    "reference": "Claude API docs — Usage and Cost API"
+  },
+  {
+    "id": "D7-SCR-010",
+    "domain": 7,
+    "skill": "secrets",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A company uses separate Claude Console workspaces for staging and production. A contract prompt engineer needs to experiment with prompts in staging but must not hold any API keys, and a new backend developer needs to create keys for staging only. Which access setup follows least privilege?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Make both of them organization admins for now and remove the extra rights after the project.",
+        "why": "Organization admins get admin access to every workspace, including production, far beyond what either person needs."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Give both the developer role in staging and production so they are never blocked.",
+        "why": "The contractor would be able to create keys, and both would gain production access that neither needs."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Contractor: a playground-only role in staging. Developer: a developer role in staging only.",
+        "why": "Each person gets exactly the capability their task needs, confined to the staging workspace."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Create one staging API key and share it with both people through the team password manager.",
+        "why": "A shared key breaks attribution, gives the contractor a key they must not hold, and does not grant Console access."
+      }
+    ],
+    "explanation": "Console workspaces let you assign roles per workspace, from playground-only access up to developer and workspace admin roles. Granting each person the lowest role that fits, only in the workspace they need, applies least privilege and keeps production isolated.",
+    "reference": "Claude API docs — Workspaces"
+  }
+]

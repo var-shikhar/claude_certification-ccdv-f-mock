@@ -1,0 +1,230 @@
+[
+  {
+    "id": "D4-DBG-007",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A contract-review app sends scanned contracts to the Messages API as base64-encoded PDFs. Requests for the largest contracts fail immediately with HTTP 413 request_too_large, while smaller ones succeed. What should the developer do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Retry the failed requests with exponential backoff until they go through.",
+        "why": "A 413 is caused by the request itself; resending the same oversized payload fails the same way."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Raise max_tokens so that the response has room for the longer contracts.",
+        "why": "max_tokens limits the output; the error is about the size of the incoming request."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Shrink the request: split the document, or upload it via the Files API and reference it.",
+        "why": "A 413 means the request body exceeds the endpoint's size limit, so the fix is to send less data in that request."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Switch to a model with a larger context window so that the full contract fits in a single request.",
+        "why": "The request is rejected for its byte size before the model sees it; context window size is a separate limit."
+      }
+    ],
+    "explanation": "Identify the error type before choosing a recovery. 413 request_too_large is a request-size limit on the endpoint, not a transient or model-side problem, so the fix is to restructure the input rather than retry or change models.",
+    "reference": "Claude API docs — Errors (request size limits)"
+  },
+  {
+    "id": "D4-DBG-008",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A dashboard refresh fans out 400 Messages API requests at once and must finish within a few minutes. Many requests fail with 429 rate_limit_error responses that include a retry-after header. What is the most effective fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Cap client concurrency and retry 429s with backoff, honoring retry-after.",
+        "why": "Smoothing the burst keeps requests under the rate limit, and honoring retry-after recovers the ones that still hit it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Retry every 429 immediately in a tight loop until it succeeds.",
+        "why": "Immediate retries fail again before capacity has replenished and add to the overload."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Create several extra API keys in the organization and spread the requests evenly across all of them.",
+        "why": "Rate limits apply to the organization, so extra keys in the same organization do not add capacity."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lower max_tokens on every request and resend the whole batch unchanged.",
+        "why": "Shorter outputs may ease output-token limits slightly but do nothing about the burst of simultaneous requests."
+      }
+    ],
+    "explanation": "429 rate_limit_error means the organization exceeded a rate limit. Capacity replenishes continuously, so the fix is to shape traffic (limit concurrency, ramp up gradually) and retry with backoff that honors retry-after. Retrying without delay makes things worse.",
+    "reference": "Claude API docs — Rate limits"
+  },
+  {
+    "id": "D4-DBG-009",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A chat app streams responses from the Messages API. During a traffic peak, some saved answers end mid-sentence. Logs show that these requests returned HTTP 200 and that the event stream contained an error event of type overloaded_error before the message finished. What is the most likely cause, and what is the fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The responses hit max_tokens; raise the limit for streaming requests.",
+        "why": "Truncation by max_tokens is reported as a stop_reason, not as an error event in the stream."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The model refused partway through the answer; add a fallback model for refused requests.",
+        "why": "A refusal is reported with stop_reason \"refusal\"; the logs show an overloaded_error event instead."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The front end dropped text while rendering, because an HTTP 200 means the API succeeded.",
+        "why": "A streaming request can fail after the 200 status is sent, and the error event proves the stream failed."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "The stream handler ignores error events; treat them as failures and retry.",
+        "why": "The integration layer saved an interrupted stream as a complete answer; mid-stream errors must be handled like failed requests."
+      }
+    ],
+    "explanation": "With streaming, errors can arrive as events after an HTTP 200 has already been sent, for example an overloaded_error that would be a 529 in a non-streaming call. Clients must treat these as failures and recover with backoff, and must not persist partial output as a finished response.",
+    "reference": "Claude API docs — Streaming Messages (error events)"
+  },
+  {
+    "id": "D4-DBG-010",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A finance agent tells users \"no matching invoice found\" for invoices that exist. In the trace, Claude's search_invoices call has the right customer ID, and the invoice service's own log shows it returned the invoice. However, the tool_result Claude received ends abruptly at a fixed character length, with no mention of truncation. What should the developer fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The prompt: tell Claude to search more carefully before concluding that an invoice is missing.",
+        "why": "Claude answered correctly from what it received; the invoice was removed before it reached the model."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The tool wrapper: stop silent truncation; return filtered results and flag partial output.",
+        "why": "The trace isolates the loss to the wrapper between the service and Claude, which cut the result without any signal."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The model: switch to a model with a larger context window so that longer tool results fit.",
+        "why": "The wrapper cuts the output at a fixed length before the model sees it, so a larger window changes nothing."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The retry policy: call search_invoices again whenever Claude reports that nothing was found.",
+        "why": "Repeating the call goes through the same truncating wrapper and returns the same incomplete result."
+      }
+    ],
+    "explanation": "Trace analysis compares each boundary: the model's tool input, the service's response, and what was actually returned to the model. Here the input and the service are correct, and the defect is integration code that silently truncates results. Tools should return focused results and state clearly when output is partial.",
+    "reference": "Claude API docs — Tool use: handle tool calls"
+  },
+  {
+    "id": "D4-DBG-011",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A scheduling agent's create_event tool fails intermittently. Tracing shows the HTTP client and calendar API work correctly, but every failing call has a tool_use input like {\"start\": \"next Friday 3pm\"}, while the API requires ISO 8601 timestamps. The tool schema describes start only as \"string\". What is the best fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Debug the HTTP client first, since the calendar API is rejecting the requests that the client sends.",
+        "why": "The trace shows the client correctly forwards what it receives; the bad value originates in the model's tool input."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Retry each failed create_event call up to three times before surfacing an error.",
+        "why": "Retries resend the same malformed input and fail the same way."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Specify ISO 8601 in the tool definition, validate inputs, and return is_error results.",
+        "why": "The failure is in the model's output; a precise schema reduces bad inputs and error feedback lets Claude correct the ones that slip through."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Set temperature to 0 so that Claude formats the date the same way every time.",
+        "why": "Consistent sampling does not teach Claude a format the tool definition never specified."
+      }
+    ],
+    "explanation": "Isolating the origin decides the fix. When the integration layer faithfully passes along a malformed tool input, the problem is model output, and it is fixed by clearer tool definitions (descriptions, formats, examples) plus input validation that returns actionable is_error results.",
+    "reference": "Claude API docs — Tool use: define tools"
+  },
+  {
+    "id": "D4-DBG-012",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Users report that a support agent occasionally quotes the wrong refund amount. The team cannot reproduce the problem locally, and runs differ even with identical inputs. Which two steps should the team take first? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Log a full trace per production request: prompts, tool inputs and results, stop_reason, and request ID.",
+        "why": "Non-deterministic failures must be diagnosed from what actually happened in production, which requires complete traces."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Set temperature to 0 and rely on local reruns to reproduce the failures exactly.",
+        "why": "Outputs can still vary, and local runs do not recreate production data and tool results."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Upgrade the agent to the largest model tier and see whether the reports stop.",
+        "why": "Changing the model before locating the fault can hide the problem, and a bug in the integration layer would remain."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "For each failing trace, find the first step that went wrong: tool input, tool result, or the final answer.",
+        "why": "Locating the first divergence tells you whether the fault is in model output or in the integration layer."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Run each conversation twice and show users the answer only when both runs agree.",
+        "why": "This doubles cost and masks symptoms without identifying the cause, and two runs can agree and still be wrong."
+      }
+    ],
+    "explanation": "Debugging agents starts with observability. Capture full production traces, then walk each failing trace to the first step that went wrong: a bad tool call (model output), a bad tool result (integration or data), or a bad synthesis of correct data (prompt or model). Only then choose a fix.",
+    "reference": "Anthropic — How we built our multi-agent research system (debugging)"
+  }
+]

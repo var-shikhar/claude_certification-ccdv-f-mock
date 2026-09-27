@@ -1,0 +1,766 @@
+[
+  {
+    "id": "D1-ARC-007",
+    "domain": 1,
+    "skill": "agent-architecture",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A legal-tech team uses Claude to translate contract clauses. First drafts are usually close but miss nuances, and reviewers have a clear written rubric; when a reviewer gives feedback against that rubric, the next draft reliably improves. The team wants to automate that improvement cycle. Which pattern fits best?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Evaluator-optimizer: one call drafts, another critiques it against the rubric, repeating until it passes.",
+        "why": "This pattern fits when clear evaluation criteria exist and feedback demonstrably improves output, which is exactly the situation described."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Routing: classify each clause by contract type and send it on to a specialized, type-specific translation prompt.",
+        "why": "Routing separates distinct input categories; it does not add the critique-and-revise cycle that the team wants to automate."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Parallelization by voting: translate each clause several times and keep the most common version.",
+        "why": "Voting picks among independent attempts; without feedback, no attempt is revised to fix the missed nuances."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An autonomous agent with a dictionary tool that decides for itself how many steps each clause needs.",
+        "why": "The process is a known draft-critique-revise loop; handing it to an open-ended agent adds cost and unpredictability without adding the rubric-based feedback."
+      }
+    ],
+    "explanation": "Evaluator-optimizer pairs a generator with an evaluator in a loop. It is a good fit when there are clear evaluation criteria and when articulated feedback measurably improves the next attempt, as with a translation rubric.",
+    "reference": "Anthropic — Building effective agents (evaluator-optimizer)"
+  },
+  {
+    "id": "D1-ARC-008",
+    "domain": 1,
+    "skill": "agent-architecture",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A consumer chatbot must screen every user message for disallowed requests. Product requires that screening add as little latency as possible, and testing showed that asking the answering prompt to also do the screening made both answers and screening worse. Which design best meets these constraints?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Keep a single call and add more detailed screening instructions to the answering prompt.",
+        "why": "Testing already showed that combining both jobs in one call degraded both; more instructions do not change that."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Run a screening call first, and start generating the answer only after the screening call approves the message.",
+        "why": "Sequential screening works but adds a full model round trip to every message, which conflicts with the latency requirement."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Send each message to five identical screening calls and block it only if a majority flag it.",
+        "why": "Voting can improve screening confidence but multiplies cost and still needs the answer path designed separately."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Run a separate screening call in parallel with the answer call; suppress the answer if it is flagged.",
+        "why": "Sectioning runs the two focused calls concurrently, so each performs better and screening adds little wall-clock time."
+      }
+    ],
+    "explanation": "Parallelization by sectioning splits independent aspects of a task into separate LLM calls that run at the same time. Guardrails are a classic case: a dedicated screening call tends to work better than one call doing both jobs, and running it in parallel keeps latency low.",
+    "reference": "Anthropic — Building effective agents (parallelization)"
+  },
+  {
+    "id": "D1-ARC-009",
+    "domain": 1,
+    "skill": "agent-architecture",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A platform team has budget to build one multi-agent (orchestrator plus parallel subagents) system this quarter. Multi-agent runs use many times more tokens than a single agent, and LLM agents still coordinate poorly when subtasks depend heavily on each other. Which candidate project is the best fit?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Refactoring a shared authentication module that 40 tightly coupled files import.",
+        "why": "The edits depend on each other and on shared context, which is where multi-agent coordination currently breaks down."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "High-value due-diligence research across many independent sources, too much for one context.",
+        "why": "The work splits into independent threads, exceeds a single context window, and is valuable enough to justify the extra token cost."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Answering a very large volume of low-value FAQ questions, each of which is resolved by a single database lookup.",
+        "why": "Each request is simple and low-value, so a multi-agent system's token overhead cannot pay for itself."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Filling in a three-step onboarding form whose steps always run in the same order.",
+        "why": "A fixed, sequential process is a workflow; parallel subagents add nothing but cost and complexity."
+      }
+    ],
+    "explanation": "Multi-agent systems excel at valuable tasks that parallelize well, involve more information than fits in one context window, or use many complex tools. They fit poorly when agents must share context or depend heavily on each other, and when task value cannot justify the much higher token usage.",
+    "reference": "Anthropic — How we built our multi-agent research system"
+  },
+  {
+    "id": "D1-ARC-010",
+    "domain": 1,
+    "skill": "agent-architecture",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A team built a feature-implementation system that always splits a request into four fixed parallel sections: API, database, UI, and tests. It works for typical features, but requests that also need a queue consumer, a config migration, or no UI change at all come back incomplete or padded with unnecessary edits. Which change best addresses the root cause?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add four more fixed sections so that queue, config, and other areas are always covered.",
+        "why": "Any fixed list will still miss some requests and will produce unnecessary edits for requests that do not need those areas."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep the four fixed sections and add an evaluator step that rejects any outputs it judges to be incomplete.",
+        "why": "An evaluator can detect gaps but cannot fix a decomposition that never assigns the missing work."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Switch to orchestrator-workers, where a central model picks the subtasks for each request.",
+        "why": "When the needed subtasks depend on the input, the orchestrator must determine them dynamically instead of relying on predefined sections."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Run each of the four sections three times and merge the results by majority vote.",
+        "why": "Voting improves confidence in a fixed subtask; it does not create the subtasks that are missing."
+      }
+    ],
+    "explanation": "Sectioning and orchestrator-workers look similar, since both fan out work, but sectioning uses predefined subtasks while an orchestrator decides subtasks per input. Coding changes whose scope varies by request are the textbook case for orchestrator-workers.",
+    "reference": "Anthropic — Building effective agents (orchestrator-workers)"
+  },
+  {
+    "id": "D1-ARC-011",
+    "domain": 1,
+    "skill": "agent-architecture",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A research orchestrator decides how many subagents to spawn for each query. Traces show that simple fact lookups often trigger eight or more subagents, while genuinely broad comparisons are handled well. Costs are high, and the team does not want to lose quality on the complex queries. What is the best change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Add effort-scaling rules to the orchestrator prompt that map query complexity to subagent counts.",
+        "why": "Agents are poor at judging effort unaided; explicit scaling rules stop overinvestment on simple queries while keeping capacity for complex ones."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Cap every query at two subagents, regardless of what the query asks for.",
+        "why": "A flat cap cuts cost but starves the broad comparisons that currently work well, which the team wants to protect."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Remove subagents and have the orchestrator do all research itself in one context.",
+        "why": "This lowers cost on simple queries but loses the parallelism and context isolation that make complex queries succeed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Move the orchestrator and all its subagents to a smaller model tier so that every spawned subagent is cheaper.",
+        "why": "A smaller model changes the price per token but not the overinvestment pattern, and it may plan complex queries worse."
+      }
+    ],
+    "explanation": "Orchestrators tend to over-delegate on simple tasks. Embedding scaling rules in the lead agent's prompt, such as one agent with a few tool calls for a simple lookup and several subagents for complex research, aligns effort with task complexity without capping the hard cases.",
+    "reference": "Anthropic — How we built our multi-agent research system"
+  },
+  {
+    "id": "D1-ARC-012",
+    "domain": 1,
+    "skill": "agent-architecture",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "In a supervisor hierarchy, eight worker subagents each return full research reports to the lead agent, which re-summarizes them into a final document. The lead's context fills up, and details such as exact figures and citations are often lost or distorted when the lead paraphrases them. Which two changes best address this? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Let the workers message each other directly so they can merge their reports before the lead sees them.",
+        "why": "Peer-to-peer messaging adds coordination overhead and loops, and it does not reduce what finally reaches the lead."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Have workers save full outputs to an external store and return lightweight references plus key findings.",
+        "why": "Persisting artifacts outside the lead's context avoids repeated paraphrasing and keeps exact details intact for the final output."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Increase max_tokens on the lead agent so that it can write a longer final document.",
+        "why": "max_tokens limits output length; it neither reduces context usage nor prevents details being lost in paraphrase."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Run the workers one at a time so the lead can read each report fully before the next starts.",
+        "why": "Sequential execution slows the system and still pushes every full report into the same lead context."
+      },
+      {
+        "id": "E",
+        "correct": true,
+        "text": "Require each worker to return a condensed, structured summary with exact figures and source links.",
+        "why": "Structured, compressed results give the lead what it needs for synthesis without flooding its context or losing precise values."
+      }
+    ],
+    "explanation": "Routing every detail through the coordinator creates a \"game of telephone\" and bloats its context. Workers should compress their findings into structured summaries and store full artifacts externally, passing references back so the lead can synthesize accurately.",
+    "reference": "Anthropic — How we built our multi-agent research system"
+  },
+  {
+    "id": "D1-CON-008",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A team hosts an Agent SDK agent that runs one independent code-review task per pull request. Each task starts from a fresh checkout, finishes within minutes, and never needs to be resumed later. Which hosting pattern fits best?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A long-running container that stays up permanently and serves all review tasks.",
+        "why": "Persistent containers suit continuous, high-volume or interactive workloads; here they would sit idle and share state between unrelated tasks."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Hybrid sessions that hydrate each container from a shared session store on startup.",
+        "why": "Hybrid sessions are for conversations resumed across idle periods; these tasks are never resumed, so the store adds nothing."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Ephemeral sessions: one container per review task, destroyed when the task finishes.",
+        "why": "One-off, independent tasks match the ephemeral pattern, which also gives each review a clean, isolated filesystem."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A single container running many SDK processes so reviewers can share one environment.",
+        "why": "Multi-agent containers are for agents that must collaborate closely; independent reviews gain nothing from sharing."
+      }
+    ],
+    "explanation": "Agent SDK hosting patterns follow session lifecycle: ephemeral (a container per one-off task), long-running (persistent containers for continuous work), hybrid (ephemeral containers that resume from a session store), and multi-agent containers for tightly collaborating agents.",
+    "reference": "Claude Agent SDK docs — Hosting"
+  },
+  {
+    "id": "D1-CON-009",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A support agent built on the Agent SDK runs in containers that scale to zero when idle. Customers return hours later expecting the agent to remember the conversation, but after a scale-down the history is gone. The team wants to keep scaling to zero. What should they do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Disable scale-to-zero so that each customer's container stays alive until their support ticket is closed.",
+        "why": "This preserves history but abandons the stated requirement to keep scaling to zero, and it pays for idle containers."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Attach a shared session store and resume each conversation by session ID on container start.",
+        "why": "Transcripts on local disk are lost when a container goes away; a session store lets a new container resume the session by ID."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Point the transcript directory at a different path inside the same container.",
+        "why": "Any path inside the container disappears with it, so the history is still lost on scale-down."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Write each customer's history into CLAUDE.md so the agent reloads it at startup.",
+        "why": "CLAUDE.md is for standing instructions, lives on the same ephemeral disk by default, and is not a per-customer transcript store."
+      }
+    ],
+    "explanation": "By default, SDK session transcripts live on the container's filesystem and do not survive restarts or scale-downs. The hybrid pattern pairs ephemeral containers with a session store so that sessions can be resumed by ID on any new container.",
+    "reference": "Claude Agent SDK docs — Hosting (hybrid sessions)"
+  },
+  {
+    "id": "D1-CON-010",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An Agent SDK service behaves differently on a developer's workstation, on the staging host, and in production. Investigation shows it is picking up whatever CLAUDE.md files, hooks, and skills exist in each machine's home and working directories. The team wants identical, fully code-defined behavior everywhere. What should they change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Delete ~/.claude from every host before each deployment.",
+        "why": "This removes user-level files but leaves project and local sources, and it relies on manual host hygiene instead of configuration."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Copy the developer's ~/.claude directory to every host so that all environments load the same files.",
+        "why": "This makes production depend on one person's personal configuration instead of making behavior explicit in code."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Move all instructions into the project CLAUDE.md and commit it to the repository.",
+        "why": "The SDK would still load user and local sources from each host, so machine-specific behavior could still leak in."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Set settingSources to an empty list and define the prompt, tools and hooks in code.",
+        "why": "With no filesystem setting sources loaded, behavior comes from what the application passes in, so it no longer varies with each host's files."
+      }
+    ],
+    "explanation": "By default the Agent SDK reads the same filesystem configuration as the Claude Code CLI: user, project and local settings, CLAUDE.md files, skills, agents and hooks. For reproducible services, restrict which setting sources load (or load none) and configure everything programmatically.",
+    "reference": "Claude Agent SDK docs — Use Claude Code features (settingSources)"
+  },
+  {
+    "id": "D1-CON-011",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer builds a sales-assistant agent with tools to search the CRM, draft emails, and send emails. Compliance requires a human to approve every outbound email, but the team does not want approvals slowing down searches or drafting. What should the developer do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Gate only the send tool: the harness holds each send call until a human approves it.",
+        "why": "Enforcing approval in the harness at the one sensitive action meets compliance deterministically while leaving read and draft steps fast."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Tell the agent in its system prompt to always ask the user before it sends any email.",
+        "why": "A prompt instruction is guidance the model can fail to follow; compliance needs a control the model cannot skip."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Require human approval for every tool call so that nothing happens without review.",
+        "why": "This satisfies compliance but adds approvals to searches and drafts, which the team explicitly wants to avoid."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Let the agent send freely and have a reviewer audit the sent-mail log at the end of each day.",
+        "why": "An after-the-fact audit cannot stop a bad email from going out, so it does not meet the approve-before-sending requirement."
+      }
+    ],
+    "explanation": "Human-in-the-loop checkpoints belong in the harness, placed on the actions whose consequences are hard to undo. Gating only high-risk tools, such as sending, paying or deleting, keeps the agent efficient while making the control deterministic rather than a request in the prompt.",
+    "reference": "Claude Agent SDK docs — Permissions"
+  },
+  {
+    "id": "D1-CON-012",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A fintech team is adding an agent to an existing service. They need full control over every model request, including custom routing between model tiers per step, their own tool implementations, and exact per-call token accounting. They already run their own infrastructure. Which construction approach best fits?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Claude Managed Agents, so the hosted harness runs the loop and the built-in tools for them.",
+        "why": "A hosted harness owns the loop, which removes the per-request control and custom routing that the team requires."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "An interactive Claude Code session that operators start whenever the service needs the agent.",
+        "why": "Interactive sessions are for developers at a terminal, not an embedded, programmatic component of a service."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The Message Batches API, submitting each agent step as a batch request and polling for results.",
+        "why": "Batches are asynchronous and independent, which suits bulk jobs but not an interactive loop where each step depends on the last."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "A custom agent loop on the Messages API, with the team's own tools and routing.",
+        "why": "Owning the loop gives complete control over each request, the model used per step, the tools, and usage accounting."
+      }
+    ],
+    "explanation": "Construction options trade control for convenience. A custom loop on the Messages API offers the most control over requests, routing and tools. The Agent SDK provides Claude Code's harness in your own process, and Managed Agents hosts the harness for you.",
+    "reference": "Claude Agent SDK docs — Overview"
+  },
+  {
+    "id": "D1-CON-013",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A team wants its coding agent to run the code formatter after every file edit and to block any shell command containing \"rm -rf\". They implemented both as PreToolUse hooks. The block works, but the formatter runs on the file's old contents and the edit then overwrites the formatted version. What should they change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Move both hooks to PostToolUse so that they share one consistent trigger point.",
+        "why": "A PostToolUse hook runs after the tool has executed, so the destructive command would already have run before it could be blocked."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep both as PreToolUse hooks and ask the agent to re-run the formatter after each edit.",
+        "why": "This returns the formatting step to the model's discretion, which is the unreliability hooks were meant to remove."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Move the formatter to a PostToolUse hook on edit tools, and keep the rm -rf block in PreToolUse.",
+        "why": "Blocking must happen before the tool runs, and formatting must happen after the edit is written, so each belongs at a different event."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Replace both hooks with system-prompt rules, since hooks cannot tell edits apart from shell commands.",
+        "why": "Hooks use matchers to target specific tools, and prompt rules would not be deterministic."
+      }
+    ],
+    "explanation": "Hooks fire at specific lifecycle points. PreToolUse runs before a tool executes and can block or modify the call, which makes it right for guardrails. PostToolUse runs after execution and is right for follow-up actions such as formatting, linting or audit logging.",
+    "reference": "Claude Agent SDK docs — Hooks"
+  },
+  {
+    "id": "D1-CON-014",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A nightly job uses the Agent SDK to run hundreds of independent maintenance tasks. Finance requires that no task can run away in cost, and operations requires that tasks stopped early are never recorded as successful. Which two measures meet both requirements? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Set a per-task turn or spend limit in the SDK so the loop stops when it is reached.",
+        "why": "A harness-level limit stops the agent loop regardless of what the model decides, which bounds each task's cost."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Set a low max_tokens value so that each individual model response stays short and cheap.",
+        "why": "This caps a single response, not the number of loop iterations, and can truncate useful output."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Check each run's result subtype and route limit-reached errors to retry or review, not success.",
+        "why": "When a limit stops a run, the SDK returns an error result subtype (such as error_max_turns or error_max_budget_usd); checking it keeps unfinished tasks from being logged as done."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Rely on automatic compaction to keep token usage, and therefore each task's cost, bounded.",
+        "why": "Compaction manages the context window; it does not stop a task that keeps taking turns and spending."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Allow each task only a single turn so that it always finishes right after one tool call.",
+        "why": "This bounds cost but stops most maintenance tasks from completing, which defeats the purpose of the job."
+      }
+    ],
+    "explanation": "Harnesses need stopping conditions that the model cannot override: turn and budget limits. Hitting a limit is a failure outcome, not a completion, so the harness must inspect the result status before recording success.",
+    "reference": "Claude Agent SDK docs — Agent loop"
+  },
+  {
+    "id": "D1-PAT-008",
+    "domain": 1,
+    "skill": "agent-patterns",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer adds the memory tool to an agent built on the Messages API so it can remember project decisions across conversations. Claude issues memory commands such as creating a file under /memories, but nothing is there in the next conversation. What is the most likely cause?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Memories are kept only for the current conversation and are discarded automatically as soon as it ends.",
+        "why": "The memory tool exists precisely so that files persist between conversations, as long as the application stores them."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The memory tool is client-side, and the app never executed or stored those operations.",
+        "why": "Claude only requests memory operations; your code must perform them against storage you control and return the results."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The model needs a larger context window before it can use the memory tool.",
+        "why": "Memory lives outside the context window, so context size does not determine whether memories persist."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Anthropic stores the files, but only on paid tiers with memory storage enabled.",
+        "why": "Anthropic does not store memory-tool files; storage is always the application's responsibility."
+      }
+    ],
+    "explanation": "The memory tool is a client-side tool: Claude requests file operations under a /memories prefix, and your application executes them against its own storage (rejecting paths outside that directory). Without that handler, nothing persists between sessions.",
+    "reference": "Claude API docs — Memory tool"
+  },
+  {
+    "id": "D1-PAT-009",
+    "domain": 1,
+    "skill": "agent-patterns",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An agent answers questions about a large monorepo that changes dozens of times a day. The current design embeds the codebase nightly and stuffs the top 50 retrieved chunks into every prompt. Answers often cite code that has since changed, and irrelevant chunks crowd the context. Which change best addresses both problems?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Re-embed the codebase every hour and raise the retrieval count to 100 chunks.",
+        "why": "Fresher embeddings still lag behind commits, and more chunks worsen the context crowding."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Paste the whole repository into each request using the largest available context window.",
+        "why": "This eliminates staleness but maximizes irrelevant context and cost, and large repositories may not fit at all."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Give the agent search and file-read tools so it loads needed files just in time.",
+        "why": "Just-in-time retrieval reads current files on demand, avoiding stale indexes and keeping only relevant content in context."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Fine-tune a model on the repository every week so that it knows the code without retrieval.",
+        "why": "Weekly training is even staler than nightly embeddings and cannot reflect changes made during the week."
+      }
+    ],
+    "explanation": "Agents can keep lightweight references (paths, queries) and pull data into context at runtime with tools such as glob, grep and file reads. For fast-changing sources this avoids stale indexes and keeps context focused on high-signal tokens; hybrid designs retrieve some data up front when content is more static.",
+    "reference": "Anthropic — Effective context engineering for AI agents"
+  },
+  {
+    "id": "D1-PAT-010",
+    "domain": 1,
+    "skill": "agent-patterns",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A Messages API agent reads many large files per task. Old file contents that Claude has already processed dominate the context. The team wants to keep user messages and Claude's own reasoning verbatim, and only drop bulky raw tool outputs that are no longer needed. Which approach fits best?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Enable tool-result clearing, which swaps the oldest tool results for placeholders.",
+        "why": "Tool-result clearing removes exactly the stale raw outputs while leaving the rest of the conversation untouched."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Summarize the entire conversation into one message whenever it reaches a size threshold.",
+        "why": "Full summarization also rewrites user messages and reasoning, which the team wants to keep verbatim."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Delete the old tool_use blocks from history but keep their tool_result blocks in place.",
+        "why": "Orphaned tool_result blocks break the tool_use/tool_result pairing and keep the bulky content that was the problem."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lower max_tokens so that Claude's responses take up less of the context window.",
+        "why": "Output length is not the issue; the bulk comes from tool results, which max_tokens does not affect."
+      }
+    ],
+    "explanation": "Context editing offers targeted strategies such as tool-result clearing, which clears older tool results once context grows past a threshold and leaves a placeholder so Claude knows they were removed. Compaction, by contrast, summarizes history; it is broader and does not preserve earlier turns verbatim.",
+    "reference": "Claude API docs — Context editing"
+  },
+  {
+    "id": "D1-PAT-011",
+    "domain": 1,
+    "skill": "agent-patterns",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A coding agent is building an application from a long specification over many sessions, each with a fresh context window. Two failure modes recur: early sessions try to build everything at once and leave half-finished features, and later sessions see existing code and declare the project complete. Which two harness changes best address both? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Have a first session write a full feature list, each marked failing, plus a progress log.",
+        "why": "An explicit feature list with pass/fail status gives later sessions an objective definition of \"done\" instead of a guess from the code."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Tell every session in the system prompt to keep working until the whole specification is finished.",
+        "why": "This encourages doing too much at once, and it still gives the agent no reliable way to judge completion."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Run many sessions in parallel against the whole specification and merge whatever they produce.",
+        "why": "Uncoordinated parallel sessions multiply the half-finished work and create merge conflicts."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Have each later session take one failing feature, test it end to end, mark it, and commit.",
+        "why": "Working one feature at a time, with verification and a commit, keeps each session incremental and leaves clean, verifiable state."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Give sessions a larger context window so each can hold more of the codebase at once.",
+        "why": "More context does not tell a session what remains undone and does not stop it from over-reaching."
+      }
+    ],
+    "explanation": "Long-running agent harnesses work best with an initializer session that sets up a feature list, a progress file and an initial commit, followed by sessions that make incremental, verified progress one feature at a time. This gives each fresh context window an objective picture of the state of the work.",
+    "reference": "Anthropic — Effective harnesses for long-running agents"
+  },
+  {
+    "id": "D1-PAT-012",
+    "domain": 1,
+    "skill": "agent-patterns",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A team ports a working raw-API agent prototype to an agent framework, reusing the same prompts, tools, and model. Afterward, the agent follows instructions less reliably and calls the wrong tools more often. Nobody on the team knows exactly what the framework sends to Claude. What is the best first step?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Rewrite all the prompts in the framework's recommended style and then run the full evaluation suite again.",
+        "why": "This changes a variable before identifying the cause, and prompt wording is not what changed between the two versions."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Move to a larger model tier to compensate for the drop in quality.",
+        "why": "Scaling up the model hides the regression and adds cost without explaining why the port behaves differently."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Abandon the framework and ship the prototype, since frameworks always reduce quality.",
+        "why": "Frameworks do not inherently reduce quality; rejecting them without a diagnosis may discard real benefits and leave the root cause unknown."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Capture the framework's actual API requests and diff them against the prototype's requests.",
+        "why": "Frameworks add abstraction that can change the underlying prompts and tool definitions; inspecting the real requests pinpoints what changed."
+      }
+    ],
+    "explanation": "Frameworks can obscure the prompts and responses underneath them, and incorrect assumptions about what they do are a common source of error. When behavior changes after adopting one, first observe the actual requests and compare them with a known-good baseline.",
+    "reference": "Anthropic — Building effective agents (when and how to use frameworks)"
+  },
+  {
+    "id": "D1-PAT-013",
+    "domain": 1,
+    "skill": "agent-patterns",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "After a long discussion with the user, a main agent delegates to a custom subagent: \"fix the flaky test we discussed, using the approach we agreed on.\" The subagent wanders, re-investigates settled questions, and picks a different approach. Which two changes most directly fix this? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Spell out the test name, file paths, error output and agreed approach in the delegation prompt.",
+        "why": "A subagent starts without the parent's conversation history, so the brief must carry the facts and decisions it needs."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Raise the subagent's turn limit so that it has more time to rediscover the agreed approach itself.",
+        "why": "More turns let it wander longer; they do not give it the decisions made in a conversation it cannot see."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Have the main agent write the decisions to a notes file and tell the subagent to read it first.",
+        "why": "Persisted notes are a durable way to hand over context that the subagent cannot otherwise see."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Keep the prompt short, because the subagent automatically inherits the main agent's conversation.",
+        "why": "A custom subagent begins with a fresh conversation: the only input from the parent is the delegation prompt, and only its final response returns."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Give the subagent every tool the main agent has so that it can investigate more thoroughly.",
+        "why": "More tools widen what it can do but do not tell it which approach was agreed; minimal tool scopes are usually better."
+      }
+    ],
+    "explanation": "Subagents get clean context windows, which is what makes them useful, but it also means they know only what the delegation prompt and their own tools reveal. Effective delegation passes concrete details and decisions explicitly, directly or through persisted notes.",
+    "reference": "Claude Agent SDK docs — Subagents (what subagents inherit)"
+  },
+  {
+    "id": "D1-PAT-014",
+    "domain": 1,
+    "skill": "agent-patterns",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A long-running Agent SDK session is told near its start to \"never modify files under /migrations and always cite ticket IDs in commit messages.\" After several hours, logs show automatic compaction ran and the agent then broke both rules. The team must keep compaction enabled. What is the most effective fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Repeat both rules in the user message every few turns so a recent copy always exists.",
+        "why": "This helps only while the reminders keep coming, adds tokens to every turn, and still leaves the rules as unenforced requests."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Put the rules in the project CLAUDE.md and enforce the /migrations ban with a hook.",
+        "why": "CLAUDE.md is reloaded as persistent context rather than living in history that compaction summarizes, and the hook makes the file ban deterministic."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Lower the compaction threshold so compaction happens more often with smaller summaries.",
+        "why": "More frequent compaction gives more chances to drop early instructions; it does not preserve them."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Switch to a model with a larger context window so that compaction is triggered later.",
+        "why": "This delays the problem without solving it, and the team needs the session to keep running for hours."
+      }
+    ],
+    "explanation": "Compaction replaces older history with a summary, so instructions given early in a conversation may not survive. Persistent rules belong in CLAUDE.md, which also lets you tell the compactor what to preserve, and rules that must always hold should be enforced with hooks.",
+    "reference": "Claude Agent SDK docs — Agent loop (automatic compaction)"
+  }
+]

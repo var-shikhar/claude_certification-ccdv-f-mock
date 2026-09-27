@@ -1,0 +1,119 @@
+{
+  "tool-implementation": {
+    "summary": "Define, describe and run tools for Claude: write schemas and descriptions, drive the agentic loop, handle errors and parallel calls, choose client or server tools, add approval gates, and keep tool sets small and context-efficient.",
+    "points": [
+      "A tool definition has a `name`, a detailed `description` and an `input_schema` (JSON Schema). The description is the most important factor in tool performance: say what the tool does, when to use it and when not to, what it returns, caveats, and the format of each parameter.",
+      "Use schema features to constrain inputs, such as `enum` for fixed value sets and clear formats like ISO 8601 dates. Set `strict: true` when tool inputs must always conform to the schema (correct types, required fields present).",
+      "Agentic loop for client tools: while the response has `stop_reason: \"tool_use\"`, run each requested tool, send the results back as `tool_result` blocks in a new user message, and call the API again. Any other stop reason ends the loop.",
+      "Every `tool_use` block needs a matching `tool_result` with the same `tool_use_id`. For parallel calls, return all results in one user message, with the `tool_result` blocks before any text.",
+      "Report tool failures in the `tool_result` with `is_error: true` and an actionable message (what failed, and whether a retry or a different input might work). Do not drop the result or return an empty success.",
+      "`tool_choice`: `auto` (the default; Claude decides), `any` (must use some tool), `tool` (must use the named tool), `none` (no tool calls). Forced options are not supported on every model or setting. `disable_parallel_tool_use` limits Claude to one call per turn.",
+      "Where tools run: user-defined and Anthropic-schema client tools (such as bash and text editor) execute in your app. Server tools (web search, web fetch, code execution, tool search) run on Anthropic's infrastructure with no handler code.",
+      "A server tool's loop can stop with `stop_reason: \"pause_turn\"` when it hits its iteration limit. Resend the conversation, including the paused response, so Claude can continue.",
+      "The harness, not the model, decides whether a requested call runs. Auto-run read-only tools, hold side-effecting or irreversible tools for human approval, log the decisions, and return a denial as the `tool_result` so Claude can adapt.",
+      "In the Agent SDK, `allowed_tools` and `disallowed_tools` plus permission modes handle clear cases, and the `canUseTool` callback handles the rest at runtime, which is the place for an approval UI.",
+      "Keep the tool set small and non-overlapping, and consolidate near-duplicates into one tool with parameters. Selection accuracy drops as the number of tools grows, and every definition costs context.",
+      "Context tools: tool search loads definitions on demand for large catalogs, programmatic tool calling lets Claude call tools from code so intermediate results stay out of context, prompt caching cuts the cost of a stable tool set, and context editing trims old tool results.",
+      "Return concise, high-signal results with human-readable names alongside IDs, rather than raw API dumps."
+    ],
+    "docs": [
+      {
+        "title": "Define tools",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools"
+      },
+      {
+        "title": "Handle tool calls",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls"
+      },
+      {
+        "title": "How tool use works",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/how-tool-use-works"
+      },
+      {
+        "title": "Manage tool context",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/manage-tool-context"
+      },
+      {
+        "title": "Writing effective tools for AI agents—using AI agents",
+        "url": "https://www.anthropic.com/engineering/writing-tools-for-agents"
+      }
+    ]
+  },
+  "mcp-development": {
+    "summary": "Build and deploy MCP servers and connect them to Claude applications: choose the right primitive and transport, understand host, client and server roles, secure remote servers, and configure servers in Claude Code, the Agent SDK and the Messages API.",
+    "points": [
+      "An MCP server packages capabilities once so any MCP-capable client (Claude Code, Claude Desktop, Agent SDK apps, the Messages API connector) can use them. It fits when a capability should be reused across applications or maintained independently of them.",
+      "Primitives: tools are model-controlled actions, resources are application-driven data identified by URI, and prompts are user-controlled templates, typically picked from a menu.",
+      "Roles: the host application runs one MCP client per server connection. The client discovers capabilities (for example `tools/list`) and relays Claude's calls. The model never connects to servers directly.",
+      "stdio transport: the client launches the server as a local subprocess and exchanges JSON-RPC over stdin and stdout. The server must write only MCP messages to stdout, and logs go to stderr.",
+      "Streamable HTTP is the transport for remote servers shared by many clients. Deploy it like a web service with authentication. The standalone SSE transport is deprecated.",
+      "Remote server auth uses OAuth. The MCP server is a resource server that must accept only tokens issued for itself (audience validation), and it must not pass the client's token through to upstream APIs; it gets its own credentials for those.",
+      "Design tools for agent workflows rather than mirroring every API endpoint. Use fewer task-level tools, concise responses with pagination, and actionable errors. Report tool failures with `isError: true` so the model can self-correct.",
+      "Treat tool annotations (such as read-only hints) from untrusted servers as untrusted. Use servers you wrote or trust, and keep approval decisions in the client's permission system.",
+      "Claude Code scopes: `local` (the default; private to you, current project, stored in `~/.claude.json`), `project` (shared through a committed `.mcp.json` at the repo root, approved on first use), and `user` (private, all your projects). For the same name, local > project > user.",
+      "Add servers with `claude mcp add --transport http <name> <url>` or `claude mcp add --transport stdio <name> -- <command>`, plus `--scope`. Use `${VAR}` expansion in `.mcp.json` to keep secrets out of the repo.",
+      "Admins can control which MCP servers users can add through managed configuration (a fixed `managed-mcp.json`, or allowlists and denylists in managed settings).",
+      "The Messages API MCP connector (the `mcp_servers` parameter) connects to remote HTTP servers without client code, but supports only tool calls. Local stdio servers, resources and prompts need your own MCP client.",
+      "The Agent SDK connects to external MCP servers and also defines custom tools as in-process SDK MCP servers (`createSdkMcpServer` / `create_sdk_mcp_server`), with no separate deployment."
+    ],
+    "docs": [
+      {
+        "title": "Connect Claude Code to tools via MCP",
+        "url": "https://code.claude.com/docs/en/mcp"
+      },
+      {
+        "title": "MCP connector",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/mcp-connector"
+      },
+      {
+        "title": "Connect to external tools with MCP",
+        "url": "https://code.claude.com/docs/en/agent-sdk/mcp"
+      },
+      {
+        "title": "Writing effective tools for AI agents—using AI agents",
+        "url": "https://www.anthropic.com/engineering/writing-tools-for-agents"
+      }
+    ]
+  },
+  "agentic-customization": {
+    "summary": "Choose the lightest mechanism that fully meets a need, among built-in tools, custom tools, Skills, MCP servers, CLAUDE.md and hooks, and combine them well.",
+    "points": [
+      "Start with built-in tools. Claude Code already reads, searches, edits files and runs shell commands under permission rules, and the API offers server tools for web search, web fetch and code execution. Do not rebuild these as MCP servers or Skills.",
+      "Custom tools are the lightest way to connect Claude to logic inside one application, such as your own library or internal API, with no extra deployment.",
+      "Anthropic-schema client tools (bash, text editor, memory, computer use) are trained-in, so Claude calls them more reliably than a custom equivalent, while your code still executes them where you choose.",
+      "MCP servers suit external systems and capabilities shared across several clients or teams, with the connection and authentication handled by the server.",
+      "Skills package instructions, reference material and scripts for on-demand use. A skill is a folder with a `SKILL.md` (YAML frontmatter plus instructions) and optional supporting files.",
+      "Progressive disclosure: skill descriptions (`name` and `description`) are always in context, the SKILL.md body loads when the skill triggers, and bundled files load only when read. Scripts are executed, so only their output uses context.",
+      "Write the `description` to say what the skill does and when to use it, because Claude matches tasks against it. Vague or overlapping descriptions cause wrong or missed triggers. `disable-model-invocation: true` makes a skill manual-only (`/name`).",
+      "Keep SKILL.md concise (the authoring guidance is under 500 lines), link detailed reference files one level deep, and move deterministic operations into scripts.",
+      "CLAUDE.md is loaded every session. Use it for short, always-relevant facts and rules (build commands, conventions, \"use pnpm\"). Move occasional reference material and procedures into Skills. Files imported with `@path` still load at launch.",
+      "Skill + MCP: MCP provides the connection to a system, and a Skill teaches Claude how to use it well (schema, query conventions, workflows).",
+      "Hooks, not Skills or CLAUDE.md, for anything that must happen every time or must be blocked. An instruction is a request; a hook or permission rule is enforcement.",
+      "Skills on the Claude API run in the code execution container with no network access and no runtime package installs. Provide live external data through a custom tool or MCP server.",
+      "Only install Skills and MCP servers from trusted sources, and audit bundled scripts first. A Skill can direct Claude to run code, and a server can do whatever its process can.",
+      "Plugins package Skills, hooks, subagents and MCP servers into one installable unit for reuse across repositories or distribution through a marketplace."
+    ],
+    "docs": [
+      {
+        "title": "Extend Claude Code",
+        "url": "https://code.claude.com/docs/en/features-overview"
+      },
+      {
+        "title": "Extend Claude with skills",
+        "url": "https://code.claude.com/docs/en/skills"
+      },
+      {
+        "title": "Agent Skills",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview"
+      },
+      {
+        "title": "Skill authoring best practices",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices"
+      },
+      {
+        "title": "Server tools",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/server-tools"
+      }
+    ]
+  }
+}

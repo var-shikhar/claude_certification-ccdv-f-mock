@@ -1,0 +1,655 @@
+[
+  {
+    "id": "D8-TL-008",
+    "domain": 8,
+    "skill": "tool-implementation",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer adds a get_weather tool to a chat app. When users ask about the weather, the app shows an empty reply, and logging shows the response has stop_reason \"tool_use\" with a tool_use block. What is missing from the app?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A higher max_tokens value, so Claude has room to finish its answer after planning the tool call.",
+        "why": "The response did not run out of tokens; it stopped deliberately to request a tool."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A tool_choice of {\"type\": \"none\"}, so Claude answers directly instead of asking for the tool.",
+        "why": "That would suppress the tool the feature depends on, leaving Claude without live weather data."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "A loop that runs the tool, returns a tool_result, and calls the API again.",
+        "why": "Client tools require the app to execute the call and return the result; Claude writes the final answer in a later response."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Streaming, because tool responses are only fully delivered when the request streams.",
+        "why": "Streaming changes how the response is delivered, not whether the app must execute the tool."
+      }
+    ],
+    "explanation": "With client tools, stop_reason \"tool_use\" means Claude is waiting for your application. The agentic loop runs each requested tool, returns tool_result blocks in a new user message, and repeats while stop_reason is \"tool_use\"; any other stop reason ends the loop.",
+    "reference": "Claude API docs — How tool use works"
+  },
+  {
+    "id": "D8-TL-009",
+    "domain": 8,
+    "skill": "tool-implementation",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A booking tool's input_schema declares passengers as an integer, but a small share of calls send \"two\" or \"2\", which crashes the booking service. The team wants tool inputs that always match the schema. What should they do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Enable strict tool use by setting strict: true on the tool definition.",
+        "why": "Strict tool use constrains sampling so tool inputs are guaranteed to conform to the JSON Schema, including types."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add \"must be a number, not a word\" to the passengers parameter description.",
+        "why": "Clearer descriptions reduce mistakes but do not guarantee schema-valid inputs."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Force the tool with tool_choice so Claude focuses on filling in the parameters.",
+        "why": "Forcing a tool controls whether it is called, not whether its arguments match the schema."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lower the temperature to 0 so parameter values are formatted more consistently.",
+        "why": "Lower temperature makes outputs more deterministic but provides no schema guarantee."
+      }
+    ],
+    "explanation": "Strict tool use applies grammar-constrained sampling to tool inputs, so parameters always match the declared JSON Schema (correct types, required fields present). Descriptions and sampling settings improve reliability but cannot guarantee conformance.",
+    "reference": "Claude API docs — Strict tool use"
+  },
+  {
+    "id": "D8-TL-010",
+    "domain": 8,
+    "skill": "tool-implementation",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer is adding a create_refund tool whose handler calls the company's payments API. The API needs a secret key, and its base URL differs between staging and production. A draft adds api_key and base_url as parameters in the tool's input_schema and puts the key in the system prompt so Claude can fill them in. What is the better design?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Have the handler read the key and URL from per-environment config; keep only inputs like order_id in the schema.",
+        "why": "Connection details are application configuration: the handler already runs in your code, so Claude never needs to see them, and each environment supplies its own values."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep both parameters but mark api_key as required in the input_schema so Claude never leaves it out of a call.",
+        "why": "Making it required still routes the secret through Claude's context and tool calls, where it can be logged or extracted through prompt injection."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Encrypt the key before putting it in the system prompt, and have the handler decrypt whatever value Claude passes back.",
+        "why": "The model gains nothing from an encrypted value, which still travels through prompts and logs; the handler can simply read the key from configuration."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Move the key from the system prompt into the create_refund tool description so only that tool can see it.",
+        "why": "Tool descriptions are part of the prompt the API builds for Claude, so the secret is just as exposed as before."
+      }
+    ],
+    "explanation": "Client tool handlers run in your application, so the details needed to reach an external system (credentials, base URLs, timeouts) belong in the application's configuration or secret store, set per environment. The input_schema should expose only the inputs Claude has to decide on. Anything placed in the system prompt, tool descriptions or schema is visible to the model and can leak.",
+    "reference": "Claude API docs — Define tools; Handle tool calls"
+  },
+  {
+    "id": "D8-TL-011",
+    "domain": 8,
+    "skill": "tool-implementation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An app enables the server-side web search tool. On complex research questions, some responses end with stop_reason \"pause_turn\" and a partial answer, which the app shows to the user as final. What should the developer change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Execute the web search calls in the app and return their results as tool_result blocks.",
+        "why": "Web search is a server tool that Anthropic executes; the app has no search results to supply."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Treat pause_turn as unfinished and resend the conversation, including the paused turn.",
+        "why": "pause_turn means the server-side loop hit its iteration limit; sending the paused turn back lets Claude pick up where it stopped."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Raise max_tokens, because pause_turn means the output length limit was reached.",
+        "why": "Running out of output tokens is reported as max_tokens, not pause_turn."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Replace web search with a custom client-side search tool so no pauses can occur.",
+        "why": "This throws away a working server tool and adds infrastructure instead of handling a normal stop reason."
+      }
+    ],
+    "explanation": "Server tools run their own loop on Anthropic's side. If that loop hits its iteration limit, the response returns stop_reason \"pause_turn\"; the application should send the conversation back, including the paused assistant response, so Claude can continue. Harnesses should branch on every stop_reason, not just \"end_turn\".",
+    "reference": "Claude API docs — How tool use works"
+  },
+  {
+    "id": "D8-TL-012",
+    "domain": 8,
+    "skill": "tool-implementation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A desktop assistant built with the Claude Agent SDK should read and search files without interruptions, but every file write or shell command must be shown to the user in the app's own dialog for approval. Which configuration fits?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Run in bypassPermissions mode and tell Claude in the system prompt to ask before writing files.",
+        "why": "Bypass mode approves the calls itself; whether Claude asks first depends on the model, not on enforcement."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Put the write and shell tools in disallowed_tools so they can never run without the user.",
+        "why": "Deny rules block those tools entirely, so the user never gets the chance to approve them."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Pre-approve reads with allowed_tools and route all other calls to a can_use_tool approval dialog.",
+        "why": "Allowed tools run without prompts, and calls not resolved by rules reach the callback, where the app shows its own dialog."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add a PostToolUse hook that asks the user to confirm each write after it happens.",
+        "why": "PostToolUse runs after the tool has executed, so confirmation comes too late to approve anything."
+      }
+    ],
+    "explanation": "In the Agent SDK, permission rules decide the clear cases (allowed_tools, disallowed_tools, permission modes), and the can_use_tool callback (canUseTool in TypeScript) handles everything else at runtime. That is the natural place for a human-approval UI, while read-only tools stay pre-approved.",
+    "reference": "Agent SDK docs — Configure permissions"
+  },
+  {
+    "id": "D8-TL-013",
+    "domain": 8,
+    "skill": "tool-implementation",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A support agent's lookup_orders tool takes a free-text status parameter and returns the full raw API response, including internal UUIDs and dozens of unused fields. Claude often passes invalid statuses and misreads the results. Which two changes will most improve reliability? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Declare status as an enum in the input_schema, listing the valid values.",
+        "why": "An enum spells out the allowed values in the schema, so Claude chooses a valid status instead of guessing."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Replace the tool with a generic run_sql tool so Claude can write any query it needs.",
+        "why": "A raw query tool widens the attack surface and makes Claude's job harder, not easier."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Return only the fields Claude needs, with readable names and labels alongside any IDs.",
+        "why": "Concise, meaningful results reduce misreading and save context compared with raw dumps full of opaque identifiers."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Shorten the tool description to one line to save tokens, relying on the parameter names.",
+        "why": "Descriptions are the main signal for correct use; trimming them makes mistakes more likely."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Keep returning the full raw response so Claude is never missing a field it might need.",
+        "why": "Returning everything is what causes the misreading and context bloat in the first place."
+      }
+    ],
+    "explanation": "Well-designed tools constrain inputs (enums, clear formats, detailed descriptions) and return concise, high-signal outputs with human-readable identifiers. Generic catch-all tools and raw dumps make agents less reliable and less safe.",
+    "reference": "Anthropic engineering — Writing effective tools for AI agents—using AI agents"
+  },
+  {
+    "id": "D8-MCP-006",
+    "domain": 8,
+    "skill": "mcp-development",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer writes a local MCP server that Claude Code launches over stdio. To debug it, they add print statements that write progress messages to standard output, and the client now reports connection and parse errors. What should they change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Write debug and log messages to stderr, keeping stdout for MCP protocol messages only.",
+        "why": "Over stdio, stdout carries the JSON-RPC stream; the server must not write anything else there, but it may log to stderr."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Switch the server to Streamable HTTP, because stdio servers cannot produce log output.",
+        "why": "stdio servers can log freely to stderr; changing transport is unnecessary."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Wrap each debug message in a JSON object so the client can parse it alongside responses.",
+        "why": "Anything on stdout must be a valid MCP message; ad hoc JSON still breaks the protocol stream."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Increase the client's MCP startup timeout so it waits for the debug output to finish.",
+        "why": "The failure is caused by invalid data on stdout, not by slowness."
+      }
+    ],
+    "explanation": "In the stdio transport, the client launches the server as a subprocess and exchanges newline-delimited JSON-RPC messages over stdin and stdout. The server must not write non-protocol output to stdout; stderr is available for logs.",
+    "reference": "MCP specification — Transports"
+  },
+  {
+    "id": "D8-MCP-007",
+    "domain": 8,
+    "skill": "mcp-development",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A backend service built directly on the Messages API needs Claude to use the tools of a vendor's remote MCP server, which is reachable over HTTPS with OAuth. The team does not want to implement an MCP client themselves. Which approach fits?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Rewrite each of the vendor's MCP tools as a custom tool and call the vendor API from the backend.",
+        "why": "This duplicates the server's work by hand and has to be kept in sync with every vendor change."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Run the vendor server locally over stdio and point the Messages API at the local process.",
+        "why": "The API cannot reach a local stdio process; the MCP connector connects only to servers exposed over HTTP."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Use the web fetch server tool to call the MCP server's URL and let Claude read the responses.",
+        "why": "Web fetch retrieves web pages; it does not speak the MCP protocol or discover and call tools."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Use the MCP connector, listing the server URL and token in the mcp_servers parameter.",
+        "why": "The MCP connector lets the Messages API connect to remote MCP servers and call their tools with no client code in your app."
+      }
+    ],
+    "explanation": "The Messages API's MCP connector connects to remote MCP servers over HTTP (with OAuth bearer tokens when needed) and exposes their tools to Claude, without an MCP client in your code. It supports tool calls only; local stdio servers, resources or prompts need your own MCP client.",
+    "reference": "Claude API docs — MCP connector"
+  },
+  {
+    "id": "D8-MCP-008",
+    "domain": 8,
+    "skill": "mcp-development",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team deploys a remote MCP server that lets Claude clients work with their CRM. Clients authenticate to the MCP server with OAuth, and the server currently forwards each incoming access token unchanged to the CRM's API. A security review flags this design. Which two changes should they make? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Validate that each incoming token was issued for this MCP server as its audience, and reject others.",
+        "why": "The MCP authorization spec requires servers to accept only tokens issued for themselves, which blocks tokens meant for other services."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep forwarding the client's token to the CRM, but only over TLS connections.",
+        "why": "TLS protects the token in transit, but passing it through is still the confused-deputy pattern the review flagged."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Call the CRM with a separate credential the MCP server obtains for itself, not the client's token.",
+        "why": "The MCP server acts as its own OAuth client to upstream APIs; the spec forbids passing through the token it received."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Replace OAuth with one static API key that is embedded in every client configuration.",
+        "why": "A shared static key removes per-user identity and auditing and is easy to leak."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Accept any unexpired token from the company's identity provider, whatever its audience.",
+        "why": "Skipping audience checks lets tokens issued for other services be replayed against the MCP server."
+      }
+    ],
+    "explanation": "A protected MCP server is an OAuth resource server: it must validate that tokens were issued for it, and when it calls upstream APIs it must use its own separately issued credentials. Token passthrough is explicitly forbidden because it creates confused-deputy risks and breaks audit trails.",
+    "reference": "MCP specification — Authorization"
+  },
+  {
+    "id": "D8-MCP-009",
+    "domain": 8,
+    "skill": "mcp-development",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A support app has its own MCP client. At startup it calls tools/list on the team's MCP server and passes the tools to Claude with each Messages API request. The server also exposes product manuals as MCP resources, but Claude's answers never reflect anything in the manuals. What is the most likely cause?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The resource descriptions are too vague, so Claude decides not to open the manuals when answering questions.",
+        "why": "Claude never sees resources the app has not provided, so better resource descriptions change nothing."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Resources are application-driven: the app never reads them or adds their content to Claude's context.",
+        "why": "The host decides which resources to fetch (resources/list, resources/read) and include; passing only the tools leaves the manuals invisible to Claude."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "MCP resources are only available over the stdio transport, and this server is using Streamable HTTP.",
+        "why": "Resources are a protocol feature that works over any transport."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The manuals should be MCP prompts, which clients send to Claude automatically with every request.",
+        "why": "Prompts are user-controlled templates, typically picked from a menu; they are not injected automatically."
+      }
+    ],
+    "explanation": "MCP primitives have different controllers: tools are model-controlled (Claude decides to call them), resources are application-driven (the host fetches them and adds them to context, or lets the user attach them), and prompts are user-controlled templates. If Claude itself should decide when to consult the manuals, expose a search tool; otherwise have the app read the relevant resources into context.",
+    "reference": "MCP specification — Resources; Tools; Prompts"
+  },
+  {
+    "id": "D8-MCP-010",
+    "domain": 8,
+    "skill": "mcp-development",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A developer wants to connect Claude Code to a community MCP server from an unfamiliar publisher. It offers a fetch_page tool that reads arbitrary web pages and a post_message tool that posts to the team's Slack. Which two practices should guide the integration? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Vet the publisher and the server's code, and pin a reviewed version, before connecting it.",
+        "why": "An MCP server runs with whatever access its process or service has, so trust has to be established before it is connected."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Treat fetch_page results as untrusted content, and keep post_message behind an approval prompt rather than an allow rule.",
+        "why": "Fetched pages can carry prompt injection, and keeping approval on the tool with external side effects stops injected text from posting on its own."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Auto-approve every tool from the server, because MCP servers run in a sandbox that blocks harmful actions.",
+        "why": "MCP does not sandbox servers; a server can do anything its process or remote service can do."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Decide which tools are safe to auto-approve from their descriptions, since MCP requires servers to describe side effects accurately.",
+        "why": "Descriptions and annotations come from the server itself; the spec says clients should treat them as untrusted unless the server is trusted."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Add it at project scope in .mcp.json so teammates' clients approve it automatically when they clone the repository.",
+        "why": "Project-scoped servers still require each user's approval, and sharing an unvetted server spreads the risk to the whole team."
+      }
+    ],
+    "explanation": "Connect MCP servers you trust, after reviewing them, and treat what their tools return, especially external content, as untrusted input that may contain prompt injection. Keep approval decisions in the client's permission system (approval prompts, allow and deny rules per tool) rather than delegating them to the server's self-description.",
+    "reference": "Claude Code docs — Connect Claude Code to tools via MCP; MCP specification — Tools"
+  },
+  {
+    "id": "D8-CUS-007",
+    "domain": 8,
+    "skill": "agentic-customization",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "In a team's repository, Claude Code keeps running npm install even though the project uses pnpm, and it forgets that tests must run before each commit. The team wants Claude to know these conventions in every session. What should they use?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A Skill named project-conventions that Claude loads when it thinks the rules are relevant.",
+        "why": "Skills load on demand, which suits occasional reference material, not short rules needed in every session."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "An MCP server that exposes a get_conventions tool for Claude to call before running commands.",
+        "why": "MCP connects Claude to external systems; wrapping two static rules in a server adds complexity and Claude may not call it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A custom subagent with the conventions in its system prompt for all package tasks.",
+        "why": "The main session would still not know the rules, and delegating every command is unnecessary overhead."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Short CLAUDE.md entries, such as \"Use pnpm, not npm\" and \"Run tests before committing.\"",
+        "why": "CLAUDE.md is loaded into every session, which is exactly what brief, always-applicable project conventions need."
+      }
+    ],
+    "explanation": "CLAUDE.md holds persistent context that Claude sees every session, such as build commands and \"always do X\" rules. Skills are for on-demand knowledge and workflows, MCP is for external systems, and if a rule must be enforced rather than remembered, a hook is the right tool.",
+    "reference": "Claude Code docs — Extend Claude Code"
+  },
+  {
+    "id": "D8-CUS-008",
+    "domain": 8,
+    "skill": "agentic-customization",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A team connected Claude Code to their analytics database through an MCP server. Claude can run queries, but it often picks the wrong tables and ignores the team's conventions for filtering test accounts. The schema notes and conventions are about 800 lines. What is the best addition?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A Skill with the schema notes and query conventions, so Claude loads them when doing analytics work.",
+        "why": "MCP provides the connection and a Skill teaches Claude how to use it well, loading the 800 lines only when relevant."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Paste the full schema notes and conventions into the project CLAUDE.md so they are always loaded.",
+        "why": "CLAUDE.md loads every session, so 800 lines of occasional reference would cost context in unrelated work."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add a separate MCP tool for every common query so Claude never has to write SQL itself.",
+        "why": "Dozens of narrow tools bloat the tool list and still leave Claude without the conventions for new questions."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Replace the MCP server with custom tools whose descriptions include the complete schema.",
+        "why": "Stuffing the schema into tool descriptions loads it on every request and rebuilds a connection that already works."
+      }
+    ],
+    "explanation": "MCP and Skills complement each other: MCP gives Claude access to an external system, and a Skill supplies the knowledge and procedures for using it well, loaded on demand. Always-loaded CLAUDE.md suits short rules, not large reference material.",
+    "reference": "Claude Code docs — Extend Claude Code"
+  },
+  {
+    "id": "D8-CUS-009",
+    "domain": 8,
+    "skill": "agentic-customization",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Engineers want Claude, both in Claude Code and in the company's internal chat assistant, to answer questions like \"what version is deployed to staging right now?\" from the internal deployment service's REST API. A teammate proposes a Skill containing the API documentation and a table of current deployments that a nightly job regenerates. Which approach fits best?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Use the Skill as proposed, because Skills load only when relevant and keep the context window small.",
+        "why": "On-demand loading does not make a nightly snapshot current; answers could be up to a day out of date."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Put the deployment table in the project CLAUDE.md and regenerate it every hour with a scheduled job.",
+        "why": "The table is still a stale copy, it loads into every session, and it does not reach the chat assistant."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Build an MCP server that exposes deployment queries as tools, and connect both Claude clients to it.",
+        "why": "A live, shared system is what MCP is for: both clients get current data from one integration, maintained in one place."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Define a custom tool in each of the two clients that calls the deployment API directly.",
+        "why": "This returns live data but duplicates the integration in every client, which MCP avoids."
+      }
+    ],
+    "explanation": "Skills package procedures and reference knowledge; they are not a source of live data. When several Claude clients need current information from an external system, an MCP server exposes it once as tools that every client can use. A Skill can still complement it, for example with the team's rollout procedure.",
+    "reference": "Claude Code docs — Extend Claude Code; Connect Claude Code to tools via MCP"
+  },
+  {
+    "id": "D8-CUS-010",
+    "domain": 8,
+    "skill": "agentic-customization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer is building an app in which Claude edits configuration files inside each customer's own workspace on the developer's servers. They are about to design a custom edit_file tool with their own parameters. Which approach is most reliable?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Keep the custom edit_file tool and add many examples of correct edits to its description.",
+        "why": "This can work, but Claude is less reliable with a new edit schema than with the one it has been trained on."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Use Anthropic's text editor tool schema and implement its commands against the customer workspace.",
+        "why": "Anthropic-schema tools are trained-in, so Claude calls them reliably, and because they are client-executed your code controls where edits happen."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Use the code execution server tool so Claude edits the files directly in its sandbox.",
+        "why": "Code execution runs in Anthropic's container, not in the customer's workspace on your servers."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Ask Claude to return complete new file contents in plain text and overwrite files with the response.",
+        "why": "Parsing free text into file writes is fragile and wasteful; a structured edit tool is the better contract."
+      }
+    ],
+    "explanation": "For standard operations such as file editing and shell commands, Anthropic publishes client-executed tool schemas that Claude is trained on. You still run the operation, so you keep control of the environment, while Claude calls the familiar schema more reliably than a custom equivalent.",
+    "reference": "Claude API docs — How tool use works"
+  },
+  {
+    "id": "D8-CUS-011",
+    "domain": 8,
+    "skill": "agentic-customization",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team's Skill for integrating with their payments API has a 4,000-line SKILL.md containing the workflow, full reference for 30 endpoints, and inline code for validating webhook signatures. Whenever it triggers, it consumes a large part of the context. Which two changes best apply Skill design practices? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Keep SKILL.md to a concise workflow and move endpoint reference into separate files it links to.",
+        "why": "Progressive disclosure: the body stays short, and Claude reads a reference file only when a task needs that endpoint."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Move the endpoint reference into the Skill's description so Claude sees it before deciding to load the Skill.",
+        "why": "The description is loaded in every session; filling it with reference makes the cost permanent and blurs triggering."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Put the signature validation in a bundled script that Claude runs, so only its output enters context.",
+        "why": "Scripts are executed rather than read into context, which saves tokens and gives more reliable, deterministic results."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Split the content into 30 Skills, one per endpoint, each with a similar description.",
+        "why": "Many near-identical descriptions make it hard for Claude to choose the right Skill and scatter the workflow."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Move the whole Skill into CLAUDE.md so it is loaded once at session start.",
+        "why": "CLAUDE.md is loaded every session, which would make the cost permanent instead of on demand."
+      }
+    ],
+    "explanation": "Skills use progressive disclosure: a short description is always loaded, the SKILL.md body loads when triggered, and bundled files load only when read. Keep the body concise, push detailed reference into linked files, and use scripts for deterministic operations so only their output consumes context.",
+    "reference": "Claude API docs — Skill authoring best practices"
+  },
+  {
+    "id": "D8-CUS-012",
+    "domain": 8,
+    "skill": "agentic-customization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A Messages API app lets users upload CSV files and ask for statistics and charts. The team does not want to run model-written code on its own servers and does not want to build or host a sandbox. Which approach fits best?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Define a custom run_python tool whose handler executes Claude's code on the application server.",
+        "why": "This runs model-written code on the team's own servers, exactly what they want to avoid."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Deploy an MCP server that runs Python in containers and connect the app to it.",
+        "why": "This works but means building and hosting a sandbox, which the team explicitly does not want."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Put the CSV contents in the prompt and ask Claude to calculate the statistics directly in its answer.",
+        "why": "Mental arithmetic over large tables is unreliable, and Claude cannot produce chart files this way."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Enable the code execution server tool so the analysis runs in Anthropic's sandbox.",
+        "why": "Code execution is a server tool: the code runs in Anthropic's sandbox, so the team hosts nothing and runs no model code itself."
+      }
+    ],
+    "explanation": "Choose the lightest option that meets the constraints. Server tools such as code execution run on Anthropic's infrastructure, so an app gets sandboxed computation without executing model-written code or operating a sandbox itself. Custom tools and MCP servers fit when the capability must run in your environment.",
+    "reference": "Claude API docs — Server tools"
+  }
+]

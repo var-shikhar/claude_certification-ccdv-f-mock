@@ -1,0 +1,1098 @@
+[
+  {
+    "id": "D3-CC-015",
+    "domain": 3,
+    "skill": "claude-code-operation",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Halfway through a session, a developer asked Claude Code to restructure a module. Claude used its file-editing tools to change six files, and the result is worse than before. She wants both the files and the conversation back to the state just before that request, while keeping her own uncommitted work from earlier in the day. What should she do?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Run git checkout -- . to discard uncommitted changes, then continue in the same conversation.",
+        "correct": false,
+        "why": "This discards her own uncommitted work along with Claude's edits, and the failed attempt stays in the conversation."
+      },
+      {
+        "id": "B",
+        "text": "Run /clear and ask Claude to redo the restructuring from a fresh context.",
+        "correct": false,
+        "why": "/clear empties the conversation but leaves the six edited files exactly as they are."
+      },
+      {
+        "id": "C",
+        "text": "Open /rewind and restore code and conversation at the checkpoint before that request.",
+        "correct": true,
+        "why": "Checkpoints record Claude's file edits per turn, so restoring both returns the files and the conversation to that point without touching earlier work."
+      },
+      {
+        "id": "D",
+        "text": "Run /compact with an instruction to forget the restructuring, then ask Claude to revert the files by hand.",
+        "correct": false,
+        "why": "Compaction summarizes context; it does not undo edits, and hand reverts of six files are error-prone."
+      }
+    ],
+    "explanation": "Checkpointing records the file edits Claude makes in each turn. /rewind (or Esc twice) can restore the code, the conversation, or both to an earlier checkpoint. It does not track changes made by Bash commands and is session-level recovery, not a replacement for git.",
+    "reference": "Claude Code docs — Checkpointing"
+  },
+  {
+    "id": "D3-CC-016",
+    "domain": 3,
+    "skill": "claude-code-operation",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A team wants every developer who clones the repository to get the same internal MCP server in Claude Code. The server needs a bearer token that differs per developer and must not appear in git. Which configuration fits best?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Have each developer run claude mcp add with --scope user and paste their own token into the command.",
+        "correct": false,
+        "why": "User scope lives in ~/.claude.json and is not shared through the repository, so each clone starts without the server."
+      },
+      {
+        "id": "B",
+        "text": "Commit .mcp.json with a single shared team token in the headers so everyone connects immediately after cloning.",
+        "correct": false,
+        "why": "This puts a credential in version control and ignores the requirement for per-developer tokens."
+      },
+      {
+        "id": "C",
+        "text": "Put the server under mcpServers in .claude/settings.local.json and ask each developer to copy the block in.",
+        "correct": false,
+        "why": "settings.local.json is a personal, uncommitted file; MCP servers shared with a team belong in .mcp.json."
+      },
+      {
+        "id": "D",
+        "text": "Commit .mcp.json with the server and reference the token as ${MCP_TOKEN} in its headers.",
+        "correct": true,
+        "why": "Project scope (.mcp.json) is shared via version control, and ${VAR} expansion reads each developer's token from the environment instead of the file."
+      }
+    ],
+    "explanation": "MCP servers have local, project and user scopes. Only project scope (.mcp.json in the repo root) is shared through version control, and its entries can reference environment variables with ${VAR} so secrets stay out of the file.",
+    "reference": "Claude Code docs — Connect Claude Code to tools via MCP"
+  },
+  {
+    "id": "D3-CC-017",
+    "domain": 3,
+    "skill": "claude-code-operation",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer wants to run two Claude Code sessions on the same repository at the same time: one building a feature and one fixing a bug. Edits from one session must never appear in the other's working files, and both must share the repository history. What should she do?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Start the second session with claude --continue --fork-session so that it gets a separate session ID and transcript.",
+        "correct": false,
+        "why": "Forking branches the conversation transcript, not the files; both sessions would still edit the same working directory."
+      },
+      {
+        "id": "B",
+        "text": "Start the second session in plan mode so it only reads files until she approves its proposed changes.",
+        "correct": false,
+        "why": "Plan mode delays edits but does not isolate them; once approved they still touch the shared checkout."
+      },
+      {
+        "id": "C",
+        "text": "Start each session with claude --worktree <name> so it gets its own worktree and branch.",
+        "correct": true,
+        "why": "The --worktree flag creates an isolated checkout under .claude/worktrees/ on its own branch, so file edits never collide while history is shared."
+      },
+      {
+        "id": "D",
+        "text": "Run one session and ask it to delegate the bug fix to a subagent while the main conversation builds the feature.",
+        "correct": false,
+        "why": "A subagent runs in the same working directory by default, so its edits land in the same files as the main session."
+      }
+    ],
+    "explanation": "Worktrees isolate file edits between parallel sessions. claude --worktree creates a separate working directory and branch that shares the repository's history; session forking and subagents do not isolate files.",
+    "reference": "Claude Code docs — Run parallel sessions with worktrees"
+  },
+  {
+    "id": "D3-CC-018",
+    "domain": 3,
+    "skill": "claude-code-operation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer is two hours into a Claude Code session with a lot of accumulated context. She wants to try a risky alternative design in a second terminal, keeping all of that context, but the original session's transcript must stay untouched so she can return to it if the experiment fails. What should she run?",
+    "options": [
+      {
+        "id": "A",
+        "text": "claude --continue in the second terminal, then work on the alternative there.",
+        "correct": false,
+        "why": "Resuming the same session in two terminals without forking interleaves both conversations into one transcript, contaminating the original."
+      },
+      {
+        "id": "B",
+        "text": "claude --resume <session-id> --fork-session in the second terminal.",
+        "correct": true,
+        "why": "Forking creates a new session ID that starts from the full existing conversation, so the experiment continues with the context while the original transcript is left as it was."
+      },
+      {
+        "id": "C",
+        "text": "claude in the second terminal, then paste a summary of the design so far.",
+        "correct": false,
+        "why": "A fresh session loses the accumulated context and depends on a hand-written summary being complete."
+      },
+      {
+        "id": "D",
+        "text": "/compact in the original session, then explore the alternative in it.",
+        "correct": false,
+        "why": "Compacting reduces context but the experiment would still be written into the original session's transcript."
+      }
+    ],
+    "explanation": "Session management: --continue reopens the latest conversation, --resume opens a specific one, and --fork-session with either creates a new session ID that branches from the existing conversation. Resuming the same session in two places interleaves them.",
+    "reference": "Claude Code docs — Manage sessions"
+  },
+  {
+    "id": "D3-CC-019",
+    "domain": 3,
+    "skill": "claude-code-operation",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team has two project skills. The api-conventions skill is background knowledge that Claude should load on its own whenever API code is discussed, but it must not appear in the / menu as a command. The dependency-audit skill walks every lockfile and advisory feed, produces pages of output, and needs nothing from the current conversation; that output must not fill the main context. Which two frontmatter settings meet these needs? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "text": "Set disable-model-invocation: true on api-conventions.",
+        "correct": false,
+        "why": "That stops Claude from loading the skill automatically, which is the opposite of what the team wants for background knowledge."
+      },
+      {
+        "id": "B",
+        "text": "Set user-invocable: false on api-conventions.",
+        "correct": true,
+        "why": "This hides the skill from the / menu while its description stays in context so Claude can load it when relevant."
+      },
+      {
+        "id": "C",
+        "text": "Paste the api-conventions content into CLAUDE.md so it is always present.",
+        "correct": false,
+        "why": "That loads it in every session instead of on demand and does nothing for the audit skill."
+      },
+      {
+        "id": "D",
+        "text": "Set context: fork on dependency-audit so it runs in its own subagent.",
+        "correct": true,
+        "why": "The skill's instructions run in a separate context; its reads and output stay there and only the result returns to the main conversation."
+      },
+      {
+        "id": "E",
+        "text": "Set allowed-tools: Read Grep on dependency-audit so its file reads are pre-approved.",
+        "correct": false,
+        "why": "allowed-tools removes permission prompts during the skill's turn; the tool output still lands in the main context."
+      },
+      {
+        "id": "F",
+        "text": "Move dependency-audit to .claude/commands/ so it runs outside the conversation.",
+        "correct": false,
+        "why": "Command files and skills are the same mechanism; a command file still runs inline in the main context."
+      }
+    ],
+    "explanation": "Skill frontmatter controls both who invokes a skill and where it runs: user-invocable: false makes a skill model-only background knowledge hidden from the / menu, and context: fork runs the skill in a fresh subagent so its tool calls and output stay out of the main context. A forked skill does not see the conversation history, which suits a self-contained audit.",
+    "reference": "Claude Code docs — Extend Claude with skills"
+  },
+  {
+    "id": "D3-CC-020",
+    "domain": 3,
+    "skill": "claude-code-operation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer is 40 files into a 60-file migration in one Claude Code session. The context is nearly full, and Claude has started losing track of which files are done and of two design decisions made along the way. The migration conventions live in the root CLAUDE.md. She wants to finish in this conversation without re-explaining the work. What should she do?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Run /clear, then paste the list of remaining files and the two decisions into the first message.",
+        "correct": false,
+        "why": "This starts a new conversation and keeps only what she retypes; everything else learned in the session is gone."
+      },
+      {
+        "id": "B",
+        "text": "Run /compact with focus instructions naming the remaining files and the two decisions.",
+        "correct": true,
+        "why": "Compaction summarizes the conversation to free space, and the focus instructions make sure the summary keeps the state she needs."
+      },
+      {
+        "id": "C",
+        "text": "Open a second terminal with claude --continue --fork-session and carry on there.",
+        "correct": false,
+        "why": "A fork copies the same full context into a new session ID; nothing is freed."
+      },
+      {
+        "id": "D",
+        "text": "Paste the conventions from CLAUDE.md into the chat first so they survive compaction.",
+        "correct": false,
+        "why": "The project-root CLAUDE.md is re-injected from disk after compaction, so this only spends context."
+      }
+    ],
+    "explanation": "/compact summarizes the conversation so far to free context while staying in the same conversation, and it accepts focus instructions for what the summary must preserve. The project-root CLAUDE.md and unscoped rules are re-injected from disk after compaction; /clear starts a new conversation instead.",
+    "reference": "Claude Code docs — Commands; Explore the context window"
+  },
+  {
+    "id": "D3-CC-021",
+    "domain": 3,
+    "skill": "claude-code-operation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A monorepo has a root CLAUDE.md and a packages/api/CLAUDE.md with API conventions. A developer who works only on the API launches Claude Code from the repo root and notices the API conventions are not followed at the start of a session, though they are applied later after Claude reads files under packages/api/. She wants the conventions present from the first message without pushing them onto frontend teammates. What should she do?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Convert the file into .claude/rules/api.md with a paths: packages/api/** frontmatter so it is scoped to the API.",
+        "correct": false,
+        "why": "Path-scoped rules also load on demand when matching files are read, so the start-of-session gap remains."
+      },
+      {
+        "id": "B",
+        "text": "Launch Claude Code from packages/api/ so its CLAUDE.md loads at launch with the root file.",
+        "correct": true,
+        "why": "Files in the working directory and every directory above it load at launch; subdirectory files load only when Claude reads files there."
+      },
+      {
+        "id": "C",
+        "text": "Move the API conventions into the root CLAUDE.md so they are loaded at launch for every session in the repo.",
+        "correct": false,
+        "why": "This loads API rules for every session in the repo, including frontend work, which is what she wants to avoid."
+      },
+      {
+        "id": "D",
+        "text": "Run /init from the repository root so Claude Code merges the nested file into the root CLAUDE.md.",
+        "correct": false,
+        "why": "/init sets up or improves a project CLAUDE.md; it does not fix the on-demand loading of nested files and would broaden scope."
+      }
+    ],
+    "explanation": "CLAUDE.md hierarchy: files from the working directory upward load at launch, concatenated root-first; CLAUDE.md files in subdirectories below the working directory load on demand when Claude reads files there. Launching from the subtree makes its file part of the launch set.",
+    "reference": "Claude Code docs — How Claude remembers your project"
+  },
+  {
+    "id": "D3-CC-022",
+    "domain": 3,
+    "skill": "claude-code-operation",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "A team runs `claude -p` on a shared CI runner (not a container) to fix lint errors on each pull request. The run must never hang waiting for a person, must not be able to spend more than a fixed amount, must only run the lint and test commands the job expects, and must emit output a script can parse. Which three flags or settings belong in the invocation? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "text": "--max-budget-usd with the team's per-run cap.",
+        "correct": true,
+        "why": "This stops the run once API spend reaches the cap, including spend by subagents."
+      },
+      {
+        "id": "B",
+        "text": "--dangerously-skip-permissions so no prompt can ever block the job.",
+        "correct": false,
+        "why": "This skips all checks and is meant for isolated containers or VMs, not a shared runner, and it lets the run execute far more than lint and tests."
+      },
+      {
+        "id": "C",
+        "text": "--output-format json so the result is a single parseable object.",
+        "correct": true,
+        "why": "JSON output gives the script a structured result with the session ID and cost fields instead of free text."
+      },
+      {
+        "id": "D",
+        "text": "--continue so each run reuses the previous run's context and saves tokens.",
+        "correct": false,
+        "why": "Continuing whichever conversation was last on the shared runner mixes state between pull requests."
+      },
+      {
+        "id": "E",
+        "text": "--include-partial-messages so the script sees every token as it arrives.",
+        "correct": false,
+        "why": "Partial messages only apply to stream-json output and add nothing for a script that needs one final result."
+      },
+      {
+        "id": "F",
+        "text": "--allowedTools for the exact lint and test commands with --permission-mode dontAsk.",
+        "correct": true,
+        "why": "Pre-approved tools run, anything else that would prompt is denied instead of blocking, which is the documented setup for locked-down CI."
+      }
+    ],
+    "explanation": "Headless runs need three things decided up front: a permission setup that never waits (pre-approved tools plus dontAsk on a non-isolated runner), a spend cap (--max-budget-usd), and a machine-readable output format (--output-format json or stream-json).",
+    "reference": "Claude Code docs — Run Claude Code programmatically; CLI reference"
+  },
+  {
+    "id": "D3-CC-023",
+    "domain": 3,
+    "skill": "claude-code-operation",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A developer maintains two subagents. Her personal code-reviewer should build up lessons that carry across every repository she works in, and nothing about it may be committed. A second subagent, migration-helper, should accumulate knowledge about this one repository's schema, but that knowledge contains internal hostnames and must also stay out of git. Which two memory settings are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "text": "memory: project for code-reviewer.",
+        "correct": false,
+        "why": "Project scope is per repository and shareable via git, so lessons would not carry across repositories and could be committed."
+      },
+      {
+        "id": "B",
+        "text": "memory: project for migration-helper.",
+        "correct": false,
+        "why": "Project scope is designed to be committed and shared, which would expose the internal hostnames."
+      },
+      {
+        "id": "C",
+        "text": "memory: user for code-reviewer.",
+        "correct": true,
+        "why": "User-scoped memory lives under ~/.claude/agent-memory/ and follows her across all projects without touching any repository."
+      },
+      {
+        "id": "D",
+        "text": "Give both subagents the Write tool and have them append notes to CLAUDE.md.",
+        "correct": false,
+        "why": "That edits shared, committed instructions instead of using the subagent memory feature and its scoping."
+      },
+      {
+        "id": "E",
+        "text": "memory: local for migration-helper.",
+        "correct": true,
+        "why": "Local scope stores memory under the project in a directory that is meant to stay out of version control."
+      },
+      {
+        "id": "F",
+        "text": "memory: user for migration-helper.",
+        "correct": false,
+        "why": "User scope would carry this repository's schema notes into every other project she opens."
+      }
+    ],
+    "explanation": "Subagent memory has three scopes: user (all projects, personal), project (this repo, shareable via git) and local (this repo, not committed). Choose by how widely the knowledge should apply and whether it may be committed.",
+    "reference": "Claude Code docs — Create custom subagents"
+  },
+  {
+    "id": "D3-CC-024",
+    "domain": 3,
+    "skill": "claude-code-operation",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A nightly job runs `claude -p \"run the unit tests and fix any failures\" --output-format stream-json` on a shared runner in the default permission mode. It exits 0 and reports success, but the tests never actually ran. The final result message includes:\n```json\n\"permission_denials\": [{\"tool_name\": \"Bash\", \"tool_input\": {\"command\": \"npm test\"}}]\n```\nWhat should the developer do first?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Add --dangerously-skip-permissions to the invocation so that no tool call can ever be denied on the shared runner.",
+        "correct": false,
+        "why": "This removes every safety check on a shared, non-isolated runner to fix one denied command."
+      },
+      {
+        "id": "B",
+        "text": "Raise --max-turns so Claude has more attempts to get the tests to run before the session ends.",
+        "correct": false,
+        "why": "The command was denied, not cut off; more turns would produce more denials."
+      },
+      {
+        "id": "C",
+        "text": "Pre-approve it with --allowedTools \"Bash(npm test *)\" and fail the job if permission_denials is non-empty.",
+        "correct": true,
+        "why": "The log shows a permission denial, not a model failure; an allow rule for the needed command fixes it, and checking permission_denials stops silent success."
+      },
+      {
+        "id": "D",
+        "text": "Add \"you are allowed to run npm test without asking for permission\" to the prompt text.",
+        "correct": false,
+        "why": "Prompt text cannot grant permissions; only rules, modes and the permission host decide what runs."
+      }
+    ],
+    "explanation": "In a -p run with no one to answer prompts, any tool call that would prompt is denied and the run continues; stream-json reports these in permission_denials. The fix is to pre-approve the specific tools the job needs and treat denials as a job failure, not to disable permissions globally.",
+    "reference": "Claude Code docs — Run Claude Code programmatically"
+  },
+  {
+    "id": "D3-CC-025",
+    "domain": 3,
+    "skill": "claude-code-operation",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A team commits this in .claude/settings.json:\n```json\n{\"permissions\": {\"allow\": [\"Bash(npm run *)\"]}}\n```\nOne developer is still prompted every time Claude runs `npm run build`. Her ~/.claude/settings.json contains:\n```json\n{\"permissions\": {\"ask\": [\"Bash(npm *)\"]}}\n```\nShe wants the team's allow rule to work for her without weakening safety on other npm commands. What should she do?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Copy the team's allow rule into .claude/settings.local.json, because project-local settings have the highest precedence.",
+        "correct": false,
+        "why": "Permission lists merge across files and ask rules are checked before allow rules, so the same allow rule in another file is still outranked."
+      },
+      {
+        "id": "B",
+        "text": "Replace the team rule with the exact string Bash(npm run build) so that it matches more specifically than hers.",
+        "correct": false,
+        "why": "Specificity does not affect order; her ask rule would still match first, and this also edits the shared file for a personal problem."
+      },
+      {
+        "id": "C",
+        "text": "Set permissions.defaultMode to acceptEdits in her user settings so routine build commands stop prompting.",
+        "correct": false,
+        "why": "acceptEdits auto-approves file edits, not shell commands, and an explicit ask rule would still prompt."
+      },
+      {
+        "id": "D",
+        "text": "Narrow her user-level ask rule so it no longer covers npm run, for example to Bash(npm install *).",
+        "correct": true,
+        "why": "Her own ask rule is what fires first; narrowing it to the commands she actually wants to confirm lets the team's allow rule apply."
+      }
+    ],
+    "explanation": "Settings files merge list keys such as permissions.allow and permissions.ask rather than overriding each other, and rules are evaluated deny, then ask, then allow across the merged lists. When a personal ask rule shadows a team allow rule, adjust the ask rule.",
+    "reference": "Claude Code docs — Settings files and precedence; Configure permissions"
+  },
+  {
+    "id": "D3-CC-026",
+    "domain": 3,
+    "skill": "claude-code-operation",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A repository's committed .mcp.json lists an internal wiki server that is reachable only on the office network. A CI job runs `claude -p` on external runners and passes its own MCP server with --mcp-config ci-mcp.json. Runs are slow to start and log connection failures for the wiki server. The job still needs the repository's CLAUDE.md, rules and hooks. What should the developer do?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Add --bare so the run starts with no project configuration and only the flags the job passes.",
+        "correct": false,
+        "why": "Bare mode also drops CLAUDE.md, rules and hooks, which the job explicitly needs."
+      },
+      {
+        "id": "B",
+        "text": "Add --strict-mcp-config so the run loads only the servers passed with --mcp-config.",
+        "correct": true,
+        "why": "This ignores every other MCP configuration, including the project .mcp.json, while leaving settings, memory and hooks in place."
+      },
+      {
+        "id": "C",
+        "text": "Delete .mcp.json at the start of the job, before invoking claude, and restore it afterwards.",
+        "correct": false,
+        "why": "Mutating the checkout to work around configuration is fragile and can leak into any commits the job makes."
+      },
+      {
+        "id": "D",
+        "text": "Raise the MCP startup timeout so the wiki server has longer to connect before the first turn.",
+        "correct": false,
+        "why": "The server is unreachable from the runner; waiting longer only makes every run slower."
+      }
+    ],
+    "explanation": "Project-scoped MCP servers in .mcp.json load without a prompt in -p runs. When a headless job should use only its own servers, --strict-mcp-config limits MCP to the --mcp-config input without discarding the rest of the project configuration the way --bare does.",
+    "reference": "Claude Code docs — Connect Claude Code to tools via MCP; CLI reference"
+  },
+  {
+    "id": "D3-CC-027",
+    "domain": 3,
+    "skill": "claude-code-operation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A repository has a detailed AGENTS.md that several coding tools share, and Claude Code has been following it. A developer adds a short CLAUDE.md with two Claude-specific notes, and from the next session Claude stops following the conventions in AGENTS.md. The team wants AGENTS.md to stay the single source of truth for every tool. What should she do?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Copy the contents of AGENTS.md into CLAUDE.md so Claude has everything in its own file.",
+        "correct": false,
+        "why": "Two copies drift apart, and the shared file stops being the single source of truth."
+      },
+      {
+        "id": "B",
+        "text": "Add the sentence \"Read AGENTS.md before you start\" to CLAUDE.md.",
+        "correct": false,
+        "why": "Claude sees AGENTS.md only if it decides to open the file; a sentence is not a reliable load."
+      },
+      {
+        "id": "C",
+        "text": "Add an @AGENTS.md import line to CLAUDE.md and keep the two notes below it.",
+        "correct": true,
+        "why": "Imports are expanded at launch alongside CLAUDE.md, so the shared file loads every session and remains the one everyone edits."
+      },
+      {
+        "id": "D",
+        "text": "Rename AGENTS.md to CLAUDE.md and point the other tools at that file.",
+        "correct": false,
+        "why": "That breaks the other tools' convention to fix a Claude-side loading rule."
+      }
+    ],
+    "explanation": "When a CLAUDE.md exists, Claude Code reads CLAUDE.md files rather than AGENTS.md directly. CLAUDE.md can import other files with @path syntax, and imports are expanded into context at launch, so a CLAUDE.md containing @AGENTS.md keeps one shared file as the source of truth while allowing Claude-specific additions.",
+    "reference": "Claude Code docs — How Claude remembers your project"
+  },
+  {
+    "id": "D3-CC-028",
+    "domain": 3,
+    "skill": "claude-code-operation",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "After an hour of debugging in a Claude Code session, a developer wants Claude to try a fix on two alternative hypotheses in parallel. Each attempt needs everything discussed so far to make sense, but the file reads and test runs of each attempt must not pile into the main conversation's context. Which approach fits best?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Ask Claude to fork the current conversation into subagents, one per hypothesis.",
+        "correct": true,
+        "why": "A forked subagent inherits the entire conversation so far, runs its own tool calls out of the main context, and returns only its result."
+      },
+      {
+        "id": "B",
+        "text": "Create a custom debugging subagent in .claude/agents/ and delegate each hypothesis to it.",
+        "correct": false,
+        "why": "A regular subagent starts with a fresh context and would need the hour of background re-explained in its prompt."
+      },
+      {
+        "id": "C",
+        "text": "Open two more terminals with claude --resume <id> --fork-session and run one hypothesis in each.",
+        "correct": false,
+        "why": "Forked CLI sessions keep the history, but each is a full interactive session she must drive, and their work does not report back into the main conversation."
+      },
+      {
+        "id": "D",
+        "text": "Run /compact, then test both hypotheses in sequence in the main session.",
+        "correct": false,
+        "why": "Compacting frees space but every subsequent read and test result still lands in the main context, and the attempts are not parallel."
+      }
+    ],
+    "explanation": "A fork is a subagent that inherits the full conversation instead of starting fresh, trading input isolation for zero re-explanation, while still keeping its tool calls out of the main context. Use it when a fresh subagent would need too much background, or to try several approaches in parallel from the same point.",
+    "reference": "Claude Code docs — Create custom subagents"
+  },
+  {
+    "id": "D4-DBG-016",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "After an operations team rotates API keys, a reporting service's Messages API calls fail immediately with HTTP 403 and error type permission_error. The new key is valid and other services using it work. What should the developer do?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Retry with exponential backoff and jitter, because a 403 is a transient condition that will clear on its own.",
+        "correct": false,
+        "why": "403 permission_error is deterministic; every retry will fail the same way until the key's access changes."
+      },
+      {
+        "id": "B",
+        "text": "Generate another key immediately, because a 403 means the current key is malformed or has expired.",
+        "correct": false,
+        "why": "A malformed, revoked or expired key produces 401 authentication_error, not 403."
+      },
+      {
+        "id": "C",
+        "text": "Reduce the request size, because the account has hit a quota that the new key does not raise.",
+        "correct": false,
+        "why": "Quota and size problems surface as 429 or 413, not 403."
+      },
+      {
+        "id": "D",
+        "text": "Check the key's workspace and organization settings for access to the resource this service uses.",
+        "correct": true,
+        "why": "permission_error means the key authenticated but lacks permission for the specified resource, which is fixed in the Console's access and workspace settings."
+      }
+    ],
+    "explanation": "Error type identification: 401 authentication_error is a problem with the key itself; 403 permission_error is a valid key without access to the resource; neither is retryable. Fix the credential or its permissions, do not retry.",
+    "reference": "Claude API docs — Claude API errors"
+  },
+  {
+    "id": "D4-DBG-017",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A streaming chat app occasionally receives a response with stop_reason \"refusal\" and a stop_details object. The app currently treats this like a server error and resends the identical request three times, which produces three more refusals. Which two changes are appropriate? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "text": "Stop retrying the identical request; remove or rephrase the triggering turn, or reset the conversation, before continuing.",
+        "correct": true,
+        "why": "A refusal is a policy decision about the content, so the same context yields the same result until it is changed."
+      },
+      {
+        "id": "B",
+        "text": "Apply exponential backoff between the retries so the classifier has time to recover.",
+        "correct": false,
+        "why": "The refusal is not a capacity condition; waiting changes nothing about the content that triggered it."
+      },
+      {
+        "id": "C",
+        "text": "Open a support ticket with the request_id, because refusals indicate an API fault.",
+        "correct": false,
+        "why": "A refusal is expected behavior of streaming safety classifiers, not an internal error."
+      },
+      {
+        "id": "D",
+        "text": "Show the user the stop_details explanation when present, with a default message when it is null.",
+        "correct": true,
+        "why": "stop_details carries a category and explanation intended for the user, but both fields can be null and need a fallback."
+      },
+      {
+        "id": "E",
+        "text": "Raise max_tokens, since the refusal cut the answer short.",
+        "correct": false,
+        "why": "A refusal is a stop reason of its own, unrelated to the output limit."
+      },
+      {
+        "id": "F",
+        "text": "Send the refused response back to the model as a tool_result with is_error true.",
+        "correct": false,
+        "why": "There is no tool call involved; this malforms the conversation and does not clear the refusal."
+      }
+    ],
+    "explanation": "stop_reason \"refusal\" means Claude declined; it is not retryable as-is. Handle it by changing or resetting context or falling back to another model, and surface stop_details to the user while guarding against null fields.",
+    "reference": "Claude API docs — Handle streaming refusals; Stop reasons and fallback"
+  },
+  {
+    "id": "D4-DBG-018",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A Message Batch of 20,000 requests ends. The results show 19,300 succeeded, 0 errored and 700 expired. The pipeline currently marks the 700 as failed records and moves on. What is the best recovery?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Resubmit only the 700 expired requests in a new batch; they were never processed or billed.",
+        "correct": true,
+        "why": "Expired results mean the request was not sent to the model before the batch's 24-hour window ended; the requests themselves are fine and cost nothing."
+      },
+      {
+        "id": "B",
+        "text": "Inspect and fix the 700 requests before resubmitting, since expiry indicates an invalid request.",
+        "correct": false,
+        "why": "Invalid requests appear as errored results; expired means the batch ran out of time, not that the request was wrong."
+      },
+      {
+        "id": "C",
+        "text": "Resubmit the whole batch so every record is processed under the same conditions.",
+        "correct": false,
+        "why": "This repeats 19,300 already-billed successes for no benefit."
+      },
+      {
+        "id": "D",
+        "text": "Switch the 700 to synchronous Messages API calls with a 10-minute timeout each.",
+        "correct": false,
+        "why": "Synchronous calls forfeit batch pricing and are unnecessary; a new batch handles the leftovers."
+      }
+    ],
+    "explanation": "Batch results are per request: succeeded, errored, canceled or expired. Expired and canceled requests were never run and are not billed, so the recovery is to resubmit exactly those, keeping the successes.",
+    "reference": "Claude API docs — Batch processing"
+  },
+  {
+    "id": "D4-DBG-019",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A log-analysis agent runs for several turns and then fails with HTTP 400 invalid_request_error saying the prompt is too long. Traces show that each grep_logs tool call returns its full matching output, sometimes several megabytes, and every result stays in the message history. The SDK's automatic retries do not help. What should the developer change?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Retry with longer backoff and jitter, since the SDK gave up too early.",
+        "correct": false,
+        "why": "A 400 is deterministic; the same oversized history is rejected on every attempt."
+      },
+      {
+        "id": "B",
+        "text": "Have the tool return a bounded result, such as the first lines and a count, and trim old tool results from the history.",
+        "correct": true,
+        "why": "The error is about total input size, so shrinking what enters the context is the only change that addresses it."
+      },
+      {
+        "id": "C",
+        "text": "Raise max_tokens so the model has room to work with the large context.",
+        "correct": false,
+        "why": "max_tokens caps output; it is the input that exceeds the context window."
+      },
+      {
+        "id": "D",
+        "text": "Move the requests to the Message Batches API, which accepts larger inputs.",
+        "correct": false,
+        "why": "Batch requests use the same per-request context window; running asynchronously changes nothing about size."
+      }
+    ],
+    "explanation": "Recovery strategy selection: a 400 for an over-long prompt is a deterministic client error, so retrying, raising max_tokens, or changing endpoints does not fix it. The integration must bound what tools return and manage conversation history so the total input fits the model's context window.",
+    "reference": "Claude API docs — Claude API errors; Context windows"
+  },
+  {
+    "id": "D4-DBG-020",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A catalog agent answers \"item not found\" for some products. A trace of one failing run:\n```\n[1] user: \"What is the price of SKU 007731?\"\n[2] tool_use get_item {\"sku\": \"007731\"}\n[3] wrapper log: GET /items/7731 -> 404\n[4] tool_result: {\"error\": \"not found\"}\n[5] assistant: \"I could not find SKU 007731.\"\n```\nWhich step introduced the fault, and what should be fixed?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Step 3: the wrapper converted the SKU to a number, dropping leading zeros; keep it a string.",
+        "correct": true,
+        "why": "The tool input and the request differ (007731 versus 7731), which pinpoints the integration layer between the model and the service."
+      },
+      {
+        "id": "B",
+        "text": "Step 2: the model produced a wrong SKU; add examples of valid SKUs to the tool description and schema.",
+        "correct": false,
+        "why": "The model passed exactly the SKU the user gave, including the leading zeros, so its output is correct."
+      },
+      {
+        "id": "C",
+        "text": "Step 4: the tool_result should set is_error so the model retries the lookup with a corrected SKU.",
+        "correct": false,
+        "why": "A retry would call the same broken wrapper again; flagging errors is good practice but not the root cause."
+      },
+      {
+        "id": "D",
+        "text": "Step 5: the model should have retried with alternative SKU formats before telling the user it failed.",
+        "correct": false,
+        "why": "The model reported the tool result faithfully; making it guess formats hides an integration bug."
+      }
+    ],
+    "explanation": "Trace analysis: compare each hand-off. The tool input matched the user's request, but the outbound call did not match the tool input, so the fault entered in the wrapper (integration layer), not in model output. Fix the mapping rather than prompting around it.",
+    "reference": "Claude API docs — Handle tool calls"
+  },
+  {
+    "id": "D4-DBG-021",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An agent framework adds a progress note to the conversation after every tool call, so the history becomes: assistant tool_use, user text \"Running lookup...\", user tool_result. Requests now fail with HTTP 400 and a message saying tool_use ids were found without tool_result blocks immediately after. What should the developer change?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Retry the request with exponential backoff and jitter, since a 400 on an otherwise valid history is intermittent.",
+        "correct": false,
+        "why": "A 400 invalid_request_error is deterministic; the same malformed history fails every time."
+      },
+      {
+        "id": "B",
+        "text": "Set is_error true on the tool_result so the model understands that the lookup was delayed by the note.",
+        "correct": false,
+        "why": "The error is about message structure, not the content of the result."
+      },
+      {
+        "id": "C",
+        "text": "Move the progress note into the system prompt so that it is never part of the messages array at all.",
+        "correct": false,
+        "why": "This removes the note but is a workaround; the actual rule is where tool_result blocks must appear, and the framework should honor it."
+      },
+      {
+        "id": "D",
+        "text": "Put the tool_result in the very next user message, with any note text after the tool_result blocks.",
+        "correct": true,
+        "why": "Tool results must immediately follow the tool_use message, and within the user message tool_result blocks must come before any text."
+      }
+    ],
+    "explanation": "Integration-layer bugs often show up as 400 errors about message structure. tool_result blocks must be in the user message immediately following the assistant tool_use, and must precede any text in that message; these errors are fixed in code, never retried.",
+    "reference": "Claude API docs — Handle tool calls"
+  },
+  {
+    "id": "D4-DBG-022",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team is writing the recovery policy for an agent loop. Over a week they logged these failures: HTTP 529 overloaded_error; HTTP 429 with a retry-after header; a 400 invalid_request_error caused by a text block placed before the tool_result block; a 429 without retry-after during a spend-cap pause; a response with stop_reason max_tokens whose last block is an incomplete tool_use. Which two failures should be handled by changing the request rather than by retrying it unchanged or by alerting a person? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "text": "The 529 overloaded_error.",
+        "correct": false,
+        "why": "Overload is transient capacity; retry the same request with exponential backoff."
+      },
+      {
+        "id": "B",
+        "text": "The 400 caused by a text block before the tool_result block.",
+        "correct": true,
+        "why": "This is a message-structure bug; the history must be rebuilt with tool_result blocks first, and no retry will fix it."
+      },
+      {
+        "id": "C",
+        "text": "The 429 with a retry-after header.",
+        "correct": false,
+        "why": "A rate limit is retried unchanged after honoring the retry-after wait."
+      },
+      {
+        "id": "D",
+        "text": "The 429 without retry-after during a spend-cap pause.",
+        "correct": false,
+        "why": "Neither retrying nor changing the request helps; this needs a person to raise the limit or wait for the reset, so it is an alert."
+      },
+      {
+        "id": "E",
+        "text": "All of the 429 responses, regardless of headers.",
+        "correct": false,
+        "why": "The two 429 cases need different handling: one is retried after the wait, the other is an alert."
+      },
+      {
+        "id": "F",
+        "text": "The max_tokens stop with an incomplete tool_use block.",
+        "correct": true,
+        "why": "The documented recovery is to retry with a higher max_tokens so the full tool call can be generated; the request must change."
+      }
+    ],
+    "explanation": "Recovery strategy selection: transient errors (529, 429 with retry-after, 500) are retried unchanged with backoff; deterministic client errors (400 structure, incomplete tool_use at max_tokens) require changing the request; conditions no code can clear (spend cap, revoked key) are alerts.",
+    "reference": "Claude API docs — Claude API errors; Stop reasons and fallback"
+  },
+  {
+    "id": "D4-DBG-023",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Users report that long answers from a support assistant end abruptly. For one affected request, the API log shows stop_reason \"end_turn\" and a text block of about 6,000 characters, while the message stored for display holds exactly 4,000 characters. Where is the fault, and what should the developer fix?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Model output: the reply was truncated, so raise max_tokens for these requests.",
+        "correct": false,
+        "why": "end_turn and the full text in the API log show the model finished its answer."
+      },
+      {
+        "id": "B",
+        "text": "Model output: add \"keep answers under 4,000 characters\" to the system prompt.",
+        "correct": false,
+        "why": "This hides a storage bug by degrading answers; the model did not fail."
+      },
+      {
+        "id": "C",
+        "text": "Integration layer: the storage or rendering path caps text at 4,000 characters; fix that limit.",
+        "correct": true,
+        "why": "The response body was complete when it arrived, so the loss occurred after the API returned."
+      },
+      {
+        "id": "D",
+        "text": "API error: the response was cut off in transit, so retry those requests.",
+        "correct": false,
+        "why": "A response cut off in transit would not carry a complete end_turn stop reason and full text."
+      }
+    ],
+    "explanation": "Problem origin isolation: compare what the API returned with what users saw. A complete response with stop_reason end_turn that becomes shorter downstream points to the integration layer (storage, serialization or rendering), not to the model or the API.",
+    "reference": "Claude API docs — Stop reasons and fallback"
+  },
+  {
+    "id": "D4-DBG-024",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A support assistant is expected to call get_account before answering balance questions. For about 10% of users it replies that it cannot access account data. Comparing a failing request with a successful one shows identical system prompts and user messages, but the failing request body contains no tools array. Where is the fault, and what should the developer do?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Model output: add \"always call get_account for balance questions\" to the system prompt.",
+        "correct": false,
+        "why": "The model cannot call a tool it was never given, so no instruction changes the outcome."
+      },
+      {
+        "id": "B",
+        "text": "Model output: the tool description is too vague for some phrasings, so rewrite it with examples.",
+        "correct": false,
+        "why": "The description was not sent at all in the failing requests, so its wording is not the cause."
+      },
+      {
+        "id": "C",
+        "text": "Integration layer: a code path builds the request without the tool definitions for some users; find and fix it.",
+        "correct": true,
+        "why": "Identical prompts that differ only in the tools field show the fault entered before the model saw the request."
+      },
+      {
+        "id": "D",
+        "text": "API error: the tools were lost in transmission for these requests, so retry them.",
+        "correct": false,
+        "why": "The request body was logged before sending and already lacked tools; the API received what was sent."
+      }
+    ],
+    "explanation": "Problem origin isolation: when a failing and a successful request differ in what the application sent, the fault is in the integration layer. The model's answer was correct for a request with no tools, so prompt or description changes would not help.",
+    "reference": "Claude API docs — Handle tool calls"
+  },
+  {
+    "id": "D4-DBG-025",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "After a change to a search_orders wrapper, an agent that used to answer \"no orders found\" now apologizes and repeats the search up to five times, and the eval pass rate fell from 96% to 71%. A failing trace:\n```\ntool_use search_orders {\"customer\": \"c_812\"}\ntool_result is_error=true content=\"[]\"\nassistant: \"The search failed, let me try again.\"\ntool_use search_orders {\"customer\": \"c_812\"}\n```\nThe wrapper now sets is_error whenever the result list is empty. What should the developer do first?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Change the wrapper to return an empty list as a normal result with a note such as \"no orders found\", then re-run the eval.",
+        "correct": true,
+        "why": "is_error means the tool failed to execute; an empty result is a valid outcome, so the wrapper is sending the model a false failure signal."
+      },
+      {
+        "id": "B",
+        "text": "Add \"an empty result is not an error\" to the system prompt so the model stops retrying.",
+        "correct": false,
+        "why": "This asks the model to ignore a signal the integration should not be sending; the model is behaving correctly given is_error."
+      },
+      {
+        "id": "C",
+        "text": "Cap tool retries at one in the agent loop.",
+        "correct": false,
+        "why": "That limits wasted calls but leaves the wrong answer that the search failed."
+      },
+      {
+        "id": "D",
+        "text": "Switch to a more capable model, since the eval shows a regression.",
+        "correct": false,
+        "why": "The regression coincides with the wrapper change, and the trace shows the model reacting correctly to what it was told."
+      }
+    ],
+    "explanation": "Trace analysis: the model retried because the tool_result was marked is_error, which signals that execution failed. The fault entered in the integration layer when the wrapper began flagging valid empty results as errors. Fix the signal at its source rather than prompting the model around it, then confirm with the eval.",
+    "reference": "Claude API docs — Handle tool calls"
+  },
+  {
+    "id": "D4-DBG-026",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An ops agent's trace for a customer complaint about a duplicate notification email:\n```\n[1] assistant: tool_use send_email {\"to\": \"c@x.com\", ...}  -> tool executed, email sent\n[2] POST /v1/messages (with tool_result)  -> 529 overloaded_error\n[3] app: \"restarting task\"  -> loop rebuilt from the original user message\n[4] assistant: tool_use send_email {\"to\": \"c@x.com\", ...}  -> email sent again\n```\nWhat should the developer change?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Stop retrying 529 errors inside the agent loop and surface them to the user immediately as a temporary failure.",
+        "correct": false,
+        "why": "Overload is retryable; the bug is what the loop retries, not that it retries."
+      },
+      {
+        "id": "B",
+        "text": "Tell the model in the system prompt to check whether an email was already sent before sending another one.",
+        "correct": false,
+        "why": "After a restart the model has no record of the earlier send, so the instruction cannot be followed reliably."
+      },
+      {
+        "id": "C",
+        "text": "Add a longer backoff before restarting the task so that the overload has cleared by the time it runs again.",
+        "correct": false,
+        "why": "The restart itself is the problem; a delayed restart still sends the email twice."
+      },
+      {
+        "id": "D",
+        "text": "Retry only the failed API call with the same messages, tool_result included; make send_email idempotent.",
+        "correct": true,
+        "why": "The 529 was on the API call after the tool ran; replaying from scratch re-executes the side effect, whereas retrying the request preserves the completed work."
+      }
+    ],
+    "explanation": "Recovery strategy must respect where in the loop the failure occurred. A transient error on the model call after a tool has run is retried at the request level with the accumulated messages; restarting the whole task re-executes side effects. Idempotency keys on tools provide defense in depth.",
+    "reference": "Claude API docs — Claude API errors; Handle tool calls"
+  },
+  {
+    "id": "D4-DBG-027",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A nightly batch summarizes contracts into JSON. The batch reports every request as succeeded, yet a downstream parser rejects about 3% of the outputs. One rejected result:\n```json\n{\"custom_id\": \"doc-17\",\n \"result\": {\"type\": \"succeeded\",\n   \"message\": {\"stop_reason\": \"max_tokens\",\n               \"usage\": {\"output_tokens\": 2048}}}}\n```\nThe pipeline uses result.type alone to decide success. What should the developer do?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Also check stop_reason in each succeeded message; re-run the max_tokens ones with a higher limit.",
+        "correct": true,
+        "why": "Batch-level success only means a message was created; the message's own stop_reason shows it was truncated, and only those need re-running."
+      },
+      {
+        "id": "B",
+        "text": "Resubmit the 3% unchanged in a new batch, since truncation at this rate is random and will not recur.",
+        "correct": false,
+        "why": "With the same max_tokens the same long contracts will truncate again."
+      },
+      {
+        "id": "C",
+        "text": "Raise max_tokens for all future batches and accept tonight's results as final, since the batch succeeded.",
+        "correct": false,
+        "why": "This prevents future truncation but leaves 3% of tonight's records corrupted and the check missing."
+      },
+      {
+        "id": "D",
+        "text": "Treat any output the parser rejects as a model error and add a repair prompt that fixes the JSON.",
+        "correct": false,
+        "why": "The output is incomplete, not malformed by the model; the trace already names the cause and the fix is to give it room to finish."
+      }
+    ],
+    "explanation": "Batch results have two layers: result.type says whether a message was produced; the message's stop_reason says whether it finished. Treat succeeded plus max_tokens as truncated, re-run only those with a larger limit, and keep the check permanently.",
+    "reference": "Claude API docs — Batch processing; Stop reasons and fallback"
+  },
+  {
+    "id": "D4-DBG-028",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An agent loop fails intermittently with HTTP 400: `unexpected tool_use_id found in tool_result blocks: toolu_01Q...`. Traces show the failures happen only after the SDK's automatic retry recovered from a 5xx on the model call. The loop stores the tool_use ids from the first response object it constructs and later builds tool_result blocks from that list. What is the root cause and fix?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Transient API fault: the 400 follows a 5xx, so retry it with exponential backoff and jitter until the conversation is accepted.",
+        "correct": false,
+        "why": "The 400 is a deterministic validation error on the malformed history; retrying resends the same mismatch."
+      },
+      {
+        "id": "B",
+        "text": "The loop kept ids from the discarded attempt; build tool_result blocks from the response actually appended to messages.",
+        "correct": true,
+        "why": "Each tool_result must reference a tool_use id from the immediately preceding assistant message; ids cached from a discarded attempt do not exist in the conversation."
+      },
+      {
+        "id": "C",
+        "text": "Model output: the model reused a tool id from an earlier turn; add a system prompt rule that ids must always be unique.",
+        "correct": false,
+        "why": "The API assigns tool_use ids; the model does not choose or repeat them."
+      },
+      {
+        "id": "D",
+        "text": "SDK misconfiguration: set max_retries to zero so that the ids never change, and handle 5xx errors in the loop yourself.",
+        "correct": false,
+        "why": "That trades a correctness bug for lost resilience; the loop should simply read ids from the response it kept."
+      }
+    ],
+    "explanation": "tool_result blocks are matched to tool_use blocks by id within the immediately preceding assistant message. Any code path that can regenerate a response (retries, fallbacks) must derive tool_result ids from the response that was actually kept, never from cached state.",
+    "reference": "Claude API docs — Handle tool calls"
+  },
+  {
+    "id": "D4-DBG-029",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A customer says their refund went to store credit instead of their card. The trace:\n```\n[1] user: \"Cancel order 5521 and refund to my original card.\"\n[2] tool_use get_order {\"id\": \"5521\"}\n    tool_result {\"payment_method\": \"card_9\", \"refundable\": true}\n[3] tool_use cancel_order {\"id\": \"5521\"}  tool_result {\"ok\": true}\n[4] tool_use refund {\"id\": \"5521\", \"method\": \"store_credit\"}  tool_result {\"ok\": true}\n[5] assistant: \"Done. Your card has been refunded.\"\n```\nEvery tool wrapper's outbound call matched its tool input exactly. Where did the fault enter, and what should be fixed first?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Step 2: the order service should have returned the card token itself so that the refund tool could target the card directly without the model choosing.",
+        "correct": false,
+        "why": "The result already identified the payment method; the later argument contradicted it."
+      },
+      {
+        "id": "B",
+        "text": "Step 5: the final message misreports the outcome; add a prompt rule requiring the summary to match the tool results exactly before replying.",
+        "correct": false,
+        "why": "The misreport is a symptom; the refund had already gone to the wrong destination one step earlier."
+      },
+      {
+        "id": "C",
+        "text": "Step 4: the model's argument contradicts the user and the data; constrain the schema (enum, required method) and validate before executing.",
+        "correct": true,
+        "why": "Inputs to step 4 were complete and correct, so the wrong argument is model output; the fix is tighter tool schema and validation, not the wrappers."
+      },
+      {
+        "id": "D",
+        "text": "Step 4: the refund wrapper should have mapped store_credit back to the card on file; the fault is in the integration layer, not in the model.",
+        "correct": false,
+        "why": "The wrapper faithfully executed the input it was given; silently rewriting arguments would hide model errors."
+      }
+    ],
+    "explanation": "Trace analysis finds the first step whose output is wrong given correct, complete input. Steps 2 and 3 are consistent; step 4's argument contradicts both the user and the tool data with wrappers proven faithful, so the fault is model output. Fix it with a constrained schema and validation, and treat the step 5 misreport as downstream.",
+    "reference": "Claude API docs — Handle tool calls; Define tools"
+  }
+]

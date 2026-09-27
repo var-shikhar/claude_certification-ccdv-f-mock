@@ -1,0 +1,920 @@
+[
+  {
+    "id": "D5-LLM-001",
+    "domain": 5,
+    "skill": "llm-fundamentals",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer is surprised that a response ended mid-sentence with stop_reason set to \"max_tokens\", even though the prompt itself was short. Which description of how Claude generates output best explains this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Claude drafts the whole answer internally first, then trims it to fit max_tokens by cutting the least important sentences.",
+        "why": "There is no draft-then-trim step; generation is sequential, so the cap simply stops output wherever it is reached."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "max_tokens limits the combined size of the prompt and the answer, so a short prompt leaves more room for the answer.",
+        "why": "max_tokens caps the tokens Claude generates in this response; a short prompt does not raise that cap."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Claude generates output one token at a time, each conditioned on prior tokens, and stops when it hits the max_tokens cap.",
+        "why": "Next-token generation continues until a natural stop, a stop sequence, or the output cap; hitting max_tokens truncates wherever generation happens to be."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "max_tokens counts words, so any answer longer than that number of words is cut at the nearest sentence boundary.",
+        "why": "Limits are measured in tokens (subword units), not words, and truncation does not snap to sentence boundaries."
+      }
+    ],
+    "explanation": "LLMs produce text autoregressively: each new token is predicted from the prompt plus all tokens generated so far. max_tokens is a hard cap on generated tokens, so reaching it stops output mid-thought and reports stop_reason \"max_tokens\". The fix is to raise the cap (streaming for large values) or request shorter output.",
+    "reference": "Claude API docs — Handling stop reasons"
+  },
+  {
+    "id": "D5-LLM-002",
+    "domain": 5,
+    "skill": "llm-fundamentals",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A support chatbot resends the full conversation history on every turn. After very long sessions, requests start failing or the model stops early because the context window is exhausted. What should the developer do first?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Actively manage history, for example by compacting or summarizing older turns and pruning stale tool output.",
+        "why": "The context window holds everything sent plus what is generated; keeping history bounded (compaction, summaries, pruning) addresses the root cause."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Raise max_tokens on each request so the model has a larger context window to work with during long support sessions.",
+        "why": "max_tokens only caps output; it does not enlarge the context window and actually claims more of it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Stop sending the history, because the API keeps its own server-side copy of each conversation between requests.",
+        "why": "The Messages API is stateless; without the history the model has no memory of earlier turns."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lower the temperature, since a less random model produces fewer tokens and uses less context per turn.",
+        "why": "Sampling settings do not meaningfully control how many tokens the accumulated history occupies."
+      }
+    ],
+    "explanation": "The context window is the total token space available to a request: system prompt, tools, all messages and tool results, plus the generated output. Because the API is stateless, history grows every turn, so long-lived conversations need active context management such as compaction or summarization of older turns.",
+    "reference": "Claude API docs — Context windows"
+  },
+  {
+    "id": "D5-LLM-003",
+    "domain": 5,
+    "skill": "llm-fundamentals",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team's CI suite sends the same prompt to Claude and asserts that the response exactly equals a stored string. The tests pass most days but fail intermittently with no code changes. Which two changes make the tests reliable? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Set temperature to 0, which guarantees byte-identical responses for every identical request.",
+        "why": "Lower randomness never guaranteed identical output, and the newest models reject non-default temperature, top_p, or top_k values with a 400 error."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Assert on properties that matter, such as schema validity or required facts, not exact text.",
+        "why": "Generation is non-deterministic, so tests should check the properties that matter instead of one specific wording."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Retry each failing test until it matches the stored string, then record it as passing.",
+        "why": "Retrying until a match hides real regressions and turns the test into noise."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Evaluate over many runs with graded criteria and track a pass rate, not one exact match.",
+        "why": "Because outputs vary, measuring pass rates over multiple samples gives a stable signal of quality."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Pin each request to a fixed random seed so that sampling repeats exactly on every call.",
+        "why": "The Messages API offers no seed parameter that makes responses reproducible, so this cannot remove the variation."
+      }
+    ],
+    "explanation": "LLM outputs are sampled, so the same prompt can produce different valid wordings. Robust tests check structure and required content and evaluate over many runs, rather than relying on exact-string equality or on sampling settings to force determinism.",
+    "reference": "Claude docs — Define success criteria and build evaluations"
+  },
+  {
+    "id": "D5-LLM-004",
+    "domain": 5,
+    "skill": "llm-fundamentals",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A developer calls a Claude model that supports adaptive thinking to solve multi-step financial reconciliation problems. The requests leave thinking off and set effort to low. Answers are fast but often contain reasoning errors, and latency is not a concern. Which two request changes are most likely to improve accuracy? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Turn on adaptive thinking so the model can reason through the problem before answering.",
+        "why": "Adaptive thinking lets Claude decide when and how much to reason, which helps on multi-step problems."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Increase temperature so the model explores more possible solution paths per request.",
+        "why": "Higher randomness makes output less consistent; it is not a mechanism for more careful reasoning."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Raise the effort level so the model spends more tokens on thoroughness for these hard requests.",
+        "why": "Effort trades token spend for thoroughness; higher effort suits intelligence-sensitive work where latency is acceptable."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lower max_tokens so the model is forced to be concise and avoid rambling mistakes.",
+        "why": "A lower cap leaves less room for reasoning and risks truncated answers."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Turn on fast mode so the model can complete more reasoning steps within the same time.",
+        "why": "Fast mode increases output speed at premium pricing; it does not make the reasoning more thorough."
+      }
+    ],
+    "explanation": "Adaptive thinking plus the effort setting are the primary controls for reasoning depth on current models (on some of the newest models thinking is always on, so effort is the lever). When accuracy matters more than latency, use thinking and raise effort; sampling, output caps, and speed options do not improve reasoning quality.",
+    "reference": "Claude API docs — Adaptive thinking and effort"
+  },
+  {
+    "id": "D5-LLM-005",
+    "domain": 5,
+    "skill": "llm-fundamentals",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An interactive coding assistant already uses an Opus-tier model that supports fast mode. Users are happy with answer quality but complain that long responses stream too slowly. The business is willing to pay more per token. Which option best fits?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Move the traffic to the Message Batches API, which returns results sooner for large volumes of requests.",
+        "why": "Batches are asynchronous and can take hours; they reduce cost, not interactive latency."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Switch to the smallest model tier, since smaller models always produce the same quality at higher speed.",
+        "why": "A smaller tier is faster but may not hold the quality users are happy with; that is a model tradeoff, not a free speedup."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Disable streaming so the whole answer arrives at once and the user perceives less waiting.",
+        "why": "Disabling streaming makes users wait for the full response before seeing anything, which feels slower."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Enable fast mode, which runs the same model with higher output speed at premium pricing.",
+        "why": "Fast mode keeps the model (and so the quality) while increasing output tokens per second, trading money for speed as the business allows."
+      }
+    ],
+    "explanation": "Fast mode is a research-preview option on supported Opus models that increases output tokens per second at premium pricing while keeping the same model. It fits when quality must stay constant and the budget can absorb a higher price; batches and smaller tiers make different tradeoffs.",
+    "reference": "Claude API docs — Fast mode"
+  },
+  {
+    "id": "D5-LLM-006",
+    "domain": 5,
+    "skill": "llm-fundamentals",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A zero-shot prompt that tags product reviews as \"defect\", \"shipping\", or \"praise\" gets the categories mostly right, but the output format varies and borderline reviews are tagged inconsistently. What is the most effective next step?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add one example review with its tag, since a single example fully specifies both format and edge-case handling.",
+        "why": "A single-shot example helps with format, but one case cannot demonstrate how to handle the variety of borderline reviews."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Move to multi-shot prompting with several diverse examples, including borderline cases, all in the exact output format.",
+        "why": "Multiple varied examples show both the format and the decision boundary, which is what the zero-shot prompt is missing."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Keep the prompt zero-shot, but repeat the list of category names three times in capital letters so the model pays closer attention to them.",
+        "why": "Repetition does not show the model how to treat ambiguous inputs or what the output should look like."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add many examples that are all clear \"praise\" reviews so the model learns the format from a consistent pattern.",
+        "why": "Uniform examples bias the model toward one label and teach nothing about borderline cases."
+      }
+    ],
+    "explanation": "Zero-shot relies on instructions alone; single-shot adds one example; multi-shot (few-shot) adds several. Several diverse, relevant examples that include edge cases and use the exact desired format are the most reliable way to fix inconsistent formatting and boundary decisions.",
+    "reference": "Claude docs — Use examples (multishot prompting)"
+  },
+  {
+    "id": "D5-LLM-007",
+    "domain": 5,
+    "skill": "llm-fundamentals",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "One application serves two routes on the same current model: a high-volume, latency-sensitive intent classifier, and an autonomous coding agent that runs long multi-step tasks. Both send the same effort setting. Token spend is high and the classifier feels slow. What should the developer do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Tune effort per route: lower it for the classifier, use a higher level for the coding agent, and confirm both with evals.",
+        "why": "Effort is a per-request lever; simple, latency-sensitive work often holds quality at low effort while agentic coding benefits from higher effort."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Set both routes to low effort, since effort only changes the token bill and never has any effect on the quality of agentic coding tasks.",
+        "why": "Effort does affect thoroughness; long-horizon coding work typically benefits from higher effort."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Set both routes to the maximum effort level so quality is uniform, then cut costs by lowering max_tokens on both.",
+        "why": "Maximum effort on a simple classifier wastes tokens and latency, and low output caps risk truncating the coding agent."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Disable thinking on the coding agent to save tokens and raise effort on the classifier to improve its accuracy.",
+        "why": "This inverts the needs of the two workloads, starving the complex route of reasoning and slowing the simple one."
+      }
+    ],
+    "explanation": "Effort controls how many tokens the model spends on thoroughness, so it should be set per workload. Classification and other high-volume routes often do well at low effort, while coding and long-horizon agentic tasks respond to higher effort. Defaults differ by model, so set effort explicitly and measure each route on real requests.",
+    "reference": "Claude API docs — Effort"
+  },
+  {
+    "id": "D5-TEC-001",
+    "domain": 5,
+    "skill": "technical-fundamentals",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A service that uses the official Anthropic SDK works on a developer's laptop but fails in the CI pipeline with an authentication error on the first request. The code constructs the client with no arguments. What is the most likely cause and fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The CI runner uses a different SDK version that requires the key to be hard-coded in the client constructor; add it to the source file.",
+        "why": "Hard-coding keys in source is a security risk and no SDK version requires it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "CI machines are blocked from the API by default; the team must request an allowlist entry from Anthropic support.",
+        "why": "An authentication error indicates missing or invalid credentials, not a network block on CI."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The laptop cached a session token from an earlier run; clear the cache so both environments behave the same way.",
+        "why": "This would break the laptop too and does not give CI any credential."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "The SDK reads the API key from the ANTHROPIC_API_KEY environment variable, which is not set in CI; add it as a CI secret.",
+        "why": "A no-argument client resolves credentials from the environment, so a CI job without the variable sends no valid key."
+      }
+    ],
+    "explanation": "The SDKs resolve credentials from the environment (ANTHROPIC_API_KEY is the common one) when the client is constructed without arguments. Environment setup must therefore provide the key in every environment, ideally through the platform's secret store rather than source code.",
+    "reference": "Claude API docs — Client SDKs"
+  },
+  {
+    "id": "D5-TEC-002",
+    "domain": 5,
+    "skill": "technical-fundamentals",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer on a platform without an official SDK must call the Messages API over raw HTTPS with an API key. Which set of request headers makes a valid request?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "x-api-key: <api key>, content-type: application/json, and an anthropic-model header naming the model.",
+        "why": "There is no anthropic-model header: the model is set in the JSON body. The request also omits the required anthropic-version header."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Authorization: Bearer <api key>, anthropic-version: <API version>, and content-type: application/json.",
+        "why": "Authorization: Bearer is the primary auth header (x-api-key remains a supported fallback), and anthropic-version and a JSON content type are required."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Authorization: Bearer <api key> and content-type: application/json; the version is inferred from the model.",
+        "why": "The anthropic-version header is required on every request; it is not inferred from the model."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An api_key query parameter in the URL plus content-type: application/json, so no auth headers are needed.",
+        "why": "Keys are not passed as query parameters, which would also leak them into logs."
+      }
+    ],
+    "explanation": "The SDKs wrap a REST API and send these headers for you. When calling it directly, authenticate with Authorization: Bearer (or the still-supported x-api-key header), send the API version in anthropic-version, and use a JSON content type; the model goes in the JSON body. Knowing this helps when debugging raw requests or working without an official SDK.",
+    "reference": "Claude API docs — API overview"
+  },
+  {
+    "id": "D5-TEC-003",
+    "domain": 5,
+    "skill": "technical-fundamentals",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A backend using the official SDK sees occasional 429 (rate limit) and 529 (overloaded) errors during traffic spikes. The team wants resilient behavior without over-engineering. Which two practices should they adopt? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Rely on the SDK's built-in retries with exponential backoff, tuning the max retries setting if needed.",
+        "why": "The SDKs already retry 429 and 5xx-class errors with backoff, so configuring that is simpler than a custom loop."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Retry every failed request immediately in a tight loop until it succeeds.",
+        "why": "Immediate retries amplify load during overload and quickly exhaust rate limits again."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "When handling retries yourself, honor the retry-after header returned with rate-limit responses.",
+        "why": "retry-after tells the client how long to wait, avoiding retries that are guaranteed to fail."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Also retry 400 invalid_request errors, since they are usually transient under load.",
+        "why": "A 400 means the request itself is malformed; retrying the same payload will fail again."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Rotate across several API keys on each request so rate limits never apply.",
+        "why": "Rate limits are not bypassed by key rotation, and this undermines key hygiene and monitoring."
+      }
+    ],
+    "explanation": "429 and 529 are retryable: back off and try again. The SDKs build in exponential-backoff retries for these, and custom handlers should respect retry-after. Client errors like 400 are not transient and should be fixed, not retried.",
+    "reference": "Claude API docs — Errors and rate limits"
+  },
+  {
+    "id": "D5-TEC-004",
+    "domain": 5,
+    "skill": "technical-fundamentals",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A report generator makes non-streaming Messages API calls with a very large max_tokens. Long reports intermittently fail with HTTP timeouts, and the SDK's automatic retries make each failure take even longer. What should the developer do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Increase the SDK max retries setting so each timed-out report eventually completes on a later attempt.",
+        "why": "Timeouts are retried from scratch, so more retries multiply wall-clock time without fixing the cause."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Cut max_tokens to a few hundred tokens so every request finishes within the default timeout.",
+        "why": "This avoids the timeout by truncating the reports, which defeats the purpose."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Switch these calls to streaming and collect the final message with the SDK helper.",
+        "why": "Streaming keeps the connection active as tokens arrive, which is the recommended pattern for long outputs and large max_tokens."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Remove the client timeout entirely so a single non-streaming request can wait as long as it needs.",
+        "why": "Long idle HTTP connections can still be dropped by networks and proxies; streaming is the supported approach."
+      }
+    ],
+    "explanation": "Long generations over a single idle HTTP request are prone to timeouts. Streaming delivers tokens as they are produced and keeps the connection alive; SDK helpers can still assemble the final message when you do not need incremental events.",
+    "reference": "Claude API docs — Streaming messages"
+  },
+  {
+    "id": "D5-TEC-005",
+    "domain": 5,
+    "skill": "technical-fundamentals",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A web app must display Claude's answer in the browser as it is generated. The API key must never reach the client. Which architecture best fits?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The backend makes a streaming request (server-sent events) and relays text deltas to the browser over its own SSE or WebSocket connection.",
+        "why": "The Messages API streams via SSE; relaying from the backend keeps the key server-side while the user sees tokens as they arrive."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The browser opens a WebSocket connection directly to the Messages API, authenticating with a restricted key embedded in the front-end bundle.",
+        "why": "The API streams over SSE rather than WebSockets, and shipping the key to the browser exposes it to anyone."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The backend polls the Messages API every second to fetch the partially generated text for the request.",
+        "why": "There is no endpoint that returns partial output of an in-flight message; streaming is how incremental output is delivered."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Submit each question to the Message Batches API and have the browser poll the batch status until it ends.",
+        "why": "Batches are asynchronous and not suited to interactive, token-by-token display."
+      }
+    ],
+    "explanation": "Streaming responses from the Messages API arrive as server-sent events. A backend should consume that stream (the SDK handles SSE parsing) and forward deltas to the browser over whichever channel the app uses, so credentials stay server-side and users see progressive output.",
+    "reference": "Claude API docs — Streaming messages"
+  },
+  {
+    "id": "D5-TEC-006",
+    "domain": 5,
+    "skill": "technical-fundamentals",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A collaborative editor streams Claude's suggestions to users. Users must be able to cancel a generation mid-stream and immediately send a follow-up, and the server must also push presence updates to clients. Which design best meets these requirements?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Use HTTP long-polling for everything; the client re-polls for new text and sends a cancel flag with its next poll.",
+        "why": "Long-polling adds latency to every token and to cancellation, and it is awkward for continuous bidirectional traffic."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Use one-way SSE from server to client only, and have users refresh the page to cancel a generation they no longer want.",
+        "why": "SSE alone is server-to-client; a page refresh is not a real cancel and leaves the upstream request running."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Stream from Claude directly into each client using the browser SDK so cancellation is local to the user's tab.",
+        "why": "This exposes the API key in the browser and bypasses server-side control of requests."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Use a WebSocket between browser and backend; on a cancel message, the backend aborts its Claude stream.",
+        "why": "WebSockets carry client-to-server cancels and server pushes on one channel, and aborting the upstream stream stops generation promptly."
+      }
+    ],
+    "explanation": "SSE suits one-way server-to-client streaming; WebSockets suit bidirectional, low-latency interaction such as cancel commands and presence. The backend remains the only party holding the API key and aborts its streaming request to the Messages API when the user cancels.",
+    "reference": "Claude API docs — Streaming messages"
+  },
+  {
+    "id": "D5-TEC-007",
+    "domain": 5,
+    "skill": "technical-fundamentals",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "In a new chat integration, Claude answers the first question correctly but on the second request responds as if it has never seen the user before. Each request sends only the latest user message. What explains this behavior?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The session expired because more than a few seconds passed between the two requests.",
+        "why": "There is no server-side session to expire; the API does not store conversations between calls."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The client must pass the previous response id on each new request so the API can look up the stored conversation and continue it.",
+        "why": "The Messages API does not continue conversations by id; history must be included in the request."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The Messages API is stateless, so each request must include the prior user and assistant turns in the messages array.",
+        "why": "Each request/response cycle stands alone; the model only sees what is in the current request."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The model forgets context when temperature is above zero, so the second answer is effectively random.",
+        "why": "Temperature affects sampling, not whether earlier turns are available to the model."
+      }
+    ],
+    "explanation": "Every Messages API call is an independent request/response cycle. The application owns conversation state and must send the relevant history each time, which is also why history size affects cost and context-window usage.",
+    "reference": "Claude API docs — Messages API"
+  },
+  {
+    "id": "D5-SEL-001",
+    "domain": 5,
+    "skill": "model-selection",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A company needs to route millions of short incoming chat messages to one of eight queues in real time. The task is simple, latency must stay low, and cost per request matters. Which model tier is the best starting point?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Haiku, the fastest and most cost-efficient tier, checked on a labeled sample.",
+        "why": "Simple, high-volume, latency-sensitive classification is the classic fit for the smallest, fastest tier."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Opus, because a more capable tier always gives the best overall result on any workload.",
+        "why": "Opus adds cost and latency that a simple routing task rarely needs; more capability is not automatically a better result."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Opus with fast mode enabled, which makes it the cheapest option for high volume.",
+        "why": "Fast mode increases speed at premium pricing, so it raises cost rather than lowering it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Any tier, since the models differ only in context window size, not speed or price.",
+        "why": "Tiers differ substantially in capability, latency, and price."
+      }
+    ],
+    "explanation": "Haiku is the fastest, lowest-cost tier for high-volume, latency-sensitive work; Sonnet balances speed and capability; Opus and the other top tiers target complex reasoning and long-running agentic work. Start with the smallest tier that meets the quality bar on a representative eval.",
+    "reference": "Claude docs — Choosing a model"
+  },
+  {
+    "id": "D5-SEL-002",
+    "domain": 5,
+    "skill": "model-selection",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A team runs a code-migration agent on Haiku to save money. Many tasks fail partway and are re-run two or three times, and engineers spend time fixing results. Leadership asks whether a larger tier would really cost more. What should the developer do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Stay on Haiku, since its per-token price is lower and therefore every task must be cheaper.",
+        "why": "Per-token price ignores retries and failed work; the relevant number is the cost of a completed task."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add more retries on Haiku so each task eventually succeeds without changing models.",
+        "why": "More retries raise cost further and do not address the capability gap causing failures."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Move straight to the largest tier for every workload in the company to avoid any future failures.",
+        "why": "A blanket change ignores that simpler workloads may be well served by smaller tiers."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Compare larger tiers with Haiku on real tasks, measuring success rate and cost per completed task.",
+        "why": "Complex agentic work often needs a more capable tier; measuring cost per completed task shows the true tradeoff."
+      }
+    ],
+    "explanation": "Model choice should be driven by quality, latency, and cost measured on the actual workload. For complex, multi-step agentic tasks a more capable tier can be cheaper overall once retries, failures, and human rework are counted.",
+    "reference": "Claude docs — Choosing a model"
+  },
+  {
+    "id": "D5-SEL-003",
+    "domain": 5,
+    "skill": "model-selection",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A production app pins a specific Claude model ID. A newer model in the same tier is released, and the team wants its improvements without surprising regressions. Which two steps are most important before switching? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Switch production to the new model immediately, since releases in the same tier are backward compatible.",
+        "why": "New releases can change request surfaces and behavior, so an unvalidated switch risks errors and regressions."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Read the migration guide for breaking request changes, such as removed or rejected parameters, and update the code.",
+        "why": "Newer models can reject parameters older ones accepted, which surfaces as 400 errors after the switch."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Keep all prompts exactly as they are, because prompt behavior carries over unchanged between releases.",
+        "why": "Behavior shifts between releases; prompts tuned for an older model may need re-tuning."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Run the existing eval suite against the new model and compare quality, latency, and cost with the current one.",
+        "why": "Evals reveal behavioral changes and regressions before users see them."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Assume the dateless model ID will pick up the new release automatically, so no code change is needed.",
+        "why": "Model IDs are pinned snapshots; a new release ships under a new ID, so the team must switch deliberately."
+      }
+    ],
+    "explanation": "Model releases can introduce both breaking API changes and behavioral shifts. Safe migration means checking the migration guide, updating request code, re-running evals (and re-tuning prompts or effort where needed), and rolling out deliberately with pinned model IDs.",
+    "reference": "Claude docs — Model migration guide"
+  },
+  {
+    "id": "D5-SEL-004",
+    "domain": 5,
+    "skill": "model-selection",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Legacy code enables extended thinking with a fixed budget_tokens value. After changing the model ID to a current Opus model, requests fail with a 400 error that points at the thinking configuration. What is the correct fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Lower budget_tokens below 1024, since newer models only accept small thinking budgets.",
+        "why": "On the newest models the fixed budget form is not accepted at all, regardless of its value."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Use adaptive thinking and steer reasoning depth with the effort setting instead of a fixed budget.",
+        "why": "Current models use adaptive thinking, with effort controlling depth; the fixed-budget form is deprecated or rejected on them."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Move the thinking budget out of the request body and into a beta header so the newer model accepts the request.",
+        "why": "There is no header form of the budget; the thinking configuration itself must change."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Revert to the older model permanently, because current models do not support thinking.",
+        "why": "Current models do support thinking, through adaptive thinking."
+      }
+    ],
+    "explanation": "Adaptive thinking replaced fixed thinking budgets on current models: Claude decides when and how much to think, and effort controls overall depth and spend. Checking thinking support per model (docs or the Models API) avoids this class of breaking change during selection or migration.",
+    "reference": "Claude API docs — Adaptive thinking"
+  },
+  {
+    "id": "D5-SEL-005",
+    "domain": 5,
+    "skill": "model-selection",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A pipeline extracts fields from 200,000 invoices per day, then writes a weekly executive analysis from the aggregated results. Extraction must be cheap and fast; the analysis must be excellent but runs rarely. How should the developer choose models?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Use Opus at maximum effort for both stages so quality is consistent across the whole pipeline.",
+        "why": "Running the most expensive configuration on 200,000 simple extractions per day wastes budget."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Choose whichever model ranks highest on a public leaderboard and use it for both stages.",
+        "why": "Public benchmarks do not reflect this workload's quality, latency, and cost constraints."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Evaluate each stage on its own and pick the cheapest setup that meets its bar, likely different tiers.",
+        "why": "Stages have different constraints; per-stage evaluation will likely favor a small tier for extraction and a top tier for the analysis."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use Haiku for both stages and add a retry whenever the executive analysis looks weak.",
+        "why": "Retries cannot make up for a capability gap on the rare, high-stakes analysis."
+      }
+    ],
+    "explanation": "Model selection is a per-task tradeoff among quality, latency, and cost. High-volume simple steps favor fast, inexpensive tiers; low-volume, high-stakes reasoning favors the most capable tier. Evals on real samples, including lower-effort options on capable models, should confirm each choice.",
+    "reference": "Claude docs — Choosing a model"
+  },
+  {
+    "id": "D5-CST-001",
+    "domain": 5,
+    "skill": "cost-tokens",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A team wants a per-feature dashboard of token consumption for its Claude calls. Where should the application get accurate token counts for each completed request?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Estimate tokens by dividing the character count of the prompt and reply by a fixed ratio.",
+        "why": "Character-ratio estimates are approximate and differ by model tokenizer; the API reports actual usage."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Run a third-party open-source tokenizer over each prompt and response offline.",
+        "why": "Other vendors' tokenizers do not match Claude's tokenization, so counts will be wrong."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Download the monthly invoice from the console and divide the total evenly across features according to their request counts.",
+        "why": "Even splitting hides which features actually consume tokens."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Log the usage object from each response (input, output, and cache fields) with the feature name.",
+        "why": "Every response reports its own token usage, which is the accurate per-request source to aggregate."
+      }
+    ],
+    "explanation": "Each Messages API response includes a usage object with input_tokens, output_tokens, and cache-related fields. Logging these per request, tagged by feature, gives accurate token tracking and the raw data for cost modeling.",
+    "reference": "Claude API docs — Messages API (usage)"
+  },
+  {
+    "id": "D5-CST-002",
+    "domain": 5,
+    "skill": "cost-tokens",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Before sending user-uploaded documents to Claude, an app must decide whether each document fits the model's context budget or should be chunked, and estimate its cost. What is the best approach?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Send the full request, and if it fails because of size, chunk the document and try again.",
+        "why": "Trial-and-error wastes requests and cannot give a cost estimate up front."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Call the token counting endpoint with the same model and request content, then decide and estimate from the result.",
+        "why": "Token counting returns the input token count for that model before sending, supporting fit and cost decisions."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Count the words in each document and assume one token per word, which holds for every model, language, and content type.",
+        "why": "Token-to-word ratios vary by text and model tokenizer, so this can be badly off."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Reuse token counts measured last year on an older model, since tokenizers are identical across releases.",
+        "why": "Tokenizers can change between models, so counts should be taken with the model you plan to use."
+      }
+    ],
+    "explanation": "The token counting endpoint (count_tokens) returns an input token estimate for a given model and request before you send it. Use it for context-fit decisions, routing, and cost estimation, and count with the target model because tokenizers can differ.",
+    "reference": "Claude API docs — Token counting"
+  },
+  {
+    "id": "D5-CST-003",
+    "domain": 5,
+    "skill": "cost-tokens",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer adds a cache_control breakpoint to a large, stable system prompt. Yet cache_read_input_tokens stays at 0 on every request, even for requests seconds apart. The system prompt begins with a line showing the current date and time. What should they change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Move the timestamp out of the cached prefix and place it after the last breakpoint, for example in the user message.",
+        "why": "Caching is an exact prefix match; a value that changes each request at the start of the prompt invalidates everything after it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add three more cache_control breakpoints inside the system prompt so that at least one of them is likely to produce a cache read.",
+        "why": "Every breakpoint comes after the changing timestamp, so none of them would match either."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Switch to the 1-hour cache TTL so the entry survives long enough to be read.",
+        "why": "The requests are seconds apart, so TTL is not the problem; the prefix changes on every request."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lower the temperature so the model produces the same response and allows cache reads.",
+        "why": "Prompt caching depends on the input prefix, not on the output or sampling settings."
+      }
+    ],
+    "explanation": "Prompt caching matches the exact bytes of the prefix up to each breakpoint, in the order tools, system, messages. Volatile content such as timestamps or request IDs must come after the last breakpoint; otherwise every request writes a new cache entry and none is ever read.",
+    "reference": "Claude API docs — Prompt caching"
+  },
+  {
+    "id": "D5-CST-004",
+    "domain": 5,
+    "skill": "cost-tokens",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "An internal tool sends requests that share a 60,000-token prefix, but requests arrive only about every 20 to 30 minutes. The team is modeling whether prompt caching will save money. Which two statements are accurate? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "With the default 5-minute TTL, most requests would pay a cache write instead of a read.",
+        "why": "Gaps longer than the default TTL mean the entry has expired by the next request."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Cache reads are billed at the full input price, so caching only reduces latency, not cost.",
+        "why": "Cache reads are billed at a small fraction of the base input price."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "A 1-hour TTL costs more per write, but later requests read the prefix at a fraction of input price.",
+        "why": "1-hour writes cost 2x base versus 1.25x for 5 minutes, and reads cost a small fraction of base (0.1x on most models), which pays off after a couple of reads."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Adding extra breakpoints extends the lifetime of each cache entry beyond its TTL.",
+        "why": "Breakpoints mark cacheable prefixes; lifetime is set by the TTL and refreshed by reads, not by adding markers."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Cached tokens are not billed at all, so any amount of caching reduces cost to near zero.",
+        "why": "Both cache writes and cache reads are billed, at different multipliers of the base price."
+      }
+    ],
+    "explanation": "Cache writes cost a premium (1.25x base input for the 5-minute TTL, 2x for 1 hour), and reads cost a small fraction of base (0.1x on most models, less on some of the newest). Whether caching pays off depends on the gap between requests relative to the TTL; for traffic spaced beyond five minutes, the 1-hour TTL is what makes reuse possible.",
+    "reference": "Claude API docs — Prompt caching"
+  },
+  {
+    "id": "D5-CST-005",
+    "domain": 5,
+    "skill": "cost-tokens",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "After enabling prompt caching and moving a nightly job to the Message Batches API, finance sees input_tokens fall by about 90% and suspects the dashboard is undercounting. How should the cost model account for this traffic?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Price only input_tokens and output_tokens at standard rates, since cache fields are informational.",
+        "why": "Cache writes and reads are billed and must be included, and batch traffic is discounted."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add the cache fields to input_tokens and price the total at the standard input rate.",
+        "why": "This ignores that cache writes and reads have their own multipliers, overstating cost."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Treat the 90% drop as savings and stop tracking cache fields separately from now on.",
+        "why": "Cache hit rates can silently regress; the fields are needed to see and price the traffic."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Price uncached input, cache writes, cache reads, and output at their own rates, then apply the batch discount.",
+        "why": "With caching, input_tokens is only the uncached tail; each usage field has its own rate and batch usage is billed at a discount."
+      }
+    ],
+    "explanation": "When caching is active, total input equals input_tokens plus cache_creation_input_tokens plus cache_read_input_tokens, each priced differently. Batched requests are billed at 50% of standard prices. An accurate cost model prices each field separately and applies the batch discount where it applies.",
+    "reference": "Claude API docs — Prompt caching; Message Batches"
+  }
+]

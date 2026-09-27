@@ -1,0 +1,224 @@
+[
+  {
+    "id": "D5-LLM-015",
+    "domain": 5,
+    "skill": "llm-fundamentals",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A voice assistant runs on an Opus model that supports fast mode. Its replies are only one or two sentences, but users complain about the pause before the first words are spoken. A teammate proposes enabling fast mode to fix this. Which statement about that proposal is accurate?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Fast mode routes requests to a smaller, distilled model, so it cuts the pause but lowers quality.",
+        "why": "Fast mode runs the same model with a faster inference configuration; intelligence and behavior do not change."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Fast mode mainly raises output tokens per second, not time to first token, so it may barely help here.",
+        "why": "The speedup targets output speed; for very short replies the delay before the first token dominates, so other levers such as lower effort or a faster tier are worth measuring."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Fast mode is billed below standard rates, so it is a free win for any latency complaint like this one.",
+        "why": "Fast mode is priced at a premium multiplier over standard rates."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Fast mode only works through the Message Batches API, so the assistant would need to be redesigned.",
+        "why": "Fast mode is not available with the Batch API; it is used on regular, typically streaming, requests."
+      }
+    ],
+    "explanation": "Fast mode (research preview on supported Opus models) runs the same model with up to about 2.5x higher output tokens per second at premium pricing. Its benefit is output speed, not time to first token, so it helps most with long streamed responses. For short replies where the initial pause is the problem, measure levers that reduce work before the first token, such as a lower effort level or a faster model tier.",
+    "reference": "Claude API docs — Fast mode"
+  },
+  {
+    "id": "D5-SEL-011",
+    "domain": 5,
+    "skill": "model-selection",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A summarization service sends temperature 0.2 and top_p 0.9 on every request to keep output consistent. After the team changes the model ID to the newest Opus model, every request fails with a 400 error, even though thinking settings were not changed. What is the best fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Set temperature to 0 instead, since the newest models accept only fully deterministic sampling values.",
+        "why": "A temperature of 0 is still a non-default value and is rejected the same way; it also never guaranteed identical output."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep temperature and move top_p into a beta header, which the newest models read for sampling control.",
+        "why": "There is no header form of sampling parameters; non-default temperature is rejected on its own."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Remove the non-default sampling parameters and get consistency from the prompt, then re-run the evals.",
+        "why": "The newest models reject non-default temperature, top_p, and top_k on every request; consistency comes from clear instructions, examples, and output constraints."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Replace temperature and top_p with a top_k value, which is the sampling control the newest models use.",
+        "why": "Non-default top_k is rejected on these models in the same way as temperature and top_p."
+      }
+    ],
+    "explanation": "Request surfaces change across model releases. On the newest Claude models, non-default temperature, top_p, or top_k values return a 400 error regardless of thinking, while older models restricted them only with thinking on. When migrating, drop these parameters, steer consistency through the prompt (examples, format constraints, structured outputs), and re-baseline with evals.",
+    "reference": "Claude API docs — Thinking (sampling parameters); Migration guides"
+  },
+  {
+    "id": "D5-SEL-012",
+    "domain": 5,
+    "skill": "model-selection",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A service reads the answer with `response.content[0].text`. After switching to a newer model on which thinking is always on, many responses come back to users as empty strings, although the API calls succeed. What is the best fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Send thinking set to disabled so that the first content block is always the answer text again.",
+        "why": "Models with always-on thinking reject a disabled thinking configuration with a 400 error."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Iterate over the content blocks and read the text from the blocks whose type is \"text\".",
+        "why": "Responses can begin with one or more thinking blocks, so answer text must be selected by block type, not position."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Request summarized thinking display so that the first content block contains readable text.",
+        "why": "The first block would then show a thinking summary to users instead of the answer, which is still wrong."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lower the effort to its minimum so that the model never produces a thinking block at all.",
+        "why": "Lower effort reduces thinking but does not guarantee a response without thinking blocks."
+      }
+    ],
+    "explanation": "Breaking changes across model releases include response shape, not just request parameters. On models with always-on thinking, a response can start with thinking blocks (with an empty thinking field under the default omitted display). Code should select content blocks by their type, and pass thinking blocks back unmodified in tool-use loops.",
+    "reference": "Claude API docs — What's new in Claude Opus 5.5 (breaking changes); Thinking"
+  },
+  {
+    "id": "D5-CST-011",
+    "domain": 5,
+    "skill": "cost-tokens",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A long-running support agent relies on prompt caching for its growing conversation history. To save money, the code sets top-level effort to low on routine turns and to high on hard turns. Usage logs show cache reads dropping to almost zero on every turn after the effort value changes. What should the developer do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add more cache breakpoints within the history so that at least one of them survives the effort change.",
+        "why": "The effort value is rendered into the prompt, so every message-level breakpoint misses after a change."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Switch to the 1-hour cache TTL so that the entries written earlier survive each change of effort.",
+        "why": "The entries have not expired; the prefix itself changed, so a longer TTL does not produce reads."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Keep the top-level effort constant per conversation and steer individual turns with message guidance.",
+        "why": "Changing thinking or top-level effort settings starts the cache over, while guidance in the newest user message leaves the cached prefix intact."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Toggle thinking off on routine turns instead of lowering effort, since thinking is not part of the cache.",
+        "why": "The thinking configuration is also rendered into the prompt, so toggling it invalidates the cache as well."
+      }
+    ],
+    "explanation": "Thinking configuration, effort, and speed settings are part of the rendered prompt, so changing them between requests invalidates cached prefixes. Pick a thinking configuration and effort level per conversation (or per workload) and keep them; vary behavior per turn with prompt guidance, or with per-message effort on models that support it. Usage fields show whether cache reads survive the change.",
+    "reference": "Claude API docs — Steering thinking (prompt caching); Effort; Prompt caching"
+  },
+  {
+    "id": "D5-CST-012",
+    "domain": 5,
+    "skill": "cost-tokens",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer adds cache_control to a stable system prompt of about 300 tokens. Requests succeed without errors, but both cache_creation_input_tokens and cache_read_input_tokens are 0 on every response. What is the most likely explanation?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Prompt caching needs a beta header, and without it the cache_control field is quietly ignored.",
+        "why": "Prompt caching does not need a beta header; cache_control alone enables it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The 5-minute TTL expires before the next request, so each entry is gone before it can be read.",
+        "why": "An expired entry would still show cache writes; both fields at 0 means nothing was written."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "System prompts cannot be cached, so the cache_control marker must be moved into a user message.",
+        "why": "System prompts are a common caching target; placement is not the problem here."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "The cached prefix is below the model's minimum cacheable length, so no cache entry is created.",
+        "why": "Prefixes shorter than the model-specific minimum are processed without caching, with no error, which leaves both fields at 0."
+      }
+    ],
+    "explanation": "Each model has a minimum cacheable prompt length, and it differs by model. Shorter prefixes are processed normally without caching and without an error. If both cache usage fields are 0, the prompt was not cached; caching only helps once the stable prefix, including tools and reusable examples, reaches the minimum for the model in use.",
+    "reference": "Claude API docs — Prompt caching (cache limitations)"
+  },
+  {
+    "id": "D5-CST-013",
+    "domain": 5,
+    "skill": "cost-tokens",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A research assistant uses automatic prompt caching. Each user turn attaches about 30 short documents as separate content blocks, and requests arrive seconds apart. Earlier content never changes, yet usage shows no cache reads for the prior conversation on each new turn. What is the best fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Switch to the 1-hour cache TTL so that each turn's cache entry lives long enough to be read.",
+        "why": "Requests arrive seconds apart, so expiry is not the cause."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Place one explicit breakpoint on the first user message so that it stays fixed across requests.",
+        "why": "This caches only a small early prefix and leaves the growing history uncached."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Add an explicit breakpoint on the last block the previous request sent, alongside automatic caching.",
+        "why": "The cache looks back at most 20 blocks from each breakpoint; a breakpoint where the previous request wrote its entry lets the lookup find it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Turn off automatic caching, because it only works for conversations that never add content blocks.",
+        "why": "Automatic caching is designed for growing conversations; the issue is how far back the lookup can reach."
+      }
+    ],
+    "explanation": "A cache lookup checks at most 20 block positions back from each breakpoint for an entry an earlier request wrote. When a turn adds more than about 20 blocks, a single breakpoint at the end cannot reach the previous write. Adding a breakpoint (up to four are allowed, and automatic caching uses one slot) where the previous request ended, or consolidating blocks, restores cache reads.",
+    "reference": "Claude API docs — Prompt caching (lookback window; automatic caching)"
+  }
+]

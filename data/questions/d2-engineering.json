@@ -1,0 +1,1006 @@
+[
+  {
+    "id": "D2-REQ-001",
+    "domain": 2,
+    "skill": "requirements",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A product owner says the new in-app support assistant \"must feel instant.\" Answers are typically several paragraphs long, and usability testing shows people abandon the chat if nothing appears for more than about a second. How should the developer translate this into a technical requirement and design?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Set a requirement that the complete response arrive within one second, and cap max_tokens low enough to guarantee it every time.",
+        "why": "Capping output to hit a total-time target truncates multi-paragraph answers; the business need is about perceived wait, not total generation time."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Route the assistant through the Message Batches API so the platform can schedule requests during quieter periods.",
+        "why": "Batches are asynchronous and can take up to 24 hours, which is the opposite of an interactive latency requirement."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Define a time-to-first-token target, stream the response to the UI, and use the fastest tier that passes quality evals.",
+        "why": "The requirement is really about time to first visible output; streaming addresses it directly, and a faster tier that still passes evals lowers latency further."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use the most capable model tier so fewer follow-up turns are needed, which users will perceive as faster.",
+        "why": "The largest tier generally has the highest latency per token and does nothing to show output within a second."
+      }
+    ],
+    "explanation": "\"Feels instant\" is a business statement that should become a measurable non-functional requirement such as a time-to-first-token SLO. Streaming the response and choosing the fastest model tier that still meets quality targets satisfies it without truncating answers or using an asynchronous API.",
+    "reference": "Claude API docs — Streaming messages; Reducing latency"
+  },
+  {
+    "id": "D2-REQ-002",
+    "domain": 2,
+    "skill": "requirements",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A US healthcare customer's contract states that model inference on their data must run only on US-based infrastructure. The team calls the Claude API directly. Which control addresses this requirement?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Set inference_geo to \"us\" on each request, or make it the workspace default inference geo.",
+        "why": "Inference geo is the API control for where model inference runs; \"us\" restricts it to US-based infrastructure, per request or as a workspace default."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add a system prompt instruction telling Claude to process the data only within the United States.",
+        "why": "A prompt cannot control where the serving infrastructure runs; location is an infrastructure setting, not model behavior."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Enable zero data retention for the organization, which also keeps all processing inside the United States.",
+        "why": "Zero data retention governs how long data is kept, not where inference happens; it is a separate requirement and a separate control."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Send the workload through the Message Batches API, which processes requests in a single region.",
+        "why": "Batch versus realtime is a latency and cost choice; it is not a data-residency control."
+      }
+    ],
+    "explanation": "Data residency is an infrastructure requirement, so it must be met with an infrastructure control. The Claude API exposes inference geo (per request via inference_geo, or as a workspace default) to restrict where inference runs; retention policies and API mode are different concerns.",
+    "reference": "Claude API docs — Data residency"
+  },
+  {
+    "id": "D2-REQ-003",
+    "domain": 2,
+    "skill": "requirements",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A lender wants Claude to draft credit-limit decisions from applicant documents. Compliance states that no decision may reach a customer without a credit officer's sign-off, and regulators must be able to reconstruct how any decision was produced. Which requirements should the developer add to the solution design? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A human-in-the-loop gate: Claude drafts a decision with rationale, and only officer approval releases it.",
+        "why": "The sign-off rule is a functional requirement for a human approval gate placed before any customer-facing action."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Set temperature to 0 so outputs are deterministic, which makes the officer review step unnecessary.",
+        "why": "Lower temperature reduces variability but does not guarantee correctness, and it cannot waive a compliance-mandated human review."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "An audit log of inputs, prompt version, model ID, output, and approving officer for each decision.",
+        "why": "Reconstructing a decision requires traceability of exactly what was sent, which configuration produced it, and who approved it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Store only the final approved decision to minimize the amount of sensitive data retained.",
+        "why": "Keeping only the outcome makes it impossible to reconstruct how the decision was produced, which the regulator requires."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Use the most capable model tier, since its accuracy satisfies the regulator's need for explainability.",
+        "why": "Model capability is not an audit trail; explainability to a regulator comes from recorded evidence, not from model choice."
+      }
+    ],
+    "explanation": "Business and compliance statements translate into concrete functional requirements: a human approval gate before customer impact, and end-to-end traceability (inputs, prompt and model versions, outputs, approver). Sampling settings and model tier do not satisfy either obligation.",
+    "reference": "Claude docs — Building trustworthy applications; Exam guide — Understanding Requirements"
+  },
+  {
+    "id": "D2-REQ-004",
+    "domain": 2,
+    "skill": "requirements",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team is sizing infrastructure for a Claude-backed feature that will peak at several thousand requests per minute. Every request shares a long, identical system prompt followed by a short user question. Which statements should shape their throughput requirements? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Rate limits reset at the start of each minute, so the client can safely send the whole minute's traffic in one burst.",
+        "why": "The API uses a token-bucket algorithm that replenishes continuously and may enforce limits over shorter intervals, so bursts can trigger 429s."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Limits apply per model class to requests, input tokens, and output tokens per minute, so plan for all three.",
+        "why": "Messages API limits are measured in RPM, ITPM and OTPM; any one of them can be the binding constraint, so the design needs a queue and backoff."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Caching the shared system prompt helps, since for most models cache reads do not count toward ITPM.",
+        "why": "For most Claude models only uncached input tokens (including cache writes) count toward ITPM, so a cached shared prefix frees rate-limit headroom."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Only the number of requests matters for rate limiting, so shortening the system prompt has no effect on throughput.",
+        "why": "Input and output tokens per minute are limited separately from requests, so prompt size directly affects how much traffic fits."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Moving the feature to the Message Batches API removes throughput limits while keeping responses interactive.",
+        "why": "Batches trade latency for cost and scale; results arrive asynchronously, so an interactive feature cannot rely on them."
+      }
+    ],
+    "explanation": "Throughput requirements for Claude must be expressed against requests, input tokens, and output tokens per minute, enforced with a continuously replenishing token bucket. Prompt caching of a shared prefix is a durable way to raise effective input-token headroom for most models, while a client-side queue with backoff absorbs peaks.",
+    "reference": "Claude API docs — Rate limits"
+  },
+  {
+    "id": "D2-REQ-005",
+    "domain": 2,
+    "skill": "requirements",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A company brings three requirements to its platform team: (1) re-tag 300,000 archived support tickets, results needed within two days, lowest cost preferred; (2) help engineers modernize a legacy Java service by reading the repo, editing files, and running its tests; (3) a customer-facing chat widget that shows answers as they are generated. Which mapping of workload to Claude surface best fits?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "(1) Messages API with high parallelism; (2) Message Batches API; (3) Claude Code in headless mode.",
+        "why": "Batches cannot drive an interactive, tool-using coding session, and headless Claude Code is not a customer-facing chat backend."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "(1) Claude Code in headless mode; (2) Messages API streaming; (3) Message Batches API.",
+        "why": "This inverts the fit: batches cannot stream to a live user, and a raw Messages call gives engineers no built-in file editing or test running."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "(1) Message Batches API; (2) Messages API streaming; (3) Message Batches API with polling.",
+        "why": "Polling a batch cannot show text as it is generated, and plain Messages calls lack Claude Code's repository tooling for the modernization work."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "(1) Message Batches API; (2) Claude Code; (3) Messages API with streaming.",
+        "why": "Latency-tolerant bulk work fits batches at reduced cost, repository modernization fits Claude Code, and live chat needs streamed Messages API responses."
+      }
+    ],
+    "explanation": "Requirements analysis includes choosing the right surface: asynchronous batch processing for large, latency-tolerant jobs; Claude Code for agentic work inside a codebase; and the realtime Messages API with streaming for interactive user-facing experiences.",
+    "reference": "Claude API docs — Message Batches; Claude Code docs — Overview"
+  },
+  {
+    "id": "D2-SLC-001",
+    "domain": 2,
+    "skill": "systems-life-cycle",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer has rewritten the system prompt for a production contract-summarization feature and it looks better on a handful of manual tries. The team wants a repeatable process for shipping prompt changes. What should happen before the new prompt reaches all users?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Deploy it to all users on a quiet day and watch the support queue for complaints over the following week.",
+        "why": "User complaints are a lagging, incomplete signal; this skips the test phase entirely and exposes everyone to any regression."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Run the eval set on both prompts and promote only if the new one shows no regression.",
+        "why": "An automated eval gate against a baseline turns \"looks better\" into evidence and catches regressions before exposure."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Ask Claude whether the new prompt is better than the old one and ship it if the answer is yes.",
+        "why": "A single self-assessment is not a measured comparison on representative cases and is not a reliable release gate."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Merge it immediately, since prompt text is configuration rather than code and does not need testing.",
+        "why": "Prompts change system behavior as much as code does and should pass the same test gates before release."
+      }
+    ],
+    "explanation": "In an LLM system life cycle, prompt changes go through the test phase like code: run the eval suite, compare against the current baseline, and promote only on non-regression, ideally followed by a staged rollout. Anecdotal spot checks and post-release complaints are not release gates.",
+    "reference": "Claude docs — Define success criteria and build evaluations"
+  },
+  {
+    "id": "D2-SLC-002",
+    "domain": 2,
+    "skill": "systems-life-cycle",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "The team receives notice that a Claude model used by several internal services has been deprecated and has a retirement date. What is the best first course of action?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Do nothing until the retirement date, because requests will then be routed automatically to the recommended replacement model.",
+        "why": "Requests to a retired model fail; there is no automatic rerouting, so waiting guarantees an outage."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Change the model ID to the replacement in every service today and deploy directly to production.",
+        "why": "An untested swap can change output quality, formatting, or cost; migration should be evaluated and rolled out in stages."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Switch every service to the largest available model so it will not be deprecated again soon.",
+        "why": "Every model ID has its own lifecycle, and picking the largest tier ignores each service's cost and latency requirements."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Inventory where the model is used, then evaluate the recommended replacement on each workload before retirement.",
+        "why": "Inventorying usage and testing the replacement against each workload's evals is the first step of a planned, low-risk migration."
+      }
+    ],
+    "explanation": "Model deprecation is a planned maintenance event. Inventory where the model is used (for example with the Console usage export by key and model), evaluate the recommended replacement on real workloads well ahead of retirement, then migrate with a staged rollout. Requests to retired models fail.",
+    "reference": "Claude API docs — Model deprecations"
+  },
+  {
+    "id": "D2-SLC-003",
+    "domain": 2,
+    "skill": "systems-life-cycle",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team has an evaluated new model and prompt version for its ticket-routing service and wants to release it with the ability to back out quickly if production behavior differs from the evals. Which practices best support this? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Delete the previous prompt version after release so no one accidentally routes traffic to it.",
+        "why": "Removing the known-good version eliminates the rollback target, which is exactly what a safe release needs to keep."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Keep model ID and prompt version in versioned runtime config so rollback needs no redeploy.",
+        "why": "Externalized, versioned configuration makes rollback fast and low-risk because nothing needs to be rebuilt."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Release to 100% of traffic at once, since the evals passed and a staged rollout only delays the benefit.",
+        "why": "Evals cannot cover every production input; an all-at-once release removes the chance to detect problems on limited traffic."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Canary a small share of traffic and compare accuracy, latency, errors, and cost to the current version.",
+        "why": "A staged rollout with side-by-side monitoring surfaces regressions while their impact is small and gives a clear rollback trigger."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Rely on end users to report misrouted tickets as the primary production signal during the rollout.",
+        "why": "User reports are slow and incomplete; a rollout needs measured metrics to decide whether to proceed or roll back."
+      }
+    ],
+    "explanation": "Safe deployment in the LLM life cycle combines staged rollout (canary with metrics against a control) and cheap rollback (versioned model and prompt configuration kept outside the code). Passing evals reduces risk but does not replace production monitoring.",
+    "reference": "Claude docs — Model IDs and versioning; Exam guide — Systems Life Cycle"
+  },
+  {
+    "id": "D2-SLC-004",
+    "domain": 2,
+    "skill": "systems-life-cycle",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A document-classification feature built on Claude has just gone live. The team lead asks what the on-call dashboard must show so that problems are caught before customers report them. Which set of signals best fits the operate-and-monitor phase?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Latency, error rates by type (429, 529, 5xx), token spend per request, and quality scores on sampled live traffic.",
+        "correct": true,
+        "why": "Operating the system means watching live health, cost, and output quality together; each can regress independently of the others."
+      },
+      {
+        "id": "B",
+        "text": "The share of API calls that return HTTP 200, since a successful status code means the feature is working.",
+        "correct": false,
+        "why": "A 200 response can still carry a wrong, truncated, or off-format answer, so status codes alone miss quality regressions."
+      },
+      {
+        "id": "C",
+        "text": "The offline eval score recorded at release, displayed prominently so the team can confirm quality stays high.",
+        "correct": false,
+        "why": "A release-time score is static; it does not reflect drift in live inputs or changes made after launch."
+      },
+      {
+        "id": "D",
+        "text": "Total request count and the monthly invoice, reviewed at the end of each billing cycle by the team lead.",
+        "correct": false,
+        "why": "Monthly totals are lagging signals that surface cost problems weeks late and say nothing about latency or quality."
+      }
+    ],
+    "explanation": "The operate phase watches the running system on several axes at once: latency, error rates such as rate-limit (429) and overload (529) responses, token cost, and output quality measured on sampled live traffic. A 200 status, a frozen release score, or a monthly bill each miss whole classes of production failure.",
+    "reference": "Claude API docs — Errors; Rate limits"
+  },
+  {
+    "id": "D2-SLC-005",
+    "domain": 2,
+    "skill": "systems-life-cycle",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Three months after launch, users report that a document Q&A feature gives worse answers than it did at release. The configured model ID has not changed. As part of maintenance, what should the developer do first?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Conclude the model weights were silently updated and migrate to a different model tier right away.",
+        "why": "A given model ID keeps fixed weights; jumping to a new tier without diagnosis may not fix the real cause and adds new risk."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Raise the temperature so the model explores more varied answers to the same user questions.",
+        "why": "Changing sampling settings without a diagnosis is guesswork and usually makes factual Q&A less consistent, not more accurate."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Compare failing traces against the release baseline, then add those cases to the eval set.",
+        "why": "Degradation with a fixed model ID usually comes from changed prompts, retrieved data, or inputs; traces isolate the cause and the regression set prevents recurrence."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Roll the application back to the launch commit, since any change since then could be responsible.",
+        "why": "A blind rollback discards legitimate fixes and may not help if the cause is data or input drift rather than code."
+      }
+    ],
+    "explanation": "Model IDs are pinned snapshots, so quality drift after launch most often traces to changes around the model: prompt versions, retrieval corpora, or shifts in user input. Diagnose from production traces against a known-good baseline, then add the failures to the regression eval set as part of ongoing maintenance.",
+    "reference": "Claude API docs — Model IDs and versioning"
+  },
+  {
+    "id": "D2-SWE-001",
+    "domain": 2,
+    "skill": "software-engineering",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A worker asks Claude to triage an incoming email, then calls an internal REST endpoint, POST /tickets, to open a ticket. When the ticket service is slow, the worker times out and retries, and some emails now produce duplicate tickets. What is the most robust fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Send an idempotency key derived from the email ID so the service returns the existing ticket on a repeat.",
+        "why": "An idempotency key makes retries of a non-idempotent POST safe: the server recognizes the repeat and returns the original result instead of creating another."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Disable retries in the worker so each email triggers exactly one POST request to the ticket service.",
+        "why": "Dropping retries trades duplicates for lost tickets whenever a timeout happens; it does not make the operation reliable."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Switch the create call from POST to GET so that repeating the request has no side effects.",
+        "why": "GET must not create resources; relabeling the method violates HTTP semantics without adding any deduplication."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Ask Claude to check whether a similar ticket already exists before the worker calls the create endpoint again.",
+        "why": "A model judgment about similarity is not a deterministic guarantee and still races with a concurrent retry."
+      }
+    ],
+    "explanation": "Retries are essential for reliability, but POST is not idempotent. The standard REST pattern is a client-supplied idempotency key that the server uses to deduplicate, so retries after timeouts return the original resource instead of creating duplicates.",
+    "reference": "Exam guide — Software Engineering Foundations (REST APIs)"
+  },
+  {
+    "id": "D2-SWE-002",
+    "domain": 2,
+    "skill": "software-engineering",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A service calling the Claude Messages API receives an HTTP 400 response with error type invalid_request_error. How should the client handle it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Retry the identical request with exponential backoff until it succeeds.",
+        "why": "A 400 means the request itself is malformed or invalid; resending it unchanged will fail the same way."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Wait for the duration in the retry-after header and then resend the request.",
+        "why": "retry-after accompanies rate-limit responses such as 429; it does not apply to an invalid request."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Treat it as an overload condition and fail over to a different model tier.",
+        "why": "Overload is signaled by 529 overloaded_error; a 400 points to a problem in the request, not capacity."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Do not retry as-is; log the error and request-id, then fix the request.",
+        "why": "Client errors need a corrected request; logging the message and request-id makes the cause diagnosable."
+      }
+    ],
+    "explanation": "Status codes tell the client what kind of recovery makes sense. 400 invalid_request_error means fix the request; 429 rate_limit_error and 5xx/529 are transient and suit backoff (the official SDKs retry these automatically, honoring retry-after). Every response carries a request-id worth logging.",
+    "reference": "Claude API docs — Errors"
+  },
+  {
+    "id": "D2-SWE-003",
+    "domain": 2,
+    "skill": "software-engineering",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A Python job uses AsyncAnthropic and calls asyncio.gather() on 5,000 summarization coroutines at once. It triggers many 429 rate_limit_error responses and memory spikes. Which changes should the developer make? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Bound concurrency with an asyncio.Semaphore or worker pool sized to the rate limits.",
+        "why": "Limiting in-flight requests keeps traffic under the rate limits and caps memory, instead of launching every coroutine at once."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Replace the async client with the synchronous client running in an unbounded thread pool.",
+        "why": "Unbounded threads create the same flood of concurrent requests, with more overhead, so 429s and memory pressure remain."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Back off exponentially on 429 and 5xx errors, honoring retry-after, as the SDK does.",
+        "why": "Rate-limit errors are transient; backing off for the indicated time lets the token bucket replenish before retrying."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Set max_retries to 0 and immediately resend any failed request from the application code.",
+        "why": "Instant resends ignore retry-after and add load at the moment the limit is exceeded, making the 429s worse."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Increase max_tokens on each request so fewer total requests are needed to finish the job.",
+        "why": "max_tokens caps output per call; it does not reduce the number of documents to summarize or the concurrency problem."
+      }
+    ],
+    "explanation": "Async code makes it easy to start far more concurrent requests than the rate limits allow. Bound concurrency with a semaphore or worker pool, and rely on exponential backoff that respects retry-after for transient 429/5xx errors; the official SDKs retry these by default.",
+    "reference": "Claude API docs — Client SDKs (Python); Errors; Rate limits"
+  },
+  {
+    "id": "D2-SWE-004",
+    "domain": 2,
+    "skill": "software-engineering",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A FastAPI app defines async def endpoints that call the synchronous Anthropic client to stream Claude responses to browsers. Under moderate load, all requests, including health checks, stall until a stream finishes. What is the correct fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Keep the synchronous client but stop streaming and return the full response once generation completes.",
+        "why": "The blocking call still occupies the event loop for the entire generation; removing streaming only worsens perceived latency."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Use AsyncAnthropic, open the stream with async with, and read it with async for.",
+        "why": "The async client yields control to the event loop while awaiting network I/O, so other requests keep being served during generation."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Increase the SDK request timeout so long-running streams no longer block the other endpoints.",
+        "why": "Timeouts do not change whether a call blocks the event loop; a longer timeout just lets it block longer."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Create a new synchronous client object for every incoming request so the calls stop contending.",
+        "why": "Each synchronous client still makes blocking calls on the same event loop, so the stall remains."
+      }
+    ],
+    "explanation": "Blocking I/O inside an async function freezes the event loop. In async frameworks, use the async SDK client and await the stream (async with ... as stream, then async for text in stream.text_stream) so the server can interleave many concurrent generations.",
+    "reference": "Claude API docs — Client SDKs (Python); Streaming messages"
+  },
+  {
+    "id": "D2-SWE-005",
+    "domain": 2,
+    "skill": "software-engineering",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An integration asks Claude to \"return JSON\" describing extracted invoice fields and passes the text straight to json.loads(). About 3% of calls crash because the output is wrapped in prose or code fences, or is missing a required field. What is the most reliable approach?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Strip everything before the first \"{\" and after the last \"}\" with a regular expression before parsing it.",
+        "why": "Regex cleanup handles one symptom but cannot guarantee valid JSON or the presence of required fields."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Evaluate the returned text as a Python literal so slightly malformed JSON is still accepted.",
+        "why": "Evaluating model output as code is unsafe and still provides no guarantee about the required fields."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Constrain output with a JSON schema (structured outputs or a tool schema) and validate it before use.",
+        "why": "Schema-constrained output removes the formatting failures, and validation in code catches anything that still violates business rules."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Wrap json.loads() in a loop that resends the same request until the response parses.",
+        "why": "Blind retries raise cost and latency and still do not check that required fields are present and well typed."
+      }
+    ],
+    "explanation": "Treat model output as untrusted input to your code. Constrain the format with a JSON schema (structured outputs, or a tool definition whose input_schema describes the object) and then validate the parsed object against the schema before downstream use.",
+    "reference": "Claude API docs — Structured outputs"
+  },
+  {
+    "id": "D2-SWE-006",
+    "domain": 2,
+    "skill": "software-engineering",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A cleanup script lists the organization's Message Batches through the REST API to find stale ones, but it only ever sees the first page of results even though the account has hundreds of batches. What should the script do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Call the list endpoint repeatedly with the same parameters until no new batches appear.",
+        "why": "Identical requests return the same first page; without a cursor the script never advances."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "While has_more is true, pass the last_id as after_id for the next page, or use SDK auto-pagination.",
+        "why": "The list endpoint is cursor-paginated: has_more signals more data, and last_id feeds after_id for the next page."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Increase the page size to a very large number so every batch returns in a single response.",
+        "why": "Page size is bounded by the API, so a larger limit cannot replace following the pagination cursor."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Treat the first page as the complete list, because older batches are removed from listings automatically.",
+        "why": "The response explicitly indicates more results with has_more; assuming completeness silently skips data."
+      }
+    ],
+    "explanation": "Many REST list endpoints, including Message Batches, use cursor pagination. Loop while has_more is true, passing last_id as after_id, or let the SDK auto-paginate (for example, async for over client.messages.batches.list()).",
+    "reference": "Claude API docs — List Message Batches"
+  },
+  {
+    "id": "D2-SWE-007",
+    "domain": 2,
+    "skill": "software-engineering",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer asks Claude Code to break a 300-line pricing function into smaller helpers. In the same session they also want to fix a rounding bug they noticed. How should they structure the work to keep it safe and reviewable?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Have Claude do the refactor and bug fix together in one commit, since both touch the same function.",
+        "why": "Mixing a behavior change into a refactor makes it impossible to tell whether a changed test result is intended or a regression."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Skip running tests until both changes are complete, then fix whatever fails at the end.",
+        "why": "Deferring tests loses the ability to pinpoint which step broke behavior and turns debugging into guesswork."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Push both changes directly to main so reviewers can see them in context with the rest of the code.",
+        "why": "Bypassing branches and review removes the safety net that catches regressions before they reach the shared branch."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "With tests green, refactor without changing behavior, then fix the bug in a separate commit or PR.",
+        "why": "A behavior-preserving refactor guarded by tests, kept apart from the bug fix, gives reviewers small diffs with one intent each."
+      }
+    ],
+    "explanation": "A refactor should preserve behavior, and tests are the guard. Keeping the refactor and the functional fix in separate commits or small, focused PRs makes each change easy to review, bisect, and revert.",
+    "reference": "Claude Code docs — Common workflows"
+  },
+  {
+    "id": "D2-SWE-008",
+    "domain": 2,
+    "skill": "software-engineering",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A team wants Claude Code to run automatically in its GitHub CI pipeline, leaving review comments on each pull request. What is the recommended setup?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Use the Claude Code GitHub Action or claude -p, with the key in a repo secret and only needed tools allowed.",
+        "why": "The GitHub Action and headless -p mode are built for non-interactive CI, secrets keep credentials out of the repo, and limited tools reduce risk."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Start an interactive claude session in the CI runner and pipe the pull request description into its prompt.",
+        "why": "CI has no human to answer prompts; non-interactive runs use -p (print) mode or the GitHub Action instead."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Place the API key directly in the workflow YAML so every job and fork can authenticate without extra setup.",
+        "why": "Committing a credential exposes it to anyone who can read the repository; keys belong in encrypted secrets."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Grant unrestricted Bash and skip all permission checks so the review never stalls waiting for approval.",
+        "why": "Review only needs read access and commenting; broad unattended permissions enlarge the blast radius of any prompt injection in PR content."
+      }
+    ],
+    "explanation": "Claude Code integrates into the SDLC through the GitHub Action or headless mode (claude -p) with explicit tool allowances such as --allowedTools. Credentials go in repository or organization secrets (for example ANTHROPIC_API_KEY), and permissions stay scoped to what the job needs.",
+    "reference": "Claude Code docs — GitHub Actions; Run Claude Code programmatically"
+  },
+  {
+    "id": "D2-SWE-009",
+    "domain": 2,
+    "skill": "software-engineering",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "An engineering manager wants Claude to take on part of the code review load for a payments service without lowering the bar for what gets merged. Which practices should the team adopt? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Configure the repository to merge automatically whenever Claude's review reports no issues.",
+        "why": "An absence of findings is not proof of correctness; removing human approval lowers the bar the manager wants to keep."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Give Claude the team's review checklist and conventions, plus the diff and nearby code.",
+        "why": "Explicit criteria and relevant surrounding context let Claude flag issues that match the team's actual standards."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Have the same session that wrote a change also review it, so it already understands the intent.",
+        "why": "A session reviewing its own output shares its blind spots; independent review, fresh context or a human, catches more."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Treat Claude's comments as input and keep a required human approval on protected branches.",
+        "why": "Claude speeds up review and surfaces issues, while accountability for merging payment code stays with people."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Ask Claude only \"Does this look fine?\" to keep reviews short and avoid noisy comments.",
+        "why": "Vague prompts yield shallow reviews; useful review needs specific criteria such as correctness, security, and test coverage."
+      }
+    ],
+    "explanation": "Claude is an effective reviewer when it has concrete criteria and relevant context, and when its output feeds a process that still requires human approval for high-stakes code. Auto-merging on a clean AI review, or letting an author session review itself, weakens the control.",
+    "reference": "Claude Code docs — GitHub Actions; Memory (CLAUDE.md)"
+  },
+  {
+    "id": "D2-SWE-010",
+    "domain": 2,
+    "skill": "software-engineering",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A team will use Claude Code to migrate a 400-module Node.js service from callbacks to async/await. The service has uneven test coverage and ships weekly. Which strategy best balances speed with safety?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Prompt Claude once to convert the whole codebase, then run the test suite and fix whatever fails.",
+        "why": "A single sweeping change produces an unreviewable diff and, with weak coverage, many regressions will not even show up as failures."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Add tests where coverage is thin, then migrate module by module in small PRs, noting conventions in CLAUDE.md.",
+        "why": "Test-guarded, incremental steps keep each change reviewable and revertible, and a shared CLAUDE.md keeps Claude consistent across sessions."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Start a greenfield rewrite in a new repository and switch traffic over once it reaches feature parity.",
+        "why": "Big-bang rewrites stall weekly delivery, drift from the live system, and concentrate all risk into one cutover."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Temporarily disable failing tests during the migration so Claude can move faster, and re-enable them all at the end.",
+        "why": "Disabling the guardrails during a behavior-preserving change removes the only evidence that behavior was preserved."
+      }
+    ],
+    "explanation": "Large-scale modernization with Claude Code works best as a series of small, test-guarded steps: characterize behavior with tests first, plan the sequence, migrate incrementally in reviewable PRs, and keep conventions in CLAUDE.md so every session follows the same pattern.",
+    "reference": "Claude Code docs — Common workflows; Best practices"
+  },
+  {
+    "id": "D2-CFG-001",
+    "domain": 2,
+    "skill": "configuration-management",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer wants Claude Code to know their personal sandbox URL and preferred test accounts for one project only. Teammates should not see these instructions. Where should they go?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The project's CLAUDE.md file at the repository root.",
+        "why": "The project CLAUDE.md is shared with the team through version control, so personal details would reach everyone."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The user-level ~/.claude/CLAUDE.md file.",
+        "why": "User-level instructions apply to every project on the machine, not just this one."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "A gitignored CLAUDE.local.md at the project root.",
+        "why": "CLAUDE.local.md holds personal, project-specific instructions and should be gitignored so it is not committed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The project's committed .claude/settings.json file.",
+        "why": "settings.json configures permissions, hooks, plugins, and similar settings; it is not where memory instructions live, and this one is shared."
+      }
+    ],
+    "explanation": "Claude Code reads instructions from several scopes: ~/.claude/CLAUDE.md for personal preferences across all projects, ./CLAUDE.md or ./.claude/CLAUDE.md for team-shared project instructions, and CLAUDE.local.md for personal project-specific notes that stay out of version control.",
+    "reference": "Claude Code docs — Memory (CLAUDE.md)"
+  },
+  {
+    "id": "D2-CFG-002",
+    "domain": 2,
+    "skill": "configuration-management",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A repository's committed .claude/settings.json allows Bash(npm run *). A developer's own ~/.claude/settings.json contains a deny rule for Bash(npm run deploy *). What happens when Claude tries to run npm run deploy prod in that repository?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It runs without asking, because project settings take precedence over user settings.",
+        "why": "Permission lists from different files merge rather than replace each other, and deny rules are checked before allow rules."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It is blocked: the lists merge, and deny rules are checked before allow rules.",
+        "why": "Allow and deny lists combine across scopes, and evaluation goes deny, then ask, then allow, so the matching deny wins."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It prompts for approval, because conflicting allow and deny rules cancel each other out.",
+        "why": "Rules do not cancel; the first match in deny-ask-allow order decides the outcome, and deny matches first."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It runs, because the more specific rule wins and the project allow rule was loaded last.",
+        "why": "Rule specificity and load order do not change evaluation order; deny is always checked first."
+      }
+    ],
+    "explanation": "For scalar keys, the higher-precedence scope wins (managed, command line, local, project, user). List keys such as permissions.allow and permissions.deny merge across files instead, and permission rules are evaluated deny, then ask, then allow, with specificity not changing that order.",
+    "reference": "Claude Code docs — Settings; Configure permissions"
+  },
+  {
+    "id": "D2-CFG-003",
+    "domain": 2,
+    "skill": "configuration-management",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A team wants its production Claude integration to change model behavior only when the team deliberately decides to upgrade. How should the model be configured?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Use a short alias wherever one exists so the app automatically moves to the newest snapshot when it ships.",
+        "why": "For older models, aliases point to the most recent snapshot, so they can change underneath the app, the opposite of a deliberate upgrade."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Let each service choose its own model string so teams can upgrade independently whenever they like.",
+        "why": "Scattered, uncontrolled model strings make upgrades unplanned and inconsistent and are hard to audit or roll back."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Always request the newest tier name so production behavior stays current with the latest model improvements.",
+        "why": "Tracking \"newest\" by definition changes behavior without a team decision or an eval gate."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Pin a specific model ID in versioned config and change it only via a reviewed, eval-gated change.",
+        "why": "A model ID identifies a fixed snapshot; keeping it in versioned config makes every upgrade an explicit, tested, reversible change."
+      }
+    ],
+    "explanation": "Each Claude model ID identifies a pinned snapshot (dateless IDs from the 4.6 generation on are themselves snapshots, not moving pointers), while API aliases for earlier models resolve to the latest dated snapshot. Pin the ID in versioned configuration and upgrade through review and evals.",
+    "reference": "Claude API docs — Model IDs and versioning"
+  },
+  {
+    "id": "D2-CFG-004",
+    "domain": 2,
+    "skill": "configuration-management",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Product managers edit a support bot's system prompt directly in a production admin panel. After one edit, answer quality dropped and nobody could tell what had changed or restore the earlier text. What should the team put in place?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Version prompts in git, review by PR, gate promotion on evals, and log the prompt version per request.",
+        "why": "Treating prompts as code gives history, review, an eval gate before release, and traceability from any output back to its prompt."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep editing in the admin panel but save a screenshot of the previous prompt before each change.",
+        "why": "Screenshots are not diffable or deployable and provide no testing gate or request-level traceability."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Lock the admin panel so only engineers may edit the production prompt text directly.",
+        "why": "Restricting who edits in production does not add history, testing, or rollback; the same failure can recur."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Hard-code the prompt as a string constant inside the request handler so it cannot be edited at runtime.",
+        "why": "Embedding the prompt in code gets version history but no eval gate, and couples every prompt tweak to an application redeploy."
+      }
+    ],
+    "explanation": "Prompt versioning means managing prompts like code: version-controlled, reviewed, evaluated against a baseline before promotion, and identified by version in request logs so regressions can be traced and rolled back.",
+    "reference": "Claude docs — Prompt engineering overview; Define success criteria and build evaluations"
+  },
+  {
+    "id": "D2-CFG-005",
+    "domain": 2,
+    "skill": "configuration-management",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An internal Claude Code plugin, deploy-kit, calls an MCP tool provided by another plugin, secrets-vault. When secrets-vault shipped 3.0 and renamed that tool, deploy-kit broke for everyone who updated. How should the deploy-kit author prevent this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Copy the secrets-vault source into deploy-kit so there is no longer any dependency to manage.",
+        "why": "Vendoring forks the code, so deploy-kit stops receiving fixes and still has to be synchronized by hand."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Ask users to stop updating plugins until the deploy-kit author confirms each new release is compatible.",
+        "why": "A manual freeze is unenforceable and blocks security and bug-fix updates across all plugins."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Declare secrets-vault in plugin.json dependencies with a tested range like \"~2.1.0\".",
+        "why": "A version constraint keeps users on compatible releases of the dependency until deploy-kit is tested against a newer one and widens the range."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add a note in deploy-kit's README listing which secrets-vault versions are known to work.",
+        "why": "Documentation does not change what gets installed; the resolver still moves users to the breaking release."
+      }
+    ],
+    "explanation": "Plugins declare other plugins they rely on in the dependencies array of .claude-plugin/plugin.json. Without a version constraint a dependency tracks its marketplace's latest release; a semver range such as ~2.1.0 (resolved against the dependency's tagged releases) lets the author upgrade on their own schedule.",
+    "reference": "Claude Code docs — Plugin dependencies"
+  },
+  {
+    "id": "D2-CFG-006",
+    "domain": 2,
+    "skill": "configuration-management",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "A platform team is standardizing Claude Code across a company. Goals: every clone of the main repo gets the team's build commands and conventions and the approved plugins from an internal marketplace, and no developer anywhere can let Claude read .env files. Which configurations meet these goals? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Commit a concise project CLAUDE.md with build and test commands, layout, and coding conventions.",
+        "why": "The project CLAUDE.md is shared through version control and is the right home for facts Claude needs in every session."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add \"Never read .env files\" to CLAUDE.md as the control that enforces the secrets policy.",
+        "why": "CLAUDE.md is context that Claude tries to follow, not enforced configuration; blocking access needs permission rules."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Register the marketplace and enable the approved plugins in the repo's committed .claude/settings.json.",
+        "why": "Shared project settings (extraKnownMarketplaces, enabledPlugins) reach everyone who clones the repository."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Paste the full 40-step release runbook into CLAUDE.md so Claude always has it loaded.",
+        "why": "Long multi-step procedures bloat every session's context and reduce adherence; they belong in a skill."
+      },
+      {
+        "id": "E",
+        "correct": true,
+        "text": "Deploy a permissions deny rule for reading .env files through managed settings.",
+        "why": "Managed settings sit at the top of the precedence stack and cannot be overridden by user, project, or local files."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Put the plugin and marketplace configuration in each developer's .claude/settings.local.json.",
+        "why": "Local settings are personal and kept out of git, so they never reach other clones."
+      }
+    ],
+    "explanation": "Match each goal to the right configuration scope: team-shared instructions in a committed, concise CLAUDE.md; team plugins and marketplaces in committed project settings; and organization-wide, non-overridable policy such as secret-file deny rules in managed settings. CLAUDE.md guides behavior but does not enforce it.",
+    "reference": "Claude Code docs — Settings; Memory (CLAUDE.md); Plugins"
+  }
+]

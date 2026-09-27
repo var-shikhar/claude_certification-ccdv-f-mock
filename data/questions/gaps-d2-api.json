@@ -1,0 +1,113 @@
+[
+  {
+    "id": "D2-API-019",
+    "domain": 2,
+    "skill": "api-mechanics",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A federal contractor already runs its workloads on AWS. Its authorization requires a FedRAMP High service, and AWS must be the only party that operates the inference infrastructure and processes prompts and outputs. Which way of calling Claude fits these requirements?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Claude Platform on AWS, since it is billed through AWS Marketplace and authenticates with IAM.",
+        "correct": false,
+        "why": "AWS handles billing and identity there, but Anthropic operates the platform and processes inference data, so AWS is not the only operator."
+      },
+      {
+        "id": "B",
+        "text": "Claude in Amazon Bedrock, called through the SDK's Bedrock client with AWS credentials.",
+        "correct": true,
+        "why": "Bedrock runs Claude on AWS-operated infrastructure with AWS as the data processor, which is the offering the docs point to for FedRAMP High and similar requirements."
+      },
+      {
+        "id": "C",
+        "text": "The first-party Claude API, reached from the company's VPC over a private network link.",
+        "correct": false,
+        "why": "A private network path changes how traffic reaches the API, not who operates the inference infrastructure or processes the data."
+      },
+      {
+        "id": "D",
+        "text": "The first-party Claude API with inference_geo set to \"us\" on every request.",
+        "correct": false,
+        "why": "Inference geo controls where inference runs geographically; it does not make AWS the operator or data processor."
+      }
+    ],
+    "explanation": "Claude can be reached on AWS in two different ways. Claude in Amazon Bedrock is an AWS-native service: AWS operates the inference stack and processes the data, which is why the docs recommend it for FedRAMP High, IL4/IL5 or HIPAA-ready needs and whenever AWS must be the sole data processor. Claude Platform on AWS is Anthropic-operated, with AWS providing IAM authentication and Marketplace billing, and it tracks first-party features more closely. Choose by who must operate the stack and process data, then check that platform's feature list.",
+    "reference": "Claude API docs — Claude Platform on AWS (versus Amazon Bedrock); Claude in Amazon Bedrock"
+  },
+  {
+    "id": "D2-API-020",
+    "domain": 2,
+    "skill": "api-mechanics",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A receipts app uploads phone photos to storage, where a thumbnailer saves them as JPEG. A worker later reloads each image, compresses it again as a low-quality JPEG to save bandwidth, and sends it to Claude to extract line items. Claude often misreads small printed prices. What should the team change first?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Send each image in four more copies in the same request so Claude can cross-check the prices.",
+        "correct": false,
+        "why": "Duplicates add tokens and payload without restoring detail that repeated compression already destroyed."
+      },
+      {
+        "id": "B",
+        "text": "Raise max_tokens so Claude has more room to reason about hard-to-read digits.",
+        "correct": false,
+        "why": "max_tokens caps output length; it cannot recover detail missing from the image Claude receives."
+      },
+      {
+        "id": "C",
+        "text": "Encode once from the original photo, cropped and resized, with settings that keep text legible.",
+        "correct": true,
+        "why": "Each lossy compression pass adds artifacts that make small text hard to read; one pass from the original, with cropping and pre-resizing, keeps text clear and requests small."
+      },
+      {
+        "id": "D",
+        "text": "Send the full-resolution original every time so that the API itself never has to resize anything.",
+        "correct": false,
+        "why": "Images above the model's native resolution are downscaled anyway, so this raises payload size and latency without guaranteeing legible text."
+      }
+    ],
+    "explanation": "Lossy compression such as JPEG reduces request size and latency, but artifacts accumulate with multiple compression passes and can make text hard to read. Encode once from the source, pre-resize to the model's native resolution and crop to the relevant region, and inspect the actual images the application sends to the API.",
+    "reference": "Claude API docs — Vision (image quality guidance; resolution and token cost)"
+  },
+  {
+    "id": "D2-APP-022",
+    "domain": 2,
+    "skill": "application-design",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A chat service built on the Messages API runs on several load-balanced workers. Each worker keeps one in-memory messages list that it appends every incoming turn to. Users report that Claude mentions other customers' orders, and conversations lose context when a later request lands on a different worker. What is the best fix?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Enable sticky sessions on the load balancer so that each user always reaches the same worker.",
+        "correct": false,
+        "why": "Stickiness may reduce lost context, but users on one worker still share its single list, so the leak remains, and history is lost when a worker restarts."
+      },
+      {
+        "id": "B",
+        "text": "Add a system prompt rule telling Claude never to mention details from other customers' conversations.",
+        "correct": false,
+        "why": "The other customers' data is still sent in the request; an instruction does not stop it from being exposed, and the cross-worker loss is untouched."
+      },
+      {
+        "id": "C",
+        "text": "Send only the newest user message on each request so no history can leak between customers.",
+        "correct": false,
+        "why": "The API is stateless, so dropping history removes all conversational context; the problem is shared history, not history itself."
+      },
+      {
+        "id": "D",
+        "text": "Store each conversation's history in a shared store keyed by conversation ID and load only that one per request.",
+        "correct": true,
+        "why": "Per-conversation history in a shared store isolates customers from each other, and any worker can load the right history for the request it receives."
+      }
+    ],
+    "explanation": "The Messages API is stateless: the application decides exactly which history each request carries. Session hygiene in a multi-user service means scoping history to one conversation, keying it by a conversation or session ID, and keeping it in a store every worker can reach, so no request ever carries another user's turns and any worker can resume a conversation.",
+    "reference": "Claude API docs — Messages API (multi-turn conversations); Context windows"
+  }
+]

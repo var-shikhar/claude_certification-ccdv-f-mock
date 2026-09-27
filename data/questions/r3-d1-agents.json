@@ -1,0 +1,1352 @@
+[
+  {
+    "id": "D1-ARC-013",
+    "domain": 1,
+    "skill": "agent-architecture",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A security team uses Claude to flag vulnerabilities in pull requests. A single review prompt misses a meaningful share of real issues, and the team would rather tolerate some false positives than miss a vulnerability. Latency is not a concern. Which workflow shape best fits?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Voting: run several differently framed review prompts in parallel and flag the code if any finds a problem.",
+        "why": "Voting runs the same task several times to gain confidence; an any-flag threshold trades false positives for fewer misses, which is what the team wants."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Parallelization with sectioning: split the diff by file and review each file in its own call.",
+        "why": "Sectioning speeds up independent subtasks, but each file still gets one reviewer, so cross-file and single-reviewer misses remain."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "An agent that decides for itself how many review passes each pull request needs.",
+        "why": "Autonomy adds cost and variance to a task whose shape is fixed; the team needs more perspectives, not a model-planned route."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Prompt chaining: one call lists the changed functions and their callers, a second call reviews only those functions for vulnerabilities.",
+        "why": "Chaining narrows the input but still relies on a single reviewing call, so the miss rate stays the same."
+      }
+    ],
+    "explanation": "Parallelization has two variants: sectioning splits a task into independent parts for speed, while voting runs the same task multiple times for diverse outputs. Code review that must minimize misses is the canonical voting case, with the vote threshold tuned to balance false positives and negatives.",
+    "reference": "Anthropic engineering — Building effective agents (parallelization: sectioning and voting)"
+  },
+  {
+    "id": "D1-ARC-014",
+    "domain": 1,
+    "skill": "agent-architecture",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A team's single Claude call classifies incoming support tickets into twelve categories. Accuracy is mediocre, and a teammate proposes replacing it with an orchestrator that dispatches each ticket to specialist subagents. The prompt today contains no examples and no access to the category definitions, and the ticket volume is high. What should the team do first?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Turn the classifier into an agent with a search tool so it can look up categories itself.",
+        "why": "Letting the model plan a route for a one-step task adds turns and variance; the category definitions can simply be supplied."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "First add the category definitions and a few labeled examples to the single call, then re-measure.",
+        "why": "The guidance is to optimize a single augmented call with retrieval and in-context examples before adding structure; only add complexity when measured results demand it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add an evaluator call that critiques each classification and asks for a revision.",
+        "why": "An evaluator loop doubles cost per ticket and only helps when the first call has what it needs to improve; here the prompt lacks basic information."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Build the orchestrator-workers system now so each category gets a specialist subagent tuned to its own definition.",
+        "why": "Multi-agent structure multiplies cost and latency on a high-volume task and does not address the missing examples and definitions in the current prompt."
+      }
+    ],
+    "explanation": "Find the simplest solution and increase complexity only when needed. Many tasks are best solved by optimizing a single LLM call with retrieval and in-context examples; workflows and agents trade cost and latency for capability, so that trade must be justified by measurement.",
+    "reference": "Anthropic engineering — Building effective agents (when and when not to use agents)"
+  },
+  {
+    "id": "D1-ARC-015",
+    "domain": 1,
+    "skill": "agent-architecture",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A marketing team built an evaluator-optimizer loop for product descriptions: a writer call drafts, an evaluator call critiques, and the loop repeats up to five times. Reviews show the fifth draft is rarely better than the first, the evaluator's feedback is mostly \"make it more engaging,\" and cost per description has quintupled. What should the team do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Have the writer generate five drafts in parallel and let the evaluator select the best one instead of iterating.",
+        "why": "Voting-style selection changes the shape but keeps an evaluator with no rubric, so its choice is as arbitrary as its feedback."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Raise the loop limit to ten iterations so the drafts have more chances to converge.",
+        "why": "More rounds of vague feedback re-sample the same behavior at double the cost; the problem is the feedback, not the number of rounds."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Give the evaluator an explicit written rubric, and keep the loop only if drafts measurably improve against it.",
+        "why": "Evaluator-optimizer pays off only when clear evaluation criteria exist and iterative refinement provides measurable value; without them a single well-prompted call is the better design."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Move the evaluator to a more capable model so its critiques carry more weight and the writer converges in fewer rounds.",
+        "why": "A stronger model given no criteria still produces generic feedback; model capacity is not the constraint the scenario names."
+      }
+    ],
+    "explanation": "The evaluator-optimizer workflow is effective when there are clear evaluation criteria and when iterative refinement provides measurable value. If human feedback against a rubric would improve a draft, an LLM evaluator can too; if the criteria cannot be written down, the loop adds cost without convergence.",
+    "reference": "Anthropic engineering — Building effective agents (evaluator-optimizer)"
+  },
+  {
+    "id": "D1-ARC-016",
+    "domain": 1,
+    "skill": "agent-architecture",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A routing workflow classifies each customer message into one of five intents, each handled by a specialized prompt that has been tuned for that intent. Traces show about 8% of messages fit none of the five intents, and the router forces them into the closest category, where the specialized prompt gives confidently wrong answers. Which change is most effective?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Give each specialized prompt instructions to answer any message it receives, regardless of whether it matches its intent.",
+        "why": "Broadening the specialists degrades them for their own category and does not stop the router from misclassifying."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Merge the five specialized prompts into one general prompt covering every intent so that no message can ever be misrouted.",
+        "why": "This discards the accuracy the specialized prompts were built for; routing exists precisely so each category can be optimized separately."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add a second router call that votes with the first and keeps the message only if both agree.",
+        "why": "Two routers still choose among the same five categories; a message that belongs to none will be forced somewhere either way."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Add an explicit \"none of these\" route that sends unmatched messages to a general handler or human queue.",
+        "why": "Routing works when categories are separable and the classifier can detect when a message does not fit; an explicit fallback prevents forcing off-distribution inputs into tuned prompts."
+      }
+    ],
+    "explanation": "Routing directs inputs to specialized follow-up handling and depends on accurate classification. A robust router needs a fallback route for inputs that fit no category, so that the tuned downstream prompts only ever see the inputs they were built for.",
+    "reference": "Anthropic engineering — Building effective agents (routing)"
+  },
+  {
+    "id": "D1-ARC-017",
+    "domain": 1,
+    "skill": "agent-architecture",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "In an orchestrator-workers system, research workers hand findings to a writing stage. Reviews show two failures: the writing stage sometimes starts before a worker has actually finished, and some findings arrive as free-text prose missing the source URL and figure the writer needs. Which two changes address these failures at the handoff itself? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Require each worker to return a structured record with required fields (claim, figure, source) that is validated before the handoff.",
+        "why": "A schema-validated contract guarantees the writer receives the fields it needs; malformed output is caught at the boundary rather than downstream."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add distributed tracing so the team can see afterward which worker's output was incomplete.",
+        "why": "Tracing records the failure but intercepts nothing on the way to the writer; it is an observability fix, not a handoff fix."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Have the orchestrator gate the writing stage on an explicit completion status each worker sets, rather than on the text of its reply.",
+        "why": "Sequencing must rest on a status the producing stage sets; inferring completion from prose is what lets the writer start early."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Let the workers message each other directly to reconcile their findings before the writer runs.",
+        "why": "Peer negotiation removes the coordinator from the job it exists for and does not add the missing fields."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Ask the writing stage to reconstruct any missing sources by searching again.",
+        "why": "The last stage cannot reliably recover facts nobody recorded, and it re-does work the workers were paid for."
+      }
+    ],
+    "explanation": "A coordinator owns the handoff contract: each worker result is checked against a defined shape before it moves on, and downstream stages are sequenced on explicit completion signals set by the producing stage. Tracing, retries, and peer negotiation are real practices aimed one step away from the stated failure.",
+    "reference": "Anthropic engineering — Building effective agents (orchestrator-workers); How we built our multi-agent research system"
+  },
+  {
+    "id": "D1-ARC-018",
+    "domain": 1,
+    "skill": "agent-architecture",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A lead agent fans a question out to six research subagents and waits for all of them before synthesizing. Median runs finish in two minutes, but p95 is twelve minutes because one subagent occasionally keeps searching for a source that does not exist. The product needs a bounded response time and can accept a slightly less complete answer. What should the developer change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Give each subagent a tool-call and time budget, and synthesize from whatever has returned when it expires.",
+        "why": "Per-worker limits bound the tail, and proceeding with partial results matches the stated tolerance for a slightly less complete answer."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Move synthesis into the slowest subagent so the lead does not have to wait.",
+        "why": "This merely relocates the bottleneck; the run still ends when the runaway search ends."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Retry the whole fan-out from scratch whenever any subagent exceeds two minutes, discarding the partial results.",
+        "why": "Retrying re-runs the five good workers, multiplies cost, and can hit the same runaway search again."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Double the number of subagents and split each thread more finely so that more of them finish quickly.",
+        "why": "More workers do not shorten the wait for the slowest one; the synthesis still blocks on the last subagent."
+      }
+    ],
+    "explanation": "When a lead agent executes subagents synchronously, the entire system is blocked while waiting for a single subagent. Bounding each worker's effort and accepting partial results at a deadline is the architectural fix; adding workers or retrying the batch does not address the tail.",
+    "reference": "Anthropic engineering — How we built our multi-agent research system (synchronous execution creates bottlenecks)"
+  },
+  {
+    "id": "D1-ARC-019",
+    "domain": 1,
+    "skill": "agent-architecture",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "In a supervisor hierarchy, the supervisor plans each due-diligence request, delegates to specialist workers, and writes the final memo. To cut token spend, a developer proposes having the supervisor do the largest research thread itself instead of delegating it. After the change, the supervisor's final memos miss decisions it made in its own plan and repeat questions already answered. What is the best explanation and fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The supervisor needs a larger context window; move it to a model with a bigger limit so the plan and the research both fit.",
+        "why": "A larger window still fills with raw research and degrades attention on the plan; capacity is not the structural problem."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Raw research now crowds out the plan; keep the supervisor for planning and synthesis and delegate exploration to a worker.",
+        "why": "The value of the hierarchy is that detailed search context stays isolated in workers while the lead keeps a clean context for coordination."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The supervisor should re-read its plan from a file before every step and append each decision to the file as it is made.",
+        "why": "Re-injecting the plan helps a little but does nothing about the tens of thousands of raw research tokens now competing with it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Give the workers permission to edit the supervisor's plan directly so decisions are recorded where the work happens.",
+        "why": "Letting workers mutate the plan removes the single owner of coordination and does not clean the supervisor's context."
+      }
+    ],
+    "explanation": "Subagent architectures separate concerns: workers explore extensively and return distilled summaries, while the lead focuses on the high-level plan and synthesis. Pulling heavy exploration into the lead reintroduces the context pollution the hierarchy was built to avoid.",
+    "reference": "Anthropic engineering — Effective context engineering for AI agents (sub-agent architectures)"
+  },
+  {
+    "id": "D1-ARC-020",
+    "domain": 1,
+    "skill": "agent-architecture",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An evaluator-optimizer loop for contract summaries has no iteration cap. A trace of one run shows:\n```\niter1 evaluator: \"missing termination clause\" -> iter2 adds it\niter2 evaluator: \"too long, cut detail\"        -> iter3 removes termination clause\niter3 evaluator: \"missing termination clause\" -> iter4 adds it\n... (14 iterations, run killed by timeout)\n```\nWhat should the developer do first?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Run the evaluator twice per iteration and only act on feedback both copies agree on.",
+        "why": "Two evaluators with the same one-dimensional prompt agree on the same oscillating feedback; this doubles cost without a stopping rule."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Switch the generator to a more capable model so that it can satisfy both the length and the clause critiques at once.",
+        "why": "A better generator may help, but the run would still be unbounded and the evaluator still emits contradictory, non-cumulative feedback."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Cap the iterations, and make the evaluator return pass/fail against one fixed checklist covering length and required clauses.",
+        "why": "A stopping condition restores control immediately, and a cumulative checklist removes the oscillation because both requirements are judged together every round."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Feed every previous draft and critique into the generator's context so it can see what was already tried and avoid undoing earlier fixes.",
+        "why": "This grows context each round and may reduce flip-flopping, but the loop is still unbounded and the evaluator still judges one dimension at a time."
+      }
+    ],
+    "explanation": "Loops need explicit stopping conditions such as a maximum number of iterations to maintain control. The trace shows an evaluator that judges one criterion at a time, so each fix breaks the previous one; a fixed, cumulative rubric with pass/fail output is what lets the loop converge.",
+    "reference": "Anthropic engineering — Building effective agents (evaluator-optimizer; stopping conditions)"
+  },
+  {
+    "id": "D1-ARC-021",
+    "domain": 1,
+    "skill": "agent-architecture",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A bank must process loan applications with Claude. A regulator requires that every application follow the same documented sequence of checks and that each check's output be individually auditable. Applications arrive in many formats and languages, and about 3% raise novel issues the checks were not written for. Which architecture satisfies every requirement?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A single large prompt that performs all checks in one call and returns a final decision with reasoning.",
+        "why": "One call produces one blended output, so individual checks are not separately auditable, and there is no defined path for novel issues."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "An agent with a turn limit that reads each application, decides which of the documented checks to run and in what order, and logs its reasoning.",
+        "why": "Letting the model plan a route violates the requirement that every application follow the same documented sequence."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "An orchestrator that spawns a specialist subagent per check in parallel and merges their conclusions into one auditable verdict.",
+        "why": "Dynamic decomposition is for subtasks that cannot be predicted; here the checks are fixed, and merged verdicts blur the per-check audit trail."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "A fixed workflow: normalize the input, run the documented checks in order with each output logged, and send novel cases to a human queue.",
+        "why": "The sequence is known in advance, so code holds the plan; format variety is a normalization step, not a reason for autonomy, and novel cases escape to humans rather than to an unplanned route."
+      }
+    ],
+    "explanation": "When the steps can be written down before the input arrives, a workflow with code-defined paths is cheaper, reproducible and inspectable at every stage. Variable input alone is a routing or normalization problem, not a reason for agent autonomy, and the unpredictable remainder should escalate rather than reshape the whole design.",
+    "reference": "Anthropic engineering — Building effective agents (workflows vs agents; prompt chaining and routing)"
+  },
+  {
+    "id": "D1-ARC-022",
+    "domain": 1,
+    "skill": "agent-architecture",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A lead agent with research subagents runs due-diligence reports that take about 25 minutes each. Roughly 5% of runs fail when a search API times out partway through; the harness catches the exception and restarts the whole run from the beginning, which doubles cost and sometimes hits the same timeout again. Runs must finish reliably without a large increase in spend. Which change is most sound?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Wrap each search call in unlimited retries with exponential backoff so the agents never see a failure.",
+        "why": "Unbounded retries can stall a run indefinitely on a persistent outage and still leave the harness restarting from zero when they finally give up."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Checkpoint progress so a failed run resumes from where it stopped, and return the timeout to the agent as a tool error so it can adapt.",
+        "why": "Agents are stateful, so losing all progress compounds one transient error; resuming from a checkpoint plus letting the model route around a failing tool addresses both cost and reliability."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Reduce the number of subagents so fewer search calls are made and the timeout is less likely.",
+        "why": "Fewer workers cut coverage and only lower the odds of a failure; any timeout still restarts the whole run."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Keep the lead agent stateless by rebuilding its plan from the original query on every turn so restarts cost little.",
+        "why": "The expensive part is the completed research, not the plan; a stateless lead still discards all subagent work on restart."
+      }
+    ],
+    "explanation": "In long-running agent systems, errors compound because agents are stateful: a minor failure late in a run can be catastrophic if the only recovery is a full restart. Production systems combine deterministic safeguards such as retry logic and regular checkpoints, so that a run resumes from the failure point, with the model's own adaptability, by telling it when a tool is failing so it can try another route.",
+    "reference": "Anthropic engineering — How we built our multi-agent research system (production reliability and engineering challenges)"
+  },
+  {
+    "id": "D1-ARC-023",
+    "domain": 1,
+    "skill": "agent-architecture",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A contract-review product must run five independent compliance checks on each 60-page contract. One combined call that performs all five checks takes about 20 seconds and misses items; a call that performs one check takes about 8 seconds. The p95 latency target is 10 seconds and cost must stay close to the single-call design. Which design meets all three constraints?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Chain the five checks sequentially, passing each result to the next call.",
+        "why": "Sequential calls take roughly 40 seconds; the checks are independent, so chaining adds latency for no benefit."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Run the five checks as parallel sectioned calls that share the same cached contract prefix, then merge the results in code.",
+        "why": "Sectioning finishes in about the time of one check, each call gets focused attention on one consideration, and caching the shared document keeps input cost near the single-call design."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Use an agent that reads the contract once and decides for itself which checks to run and in what order, with a turn limit.",
+        "why": "The checks are fixed and independent; a model-planned route adds turns and variance and cannot satisfy the 10-second target."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Run the combined call three times in parallel with different framings and keep any item that any of the runs found, de-duplicating in code.",
+        "why": "Voting improves recall but each call still takes about 20 seconds and triples cost, failing both the latency and cost constraints."
+      }
+    ],
+    "explanation": "Parallelization by sectioning suits tasks whose parts are independent: LLMs perform better when each consideration is handled by a separate call, and latency collapses to the slowest section. Sharing the document as a cached prefix across the parallel calls keeps the extra input cost small.",
+    "reference": "Anthropic engineering — Building effective agents (parallelization: sectioning)"
+  },
+  {
+    "id": "D1-ARC-024",
+    "domain": 1,
+    "skill": "agent-architecture",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An invoice-extraction agent was given file and search tools and told to \"extract the fields from this invoice.\" A usage export for one typical invoice shows:\n```\nturns: 11   tool_calls: read_file x6, search x3\ninput_tokens: 184,000   output_tokens: 3,900\nfinal: {vendor, date, total, line_items}\n```\nEvery invoice needs the same four fields, and the fields are always present in the document. What should the developer do first?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Lower the agent's turn limit to four and add a system-prompt rule that the invoice file may be read only once, so it cannot keep re-reading it.",
+        "why": "A cap stops the waste but leaves an agent loop where none is needed, and truncated runs will produce incomplete extractions."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add a memory tool so the agent remembers the file between reads.",
+        "why": "Memory addresses cross-session recall; the problem here is that a fixed-shape task was given an open-ended loop."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Replace the loop with one call that returns the four fields as structured output, and use an agent only for documents that fail validation.",
+        "why": "The task's steps are fully known, so one augmented call with a schema is cheaper and more predictable; an agentic path is reserved for the exceptions."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Move the agent to a smaller, cheaper model and reduce the search tool's result size to bring the per-invoice cost down.",
+        "why": "A cheaper model still spends eleven turns and 184k input tokens; the architecture, not the model tier, is the source of the cost."
+      }
+    ],
+    "explanation": "Agents trade latency and cost for flexibility on tasks whose path cannot be predicted. Extraction with a known set of fields is a single-call problem; the usage snippet shows an agent loop re-reading a document it already has. Simplify first, and escalate only the inputs that need it.",
+    "reference": "Anthropic engineering — Building effective agents (when and when not to use agents)"
+  },
+  {
+    "id": "D1-CON-018",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An Agent SDK developer registers a PreToolUse hook with the matcher `\"src/generated/.*\"`, intending to block edits under that directory. The hook never fires and the agent keeps editing generated files. What is the cause and the fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The pattern needs a leading slash so it matches absolute paths.",
+        "why": "No path pattern will match because the matcher is never compared against the tool's input."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Hooks only fire for MCP tools, so built-in edit tools must be replaced with custom ones.",
+        "why": "Hooks fire for built-in tools such as Write and Edit; the tool type is not the issue."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "PreToolUse hooks cannot block file edits; move the check to a PostToolUse hook that reverts any change to the generated directory.",
+        "why": "PreToolUse is exactly the hook that can deny a tool call before it runs; reverting afterward is the weaker pattern."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Matchers match tool names, not arguments; match `\"Write|Edit\"` and check the file path inside the callback.",
+        "why": "A hook matcher filters on the tool being called; anything about a path or a command is a check written inside the callback, which then returns a deny decision."
+      }
+    ],
+    "explanation": "Hook matchers filter on tool names such as Write, Edit or Bash. Argument-level conditions, such as which file path or which shell command, are evaluated inside the callback, which returns permissionDecision deny with a reason when the call should be blocked.",
+    "reference": "Agent SDK docs — Intercept and control agent behavior with hooks"
+  },
+  {
+    "id": "D1-CON-019",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "To keep the agent responsive, a developer wrote a PreToolUse hook that returns an async output immediately and then inspects the Bash command in the background, intending to deny destructive commands. In testing, a `git push --force` ran even though the background check flagged it. Why, and what should change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Async hook output cannot block the call because the agent has already moved on; return the deny decision synchronously.",
+        "why": "The SDK proceeds without waiting for an async hook, so it is suited only to side effects like logging; a decision that must stop the action has to be returned before the tool executes."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The matcher was too narrow and did not cover the shell tool; widen it so the hook fires for every Bash command before it runs.",
+        "why": "The hook did fire (the background check ran); the problem is that its decision arrived after the tool had executed."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Deny decisions are only honored by PostToolUse hooks; move the check there.",
+        "why": "PostToolUse runs after execution and cannot prevent an action; PreToolUse is the hook that can deny."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The background timeout was too short for the classifier; raise asyncTimeout so the check completes before the command starts.",
+        "why": "However long the background task runs, its result cannot influence a tool call that already proceeded."
+      }
+    ],
+    "explanation": "By default the agent waits for a hook to return. Returning async tells the agent to continue immediately, which makes async hooks suitable only for side effects such as logging, metrics or notifications; they cannot block, modify or inject context. Enforcement must be synchronous.",
+    "reference": "Agent SDK docs — Intercept and control agent behavior with hooks (asynchronous output)"
+  },
+  {
+    "id": "D1-CON-020",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An Agent SDK team registered two PreToolUse hooks on Bash: the first classifies the command and writes a `risk` flag to a shared in-memory map, and the second reads that flag and returns deny when it is high. Risky commands are blocked most of the time but occasionally slip through. What is the most likely cause and the correct fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The second hook's deny is being overridden by an implicit allow from the first hook; make the first hook also return an explicit deny decision.",
+        "why": "Deny takes priority over any other decision, so an allow from another hook cannot override it; the flag is simply not set yet when the second hook reads it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Matching hooks run in parallel in no fixed order, so the flag is sometimes read before it is written; combine both steps in one hook.",
+        "why": "Each hook must act independently rather than relying on another having run first; a single hook that classifies and decides removes the race."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Hooks are rate-limited, so under load the second hook is skipped; add a retry.",
+        "why": "Hooks are not skipped under load; all matching hooks run, just without a guaranteed order."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Register the second hook on PostToolUse so it runs strictly after the first.",
+        "why": "PostToolUse runs after the command has executed, so it can no longer block it."
+      }
+    ],
+    "explanation": "When an event fires, all matching hooks run in parallel and the most restrictive permission result wins. Because completion order is non-deterministic, each hook must be written to act independently; logic that depends on ordering belongs in a single hook.",
+    "reference": "Agent SDK docs — Intercept and control agent behavior with hooks (register multiple hooks)"
+  },
+  {
+    "id": "D1-CON-021",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A hosted Agent SDK service runs on ephemeral containers with a SessionStore adapter backed by object storage. After a container is replaced, a resumed session correctly recalls the conversation, but the agent can no longer find the notes file it wrote in the working directory or the project CLAUDE.md it had updated. What explains this, and what should the team add?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The SessionStore adapter is misconfigured and dropped part of the transcript during sync; enable verbose sync logging and re-run the resume.",
+        "why": "The transcript resumed correctly; the missing items were never part of what the adapter mirrors."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Resumed sessions always start with a fresh working directory by design; switch to long-lived containers that are never replaced.",
+        "why": "Long-lived containers avoid the symptom but abandon the scale-to-zero model; the working directory just needs its own persistence."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "SessionStore mirrors transcripts only; working-directory files and memory files need their own storage, such as a mounted volume.",
+        "why": "Sessions persist the conversation, not the filesystem, so the store restores history while files the agent wrote must be persisted separately."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Fork the session instead of resuming it so the new container gets a full copy of state.",
+        "why": "Forking branches conversation history, not the filesystem, so the files are still gone."
+      }
+    ],
+    "explanation": "The SessionStore adapter mirrors transcripts so sessions can resume across hosts, but it does not carry CLAUDE.md memory files or other working-directory artifacts. Those need a separate strategy such as a durable mounted volume or an object-store sync.",
+    "reference": "Agent SDK docs — Hosting the Agent SDK (session persistence)"
+  },
+  {
+    "id": "D1-CON-022",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A platform bills internal teams for Agent SDK runs by reading the `usage` field on each result message, which the SDK documents as covering only the main agent loop. Teams whose agents delegate heavily to subagents are consistently under-billed compared with the organization's invoice. The platform also wants a breakdown by model. What should the developer change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Set a subagent depth limit of 1 so that `usage` becomes accurate again.",
+        "why": "Capping depth changes agent behavior to fit a billing bug; the correct field already exists."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Bill from `total_cost_usd` only, which already includes subagents.",
+        "why": "total_cost_usd does include subagent spend, but it is a single dollar figure with no per-model breakdown, which the platform requires."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Sum the `usage` field of every assistant message in the stream, including messages that carry a parent_tool_use_id, and group by model yourself.",
+        "why": "This can approximate subagent tokens but is error-prone across retries and gives no per-model breakdown, which the result already provides."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Read `model_usage` (modelUsage) on the result, which includes subagent requests and is broken down by model.",
+        "why": "The `usage` field covers only the top-level loop and undercounts as soon as nesting occurs; model_usage covers the whole tree per model."
+      }
+    ],
+    "explanation": "On a result message, usage counts only the main agent loop; total_cost_usd and model_usage include subagent requests. For whole-tree token accounting with a per-model breakdown, use model_usage rather than usage.",
+    "reference": "Agent SDK docs — Track cost and usage (subagent activity)"
+  },
+  {
+    "id": "D1-CON-023",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team deploys a Claude Managed Agent in an Anthropic-hosted cloud sandbox. One step must create a ticket in an internal system that is reachable only from the company network and must pass the company's own validation code, so the developer defines it as a custom tool on the agent. In the first test the event stream shows the agent calling that tool, then the session goes idle with a stop reason saying action is required, and nothing further happens. Which two statements describe what the developer must do? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Read the tool call from the session's event stream, execute it in the company's own code, and post the result back referencing that call.",
+        "why": "Custom tools are client-executed: the model emits a structured request and the application runs it and returns the result, after which the session continues."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Treat the idle status as the agent waiting on the application, not as a failure; the session stays paused until every pending custom tool result is posted.",
+        "why": "The pause is the designed handshake for client-executed tools; the session transitions back to running once all blocking tool calls have results."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Move the ticketing logic into the sandbox as a script so the managed sandbox runs it without involving the application.",
+        "why": "An Anthropic-hosted sandbox cannot reach the company's internal network, and the validation code would have to be shipped into the sandbox; custom tools exist precisely so that step runs in the customer's environment."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Recreate the session, because a pause with action required means the sandbox failed to start the tool.",
+        "why": "Nothing failed; the session is idle by design until the application answers the tool call."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Declare the ticketing endpoint as a built-in tool so Anthropic's control plane calls it directly.",
+        "why": "Built-in tools run inside the sandbox; there is no mechanism for the control plane to call arbitrary customer endpoints, and the internal system is not reachable from Anthropic's side."
+      }
+    ],
+    "explanation": "Custom tools in Managed Agents are the analogue of client-executed tools in the Messages API: the model never executes them itself. The session emits the tool call, pauses until the application executes it and posts the result, and then resumes. This is how a managed agent reaches systems and logic that live in the customer's own environment.",
+    "reference": "Claude API docs — Managed Agents: Tools (custom tools); Managed Agents: Session event stream (handling custom tool calls)"
+  },
+  {
+    "id": "D1-CON-024",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A healthcare company adopts Claude Managed Agents with a self-hosted sandbox so that patient records the agent queries stay on its own infrastructure. A security reviewer asks whether the query results containing patient data are ever transmitted outside the company network. What is the accurate answer?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Yes: execution and egress stay on-premises, but tool inputs and outputs still reach Anthropic's control plane, so redact sensitive fields inside the tool.",
+        "why": "Self-hosted sandboxes move tool execution, not orchestration; anything the model needs to reason over is transmitted, so minimization happens in the tool implementation."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Yes, but only if the company also enables Anthropic-managed cloud sandboxes for the same session; a purely self-hosted environment keeps results local.",
+        "why": "The data flow to the control plane is inherent to the model reading results, not a consequence of mixing environment types."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "No, provided the agent is created with the built-in file tools disabled.",
+        "why": "Disabling file tools changes what the agent can do locally; any tool result the model receives still travels to where the model runs."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "No. With a self-hosted sandbox nothing crosses to Anthropic except session metadata, because the environment worker runs on the company's own hosts.",
+        "why": "The model runs on Anthropic's side and must see tool results to decide the next step, so results do leave the network."
+      }
+    ],
+    "explanation": "A self-hosted sandbox keeps orchestration with Anthropic while tool execution, the filesystem and network egress stay in the customer's environment. Tool inputs and outputs still flow to Anthropic's control plane where Claude runs, so data minimization must be done in the tools themselves.",
+    "reference": "Claude API docs — Managed Agents: Self-hosted sandboxes"
+  },
+  {
+    "id": "D1-CON-025",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A team runs a Claude Code coding agent headless in CI with hooks configured in settings. The agent must never finish a task while the test suite is failing. The system prompt says so, but on a share of runs the agent reports completion with red tests. The team wants deterministic enforcement, must avoid infinite loops when tests can never pass, and must not run the suite before every tool call. Which hook design satisfies all of this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A PreToolUse hook that denies every tool call until a test-status file written by CI reports green, forcing the agent to wait for a passing run.",
+        "why": "Blocking every tool call also blocks the edits and test runs the agent needs in order to make the suite pass."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A Stop hook that runs the suite once, returns a block decision with the failures as the reason, and lets the stop proceed when `stop_hook_active` is set.",
+        "why": "The Stop event is the moment to check completion; a block sends the failures back as the next instruction, and checking stop_hook_active prevents an endless retry when tests cannot pass."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A SubagentStop hook that fails the run whenever any subagent finishes with failing tests.",
+        "why": "Subagent completion is not the main agent's completion, and failing the run gives the agent no chance to fix the tests."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A PostToolUse hook on Bash that reruns the full test suite after every command and appends any failures to the tool output so the model sees them before its next step.",
+        "why": "This enforces at the wrong moment, runs the suite far too often, and only informs the model rather than preventing the stop."
+      }
+    ],
+    "explanation": "Stop hooks run when the main agent finishes responding and can return a block decision with a reason that is delivered back to the agent as its next instruction. The stop_hook_active field tells the hook it is already continuing because of a stop hook, which avoids blocking on a condition that will never resolve.",
+    "reference": "Claude Code docs — Hooks reference (Stop hook decision control)"
+  },
+  {
+    "id": "D1-CON-026",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A nightly maintenance job runs Agent SDK tasks with `max_budget_usd=5`. When a task returns `error_max_budget_usd`, the job resumes the session by ID with the same option, intending to let it finish within the original $5. Logs for one task show:\n```\nrun1 subtype=error_max_budget_usd total_cost_usd=5.02\nrun2 (resume) subtype=error_max_budget_usd total_cost_usd=10.05\nrun3 (resume) subtype=error_max_budget_usd total_cost_usd=15.11\n```\nWhat is the root cause, and what should the developer do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The budget option is ignored on resumed sessions; pass `max_turns` instead.",
+        "why": "The budget is enforced on each run, which is why each run stops near $5; the issue is what the cap counts."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The total_cost_usd values are double-counted because each resumed result includes earlier spend; subtract the previous result's total before comparing to the cap.",
+        "why": "Resumed results do report the session's whole spend, but that is correct behavior and it is exactly the number the job should be using to decide whether to resume."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The budget counts only the current call's spend; the job must read the session total from the resumed result and stop resuming past its ceiling.",
+        "why": "Each resume starts a fresh $5 budget, so the loop never converges; the application must enforce the cumulative limit itself using the session-level total it already receives."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Fork the session instead of resuming so each attempt starts from a clean cost counter.",
+        "why": "A fork also starts a fresh per-call budget and would make the overspend worse by duplicating history."
+      }
+    ],
+    "explanation": "max_budget_usd counts only the call's own spend; totals restored from a resumed session do not count against it. A resumed call's total_cost_usd reports the session's whole spend, so an application that wants a ceiling across resumes must compare that total to its own limit before resuming again.",
+    "reference": "Agent SDK docs — Track cost and usage (accumulate costs across multiple calls)"
+  },
+  {
+    "id": "D1-CON-027",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A startup wants long-running research agents that browse and run code for hours, with minimal infrastructure to operate. Its contract with a hospital customer requires that the deployment be covered by a HIPAA Business Associate Agreement, and the platform's feature-eligibility page shows Managed Agents outside that coverage while the Messages API and Agent SDK are eligible. What should the team do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Build a custom agent loop on the Messages API with the team's own browser, sandbox and tool-execution layer, keeping every component in-house.",
+        "why": "Also eligible, but it rebuilds the loop, tool execution and context management the SDK already provides, contradicting the minimal-infrastructure goal."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Use Managed Agents with a self-hosted sandbox, since tool execution and the filesystem then stay on infrastructure the company controls.",
+        "why": "Self-hosting the sandbox does not change that session history and outputs are stored server-side by the managed service; the eligibility constraint still excludes it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Use Managed Agents now for speed and migrate once the hospital signs an exception.",
+        "why": "A regulatory requirement sets the feasible set before anything else is compared; piloting on a non-eligible service is not an option."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Run the Agent SDK in the company's own sandboxed containers with a session store for persistence, accepting more operational work.",
+        "why": "This is the eligible path that still provides a full agent loop, tools and long-running sessions; the operational cost is the price of meeting the constraint."
+      }
+    ],
+    "explanation": "A compliance or eligibility requirement is not one consideration to balance against delivery speed; it removes options first. Among the eligible paths, the Agent SDK gives the most built-in capability for the least custom infrastructure, and self-hosting a Managed Agents sandbox does not change the managed service's own eligibility.",
+    "reference": "Claude API docs — Managed Agents overview; Agent SDK docs — Hosting the Agent SDK"
+  },
+  {
+    "id": "D1-CON-028",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A custom agent harness on the Messages API bounds context by keeping only the most recent messages:\n```python\nif len(messages) > MAX_MSGS:\n    messages = messages[-MAX_MSGS:]\n```\nOn long tasks, requests intermittently fail with a 400 error saying a `tool_result` block references a `tool_use_id` that has no matching `tool_use` block in the preceding assistant message. What is the root cause, and what should change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The slice can cut between an assistant tool_use and its tool_result, leaving an orphan result; trim at exchange boundaries so the pair is kept or dropped together.",
+        "why": "A tool_result must immediately follow the assistant message that contains its tool_use; message-count trimming can split that pair, and dropping whole exchanges keeps the history valid."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Tool_use IDs are reused across turns, so an old result collides with a newer call after trimming; regenerate the IDs before each request.",
+        "why": "IDs are unique per call, and rewriting them would break the pairing the API checks."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "MAX_MSGS is larger than the context window, so the request is rejected as too long; lower it until the history fits.",
+        "why": "An oversized request produces a different error; this one says the history is malformed, not too big."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Dropped tool_use blocks should be preserved as text so the model still sees them; append a summary of trimmed calls to the first message.",
+        "why": "A text summary does not satisfy the pairing rule; the orphan tool_result still has no tool_use to answer."
+      }
+    ],
+    "explanation": "The API validates that every tool_result answers a tool_use in the immediately preceding assistant message. A harness that trims history by message count can start the retained window inside a tool exchange, producing an orphan tool_result. Trim whole exchanges, starting the retained history at a user message, or use server-side context editing, which preserves the pairing for you.",
+    "reference": "Claude API docs — Handle tool calls (tool_result formatting); Context editing"
+  },
+  {
+    "id": "D1-CON-029",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An Agent SDK procurement agent must get a manager's approval before any tool call that issues a purchase order. Approvals arrive through a ticketing system and can take hours; the agent runs in containers that scale to zero when idle, and holding a process open for hours is not acceptable. The agent should pick up exactly where it left off once approval is granted. Which design meets every constraint?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A PreToolUse hook that returns `ask`, with a canUseTool callback that polls the ticketing system until the manager responds and then approves the call.",
+        "why": "This keeps the process and container alive for the whole approval wait, which the scale-to-zero constraint rules out."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A PreToolUse hook that returns `defer` for the purchase tool and stores the session ID with the ticket; on approval, resume the session.",
+        "why": "Defer ends the query cleanly so the container can shut down, and resuming by session ID after approval continues from the pending tool call."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A PreToolUse hook that returns `deny` with the reason \"awaiting approval\", then re-prompts the agent with the order details once the ticket is approved.",
+        "why": "Deny tells the model the action is not allowed; re-prompting later relies on the model reconstructing the same purchase rather than continuing the pending call."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A PostToolUse hook on the purchase tool that opens the ticket and rolls back the order if it is later rejected.",
+        "why": "PostToolUse runs after the order is issued, so the approval never happens before the action."
+      }
+    ],
+    "explanation": "A PreToolUse hook can return a defer decision, which ends the query so the tool call can be resumed later. Combined with session persistence and resume by ID, this supports approvals that take hours without keeping a process alive; ask and deny do not fit the stated constraints.",
+    "reference": "Agent SDK docs — Intercept and control agent behavior with hooks (defer a tool call for later)"
+  },
+  {
+    "id": "D1-PAT-016",
+    "domain": 1,
+    "skill": "agent-patterns",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A retail assistant agent uses the memory tool. A developer notices the agent is writing the entire product catalog, about 40,000 items, into memory files so it can \"remember\" prices, and the memory directory listing is now huge. Prices change daily. What should the developer change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Split the catalog into more memory files organized by category so each one stays small and the directory listing is manageable.",
+        "why": "The catalog is still a stale copy of a live dataset; splitting changes file size, not the problem."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Load the catalog into the system prompt at the start of every session instead, so prices are always in context without memory writes.",
+        "why": "Tens of thousands of items would consume most of the context window on every request and still go stale within a day."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Give the agent a catalog lookup tool for prices, and reserve memory for things learned across sessions such as preferences.",
+        "why": "Memory is for durable, learned context; large, frequently changing reference data belongs behind a retrieval tool that returns just what the task needs."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Turn off the memory tool entirely and rely on the conversation history.",
+        "why": "Conversation history dies at the session boundary, so preferences and decisions the assistant should keep would be lost."
+      }
+    ],
+    "explanation": "Three stores serve different needs: the context window for the current task, memory for knowledge that should persist across sessions, and retrieval tools for large or fast-changing reference data loaded just in time. A catalog copied into memory is stale, bulky and still needs lookup.",
+    "reference": "Anthropic engineering — Effective context engineering for AI agents (retrieval and structured note-taking)"
+  },
+  {
+    "id": "D1-PAT-017",
+    "domain": 1,
+    "skill": "agent-patterns",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A main Agent SDK session has spent 120,000 tokens exploring a codebase and now needs a security review of one module. The developer wants the reviewer to start with a clean context and receive only the module path and the review checklist, so its findings are not colored by the earlier exploration. Which subagent setup achieves that?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Run `/compact` first, then ask the main session to perform the review itself.",
+        "why": "Compaction shrinks the history into a summary but keeps the same session and its accumulated framing."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Start the reviewer as a subagent with `resume` set to the main session ID so that it can consult the exploration if needed.",
+        "why": "Resuming the main session continues its history rather than isolating the reviewer."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Fork the current session so the reviewer starts with a copy of the full history and can draw on everything already discovered about the codebase.",
+        "why": "A fork inherits the parent conversation, which is exactly the context the developer wants to leave behind."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Define a reviewer subagent and invoke it with a prompt containing only the module path and checklist; it starts fresh with that prompt.",
+        "why": "A subagent's context begins without the parent conversation, and the Agent tool's prompt string is the only content passed in, giving a clean, deliberate handoff."
+      }
+    ],
+    "explanation": "Non-fork subagents run in their own conversation that starts fresh; the only content passed from parent to subagent is the prompt string. That isolation is the point when a task should not be influenced by, or bloated with, the parent's prior context.",
+    "reference": "Agent SDK docs — Subagents (what subagents inherit)"
+  },
+  {
+    "id": "D1-PAT-018",
+    "domain": 1,
+    "skill": "agent-patterns",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A team is building a loan-processing assistant with Claude. Requirements: subtasks have different success criteria, a failed verification must hand work back to an earlier step, the flow must pause for a human decision and resume later from the same point, and auditors want to see the exact transition graph. Which framework approach best matches?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "LangGraph: nodes over shared state with explicit edges, cycles for hand-backs, and checkpoints for human-in-the-loop pauses.",
+        "why": "A stateful graph makes transitions, loops and interrupt-and-resume points explicit, which is what the hand-back, pause and audit requirements demand."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "PydanticAI, using typed models to validate each step's output.",
+        "why": "Typed validation is valuable for step outputs but does not itself provide explicit state transitions or resumable pauses."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A single Messages API agent loop with a maximum turn count and a system prompt describing the steps and when to hand work back.",
+        "why": "One loop holding every tool leaves the route to the model and offers no defined return path or resumable pause point."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Strands Agents, supplying a model, a prompt and tools and letting the model drive the loop and decide when a verification must be redone.",
+        "why": "A model-driven loop keeps transitions implicit in the model's choices, which conflicts with an auditable, explicit transition graph."
+      }
+    ],
+    "explanation": "When subtasks have distinct success criteria, work may flow backward, and the process must pause and resume at defined points, a state-driven structure with explicit transitions fits best. LangGraph models an application as a graph of nodes and edges over shared state, which makes those transitions visible and controllable.",
+    "reference": "Framework documentation — LangGraph; Anthropic engineering — Building effective agents (frameworks)"
+  },
+  {
+    "id": "D1-PAT-019",
+    "domain": 1,
+    "skill": "agent-patterns",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A team adopted an agent framework for a support agent. To \"keep control,\" they also maintain their own message list, append tool results to it by hand, and parse the model's prose to decide which tool to call, while the framework runs its own loop underneath. Conversations occasionally show duplicated tool results and a tool being called with the wrong arguments. What should the team do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Move the hand-written history into the system prompt so the framework cannot alter it.",
+        "why": "The system prompt is not a conversation store, and the framework's loop still appends its own turns."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Let the framework own the loop, dispatch and history, and dispatch on the structured tool-call blocks it exposes, not parsed prose.",
+        "why": "Half-adoption leaves two owners for one piece of state; committing to the framework removes the duplicate history and restores schema-based tool calls."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Drop the framework and write everything by hand, since the team already maintains the history and understands the tool dispatch.",
+        "why": "Defensible in other situations, but it re-implements loop, dispatch and retries the framework already provides and does nothing about prose-based dispatch."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Keep both layers but add a reconciliation step that de-duplicates the two histories after each turn and re-validates tool arguments.",
+        "why": "Reconciling two sources of truth adds a third mechanism to maintain and does not fix the parsed-intent dispatch."
+      }
+    ],
+    "explanation": "Once a framework is chosen, it should own the loop, dispatch and history. Hand-writing any of them alongside it produces two sources of truth for the conversation, and parsing intent from prose discards the structured tool-call schema that made calls machine-readable.",
+    "reference": "Anthropic engineering — Building effective agents (when and how to use frameworks)"
+  },
+  {
+    "id": "D1-PAT-020",
+    "domain": 1,
+    "skill": "agent-patterns",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A team runs Claude Managed Agents for engineering tasks with one memory store attached. Platform engineers curate coding conventions in that store that agents must follow but must never change, and each agent should still record what it learns during sessions for future runs. Last week an agent \"corrected\" a convention in the store, and later sessions followed the altered version. Which change fits?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Put the conventions in the agent's system prompt and detach the memory store.",
+        "why": "This protects the conventions but removes the agent's ability to persist what it learns across sessions."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Attach the conventions as a separate store with read-only access, and keep a read-write store for the agent's own notes.",
+        "why": "Access is enforced by the sandbox mount rather than by prompt, so the curated store cannot be altered while learned notes still persist in the writable store."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add an instruction to the store's description telling the agent not to edit convention files.",
+        "why": "An instruction is advisory; the agent can still write to a writable store, as it just did."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Review the store's version history after each session and roll back unwanted edits.",
+        "why": "Versions allow recovery but do not prevent the edit, and sessions in between still read the altered convention."
+      }
+    ],
+    "explanation": "Memory stores can be attached with read-only or read-write access, enforced at the filesystem level. Separating curated, human-owned knowledge from agent-written notes gives the agent an unalterable source of truth while it continues to accumulate its own memory.",
+    "reference": "Claude API docs — Managed Agents: Using agent memory (attach a store; access modes)"
+  },
+  {
+    "id": "D1-PAT-021",
+    "domain": 1,
+    "skill": "agent-patterns",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An Agent SDK main agent delegates a dependency audit of a large monorepo to a custom `auditor` subagent, which reads hundreds of manifests over many turns and returns a short summary of flagged packages. The developer now needs a follow-up answered: which flagged packages appear only in development dependencies. Rerunning the audit is too slow, and the summary does not contain that detail. What should the developer do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Spawn a fresh auditor subagent with the summary in its prompt and ask it the follow-up.",
+        "why": "A new subagent starts with only its prompt; the manifests it would need were read by the earlier subagent and are not in the summary."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Resume the same session and direct the follow-up to the auditor by the agent ID in its result, so it answers from its retained history.",
+        "why": "A resumed subagent keeps its full conversation, including every tool result, so it can answer from what it already read without repeating the work."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Fork the main session so the follow-up starts from a copy of everything the audit discovered.",
+        "why": "The fork copies the main conversation, which holds only the summary; the subagent's tool results never entered the parent's context."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Ask the main agent to answer from its own context, since the Agent tool result already includes the subagent's transcript.",
+        "why": "Only the subagent's final message returns to the parent; its intermediate tool calls and results stay inside the subagent."
+      }
+    ],
+    "explanation": "Intermediate tool calls and results stay inside a subagent; only its final message returns to the parent. A subagent can be resumed and retains its full history, so follow-up questions that depend on what it read should go back to that same subagent rather than to a new one or to the parent.",
+    "reference": "Agent SDK docs — Subagents (resume subagents; context isolation)"
+  },
+  {
+    "id": "D1-PAT-022",
+    "domain": 1,
+    "skill": "agent-patterns",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A Claude Managed Agents deployment runs a fresh session for each engineering task. Each session rediscovers the team's coding conventions and repeats mistakes earlier sessions were corrected on. Operations wants the accumulated knowledge to be inspectable, editable outside the agent, and to keep a history of changes. Which mechanism fits?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Attach a memory store to each session so the agent reads and updates shared memory files, with every change versioned.",
+        "why": "Memory stores are workspace-scoped documents mounted into the sandbox, editable through the API or Console, and every change creates an immutable version, matching all three operational needs."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep one long-running session for all tasks so nothing is forgotten.",
+        "why": "A single ever-growing session mixes unrelated tasks and relies on compaction; it also cannot run tasks in parallel."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Upload a conventions document as a file resource at session start and ask the agent to append its learnings to the file.",
+        "why": "A file resource is read-only input for that session; the agent's learnings do not flow back into it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Put the conventions in the agent's system prompt and publish a new agent version whenever the team learns something new.",
+        "why": "This carries static conventions but cannot capture what sessions learn, and edits require re-versioning the agent rather than editing a document."
+      }
+    ],
+    "explanation": "Managed Agents sessions start with a fresh context. Memory stores carry information across sessions: they are mounted as a directory the agent reads and writes with file tools, can be inspected and edited directly, and version every change for audit and recovery.",
+    "reference": "Claude API docs — Managed Agents: Using agent memory (memory stores)"
+  },
+  {
+    "id": "D1-PAT-023",
+    "domain": 1,
+    "skill": "agent-patterns",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A two-person Python team must ship a data-enrichment agent in three weeks. Constraints: every step's output must be validated against typed models before it reaches the database; the model provider may be swapped later; the flow is linear with at most three tool calls per record; and the team wants a thin library that handles the typed validation and provider swapping rather than writing those itself. Which choice satisfies all constraints?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "LangGraph, with a node per step, a validation node before the database write, and checkpoints so failed records can be replayed.",
+        "why": "Workable, but a stateful graph runtime is more machinery than a linear three-call flow needs and adds a layer to debug."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "PydanticAI, defining typed output models for each step and swapping the model via its provider abstraction.",
+        "why": "Typed, validated structured outputs are the framework's core, it stays thin over the model call, and provider swapping is built in, matching every stated constraint."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A raw Messages API loop with hand-written JSON parsing, typed validation and retry on validation failure, plus a provider adapter.",
+        "why": "Fewest layers, but the team then hand-writes the typed validation, retries and provider adapter the constraints say should come from a library."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An orchestrator-workers design so each enrichment step runs as its own subagent.",
+        "why": "The flow is linear and small; multi-agent structure adds cost and coordination for no benefit."
+      }
+    ],
+    "explanation": "Framework choice follows the constraints: PydanticAI centers on typed Python models for validated inputs and outputs with a thin layer over the model, LangGraph is for explicit graphs with branches, cycles and checkpoints, and Strands is model-driven. A linear, validation-heavy flow with a possible provider swap points to the typed, thin option.",
+    "reference": "Framework documentation — PydanticAI, LangGraph; Anthropic engineering — Building effective agents (frameworks)"
+  },
+  {
+    "id": "D1-PAT-024",
+    "domain": 1,
+    "skill": "agent-patterns",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A tool-use loop on the Messages API treats any stop reason other than `tool_use` as the end of the task. An agent that writes large code patches through an `apply_patch` tool sometimes ends early; the trace for one such turn shows:\n```\nstop_reason: \"max_tokens\"\ncontent[-1]: {\"type\": \"tool_use\", \"name\": \"apply_patch\", \"input\": {\"file\": \"src/api.py\", \"patch\": \"--- a/src/api.py\\n+++ b/src/api.py\\n@@ -1,4 +1,9 @@\\n\"\n```\nWhat should the developer change in the loop?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Parse the partial patch input and execute it anyway so the turn is not wasted, then continue the loop.",
+        "why": "The tool_use block is incomplete; running a truncated patch corrupts the file, and no tool_result can validly answer an unfinished call."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Detect a max_tokens stop whose last block is a tool_use, and retry the request with a higher max_tokens before proceeding.",
+        "why": "A response cut off inside a tool_use block cannot be answered; the documented handling is to resend with more output room so the full call arrives."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Return a tool_result with is_error for the truncated call so the model tries a smaller patch.",
+        "why": "There is no complete tool_use to answer, and the fix belongs in the request, not in a fabricated error result."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Treat max_tokens like end_turn and surface the assistant text so far as the final answer.",
+        "why": "This is the current behavior and is why tasks end early; the model was mid-action, not finished."
+      }
+    ],
+    "explanation": "A tool-use loop must handle every stop reason it can receive. When max_tokens cuts the response inside a tool_use block, the call is incomplete: the loop should retry with a higher max_tokens (and consider a larger default when tool inputs are large), rather than executing partial input or treating the turn as finished.",
+    "reference": "Claude API docs — Stop reasons and fallback (incomplete tool use blocks)"
+  },
+  {
+    "id": "D1-PAT-025",
+    "domain": 1,
+    "skill": "agent-patterns",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "An Agent SDK main session handles a customer's account, and its conversation contains the customer's API credentials. It must delegate a code-quality review of the customer's repository to subagents that run in parallel across many files. Requirements: the reviewers must not see the credentials, must not modify anything, and the run must not fan out beyond a fixed number of concurrent reviewers. Which two settings are essential? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Use non-fork reviewer subagents whose prompts contain only file paths and the review rubric.",
+        "why": "A non-fork subagent starts without the parent conversation, so the credentials never enter its context; a fork would copy them in."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Restrict the reviewer definition's tools to read-only tools and cap concurrent subagents through the environment.",
+        "why": "A tools allowlist makes the no-modification rule structural, and the concurrency variable bounds the fan-out regardless of what the model requests."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Fork the session for each reviewer so it understands the account context.",
+        "why": "Forking copies the parent history, including the credentials, into every reviewer."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Tell the reviewers in their prompt not to edit files and not to use any credentials they encounter.",
+        "why": "Prompt instructions are not deterministic; the requirements call for tool restriction and context isolation."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Set a spend budget on the query so the fan-out stops once the cost cap is reached.",
+        "why": "A budget bounds total spend, but it does not limit how many reviewers run at the same time, and it does nothing for isolation."
+      }
+    ],
+    "explanation": "Subagent isolation is a context-hygiene and security tool: a fresh subagent sees only its prompt, the tools field restricts what it can do, and concurrency and depth limits bound the fan-out. Forks and prompt-only instructions do not provide these guarantees.",
+    "reference": "Agent SDK docs — Subagents (what subagents inherit; tool restrictions; cap depth, concurrency and spend)"
+  },
+  {
+    "id": "D1-PAT-026",
+    "domain": 1,
+    "skill": "agent-patterns",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A law firm wants an assistant that answers questions over 50,000 matter documents that change daily, remembers each attorney's citation style and past decisions across sessions, and stays within a modest per-request token budget. The first prototype loads the attorney's full history plus the top 100 retrieved chunks into every prompt, and answers cite superseded documents. Which design meets all requirements?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Re-embed the corpus every night and raise the retrieval count to 300 chunks per question so that coverage of recent documents improves.",
+        "why": "More chunks worsen the token budget and attention problem, and nightly indexing still lags daily changes."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Use a larger context window and place the full attorney history plus the whole day's changed documents in every prompt for completeness.",
+        "why": "This violates the token budget and pollutes attention; capacity is not a substitute for curation."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Move the documents and the attorney histories into the memory tool so everything persists.",
+        "why": "Memory is for learned, durable context; a daily-changing corpus of 50,000 documents copied into memory is stale and bulky, and reading it back still floods context."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Retrieval tools for current documents, a memory store for each attorney's preferences and decisions, and a context assembled per question.",
+        "why": "Each kind of information goes to the store that suits it: live documents behind retrieval tools, durable preferences in memory, and a lean context assembled per request."
+      }
+    ],
+    "explanation": "Context engineering means curating the smallest set of high-signal tokens per step. Fast-changing corpora belong behind just-in-time retrieval tools, cross-session facts about a user belong in memory, and the context window holds only what the current task needs.",
+    "reference": "Anthropic engineering — Effective context engineering for AI agents (just-in-time retrieval; structured note-taking)"
+  },
+  {
+    "id": "D1-PAT-027",
+    "domain": 1,
+    "skill": "agent-patterns",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A migration task needs 400 source files updated. A developer's Agent SDK session has Claude spawn one subagent per file. After about 60 files, the main session slows dramatically, compaction fires repeatedly, and the agent loses track of which files remain. The developer needs the orchestration to be repeatable and to survive an interruption. What should change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Move the orchestration into a script the runtime runs outside the conversation, holding the file list and results so it can be rerun or resumed.",
+        "why": "When coordination outgrows a conversation, the plan should live in code: script variables hold progress, results stay out of the context window, and the orchestration itself is repeatable."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Have each subagent spawn the next one when it finishes so the main session only starts the chain and stays small.",
+        "why": "Nesting hides the work from the main session but makes progress untrackable and pushes the same context growth down the chain."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Raise the concurrent-subagent limit so all 400 files run at once and the whole batch finishes before compaction has a chance to fire.",
+        "why": "Every Agent tool call and result still lands in the main context, so the pollution and loss of tracking remain; concurrency only changes timing."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Give the main session a larger context window and tell it to keep a running list of finished and remaining files in each of its replies after every file.",
+        "why": "Asking the agent to keep its own tally in a window that compaction keeps summarizing is what already fails."
+      }
+    ],
+    "explanation": "Turn-by-turn subagent delegation suits a few tasks per turn because every result enters the coordinator's context. For dozens to hundreds of agents, move the plan into code: a workflow script holds the loop, branching and intermediate results, keeps them out of the context window, and is rerunnable and resumable.",
+    "reference": "Claude Code docs — Orchestrate subagents at scale with dynamic workflows"
+  }
+]

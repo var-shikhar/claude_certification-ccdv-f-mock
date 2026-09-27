@@ -1,0 +1,113 @@
+[
+  {
+    "id": "D4-DBG-013",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A nightly reporting job calls the Messages API and retries every 429 with exponential backoff. Since this morning, every request has failed with 429 rate_limit_error. The responses have no retry-after header, the error details show enforced_spend_limit_reached, and traffic has not changed. What should the developer do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Increase the maximum number of retries and the backoff ceiling so the job keeps trying longer.",
+        "why": "This 429 is a spend cap, not a short-lived rate limit; access stays paused until the cap resets or is raised, so more retries only waste time."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Lower the job's concurrency so requests stay under the per-minute rate limits.",
+        "why": "Traffic has not changed, and the error details show a spend cap rather than a requests- or tokens-per-minute limit."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Treat it as a spend cap: stop retrying, alert the owner, and raise the limit or wait for it to reset.",
+        "why": "A 429 without retry-after that reports enforced_spend_limit_reached keeps failing until access resumes, so the recovery is a billing or limit change, not a retry."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Generate a new API key in the same organization and switch the job to it.",
+        "why": "Spend caps and rate limits apply to the organization, so a new key in the same organization hits the same cap."
+      }
+    ],
+    "explanation": "Error identification means reading more than the status code. Most 429s are temporary rate limits that carry retry-after and succeed after backing off. A 429 for a reached tier spend cap has no retry-after and keeps failing until access resumes, so retry logic should detect it, stop, and alert. A spend limit you set yourself returns a 400 invalid_request_error instead.",
+    "reference": "Claude API docs — Rate limits (reaching your spend cap); Errors"
+  },
+  {
+    "id": "D4-DBG-014",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An agent loop sometimes ends with an empty reply. Traces show that each empty response has stop_reason \"end_turn\" and no content, and that it always follows a user message in which the app sends the tool_result block followed by a text block saying \"Here is the tool output.\" Tool results themselves are correct. What should the developer change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Retry the request unchanged whenever the reply is empty, up to three times.",
+        "why": "Claude has already judged the turn complete from this history, so resending the same messages tends to produce the same empty result."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Send only the tool_result blocks in that user message, with no text block after them.",
+        "why": "Text placed right after tool results teaches Claude to expect the user to speak next, so it ends its turn; removing it fixes the cause in the integration layer."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Raise max_tokens, because the model is running out of room before it can write the reply.",
+        "why": "Running out of room is reported as stop_reason \"max_tokens\"; here Claude ended its turn deliberately with \"end_turn\"."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Switch to a larger model, because the current one cannot interpret the tool output.",
+        "why": "The trace points to how the app structures messages, not to model capability, and the same structure can trigger the behavior on any model."
+      }
+    ],
+    "explanation": "Isolate the origin before choosing a fix. Here the tool output is correct and the pattern follows a specific message structure the app builds, so the defect is in the integration layer. The docs note that adding text blocks immediately after tool_result blocks can cause empty end_turn responses. If empty replies persist after fixing the structure, add a new user message asking Claude to continue rather than resending the same history.",
+    "reference": "Claude API docs — Handling stop reasons (empty responses with end_turn)"
+  },
+  {
+    "id": "D4-DBG-015",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A Message Batch of 10,000 classification requests has ended. Results show 9,850 succeeded, 120 errored with invalid_request_error because the attached images are too large, and 30 errored with api_error. The job currently logs \"batch complete\" and moves on. What is the best recovery strategy?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Resubmit all 150 errored requests unchanged in a new batch and mark the job done once it is sent.",
+        "why": "The 120 invalid requests will fail again until they are fixed, and marking the job done before they finish hides the gap."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Treat the whole batch as failed and resubmit all 10,000 requests so the results are consistent.",
+        "why": "This throws away 9,850 good results, pays for them again, and still does not fix the 120 invalid requests."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Keep the 9,850 results and drop the 150 errored requests, since they are only 1.5% of the batch.",
+        "why": "Silently dropping failures leaves records unprocessed with no signal to anyone, and most of them could be recovered."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Keep the successes, retry the 30 api_error requests, fix the 120 invalid ones, and report the gap.",
+        "why": "Each error type gets its own recovery: transient errors are retried, invalid requests are corrected first, and the job reports what is still outstanding."
+      }
+    ],
+    "explanation": "Batch results are per request: succeeded, errored, canceled or expired, matched by custom_id. Choose recovery by error type: an invalid_request_error must be fixed before resending, while a server error can be retried as is. Surface partial failures instead of reporting the batch as fully complete. Errored requests are not billed.",
+    "reference": "Claude API docs — Batch processing (retrieving batch results)"
+  }
+]

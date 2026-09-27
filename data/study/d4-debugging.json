@@ -1,0 +1,42 @@
+{
+  "debugging": {
+    "summary": "Identify what kind of failure a Claude application is having (HTTP error, stop_reason, streaming error, tool or integration defect, or model output), choose the right recovery strategy, and use traces to isolate whether the fault lies in the integration layer or in the model's output.",
+    "points": [
+      "Error types: 400 `invalid_request_error`, 401 `authentication_error`, 403 `permission_error`, 404 `not_found_error`, 413 `request_too_large`, 429 `rate_limit_error`, 500 `api_error`, 504 `timeout_error`, 529 `overloaded_error`. Every error body has `type`, `message` and a `request_id`.",
+      "Retry transient errors (429, 500, 529 and connection errors) with exponential backoff and jitter, honoring `retry-after`. The official SDKs already retry these twice by default (configurable with `max_retries`).",
+      "Do not retry request or credential errors unchanged: 400 (fix the request), 401/403 (fix the key or permissions), 413 (send less data, for example split input or use the Files API).",
+      "429 comes from organization-level limits (RPM, input and output tokens per minute), which replenish continuously. Smooth bursts by capping concurrency and ramping up gradually. A spend-cap 429 has no `retry-after` and keeps failing until access resumes, so alert on it rather than retrying.",
+      "529 `overloaded_error` is temporary, API-wide load. Back off, retry, and degrade gracefully. Rotating keys or editing the request will not help.",
+      "With streaming, a failure can arrive as an SSE `error` event (for example `overloaded_error`) after HTTP 200. Treat it as a failed request and never persist the partial text as a complete answer.",
+      "`stop_reason` explains a successful response: `end_turn` (done), `max_tokens` (truncated: raise the limit or continue), `stop_sequence`, `tool_use` (run the tool and call again), `pause_turn` (server-tool loop paused: send the content back), `refusal` (declined; HTTP 200, not an error; see `stop_details`), and `model_context_window_exceeded` (treat as truncated).",
+      "Check `stop_reason` before parsing. JSON parse failures paired with `max_tokens` are truncation, not formatting, and a blank UI reply with `tool_use` means the app never completed the tool loop.",
+      "Empty `end_turn` responses right after tool results are often caused by the harness adding text immediately after the `tool_result` blocks. Send only the tool results.",
+      "Trace analysis: log each request's full prompt, tool inputs and results, `stop_reason`, usage and `request_id`. Agents are non-deterministic, so diagnose from production traces rather than hoping to reproduce locally.",
+      "Isolate the origin by walking the trace to the first wrong step. If the tool input is correct but the tool result is wrong, the fault is in the integration layer (wrapper mapping, truncation, auth). If a malformed input is forwarded faithfully, it is a model-output problem, fixed with clearer tool definitions and validation.",
+      "Return tool failures as `is_error: true` with a specific cause and remedy. Unhelpful error strings cause repeated identical calls, so pair this with turn caps in the harness.",
+      "Use the SDKs' typed exception classes rather than string-matching messages, and include the `request_id` when escalating to support."
+    ],
+    "docs": [
+      {
+        "title": "API errors",
+        "url": "https://platform.claude.com/docs/en/api/errors"
+      },
+      {
+        "title": "Handling stop reasons",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons"
+      },
+      {
+        "title": "Rate limits",
+        "url": "https://platform.claude.com/docs/en/api/rate-limits"
+      },
+      {
+        "title": "Streaming Messages",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/streaming"
+      },
+      {
+        "title": "Handle tool calls",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls"
+      }
+    ]
+  }
+}

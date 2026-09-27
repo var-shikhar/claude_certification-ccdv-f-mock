@@ -1,0 +1,230 @@
+[
+  {
+    "id": "D4-DBG-001",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "During a traffic peak, a production service starts receiving intermittent HTTP 529 responses with error type overloaded_error from the Claude API. Requests that fail succeed when retried a little later. What should the developer do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Rotate the API key, since the current key has probably been revoked.",
+        "why": "Key problems return 401 authentication_error, and a revoked key would fail consistently rather than intermittently."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Retry with exponential backoff and jitter, with a graceful fallback if retries run out.",
+        "why": "529 signals temporary API-wide overload, so spaced-out retries with a fallback path are the appropriate recovery."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Inspect the request JSON for malformed fields, since the payload is being rejected by the API.",
+        "why": "Malformed requests return 400 invalid_request_error and would fail every time, not succeed on retry."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Retry every failed request immediately in a tight loop until it succeeds.",
+        "why": "Immediate, unbounded retries add load to an already overloaded service and can make the problem worse."
+      }
+    ],
+    "explanation": "Error type identification drives recovery. 529 overloaded_error is a transient, service-side condition, so the fix is exponential backoff with jitter and a graceful fallback. Authentication (401) and invalid-request (400) errors are not fixed by retrying.",
+    "reference": "Claude API docs — Errors"
+  },
+  {
+    "id": "D4-DBG-002",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A developer is writing a retry policy for a Claude integration. Which two error responses should be retried with backoff, without changing the request? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "400 invalid_request_error caused by an unsupported parameter value.",
+        "why": "The request itself is wrong, so it will fail again until the parameter is fixed."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "429 rate_limit_error returned with a retry-after header.",
+        "why": "A rate limit is temporary; waiting as long as retry-after says and then retrying is the documented recovery."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "401 authentication_error caused by an expired API key.",
+        "why": "Credentials must be fixed; retrying with the same expired key will keep failing."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "413 request_too_large because the payload exceeds the endpoint's size limit.",
+        "why": "An oversized request needs to be reduced or restructured; resending it unchanged produces the same error."
+      },
+      {
+        "id": "E",
+        "correct": true,
+        "text": "500 api_error reporting an unexpected internal error.",
+        "why": "Internal server errors are transient on the service side and should be retried with exponential backoff."
+      }
+    ],
+    "explanation": "Separate transient errors (429, 500, 529) from request or credential errors (400, 401, 403, 413). Transient errors call for backoff and retry, honoring retry-after when present; the official SDKs already retry these by default. The other errors need a code or configuration fix before the request will succeed.",
+    "reference": "Claude API docs — Errors"
+  },
+  {
+    "id": "D4-DBG-003",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An application asks Claude for a long JSON report. About 5% of responses fail JSON parsing. Every failing response came back as HTTP 200, ends mid-object, and has stop_reason \"max_tokens\". What is the most effective fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Check stop_reason first; if it is \"max_tokens\", raise the limit or continue the response.",
+        "why": "The output is being cut off at the token limit; giving it more room or continuing the response fixes the truncation directly."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add \"always return valid, complete JSON\" to the system prompt.",
+        "why": "The model is not choosing to stop; generation is halted by the max_tokens cap, which a prompt cannot override."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Retry any response that fails JSON parsing, sending exactly the same request again until it parses.",
+        "why": "An identical request is likely to hit the same limit again, adding cost without fixing the cause."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lower the temperature so the model writes more predictable JSON.",
+        "why": "Temperature affects sampling, not length; the response will still be truncated at the cap."
+      }
+    ],
+    "explanation": "stop_reason tells you why generation ended. \"max_tokens\" means the response hit the requested cap and is incomplete, so check it before parsing and either raise the limit or continue the response. Parse errors paired with max_tokens are a truncation problem, not a formatting problem.",
+    "reference": "Claude API docs — Handling stop reasons"
+  },
+  {
+    "id": "D4-DBG-004",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Users report that an order-lookup assistant says \"I couldn't find that order\" for orders that exist. In the trace, Claude's tool_use input is {\"order_id\": \"A-1234\"}, which matches the user's order. The tool_result says \"no order found.\" Calling the order service directly with A-1234 returns the order. Where is the problem most likely, and what should the developer do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "In the model's reasoning; add few-shot examples showing how to look up orders.",
+        "why": "The trace shows Claude produced the correct tool input, so better examples will not change the tool's wrong result."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "In the prompt; tell Claude to retry the lookup several times before telling the user it failed.",
+        "why": "Retrying the same call through a faulty wrapper returns the same wrong result and hides the real defect."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "In model capability; switch to a larger model tier for the assistant.",
+        "why": "Model choice is irrelevant when the model's output is already correct and the failure happens after it."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "In the integration layer; debug how the tool wrapper maps order_id into the service call.",
+        "why": "Correct model input plus a correct direct call isolates the fault to the code between them, which is the tool implementation."
+      }
+    ],
+    "explanation": "Isolate the origin of a failure by checking each boundary in the trace: the model's tool_use input, the request the wrapper actually sends, the service response, and the tool_result returned to Claude. Here the model output is correct and the service works, so the defect is in the integration code, for example a wrong field name, formatting or endpoint.",
+    "reference": "Claude API docs — Tool use: handle tool calls"
+  },
+  {
+    "id": "D4-DBG-005",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An agent sometimes gets stuck calling a search_inventory tool with the same arguments ten or more times. Trace analysis shows that each failing call returns a tool_result containing only the string \"error\", and the agent then retries unchanged. The team wants to fix the failure mode, not just hide it. Which change best addresses the root cause?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Hide tool failures from the model by returning an empty result list when an error occurs.",
+        "why": "An empty list tells the model \"nothing found\", which is false; it swaps a visible failure for a silent, misleading one."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add a system prompt line telling the agent never to call the same tool twice in a row, for any reason.",
+        "why": "This blocks legitimate retries and still gives the agent no information about what went wrong or what to try instead."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Return an is_error tool_result that states the cause and what to change, and cap repeated calls.",
+        "why": "Informative errors let the model adjust its arguments or choose another path, and the cap bounds any remaining loops."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Increase max_tokens so the agent has more room to reason about the failures.",
+        "why": "The agent is not short on output space; it is missing information about the error."
+      }
+    ],
+    "explanation": "Trace analysis revealed that the model had no actionable signal: a bare \"error\" gives it nothing to change, so it repeats. Tool results that mark errors with is_error and explain the cause and remedy (for example, an invalid SKU format or an unavailable service) enable recovery, while a harness-level cap stops runaway loops.",
+    "reference": "Claude API docs — Tool use: handle tool calls (errors)"
+  },
+  {
+    "id": "D4-DBG-006",
+    "domain": 4,
+    "skill": "debugging",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A chat app built on the Messages API sometimes shows users a blank reply. Logs for those requests show HTTP 200, a stop_reason of \"tool_use\", and a content array that holds a tool_use block but no text block. The app displays only text blocks. What is the most likely cause?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The app never runs the tool or returns a tool_result, so Claude never gets to write its answer.",
+        "why": "A stop_reason of \"tool_use\" means Claude is waiting for a tool result; the app must execute the tool and call the API again to get the final text."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Claude refused the request, and the app should retry it on a fallback model.",
+        "why": "A refusal is reported with stop_reason \"refusal\", not \"tool_use\"."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The response was cut off by the token limit, so max_tokens should be increased.",
+        "why": "Truncation is reported with stop_reason \"max_tokens\"; here Claude stopped deliberately to call a tool."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The API had a transient failure partway through, and the request should be retried with backoff.",
+        "why": "An HTTP 200 with a valid stop_reason is a successful response, not a transient error."
+      }
+    ],
+    "explanation": "stop_reason diagnoses why a successful response ended: end_turn (finished), max_tokens (truncated), tool_use (waiting on a tool), refusal (declined), among others. A blank reply with tool_use means the integration layer is not completing the tool loop; the fix is in the application, not the model.",
+    "reference": "Claude API docs — Handling stop reasons"
+  }
+]

@@ -1,0 +1,114 @@
+{
+  "agent-architecture": {
+    "summary": "Choose between a workflow and an agent for a given requirement, pick the right workflow pattern, and design supervisor/subagent hierarchies that justify their cost.",
+    "points": [
+      "Workflows orchestrate LLM calls and tools through predefined code paths. Agents let the model dynamically direct its own steps and tool use. Start with the simplest solution; often a single well-prompted call with retrieval is enough.",
+      "Pick a workflow when the steps are known in advance and you need predictable cost, latency and auditability. Pick an agent when the task is open-ended and the number or order of steps cannot be hard-coded.",
+      "Bound agent autonomy with stopping conditions (turn or budget limits) and human checkpoints. Agents trade higher cost and compounding errors for flexibility.",
+      "Prompt chaining: a fixed sequence of calls, with programmatic \"gates\" between steps to catch errors early. It trades latency for accuracy.",
+      "Routing: classify the input, then send it to a specialized prompt, tool set or model (for example, easy questions to a smaller model). Use it when inputs fall into distinct, reliably classifiable categories.",
+      "Parallelization comes in two forms. Sectioning runs independent subtasks at the same time; a guardrail screening call in parallel with the answering call is a classic example, and it beats one call doing both. Voting runs the same task several times for higher confidence.",
+      "Orchestrator-workers: a central model decides the subtasks for each input, delegates them, and synthesizes the results. It differs from sectioning because the subtasks are not predefined.",
+      "Evaluator-optimizer: one call generates and another critiques, in a loop. It fits when clear evaluation criteria exist and feedback measurably improves the output.",
+      "Supervisor/manager hierarchy: one orchestrator owns planning, delegation, termination and the final answer, and workers report back to it. Free peer-to-peer messaging between agents leads to loops and unclear ownership.",
+      "Subagents work in their own context windows and return condensed results. Their benefits are parallelism, context isolation and specialization (scoped prompts and tools).",
+      "Multi-agent cost trap: in Anthropic's data, agents use about 4 times the tokens of chat, and multi-agent systems about 15 times. They fit valuable, highly parallel work or work that exceeds one context window, and fit poorly with tightly coupled tasks that need shared context (most coding).",
+      "Delegate clearly: give each worker an objective, scope boundaries, sources or tools, and an output format. Embed effort-scaling rules so the orchestrator does not spawn many subagents for simple queries.",
+      "Avoid the \"game of telephone\": have workers return structured summaries, and store full artifacts externally so the lead receives references rather than paraphrasing everything through its own context."
+    ],
+    "docs": [
+      {
+        "title": "Building effective agents",
+        "url": "https://www.anthropic.com/engineering/building-effective-agents"
+      },
+      {
+        "title": "How we built our multi-agent research system",
+        "url": "https://www.anthropic.com/engineering/multi-agent-research-system"
+      },
+      {
+        "title": "Claude Code subagents",
+        "url": "https://code.claude.com/docs/en/sub-agents"
+      }
+    ]
+  },
+  "agent-construction": {
+    "summary": "Pick the right way to build and deploy a Claude agent (Messages API loop, Agent SDK, or Managed Agents, self-hosted or Anthropic-hosted), and use harness controls such as hooks, permissions and limits for behavior that must be deterministic.",
+    "points": [
+      "The construction spectrum runs from most control to least effort. A custom loop on the Messages API gives full control, but you build the tools, loop and context handling. The Claude Agent SDK is Claude Code's harness as a Python/TypeScript library in your own process. Claude Managed Agents is a hosted harness driven through the API.",
+      "Custom loop: while `stop_reason` is `\"tool_use\"`, run the requested tools and send `tool_result` blocks, each matched by `tool_use_id`, in the next user message. Stop when Claude ends its turn, and always enforce a maximum-iteration cap.",
+      "When Claude calls several tools in one turn, return every `tool_result` together in a single user message, placed before any text.",
+      "The Agent SDK ships the same built-in tools (file read, edit, shell, search), agent loop, permissions, sessions, hooks and automatic compaction that power Claude Code. To reach the same loop from another language, run the CLI with `-p` and JSON output.",
+      "By default the Agent SDK loads the same filesystem configuration as the CLI (user, project and local settings, CLAUDE.md, skills, hooks). For reproducible services, restrict `settingSources` and define behavior in code.",
+      "Loop limits: `maxTurns` / `max_turns` caps tool-use turns, and `maxBudgetUsd` / `max_budget_usd` caps estimated spend. When a limit is hit, the result carries an error subtype (for example `error_max_turns`), so check it before recording success.",
+      "SDK hosting patterns: ephemeral (a container per one-off task), long-running (persistent containers), hybrid (ephemeral containers that resume from a session store), and multi-agent containers. Transcripts on local disk are lost when a container is removed.",
+      "Claude Managed Agents is built on an agent (model, prompt, tools, MCP servers, skills), an environment, a session and events. It suits long-running, asynchronous work with minimal infrastructure, and sessions persist event history server-side.",
+      "Deployment model: a Managed Agents environment runs either in an Anthropic-managed cloud sandbox or in a self-hosted sandbox on your infrastructure. The self-hosted option serves compliance and data-residency needs. For fully self-hosted, run the Agent SDK or your own loop.",
+      "Hooks give deterministic control. `PreToolUse` runs before a tool executes and can deny or modify the call (use it for guardrails). `PostToolUse` runs after execution (use it for formatting, linting and audit logs). Prompt instructions are only guidance.",
+      "SDK permission order is: hooks, deny rules, ask rules, permission mode, allow rules, then the `canUseTool` callback. A call approved at an earlier step never reaches `canUseTool`, and deny rules block even in `bypassPermissions`.",
+      "Put human-in-the-loop approval in the harness, on the high-impact actions (send, pay, delete), rather than on every tool call or in the prompt.",
+      "Trap: `max_tokens` caps a single response, not the number of loop iterations or the total cost. Runaway loops need turn or budget limits in the harness."
+    ],
+    "docs": [
+      {
+        "title": "Agent SDK overview",
+        "url": "https://code.claude.com/docs/en/agent-sdk/overview"
+      },
+      {
+        "title": "Agent SDK — agent loop",
+        "url": "https://code.claude.com/docs/en/agent-sdk/agent-loop"
+      },
+      {
+        "title": "Agent SDK — hooks",
+        "url": "https://code.claude.com/docs/en/agent-sdk/hooks"
+      },
+      {
+        "title": "Agent SDK — hosting",
+        "url": "https://code.claude.com/docs/en/agent-sdk/hosting"
+      },
+      {
+        "title": "Claude Managed Agents overview",
+        "url": "https://platform.claude.com/docs/en/managed-agents/overview"
+      }
+    ]
+  },
+  "agent-patterns": {
+    "summary": "Apply the core agent patterns (tool-use loops, subagents, memory, context-window management) to multi-step tasks, and reason about when and how agent frameworks such as Strands, LangGraph and PydanticAI help.",
+    "points": [
+      "Tool-use loop: Claude requests tools (`stop_reason: \"tool_use\"`), your code runs them and returns results, and the loop repeats. A `pause_turn` stop means a server-tool loop paused; send the assistant content back to continue.",
+      "Claude may call several tools in one response. Return all results together, matched by `tool_use_id`. If Claude must see each result before choosing the next step, set `disable_parallel_tool_use: true` inside `tool_choice`.",
+      "Return tool failures as `tool_result` with `is_error: true` and an actionable message. A bare \"error\" gives the model nothing to change and often causes repeated identical calls.",
+      "Subagents start with a fresh conversation, not the parent's history, and only their final response returns to the parent. Pass file paths, errors and decisions in the delegation prompt or in a notes file.",
+      "The model keeps no state between requests, so memory is an application pattern. The memory tool is client-side: Claude requests file operations under `/memories`, and your app executes them in storage you control (rejecting paths outside that directory).",
+      "Context is a finite attention budget, and quality degrades as it fills with irrelevant tokens (\"context rot\"). Aim for the smallest set of high-signal tokens; a bigger context window does not cure context pollution.",
+      "Context editing, specifically tool-result clearing, drops old tool results (leaving a placeholder) and keeps the rest verbatim. Compaction summarizes older history and is the broader default strategy for long conversations.",
+      "Just-in-time retrieval: keep lightweight references (paths, queries) and load data with tools when needed. This avoids stale indexes on fast-changing sources. A hybrid approach retrieves some data up front.",
+      "Compaction can drop instructions given early in a conversation. Keep persistent rules in CLAUDE.md, enforce must-hold rules with hooks, and use a `PreCompact` hook to archive transcripts if needed.",
+      "Long-horizon work across context windows: an initializer session writes a feature list, a progress file and a first commit. Later sessions take one feature at a time, test it end to end, update progress and commit, so each fresh window can rebuild the state.",
+      "LangGraph is a low-level orchestration framework for long-running, stateful agents. It builds graphs of nodes and edges over shared state (`StateGraph`) and supports durable execution, human-in-the-loop interrupts and memory.",
+      "PydanticAI is a typed Python agent framework: output types and tools are validated with Pydantic models, and dependencies are injected through a typed run context. Strands Agents is an open-source, model-driven agent SDK (Python and TypeScript) with hooks, multi-agent patterns and multiple model providers. All three can use Claude.",
+      "Framework guidance: start with the API directly, since many patterns take only a few lines. Frameworks add abstraction that can obscure prompts and responses, so if quality changes after adopting one, inspect the actual requests it sends."
+    ],
+    "docs": [
+      {
+        "title": "Effective context engineering for AI agents",
+        "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
+      },
+      {
+        "title": "Effective harnesses for long-running agents",
+        "url": "https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents"
+      },
+      {
+        "title": "Parallel tool use",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/parallel-tool-use"
+      },
+      {
+        "title": "Memory tool",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool"
+      },
+      {
+        "title": "Context editing",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/context-editing"
+      }
+    ]
+  }
+}

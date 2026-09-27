@@ -1,0 +1,84 @@
+{
+  "api-mechanics": {
+    "summary": "Know how the Messages API behaves in practice: request and response structure, the tool-use loop, streaming, vision and PDF input, thinking, prompt caching, cloud-platform access, data access patterns, and when to choose the Batches API over realtime calls.",
+    "points": [
+      "The Messages API is stateless: every request must carry the full conversation in `messages` (alternating `user` / `assistant` turns), with instructions in the top-level `system` parameter. There is no server-side conversation ID.",
+      "Always branch on `stop_reason`: `end_turn` (finished), `max_tokens` (truncated, so raise the limit or continue), `stop_sequence` (one of your `stop_sequences` fired; the `stop_sequence` field says which), `tool_use` (run your tools), `pause_turn` (a server-tool turn was paused, so send the content back unchanged to resume), `refusal`. Truncation still returns HTTP 200.",
+      "Tool loop: when `stop_reason` is `tool_use`, execute every `tool_use` block and reply with one user message holding all matching `tool_result` blocks (by `tool_use_id`), placed before any text. Report failures with `is_error: true`; never drop them.",
+      "Server tools such as web search run on Anthropic's side, and their results arrive in the same response. Only client tools need your code to execute them and return `tool_result`.",
+      "Streaming uses SSE events: `message_start`, then per block `content_block_start` / `content_block_delta` / `content_block_stop`, then `message_delta` and `message_stop`, with `ping` events anywhere and possible `error` events (e.g. `overloaded_error`). Tool arguments stream as `input_json_delta` fragments; join them and parse at `content_block_stop`. Stream long or large-`max_tokens` requests to avoid HTTP timeouts.",
+      "Images and PDFs are sent as `image` / `document` content blocks (base64, URL or Files API `file_id` source), ideally placed before the question. PDF pages are read as both text and images. Requests with more than 20 images get a stricter per-image size limit, and the standard request size limit is 32 MB, so downscale images and prune old ones in image-heavy agents.",
+      "Thinking: current models use adaptive thinking (`thinking: {type: \"adaptive\"}`), with depth tuned by `output_config.effort`. When returning tool results, pass the assistant's thinking blocks back complete and unmodified; simply append `response.content`.",
+      "Prompt caching is a prefix match over `tools` → `system` → `messages` up to a `cache_control` breakpoint (at most 4 breakpoints). Any byte change earlier in the prefix, such as a timestamp in the system prompt, invalidates everything after it. Default TTL is 5 minutes (1 hour is available at extra cost); cache reads are about 10% of the base input price and 5-minute writes cost 1.25×. Check `usage.cache_read_input_tokens`.",
+      "Token counting (`count_tokens`) takes the same system, tools and messages as a real request and returns an estimate for that model. It is free but rate-limited. Tokenizers differ between models and vendors, so count against the model you will call.",
+      "Citations: set `citations: {enabled: true}` on all or none of the document blocks. PDFs cite page ranges, plain text cites character ranges, and `cited_text` is guaranteed to come from your document. Citations cannot be combined with structured outputs (`output_config.format`); doing so returns a 400.",
+      "For RAG with your own sources, return `search_result` blocks (with required `source` and `title`, plus text content) from a tool or in a user message. With citations enabled, Claude cites them the way it cites web search results.",
+      "Files API: upload once, then reference by `file_id` in later requests instead of resending bytes. Files are scoped to the workspace, not to a user, so never accept `file_id` values from end users.",
+      "Message Batches API: asynchronous, 50% of standard price, up to 100,000 requests or 256 MB per batch; most finish within 1 hour but the guarantee is only within 24 hours. Results come back in any order, so match them by `custom_id`, and resubmit `errored` / `expired` items. Results are available for 29 days. Use realtime calls for anything user-facing or deadline-bound.",
+      "Cloud platforms (Amazon Bedrock, Google Vertex AI, Microsoft Foundry) use their own SDK clients, auth (AWS IAM, Google Cloud credentials, Azure / Entra ID) and model IDs, and each supports a different set of features. For example, the Files API and Message Batches are not available on Bedrock or Vertex AI, and Batches is not on Foundry. Check every feature your app uses before migrating."
+    ],
+    "docs": [
+      {
+        "title": "Working with the Messages API",
+        "url": "https://docs.claude.com/en/docs/build-with-claude/working-with-messages"
+      },
+      {
+        "title": "Handling stop reasons",
+        "url": "https://docs.claude.com/en/docs/build-with-claude/handling-stop-reasons"
+      },
+      {
+        "title": "Handle tool calls",
+        "url": "https://docs.claude.com/en/docs/agents-and-tools/tool-use/handle-tool-calls"
+      },
+      {
+        "title": "Prompt caching",
+        "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-caching"
+      },
+      {
+        "title": "Batch processing",
+        "url": "https://docs.claude.com/en/docs/build-with-claude/batch-processing"
+      }
+    ]
+  },
+  "application-design": {
+    "summary": "Design Claude applications that behave predictably: know which instructions each interface gives Claude, separate trusted instructions from untrusted content, design schemas that guarantee usable output, keep sessions clean, and manage plugins deliberately.",
+    "points": [
+      "claude.ai and the mobile apps add their own periodically updated system prompt (for example the current date and formatting guidance). The API has no default system prompt, so an API app must supply its own context, persona and output format.",
+      "Claude Code adds its own system prompt and loads `CLAUDE.md` as project memory. Raw Messages API calls load neither, so rules that must hold in every interface have to be sent explicitly, for example in the API app's `system` prompt.",
+      "Agent SDK: with no `systemPrompt` set it uses a minimal tool-calling prompt, unlike `claude -p`, which uses the Claude Code prompt. Use the `claude_code` preset (optionally with `append`) to match CLI behavior. CLAUDE.md loading is controlled by setting sources, not by the preset.",
+      "On the API, operator rules belong in the `system` parameter, not in a first user message, where they look like user text, can be argued with, and are lost when history is trimmed. A stable system prompt is also a good caching prefix.",
+      "Content boundaries: wrap untrusted or retrieved content in clearly named XML tags (e.g. `<email>`, `<document>`) and state that tagged content is data, not instructions. Give each document its own tags with metadata such as source, and place long documents before the question.",
+      "Boundaries can be forged: neutralize tag-like sequences in untrusted input before wrapping it, and gate sensitive actions with checks outside the model.",
+      "Schema design: use structured outputs (`output_config.format` with a JSON schema) or `strict: true` tools when code consumes the output. Use `required`, `additionalProperties: false` and enums to constrain values (e.g. a `doc_id` enum of the IDs actually supplied).",
+      "Give the model a valid way to say a value is missing (nullable fields or a status enum) and describe each field's source. Required fields with no way out push the model to invent values.",
+      "Tool definitions are prompts: distinct names, detailed descriptions of what the tool does and when to use it, and precise input schemas drive correct tool selection.",
+      "Check feature interactions when designing: citations and structured outputs cannot be combined in one request, so split the work and build provable fields in code from the citation objects.",
+      "Session hygiene in Claude Code: use `/clear` between unrelated tasks and after repeated corrections (restart with a sharper prompt); `/compact` is for continuing the same task when context is full; use subagents for file-heavy investigation; write a spec, then implement in a fresh session.",
+      "The root and user `CLAUDE.md` files are read at session start. Mid-session edits apply after `/clear`, `/compact` or a restart. In API apps, scope a conversation to one task and carry forward only a curated, current summary.",
+      "Plugins bundle skills, agents, hooks and MCP servers, and their skills are namespaced `/<plugin>:<skill>`. Install scopes: user (`~/.claude/settings.json`), project (committed `.claude/settings.json`; collaborators still install once) and local (`.claude/settings.local.json`). Local overrides project, which overrides user.",
+      "Plugins can run hooks and MCP servers, so review them before installing and pin marketplaces to reviewed refs (`owner/repo#tag`). For requirements across the whole organization (required plugins, approved marketplaces only), use managed settings, which users cannot override. In scripts and CI, use the `claude plugin` shell commands, because `/plugin` does not run under `claude -p`."
+    ],
+    "docs": [
+      {
+        "title": "System prompts (claude.ai release notes)",
+        "url": "https://docs.claude.com/en/release-notes/system-prompts"
+      },
+      {
+        "title": "Use XML tags to structure your prompts",
+        "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/use-xml-tags"
+      },
+      {
+        "title": "Structured outputs",
+        "url": "https://docs.claude.com/en/docs/build-with-claude/structured-outputs"
+      },
+      {
+        "title": "Claude Code best practices",
+        "url": "https://code.claude.com/docs/en/best-practices"
+      },
+      {
+        "title": "Discover and install plugins",
+        "url": "https://code.claude.com/docs/en/discover-plugins"
+      }
+    ]
+  }
+}

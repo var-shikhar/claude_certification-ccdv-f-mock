@@ -1,0 +1,148 @@
+{
+  "ai-security": {
+    "summary": "Recognize jailbreaks and direct or indirect prompt injection, and choose structural mitigations: least privilege, untrusted-data handling, authorization outside the model, data minimization and PII protection.",
+    "points": [
+      "Two threat models: in jailbreaks and direct prompt injection the *user* is the adversary; in indirect prompt injection the user is trusted but third-party content (web pages, emails, documents, tool results) carries the attack.",
+      "For jailbreaks, pre-screen user input with a lightweight model (for example a Haiku-tier classifier with a structured yes/no output), add input validation, and write a system prompt that states boundaries and how to refuse. Throttle or ban repeat offenders.",
+      "For indirect injection, deliver untrusted content only inside `tool_result` blocks (never in the `system` prompt or plain user text), say what it is and where it came from, and state in the system prompt that tool content is data that must not override instructions.",
+      "JSON-encoding untrusted strings inside a tool result gives clear delimiters, so an attacker cannot close a tag or quote to break into an instruction context.",
+      "Don't put your own instructions inside tool results, because Claude treats that content skeptically. Send instructions in a following user turn.",
+      "The strongest defense is structural least privilege: an agent that reads untrusted content should not also hold sensitive data and an outbound channel (send email, fetch arbitrary URLs). Split capabilities or gate the high-impact action behind human approval.",
+      "Common traps: raising temperature, switching to a \"smarter\" model, asking users nicely, keyword blocklists, and repeating warnings in the prompt are not effective mitigations on their own.",
+      "Authorization belongs in application code. Tool handlers derive identity from the authenticated session, or call downstream systems with the user's delegated credentials. Never trust a user ID or role that arrives through the model or the conversation.",
+      "Data leakage: anything in the context window can end up in a response. Filter retrieval by the user's permissions before content reaches the model, and scope conversation history and caches per user or tenant.",
+      "Reduce prompt leak by leaving out details the model does not need. Keep secrets such as discount codes or keys behind tools and backend logic. Output screening and post-processing can catch leaks, and \"never reveal\" wording is not a control.",
+      "PII: redact or tokenize before the API call, keep any re-identification mapping on your side, and keep raw PII out of logs. Base64 is encoding, not protection.",
+      "Treat model output as untrusted too. Escape it before rendering (to prevent XSS), and validate proposed actions against a schema or allowlist before your own code applies them with parameterized queries.",
+      "Encryption at rest protects stored data from infrastructure compromise. It does not stop the application from serving data to the wrong user.",
+      "For data handling on the Claude API, Anthropic offers zero data retention (ZDR) arrangements per organization, and on Bedrock or Google Cloud the cloud provider is the data processor. Check a feature's eligibility before relying on ZDR."
+    ],
+    "docs": [
+      {
+        "title": "Mitigate jailbreaks and prompt injections",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks"
+      },
+      {
+        "title": "Reduce prompt leak",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-prompt-leak"
+      },
+      {
+        "title": "API and data retention",
+        "url": "https://platform.claude.com/docs/en/manage-claude/api-and-data-retention"
+      },
+      {
+        "title": "Handle tool calls",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls"
+      }
+    ]
+  },
+  "guardrails": {
+    "summary": "Design layered, enforceable guardrails and deploy Claude applications securely by design: content policy, defense in depth, least privilege, identity and access management, and human approval for high-impact actions.",
+    "points": [
+      "Guardrail layering means defense in depth: input screening, system-prompt policy, tool restrictions, output checks and human approval, so one bypass is caught by another layer. Repeating one instruction in several places is still a single layer.",
+      "Prompt instructions (system prompt, CLAUDE.md, Skills) are requests, not guarantees. Anything that must always hold belongs in code, permissions, hooks or infrastructure.",
+      "A content policy stricter than general defaults must be stated explicitly and enforced by an independent check, such as a lightweight classifier on outputs. Built-in safety training does not know your application's policy.",
+      "Tune model-based classifiers with precise category definitions and examples of content that should and should not be flagged. Track both false positives and false negatives (precision and recall) on a labeled set rather than removing the layer.",
+      "Least privilege: give each tool and agent a dedicated, narrowly scoped credential (for example a read-only role on reporting views). Do not reuse broad service accounts, and do not grant access for hypothetical future needs.",
+      "Human approval is meaningful only when the agent lacks the privilege to act without it and the approval comes from a separate, authenticated identity. A \"yes\" typed in the chat is model input, not an approval.",
+      "Approve by risk tier: run read-only tools automatically and hold irreversible or side-effecting actions (payments, deletes, sends, production changes) for approval. Approving everything causes approval fatigue.",
+      "Secure by design: threat-model up front, isolate tenants, minimize data, give each component its own least-privilege identity, and keep audit logs. Pen tests, provider safeguards and prompt rules are supplements, not substitutes.",
+      "Claude Code permission rules are evaluated deny, then ask, then allow, and the first match wins. An allow rule cannot carve an exception out of a deny rule.",
+      "Managed settings (file, MDM policy or server-managed) have the highest precedence and cannot be overridden by user, project or command-line settings. Use them for org-wide policy such as deny rules.",
+      "Bash permission rules match command text, so they are not a security boundary around a program (for example `sh -c 'curl ...'`). For filesystem and network limits that hold no matter how a command is written, use the sandboxed Bash tool (OS-enforced) or a PreToolUse hook.",
+      "`bypassPermissions` mode is for isolated containers or VMs only. For unattended CI, prefer `dontAsk` mode with exact allow rules, and remove credentials the job does not need."
+    ],
+    "docs": [
+      {
+        "title": "Mitigate jailbreaks and prompt injections",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks"
+      },
+      {
+        "title": "Content moderation",
+        "url": "https://platform.claude.com/docs/en/about-claude/use-case-guides/content-moderation"
+      },
+      {
+        "title": "Configure permissions",
+        "url": "https://code.claude.com/docs/en/permissions"
+      },
+      {
+        "title": "Choose a permission mode",
+        "url": "https://code.claude.com/docs/en/permission-modes"
+      },
+      {
+        "title": "Configure the sandboxed Bash tool",
+        "url": "https://code.claude.com/docs/en/sandboxing"
+      }
+    ]
+  },
+  "hooks": {
+    "summary": "Use Claude Code and Agent SDK hooks as deterministic guardrails: pick the right event and matcher, block correctly, place the configuration at the right scope, and know how hooks interact with permission rules.",
+    "points": [
+      "Hooks run in the harness at fixed lifecycle points, so they fire every time. Use them for rules that must hold, such as blocking `rm -rf`, force-pushes or edits to protected files, rather than relying on CLAUDE.md or prompt instructions.",
+      "`PreToolUse` runs before a tool executes and is the event that can prevent it. `PostToolUse` runs after success, which suits linters, formatters and feedback, but the action has already happened.",
+      "Blocking from PreToolUse: exit code `2` (stderr becomes the reason shown to Claude), or exit `0` with JSON `hookSpecificOutput.permissionDecision: \"deny\"` plus `permissionDecisionReason`. Exit code `1` is a non-blocking error and the call proceeds.",
+      "Command hooks receive JSON on stdin, including `tool_name` and `tool_input` (for Bash, the full command; for Edit and Write, `file_path`), so the hook can inspect arguments.",
+      "Matchers filter by tool name for tool events: `\"Bash\"` or `\"Edit|Write\"` match exactly, a pattern with other characters is a regex (such as `mcp__.*`), and `\"*\"` or an empty matcher matches everything.",
+      "`UserPromptSubmit` runs before Claude processes a prompt and can reject it, for example a prompt that contains a pasted secret. It sees user prompts, not commands Claude generates.",
+      "`Stop` fires when Claude finishes responding. Returning `decision: \"block\"` with a `reason` makes Claude keep working, for example until tests pass. Check the `stop_hook_active` input so the hook does not keep blocking on a condition Claude cannot fix.",
+      "Scope comes from where the hook is defined: `~/.claude/settings.json` (you, all projects), `.claude/settings.json` (committed and shared with the team), `.claude/settings.local.json` (personal, gitignored), managed policy settings (organization-wide), plugins, and Skill or agent frontmatter.",
+      "Hooks merge across levels, and `disableAllHooks` set in user, project or local settings cannot disable managed hooks. Admins can use `allowManagedHooksOnly` to block all non-managed hooks.",
+      "Hooks and permission rules layer. A hook \"allow\" skips a prompt but does not override matching deny or ask rules, while a hook that exits 2 blocks even when an allow rule matches.",
+      "A hook matched to Edit and Write does not see Bash. If the shell can reach the same files, add sandbox filesystem restrictions or also cover Bash.",
+      "In the Agent SDK, hooks are callback functions passed in the options (for example on `PreToolUse`) that can deny or allow calls. They run before permission rules and the `canUseTool` callback."
+    ],
+    "docs": [
+      {
+        "title": "Hooks reference",
+        "url": "https://code.claude.com/docs/en/hooks"
+      },
+      {
+        "title": "Automate actions with hooks",
+        "url": "https://code.claude.com/docs/en/hooks-guide"
+      },
+      {
+        "title": "Intercept and control agent behavior with hooks",
+        "url": "https://code.claude.com/docs/en/agent-sdk/hooks"
+      },
+      {
+        "title": "Configure permissions",
+        "url": "https://code.claude.com/docs/en/permissions"
+      }
+    ]
+  },
+  "secrets": {
+    "summary": "Manage Claude credentials across development and production: store and scope keys correctly, prefer workload identities and short-lived credentials, respond to leaks, grant least-privilege access, and monitor authorized usage.",
+    "points": [
+      "Never put API keys in source code, committed config or `.env` files, client-side or mobile bundles, or CLAUDE.md. Store them in a secrets manager or CI secret store and inject them at runtime. The SDKs read `ANTHROPIC_API_KEY` from the environment.",
+      "Apps on end-user devices should call Claude through your backend, which holds the key, authenticates users and enforces per-user limits. Obfuscated or downloaded keys can still be extracted.",
+      "The Claude API authenticates with API keys, Workload Identity Federation (short-lived tokens exchanged from an identity provider you already trust, such as AWS, Google Cloud, Kubernetes or GitHub Actions) or App Attest for iOS and macOS apps.",
+      "Key types: personal keys act as a user, service account keys give shared or automated workloads their own identity, and workspace keys are legacy. A shared personal key breaks when that person leaves.",
+      "Keys can be scoped to a single workspace. Use separate workspaces and keys per environment (dev, staging, prod) so a leak is contained and usage can be attributed. Multi-workspace keys send the `anthropic-workspace-id` header.",
+      "Keys can have an expiration, which limits a leaked key's lifetime but does not replace secret hygiene. Rotate periodically, and prefer federation where \"no long-lived credentials\" is required.",
+      "Leaked key: disable or delete it immediately, issue a replacement through proper storage, then review usage for the exposure window. Rewriting git history or making the repo private does not invalidate a key that was already copied.",
+      "Workspaces support per-workspace roles (from playground-only to developer and admin), spend limits, alerts and rate limits. Assign the lowest role that fits, only in the workspace needed.",
+      "Monitor authorized access with the Usage and Cost API (an Admin API endpoint), which can filter and group usage by API key, workspace and model to attribute spend. Admin API keys start with `sk-ant-admin` and only org admins can create them.",
+      "On Amazon Bedrock and Google Cloud, access is governed by the cloud's IAM: use roles or service accounts with short-lived credentials, least-privilege policies for model invocation, and the platform's audit logs.",
+      "In Claude Code, block file tools from reading secrets with permission deny rules such as `Read(./.env)` or `Read(./secrets/**)`. `.gitignore` and CLAUDE.md notes do not prevent reads.",
+      "Keep MCP credentials out of committed `.mcp.json` by using environment variable expansion such as `${API_TOKEN}`. Enable secret scanning in source control and CI to catch leaks before they are pushed."
+    ],
+    "docs": [
+      {
+        "title": "Authentication",
+        "url": "https://platform.claude.com/docs/en/manage-claude/authentication"
+      },
+      {
+        "title": "Workspaces",
+        "url": "https://platform.claude.com/docs/en/manage-claude/workspaces"
+      },
+      {
+        "title": "Usage and Cost API",
+        "url": "https://platform.claude.com/docs/en/manage-claude/usage-cost-api"
+      },
+      {
+        "title": "API Key Best Practices: Keeping Your Keys Safe and Secure",
+        "url": "https://support.claude.com/en/articles/9767949-api-key-best-practices-keeping-your-keys-safe-and-secure"
+      }
+    ]
+  }
+}

@@ -1,0 +1,113 @@
+{
+  "context-engineering": {
+    "summary": "Keep an agent's context focused and within limits: manage the window, prevent drift and bloat (tool output pruning, clearing, compaction), use memory, and isolate context with subagents or multi-step workflows.",
+    "points": [
+      "Everything in the request (system prompt, tool definitions, messages, tool results) plus the output shares the context window. Large tool sets and verbose tool results are common hidden consumers.",
+      "Quality drops as irrelevant tokens pile up, well before the hard limit. Design tools to return focused excerpts or IDs, and load details just in time instead of preloading everything.",
+      "Context editing clears content: old tool results (`clear_tool_uses_20250919`) or thinking blocks (`clear_thinking_20251015`). It prunes rather than summarizes.",
+      "Every clear changes the prompt prefix and invalidates the cache from that point. Set a high trigger and clear in larger batches so clears are infrequent.",
+      "Compaction replaces older turns with a server-written summary so long conversations and agent tasks can continue. With server-side compaction, append the full `response.content` (including compaction blocks), not just the text.",
+      "Anything a summary omits is gone. Customize the summarization instructions to keep identifiers, open tasks, and exact errors, or keep recent turns verbatim when they must reach Claude word for word.",
+      "The memory tool lets Claude store and retrieve files across conversations, but it runs client-side. Your app executes each command against storage you control and must reject paths outside the memory directory.",
+      "For work spanning multiple context windows, keep state outside the window (progress notes, a structured test-status file, git history), and start each fresh window by telling the agent exactly which files to read.",
+      "Context drift (forgotten constraints, repeated work) is prevented by durable state plus summaries that preserve goals, not by keeping every tool output forever.",
+      "Subagents isolate context: each does heavy reading in its own window and returns a condensed result for the orchestrator to synthesize. Use them for parallel, independent, or reading-heavy work.",
+      "Subagents add latency and tokens. If an agent over-delegates (for example for a single grep), add guidance on when to delegate and when to work directly.",
+      "Multi-step workflows isolate context too. Process each item in its own request to a fixed schema, then run a synthesis step over the compact results.",
+      "Trap: a bigger context window postpones limits but does not fix distraction from irrelevant content."
+    ],
+    "docs": [
+      {
+        "title": "Context windows",
+        "url": "https://docs.claude.com/en/docs/build-with-claude/context-windows"
+      },
+      {
+        "title": "Context editing",
+        "url": "https://docs.claude.com/en/docs/build-with-claude/context-editing"
+      },
+      {
+        "title": "Compaction",
+        "url": "https://docs.claude.com/en/docs/build-with-claude/compaction"
+      },
+      {
+        "title": "Memory tool",
+        "url": "https://docs.claude.com/en/docs/agents-and-tools/tool-use/memory-tool"
+      },
+      {
+        "title": "Prompting best practices (agentic systems)",
+        "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/claude-prompting-best-practices"
+      }
+    ]
+  },
+  "prompt-engineering": {
+    "summary": "Write and iterate on prompts that get reliable behavior: clear instructions, good examples, correct placement of instructions across system, user, and tool components, output constraints, and safe handling of user input.",
+    "points": [
+      "Be clear and direct. State the audience, purpose, output format, length, and what to exclude, as if briefing a capable new colleague with no context.",
+      "Explain why a rule exists (for example, \"this will be read aloud by a text-to-speech engine\"). Claude generalizes from the reason to cases the rules never listed.",
+      "Tell Claude what to do rather than what not to do (for example \"write in flowing prose paragraphs\" instead of \"no markdown\"). Match your prompt's own style to the output you want.",
+      "Few-shot examples are one of the most reliable ways to steer format and tone. Use about 3 to 5 examples that are relevant, diverse, and wrapped in `<example>` tags.",
+      "Use XML tags to separate instructions, context, examples, and variable input, with consistent descriptive names that the instructions refer to.",
+      "Put the role and stable, global rules in the system prompt, and per-request content and the task in the user turn. Tool-specific guidance (what a tool does, when to use it, parameter formats) belongs in a detailed tool description.",
+      "Keep one authoritative copy of each rule. Duplicated or contradictory instructions across components cause erratic behavior.",
+      "For long documents (roughly 20k+ tokens), put the documents at the top in XML tags with metadata, and the instructions and question at the end. Queries at the end can improve quality by up to 30%.",
+      "Use prompt chaining (separate calls) when you need to inspect, log, or branch on intermediate outputs. A common pattern is draft, then review against criteria, then refine.",
+      "Newer models follow instructions closely. Emphatic wording such as \"CRITICAL: you MUST\" written for older models can cause overtriggering, so use plain guidance.",
+      "Refine iteratively and empirically. Define success criteria, keep a test set that includes past failures, change one thing at a time, and re-run the set before shipping. When patches pile up and conflict, consolidate the prompt.",
+      "Input sanitization means treating user-supplied content as data. Wrap it in delimiters, neutralize delimiter tags inside it, and state that tagged content is material to process, never instructions to follow.",
+      "Recent models do not accept assistant prefill (400 error). Use structured outputs or direct instructions for format, such as \"respond without preamble\"."
+    ],
+    "docs": [
+      {
+        "title": "Prompt engineering overview",
+        "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/overview"
+      },
+      {
+        "title": "Prompting best practices",
+        "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/claude-prompting-best-practices"
+      },
+      {
+        "title": "Long context prompting tips",
+        "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/long-context-tips"
+      },
+      {
+        "title": "Develop test cases",
+        "url": "https://docs.claude.com/en/docs/test-and-evaluate/develop-tests"
+      }
+    ]
+  },
+  "output-handling": {
+    "summary": "Produce, validate, and consume Claude output safely: structured outputs and strict tools, response validation, defensive parsing, and appropriate skepticism toward confident output.",
+    "points": [
+      "Structured outputs constrain the response to a JSON schema through `output_config.format`. SDK helpers such as `messages.parse()` validate the result against the schema.",
+      "Strict tool use (`strict: true` on a tool definition) guarantees tool inputs match the tool's schema. JSON outputs cover the response, strict tools cover tool arguments, and the two can be combined in one request.",
+      "For classification, constrain the label with an enum in structured outputs or a tool, rather than parsing free text.",
+      "Schemas guarantee shape, not truth. Validate business rules in code (totals, date order, allowed combinations) before acting.",
+      "When validation fails, re-prompt with the specific error, cap the retries, and escalate persistent failures to human review. Never silently \"fix\" or accept bad data.",
+      "Always check `stop_reason` before parsing. With `max_tokens` the output may be truncated, and with `refusal` it may not match the schema, even with structured outputs.",
+      "Defensive parsing: wrap parsing in error handling, retry or route failures, and parse tool inputs with a JSON parser, never raw string matching.",
+      "Some JSON Schema features, such as numeric `minimum`/`maximum` and string length limits, are not supported by structured outputs. Enforce those rules in code.",
+      "Structured outputs cannot be combined with citations or with assistant prefill. Recent models reject prefill anyway, so use structured outputs instead.",
+      "Fluent, confident output is not evidence of correctness. Self-reported confidence scores and lower temperature do not prevent hallucinations.",
+      "To reduce hallucinations: allow Claude to say \"I don't know\", ground answers in provided documents with direct quotes, and verify each claim against its source. Best-of-N comparisons can flag inconsistencies.",
+      "Where a model's claim can be checked (tests passed, file written, value present in source), have the harness verify it independently before taking automated action."
+    ],
+    "docs": [
+      {
+        "title": "Structured outputs",
+        "url": "https://docs.claude.com/en/docs/build-with-claude/structured-outputs"
+      },
+      {
+        "title": "Reduce hallucinations",
+        "url": "https://docs.claude.com/en/docs/test-and-evaluate/strengthen-guardrails/reduce-hallucinations"
+      },
+      {
+        "title": "Increase output consistency",
+        "url": "https://docs.claude.com/en/docs/test-and-evaluate/strengthen-guardrails/increase-consistency"
+      },
+      {
+        "title": "Handling stop reasons",
+        "url": "https://docs.claude.com/en/docs/build-with-claude/handling-stop-reasons"
+      }
+    ]
+  }
+}

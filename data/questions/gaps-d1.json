@@ -1,0 +1,156 @@
+[
+  {
+    "id": "D1-PAT-015",
+    "domain": 1,
+    "skill": "agent-patterns",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An Agent SDK agent delegates code review to a custom \"reviewer\" subagent whose prompt says it must only report problems, never change code. Traces show the reviewer sometimes edits files and runs shell commands to \"fix\" what it finds. The main agent still needs full edit access. What is the most reliable fix?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Set the reviewer's tools field in its agent definition to read-only tools such as Read, Grep and Glob.",
+        "correct": true,
+        "why": "A subagent given an explicit tools list has only those tools in its session, so it cannot edit or run commands whatever its prompt says, while the main agent keeps its own tools."
+      },
+      {
+        "id": "B",
+        "text": "Strengthen the reviewer's prompt with a capitalized rule saying it must never edit files or run commands.",
+        "correct": false,
+        "why": "The prompt already says this and is being ignored; stronger wording is still a request the model can fail to follow."
+      },
+      {
+        "id": "C",
+        "text": "Remove Edit, Write and Bash from the main agent's allowed tools so no subagent can inherit them.",
+        "correct": false,
+        "why": "This stops the reviewer from editing, but it also takes edit access away from the main agent, which the team still needs."
+      },
+      {
+        "id": "D",
+        "text": "Have the main agent review the reviewer's changes afterwards and revert any edits it did not want.",
+        "correct": false,
+        "why": "Reverting after the fact is another model judgment, and shell commands the reviewer ran may already have had side effects."
+      }
+    ],
+    "explanation": "Each subagent can be given its own tool set. Listing only the tools a role needs (for example, read-only tools for a reviewer) enforces the role structurally, keeps tool definitions out of its context, and follows least privilege, without changing what the main agent can do.",
+    "reference": "Claude Agent SDK docs — Subagents (tool restrictions)"
+  },
+  {
+    "id": "D1-CON-015",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An Agent SDK agent researches a company using several tools, then hands its findings to a downstream service that expects JSON with fixed fields. Parsing the agent's final text fails on a small share of runs because fields are missing or the JSON is wrapped in prose. What is the best fix?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Pass a JSON Schema as the query's output format, read the validated structured output, and branch on the result subtype.",
+        "correct": true,
+        "why": "The SDK validates the final output against the schema and re-prompts on mismatch; if it still fails, the result carries an error subtype that the pipeline can route instead of parsing bad data."
+      },
+      {
+        "id": "B",
+        "text": "Add an example JSON object to the prompt and extract the first {...} block from the final text with a regular expression.",
+        "correct": false,
+        "why": "An example helps but guarantees nothing, and regex extraction still passes on objects with missing or wrong fields."
+      },
+      {
+        "id": "C",
+        "text": "Lower the temperature so the agent formats its final answer in exactly the same way on every run.",
+        "correct": false,
+        "why": "Temperature does not enforce a schema; outputs can still omit fields or include surrounding prose."
+      },
+      {
+        "id": "D",
+        "text": "Raise the agent's turn limit so it has more time to work out and produce correctly formatted JSON.",
+        "correct": false,
+        "why": "The failures are formatting and validation problems, not a lack of turns, so more turns do not ensure a valid handoff."
+      }
+    ],
+    "explanation": "When an agent's result feeds other code, make the handoff contract explicit. The Agent SDK's structured outputs accept a JSON Schema, let the agent use tools as needed, and return validated data in the result; if no valid output is produced within the retry limit, the run ends with an error result (error_max_structured_output_retries) that the caller must check rather than treat as success.",
+    "reference": "Claude Agent SDK docs — Structured outputs"
+  },
+  {
+    "id": "D1-CON-016",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "An Agent SDK research agent can spawn subagents, and those subagents can spawn their own. On broad questions, some runs grow into large agent trees and cost many times the expected amount. The team needs hard limits on what a single query can spend, including all of its subagents. Which two measures provide this? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "text": "Set a spend budget on the query, which counts subagent requests and ends the run when reached.",
+        "correct": true,
+        "why": "The query's budget covers the whole call, subagent requests included; at the limit it refuses new spawns and ends with an error_max_budget_usd result."
+      },
+      {
+        "id": "B",
+        "text": "Limit how deeply subagents may nest and how many subagents may run at the same time.",
+        "correct": true,
+        "why": "Depth and concurrency limits cap how wide and deep the tree can grow, which bounds fan-out before spend accumulates."
+      },
+      {
+        "id": "C",
+        "text": "Add a sentence to the system prompt asking the agent to use no more than three subagents per question.",
+        "correct": false,
+        "why": "A prompt instruction is guidance the model can override, not a hard limit, and it does not constrain nested subagents."
+      },
+      {
+        "id": "D",
+        "text": "Lower max_tokens so every request made by the main agent and each subagent is shorter.",
+        "correct": false,
+        "why": "max_tokens caps each response's length, not the number of agents or requests, so the tree can still grow without bound."
+      },
+      {
+        "id": "E",
+        "text": "Alert on the result's top-level usage field, which already totals every subagent's tokens.",
+        "correct": false,
+        "why": "The top-level usage field counts only the main agent loop, so it undercounts nested work, and an alert after the fact stops nothing."
+      }
+    ],
+    "explanation": "Each subagent makes its own API requests, so one prompt can become a tree of agents whose cost adds up. Bound it in the harness: a query-level spend budget that includes subagent spend, plus limits on nesting depth and concurrency. For reporting, use the cumulative cost or per-model usage fields, which include subagents, not the main-loop usage field.",
+    "reference": "Claude Agent SDK docs — Subagents (cap subagent depth, concurrency, and spend); Track cost and usage"
+  },
+  {
+    "id": "D1-CON-017",
+    "domain": 1,
+    "skill": "agent-construction",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An Agent SDK session has spent an hour analyzing an authentication module and proposing a JWT-based redesign. The developer wants to explore an OAuth2 alternative starting from everything learned so far, while keeping the JWT conversation unchanged so either one can be resumed later. What should they do?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Fork the session, which creates a new session ID with a copy of the history and leaves the original as it was.",
+        "correct": true,
+        "why": "Forking branches the conversation: both sessions share the history up to that point, then diverge, and each can be resumed separately by its own ID."
+      },
+      {
+        "id": "B",
+        "text": "Resume the original session by its ID and ask about OAuth2, then scroll back later to find the JWT discussion.",
+        "correct": false,
+        "why": "Resuming adds new turns to the same session, so the JWT conversation no longer stays unchanged."
+      },
+      {
+        "id": "C",
+        "text": "Continue the most recent session in the directory, since continue always starts a separate branch of it.",
+        "correct": false,
+        "why": "Continue picks up the most recent session and appends to it; it does not create a branch."
+      },
+      {
+        "id": "D",
+        "text": "Start a brand-new session and paste in a short summary of the JWT analysis as the first prompt.",
+        "correct": false,
+        "why": "This keeps the original intact but throws away the detailed history the new direction was supposed to start from."
+      }
+    ],
+    "explanation": "Continue and resume both add to an existing session; fork creates a new session that starts with a copy of the original's history and gets its own ID. Note that forking branches the conversation, not the filesystem: file edits made in a fork are real, so use file checkpointing or a separate working directory if the branches will change files.",
+    "reference": "Claude Agent SDK docs — Work with sessions (fork to explore alternatives)"
+  }
+]

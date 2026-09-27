@@ -1,0 +1,649 @@
+[
+  {
+    "id": "D6-CTX-007",
+    "domain": 6,
+    "skill": "context-engineering",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer adds the memory tool to an assistant so it can remember user preferences between sessions. Claude issues memory commands, but nothing is remembered the next day. What is missing?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A beta header that tells Anthropic to keep memory files on its servers.",
+        "why": "The memory tool does not store files on Anthropic servers; the application stores them."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A longer cache TTL so that memories stay in the prompt cache overnight.",
+        "why": "The prompt cache is not long-term memory and expires regardless."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "An app handler that runs memory commands against its own storage.",
+        "why": "The memory tool is client-side: Claude requests file operations and your code must perform and persist them."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A larger context window so the earlier session is still visible the next day.",
+        "why": "Each session starts fresh; context does not carry over between separate conversations."
+      }
+    ],
+    "explanation": "The memory tool lets Claude store and retrieve information across conversations, but it runs client-side. Your application implements each command (view, create, edit, and so on) against storage you control, keeps operations inside the memory directory, and returns the results as tool results.",
+    "reference": "Claude API docs — Memory tool"
+  },
+  {
+    "id": "D6-CTX-008",
+    "domain": 6,
+    "skill": "context-engineering",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A coding agent works on a large feature across several context windows. The agent keeps progress notes, a structured test-status file, and git commits in the repository. How should each new context window start?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "With a prompt telling it to read the progress notes, test status, and git log first.",
+        "why": "Current models recover state well from the filesystem when told exactly where to look."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "By pasting the full transcript of every previous window into the first message.",
+        "why": "This recreates the bloat that forced a new window and may not even fit."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "With the original task description only, letting the agent rediscover everything by exploring.",
+        "why": "Without pointers to saved state, the agent may redo or contradict finished work."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "By having the agent delete its old progress notes so it can plan all remaining work from scratch.",
+        "why": "Deleting saved state discards exactly the information that keeps the work consistent."
+      }
+    ],
+    "explanation": "For work that spans multiple context windows, keep state outside the window (progress notes, structured status files, git history) and start each fresh window with prescriptive instructions to read that state. This avoids context bloat while preventing drift and repeated work.",
+    "reference": "Claude docs — Prompting best practices (multi-context-window workflows)"
+  },
+  {
+    "id": "D6-CTX-009",
+    "domain": 6,
+    "skill": "context-engineering",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An agent that can delegate to subagents now spawns one even for simple lookups, such as a single grep. Latency and cost have risen with no gain in quality. What is the best fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Remove the subagent tool entirely so every task runs in the main agent.",
+        "why": "This loses isolation for the large, parallel tasks where subagents genuinely help."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Increase the effort level so the main agent thinks harder about delegation.",
+        "why": "Higher effort usually increases activity; it does not tell the agent when delegation is warranted."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Let subagents share the main agent's full context so their startup cost is lower.",
+        "why": "Sharing full context removes the isolation that makes subagents useful and still adds overhead."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Add guidance to use subagents only for parallel or isolated work.",
+        "why": "Clear criteria keep delegation for tasks that benefit from isolated context and avoid it where it only adds overhead."
+      }
+    ],
+    "explanation": "Subagents isolate context for parallel, independent, or reading-heavy work, but each one adds latency and tokens. When an agent over-delegates, add explicit guidance on when subagents are and are not warranted rather than removing the capability.",
+    "reference": "Claude docs — Prompting best practices (subagent orchestration)"
+  },
+  {
+    "id": "D6-CTX-010",
+    "domain": 6,
+    "skill": "context-engineering",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A support agent uses compaction for long conversations. After compaction it often loses exact details it still needs, such as order IDs and the error message the customer reported. Which two changes best address this? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Customize the summarization instructions to keep identifiers, open issues, and exact error text.",
+        "why": "The default summary may drop specifics; instructions that name what to keep preserve them."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Disable compaction and simply drop the oldest messages whenever the window gets full.",
+        "why": "Blind truncation discards details with no summary at all, which is worse."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Write critical facts, such as order IDs, to memory or a state record the agent can re-read.",
+        "why": "Durable state outside the window survives compaction regardless of what the summary keeps."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Resend the full original conversation alongside the compaction summary on each turn.",
+        "why": "This brings the bloat back and defeats the purpose of compaction."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Lower the compaction threshold so compaction runs on nearly every turn.",
+        "why": "More frequent compaction summarizes details away sooner, making the problem worse."
+      }
+    ],
+    "explanation": "Compaction replaces older turns with a summary, so anything the summary omits is gone. Tell the summarizer what must survive (identifiers, open tasks, exact errors) and keep critical facts in durable state such as memory, so later turns do not depend on the summary alone.",
+    "reference": "Claude API docs — Compaction; Memory tool"
+  },
+  {
+    "id": "D6-CTX-011",
+    "domain": 6,
+    "skill": "context-engineering",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An HR assistant loads all 200 policy documents into every request so it can answer any question. Answers are slow and costly, and sometimes quote the wrong policy. Most questions need only one or two documents. What is the best redesign?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Keep all 200 documents but cache them, since caching also improves answer accuracy.",
+        "why": "Caching cuts cost and latency but does nothing about the model being distracted by irrelevant documents."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Give the assistant a search tool to fetch only the relevant policies.",
+        "why": "Just-in-time retrieval keeps context small and focused on the documents that matter."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Move the 200 documents into the system prompt so the model gives them higher priority.",
+        "why": "Moving the same bulk elsewhere does not reduce the irrelevant context."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Switch to a larger-context model so all 200 documents fit with room to spare.",
+        "why": "Space was not the problem; focus was, and more room keeps the same distraction."
+      }
+    ],
+    "explanation": "Loading everything up front bloats context and dilutes attention. Just-in-time retrieval, through search or read tools, loads only what each question needs, which improves accuracy and lowers cost and latency. Caching helps with a stable prefix but does not fix irrelevance.",
+    "reference": "Claude docs — Context engineering for agents; Memory tool"
+  },
+  {
+    "id": "D6-CTX-012",
+    "domain": 6,
+    "skill": "context-engineering",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "One long conversation extracts data from 30 vendor contracts, then writes a comparison memo. By the time it reaches the memo, the context is full of extraction back-and-forth and the memo misses key differences. Which design is best?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Keep one conversation, but ask the model to ignore the extraction turns when writing the memo.",
+        "why": "The extraction turns remain in context and keep diluting attention."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Paste all 30 contracts into a single request and ask for extraction and memo together.",
+        "why": "One oversized request mixes both stages and reproduces the same bloat."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Extract each contract in its own request to a fixed schema, then write the memo.",
+        "why": "Separate steps isolate context, and the memo step sees only compact, structured results."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Compact the conversation after each contract and write the memo at the end.",
+        "why": "Summaries of summaries can drop the very details the comparison needs."
+      }
+    ],
+    "explanation": "Multi-step workflows isolate context: each step works in a clean window and passes a distilled, structured result to the next. For a compare-and-synthesize task, per-item extraction to a fixed schema followed by a synthesis step keeps the final step focused on what matters.",
+    "reference": "Claude docs — Chain complex prompts; Context engineering for agents"
+  },
+  {
+    "id": "D6-PRM-007",
+    "domain": 6,
+    "skill": "prompt-engineering",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer's prompt says \"Do not use markdown.\" Responses shown in a plain-text email still contain bullet lists and bold text. The prompt itself is written with markdown headings and bullets. What change is most likely to help?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Repeat \"Do not use markdown\" three times in capital letters.",
+        "why": "Repeating a negative instruction does not tell the model what to produce instead."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Ask for flowing prose paragraphs, and write the prompt itself in plain prose.",
+        "why": "Saying what to do works better than what not to do, and prompt style influences output style."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Strip all markdown in post-processing and leave the prompt unchanged.",
+        "why": "Stripping symbols leaves list-shaped fragments instead of readable prose."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lower the temperature so the model sticks more closely to the instruction.",
+        "why": "Sampling settings do not fix an unclear formatting instruction."
+      }
+    ],
+    "explanation": "For formatting, tell Claude what to do rather than what not to do (for example \"write in smoothly flowing prose paragraphs\"), and match the prompt's own style to the desired output, since a markdown-heavy prompt pulls responses toward markdown.",
+    "reference": "Claude docs — Prompting best practices (control the format of responses)"
+  },
+  {
+    "id": "D6-PRM-008",
+    "domain": 6,
+    "skill": "prompt-engineering",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A voice assistant's prompt has a growing list of rules: no ellipses, no emoji, no URLs, no tables. Each week a new symbol causes problems in the spoken output. What is the most effective change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Keep adding a rule for each new problem symbol as it is reported.",
+        "why": "The list never ends, because each rule covers only one case."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Filter out all non-letter characters from responses before speaking them.",
+        "why": "This also removes needed punctuation and numbers and harms meaning."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Move the rule list from the system prompt into each user message.",
+        "why": "Relocating the rules does not make them cover new cases."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Explain that replies are read aloud by a text-to-speech engine.",
+        "why": "Giving the reason lets Claude generalize to cases the rules never listed."
+      }
+    ],
+    "explanation": "Adding context or motivation behind an instruction helps Claude understand the goal and generalize. Explaining that output is spoken by a text-to-speech engine covers symbols no rule anticipated, which a list of prohibitions cannot do.",
+    "reference": "Claude docs — Prompting best practices (add context)"
+  },
+  {
+    "id": "D6-PRM-009",
+    "domain": 6,
+    "skill": "prompt-engineering",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A compliance team wants Claude to draft a policy summary, review it against a checklist, and revise it. Auditors must be able to inspect the review, and drafts that fail certain checks must go to a human. Which approach best fits?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "One prompt that asks Claude to draft, silently review, and output only the final version.",
+        "why": "The review is never exposed, so auditors cannot inspect it and there is no point to branch to a human."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Separate calls for draft, checklist review, and revision, logging each and routing failures.",
+        "why": "Chaining exposes each intermediate output, so it can be logged, evaluated, and branched on."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "One prompt with thinking enabled, and have auditors read the thinking output as the review.",
+        "why": "Thinking output is not a structured checklist review and is not a reliable record to branch on."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Generate three drafts in parallel and ship the longest one, since it covers the most.",
+        "why": "Length is not a quality signal, and nothing is reviewed against the checklist."
+      }
+    ],
+    "explanation": "Prompt chaining splits a task into sequential calls when you need to inspect intermediate outputs or enforce a pipeline. The self-correction pattern (draft, review against criteria, refine) as separate calls lets you log each step, evaluate it, and route failures to a human.",
+    "reference": "Claude docs — Chain complex prompts"
+  },
+  {
+    "id": "D6-PRM-010",
+    "domain": 6,
+    "skill": "prompt-engineering",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A prompt mixes instructions, a style guide, three examples, and the customer's email as plain paragraphs. Claude sometimes replies to an example email instead of the real one, or treats style-guide text as the task. What is the best fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Put the customer email in bold so the model knows it is the most important part.",
+        "why": "Formatting emphasis does not create clear boundaries between the different kinds of content."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Remove the examples and style guide so the only content left is the email.",
+        "why": "This fixes the confusion by throwing away useful guidance."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Wrap each part in its own descriptive XML tag and refer to the tags.",
+        "why": "Tags separate instructions, reference material, examples, and input so each is interpreted correctly."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Repeat the sentence \"Reply to the real email\" before and after every example.",
+        "why": "Repetition adds noise and still leaves the boundaries between sections unclear."
+      }
+    ],
+    "explanation": "XML tags help Claude parse prompts that mix instructions, context, examples, and variable input. Use consistent, descriptive tags such as <instructions>, <style_guide>, <examples>, and <email>, and refer to them by name in the instructions.",
+    "reference": "Claude docs — Use XML tags to structure prompts"
+  },
+  {
+    "id": "D6-PRM-011",
+    "domain": 6,
+    "skill": "prompt-engineering",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An agent often calls lookup_invoice with the wrong ID format. The tool's description is one line. The ID format rule sits in the middle of a long system prompt, and some user messages repeat it with small differences. Where should the rule live?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "In a detailed lookup_invoice description, with the conflicting copies removed.",
+        "why": "Tool-specific usage belongs in the tool description, which Claude reads when deciding how to call it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "In every user message, so the rule is always the most recent thing the model sees.",
+        "why": "Per-message copies are what created the inconsistencies, and they bloat every turn."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "At the top of the system prompt in capital letters, keeping the other copies as backups.",
+        "why": "Keeping conflicting copies leaves the model to guess which version is correct."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "In the tool's parameter names, by renaming the ID parameter to include the format.",
+        "why": "A name cannot carry the full rule, and the conflicting copies would remain."
+      }
+    ],
+    "explanation": "Put each instruction where it belongs: tool-specific guidance (what it does, when to use it, parameter formats) in a detailed tool description, global behavior in the system prompt, and per-request data in the user turn. Keep one authoritative copy of each rule to avoid conflicts.",
+    "reference": "Claude docs — Tool use (best practices for tool definitions)"
+  },
+  {
+    "id": "D6-PRM-012",
+    "domain": 6,
+    "skill": "prompt-engineering",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "After a year of patches, a system prompt has 150 rules, several of which contradict each other. Behavior has become erratic, and each new patch fixes one case and breaks another. Which two steps should the team take? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add a top rule saying \"When rules conflict, use your best judgment\" and keep the rest unchanged.",
+        "why": "This leaves the contradictions in place and makes behavior harder to predict."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Rewrite the prompt to remove contradictions and state the intent behind the key rules.",
+        "why": "Clear, consistent instructions with reasons are easier to follow than a pile of conflicting patches."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Mark the most important rules as CRITICAL so that they win whenever two rules conflict.",
+        "why": "Emphatic wording can cause overcorrection and does not resolve contradictions."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Run the rewrite against a test set of past failures and typical cases before shipping.",
+        "why": "A test set shows whether the rewrite fixes cases without breaking others."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Split the rules between the system prompt and the user message so each part is shorter.",
+        "why": "Scattering rules does not remove conflicts and makes them harder to maintain."
+      }
+    ],
+    "explanation": "Prompts accumulate cruft. When patches conflict, consolidate into clear, consistent instructions that explain intent, then verify against a representative test set that includes past failures. Iterative refinement should be measured, not patch-by-patch.",
+    "reference": "Claude docs — Prompt engineering overview; Be clear and direct"
+  },
+  {
+    "id": "D6-OUT-006",
+    "domain": 6,
+    "skill": "output-handling",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A ticket classifier asks Claude for one of five categories in plain text. Downstream code breaks when responses come back as \"Billing issue\", \"billing\", or \"Category: Billing\". Which approach best fixes this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add a regex that tries to map every variant it has seen onto the five categories.",
+        "why": "New variants keep appearing, so the mapping is never complete."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Ask the model to answer in lowercase, and hope the variants disappear.",
+        "why": "An instruction alone does not guarantee one of the allowed values."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Retry any response that does not exactly match a category until one does.",
+        "why": "Retries add cost and latency without constraining the output."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Use structured output with an enum of the five categories.",
+        "why": "An enum constrains the label to the allowed set, and a light check guards edge cases."
+      }
+    ],
+    "explanation": "For classification, constrain the output rather than parsing free text: use structured outputs, or a tool with an enum field, listing the valid labels. Keep a light validation step in the consumer; for example, structured outputs do not guarantee the capitalization of enum values, so compare them case-insensitively.",
+    "reference": "Claude API docs — Structured outputs"
+  },
+  {
+    "id": "D6-OUT-007",
+    "domain": 6,
+    "skill": "output-handling",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An invoice extractor returns schema-valid JSON, but in about 3% of cases the line items do not add up to the stated total. What is the best way to handle these cases?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Retry with the specific validation error, a few times at most, then escalate.",
+        "why": "Specific feedback lets the model correct itself, and a bounded retry with escalation avoids loops and bad data."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Silently change the total to match the sum of the line items and continue.",
+        "why": "Auto-correcting hides which value was wrong and can write bad data downstream."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Retry the identical request until a response happens to add up.",
+        "why": "Without feedback, retries rely on chance and can loop indefinitely."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Accept the output, since schema-valid JSON means the content is correct.",
+        "why": "A schema guarantees shape, not arithmetic or business correctness."
+      }
+    ],
+    "explanation": "Response validation should check business rules, not just schema. When a check fails, re-prompt with the specific error so the model can fix it, cap the retries, and escalate persistent failures to human review rather than silently fixing or accepting the data.",
+    "reference": "Claude API docs — Structured outputs; Claude docs — Increase output consistency"
+  },
+  {
+    "id": "D6-OUT-008",
+    "domain": 6,
+    "skill": "output-handling",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A pharmacy tool extracts dosage values from scanned prescriptions. Claude always answers confidently, but a small share of values are wrong, and errors are costly. Which two safeguards are most effective? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Ask the model to add a confidence score to each value and auto-approve anything above 90%.",
+        "why": "Self-reported confidence is not a reliable measure of correctness."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Require the exact source text for each value, and check in code that it appears in the document.",
+        "why": "A verifiable quote ties each value to evidence that can be checked automatically."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Use a longer system prompt stressing that dosage accuracy is extremely important.",
+        "why": "Emphasis does not verify anything or catch the errors that still occur."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Run extraction more than once and send any disagreements to a pharmacist for review.",
+        "why": "Inconsistent answers across runs flag likely errors for human review."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Lower the temperature to zero, which prevents incorrect extractions from scanned documents.",
+        "why": "Lower randomness does not stop confident mistakes."
+      }
+    ],
+    "explanation": "Confident output is not evidence of correctness. For high-stakes extraction, ground each value in verifiable source text and use consistency checks such as best-of-N comparisons, routing disagreements or failed checks to human review.",
+    "reference": "Claude docs — Reduce hallucinations"
+  },
+  {
+    "id": "D6-OUT-009",
+    "domain": 6,
+    "skill": "output-handling",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A coding agent ends each task with \"All tests pass and the fix is complete.\" A reviewer finds that on some tasks the tests were never run. The team wants to auto-merge when the agent reports success. What should they do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add \"only say tests pass if you actually ran them\" to the system prompt and keep auto-merging.",
+        "why": "An instruction may reduce false claims but does not verify them before merging."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Ask the agent to paste the test output in its final message as proof before merging.",
+        "why": "Text in the reply is still model-written and is not an independent check."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Have a second model read the agent's final message and approve it if it sounds convincing.",
+        "why": "Judging the same claim does not check whether the tests actually ran."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Have the pipeline run the tests itself and merge only on its own passing result.",
+        "why": "An independent check replaces trust in the model's claim with verified evidence."
+      }
+    ],
+    "explanation": "Treat a model's claims about its own work as claims, not facts. Where a result can be checked, such as running tests or validating output, have the harness verify it independently and base automated actions on that check.",
+    "reference": "Claude docs — Prompting best practices (agentic coding)"
+  },
+  {
+    "id": "D6-OUT-010",
+    "domain": 6,
+    "skill": "output-handling",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A travel agent calls a book_flight tool whose arguments must match its schema, then returns a final JSON summary that the UI parses. Invalid tool arguments and malformed summaries both cause failures today. Which configuration best meets both needs?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Use a JSON output format only, since it also validates tool call arguments.",
+        "why": "The output format constrains Claude's direct response, not the arguments of tool calls."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add a prompt asking for valid JSON in both places, and parse with extra error handling.",
+        "why": "Instructions and error handling help, but neither guarantees schema-valid output."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Set strict: true on the tool, and use a JSON output format for the final summary.",
+        "why": "Strict tool use validates arguments and JSON outputs constrain the response; the two can be combined."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Set strict: true on the tool only, since strict mode also constrains the final summary.",
+        "why": "Strict mode applies to that tool's inputs, not to the final text response."
+      }
+    ],
+    "explanation": "Structured outputs has two parts: JSON outputs (an output format on the request) constrain Claude's response, and strict tool use (strict: true) guarantees tool inputs match their schema. They cover different outputs and can be used together in one request.",
+    "reference": "Claude API docs — Structured outputs"
+  }
+]

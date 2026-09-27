@@ -1,0 +1,159 @@
+{
+  "requirements": {
+    "summary": "Turn business goals and constraints (latency, volume, cost, residency, compliance, human oversight) into concrete functional and infrastructure requirements, and pick the Claude surface and deployment that satisfies all of them at once.",
+    "points": [
+      "Separate functional requirements (what the system does: languages, citations, refusals) from infrastructure or non-functional ones (concurrency, latency percentiles, throughput, region, retention). The second group sizes the deployment.",
+      "Make vague goals measurable. \"Feels instant\" becomes a time-to-first-token target met with streaming, and \"100% accurate\" becomes per-field accuracy targets checked by evals, plus human review for costly cases.",
+      "Latency-sensitive, user-facing features use the Messages API with streaming. Large, latency-tolerant jobs fit the Message Batches API, which costs 50% less; most batches finish within 1 hour, and a batch expires if it has not finished within 24 hours.",
+      "Match the workload to the surface. Interactive product features use the Messages API. Agentic work inside a codebase uses Claude Code (interactive, `claude -p` headless, or GitHub Actions). An agent embedded in your own product with built-in tools and approval callbacks uses the Claude Agent SDK.",
+      "Messages API rate limits are set per model class as requests, input tokens and output tokens per minute (RPM, ITPM, OTPM). Any one of them can be the binding limit, and going over it returns a 429 with a `retry-after` header.",
+      "Limits use a continuously refilling token bucket and may be enforced over shorter windows than a minute, so short bursts can hit 429 even when the per-minute average is under the limit. Plan for a client-side queue with backoff.",
+      "For most models, only uncached input tokens count toward ITPM, and cache reads do not. Caching a large shared prefix therefore raises the throughput you can actually get.",
+      "Isolate competing workloads. The Message Batches API has its own rate limits, and per-workspace limits can cap one workspace so it cannot starve another. Organization-wide limits still apply on top.",
+      "Data residency is set in infrastructure, never in the prompt. On the Claude API, `inference_geo` (\"global\" or \"us\") controls where inference runs, per request or as a workspace default. Workspace geo controls where data is stored at rest.",
+      "Buying through a cloud provider decides the platform. Claude on Vertex AI or Amazon Bedrock is billed and governed through that cloud. On Vertex AI, regional and multi-region endpoints keep traffic in a geography, while the global endpoint does not.",
+      "Retention and location are separate requirements. Zero data retention (ZDR) covers only eligible features: Message Batches are not ZDR-eligible because results are kept for 29 days, and ZDR does not block non-eligible features.",
+      "Where human oversight is required, put approval gates exactly where policy says. Enforce the thresholds deterministically in code rather than leaving them to model judgment, size the review queue to reviewer capacity, and audit a sample of auto-approved cases.",
+      "Auditability requirements mean logging the inputs, prompt version, model ID, output and approver for each decision. Keeping only the final outcome is not enough to reconstruct how it was reached."
+    ],
+    "docs": [
+      {
+        "title": "Rate limits",
+        "url": "https://platform.claude.com/docs/en/api/rate-limits"
+      },
+      {
+        "title": "Batch processing",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/batch-processing"
+      },
+      {
+        "title": "Data residency",
+        "url": "https://platform.claude.com/docs/en/manage-claude/data-residency"
+      },
+      {
+        "title": "API and data retention",
+        "url": "https://platform.claude.com/docs/en/manage-claude/api-and-data-retention"
+      },
+      {
+        "title": "Claude on Vertex AI",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/claude-on-vertex-ai"
+      }
+    ]
+  },
+  "systems-life-cycle": {
+    "summary": "Apply life-cycle discipline to LLM systems: define success criteria and evals during design, gate releases on evals, roll out in stages with monitoring and cheap rollback, and maintain the system through input drift and model deprecations.",
+    "points": [
+      "The phases are requirements → design → implementation → test/eval → deployment → operation/monitoring → maintenance. For LLM systems, measurable success criteria and an eval set are outputs of the design phase.",
+      "Without agreed success criteria, \"is the new prompt better?\" is just opinion. With an eval set, you can compare every change against a baseline.",
+      "Prompt, model and parameter changes go through the same test gate as code. Run the evals, compare with the current version, and promote only if nothing regresses.",
+      "Deployment strategies get progressively riskier. Shadow testing runs the candidate on mirrored live traffic without serving its output, so no users are exposed. A canary sends a small share of traffic to it and compares metrics with a control. A full rollout comes last.",
+      "Judge a canary against all requirements: quality, error rate, latency and cost. If quality holds but `output_tokens`, latency or cost jump, pause and fix the cause before widening.",
+      "Make rollback a configuration change. Keep the model ID and prompt version in versioned runtime configuration, and keep the last known-good version available.",
+      "Operation means monitoring live traffic: latency, error rates (429 rate_limit_error, 529 overloaded_error, 5xx), token spend, and sampled output quality. Log the `request-id` of failures.",
+      "Read error codes correctly. A 429 means your organization hit its own limits. A 529 is a temporary overload across the API, so use backoff and graceful degradation rather than rolling back a healthy release. A 400 means the request itself is wrong.",
+      "A model ID refers to a fixed snapshot whose weights never change, although the serving infrastructure can change slightly. Quality drift on an unchanged ID usually comes from prompt, retrieval or input changes, so diagnose it from traces against a known-good baseline.",
+      "Evals drift too. Refresh eval sets regularly from sampled production traffic, including new topics and products, and add every reproduced production failure to the regression set.",
+      "The model lifecycle runs Active → Legacy → Deprecated → Retired. Requests to retired models fail, there is no automatic rerouting, and Anthropic gives at least 60 days' notice for publicly released models.",
+      "Migration plan: list where the model is used (the Console usage export breaks usage down by API key and model), evaluate the recommended replacement on real workloads, including downstream format and parser checks, then roll out in stages well before retirement."
+    ],
+    "docs": [
+      {
+        "title": "Define success criteria and build evaluations",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests"
+      },
+      {
+        "title": "Model deprecations",
+        "url": "https://platform.claude.com/docs/en/about-claude/model-deprecations"
+      },
+      {
+        "title": "Model IDs and versioning",
+        "url": "https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions"
+      },
+      {
+        "title": "Errors",
+        "url": "https://platform.claude.com/docs/en/api/errors"
+      }
+    ]
+  },
+  "software-engineering": {
+    "summary": "Apply everyday engineering practice to Claude applications: robust REST and JSON handling, correct async code, disciplined version control, Claude Code in CI, rigorous review of AI-written code, and safe small- and large-scale refactoring.",
+    "points": [
+      "REST retry safety: GET, PUT (full replacement) and DELETE are idempotent. POST is not, so send an idempotency key or deduplicate on the server before retrying automatically after a timeout.",
+      "Status codes decide how to recover. On a 400 `invalid_request_error`, fix the request and do not retry it unchanged. On a 429 or 5xx/529, retry with exponential backoff that respects `retry-after`. The official SDKs retry these automatically, twice by default (`max_retries`).",
+      "Prefer cursor (keyset) pagination over a stable sort key. Offset pagination over a changing dataset produces duplicates and gaps. Claude list endpoints return `has_more` and `last_id`, and you pass `last_id` as `after_id`; the SDKs can also paginate automatically.",
+      "Treat model output as untrusted input. For JSON, constrain the format with structured outputs or a tool `input_schema`, then validate against the schema in code. Never `eval` model output or clean it up with regexes and hope.",
+      "Evolve JSON contracts additively. Add new fields, keep deprecated ones populated during a migration window, version the schema, run consumer contract tests in CI, and have consumers ignore unknown fields.",
+      "Async: in async frameworks use `AsyncAnthropic`, because a synchronous client blocks the event loop. Stream with `async with client.messages.stream(...)` and `async for text in stream.text_stream`.",
+      "Limit concurrency with a semaphore or worker pool sized to your rate limits. An unbounded `asyncio.gather` over thousands of calls causes 429s and memory spikes, and by default its first exception propagates to the caller.",
+      "Design batch jobs so that one bad item cannot abort the run. Handle errors per item, record permanent failures by ID, and make reruns skip items already completed.",
+      "Streaming: the HTTP 200 arrives before generation finishes, so errors such as `overloaded_error` can arrive as an `error` event mid-stream. Never save partial text as a complete answer.",
+      "Version control: keep PRs small with one intent each, and keep behavior-preserving refactors separate from bug fixes. Run parallel Claude Code sessions in separate git worktrees (`--worktree`) so their edits cannot collide.",
+      "In CI and SDLC, use the Claude Code GitHub Action or headless `claude -p` with scoped `--allowedTools`, and optionally `--output-format json`. Keep the API key in a secret (e.g. `ANTHROPIC_API_KEY`), never in the workflow file. `--bare` skips loading local hooks, plugins and CLAUDE.md for scripted runs.",
+      "Code review with Claude: give it explicit criteria (for example in CLAUDE.md) plus the diff and surrounding code, and keep a required human approval. A fresh-context reviewer beats the authoring session. Be suspicious when test assertions change in the same PR as a fix.",
+      "Small refactors: confirm the tests are green, change structure without changing behavior, and commit the refactor separately. Large refactors: add tests where coverage is thin, plan the work (plan mode), migrate incrementally in reviewable PRs, and record conventions in CLAUDE.md.",
+      "Fan out codebase modernization: have Claude generate the task list, loop `claude -p` per file with `--allowedTools`, pilot on 2–3 files to refine the prompt, then run the full set. `/batch` spreads a change across subagents, each in its own worktree."
+    ],
+    "docs": [
+      {
+        "title": "Errors",
+        "url": "https://platform.claude.com/docs/en/api/errors"
+      },
+      {
+        "title": "Python SDK",
+        "url": "https://platform.claude.com/docs/en/api/sdks/python"
+      },
+      {
+        "title": "Streaming messages",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/streaming"
+      },
+      {
+        "title": "Claude Code best practices",
+        "url": "https://code.claude.com/docs/en/best-practices"
+      },
+      {
+        "title": "Claude Code GitHub Actions",
+        "url": "https://code.claude.com/docs/en/github-actions"
+      }
+    ]
+  },
+  "configuration-management": {
+    "summary": "Manage the configuration that shapes Claude's behavior: CLAUDE.md memory files, settings.json scopes and precedence, pinned model IDs, versioned and eval-gated prompts, and plugin dependencies.",
+    "points": [
+      "CLAUDE.md scopes: `~/.claude/CLAUDE.md` holds your personal preferences for all projects. `./CLAUDE.md` or `./.claude/CLAUDE.md` holds team instructions and is committed. `CLAUDE.local.md` holds personal notes for one project; add it to `.gitignore`.",
+      "Put facts Claude needs in every session in CLAUDE.md: build and test commands, conventions, layout. Aim for under 200 lines per file. Multi-step procedures belong in skills, and area-specific rules belong in `.claude/rules/` files with `paths` frontmatter, which load only for matching files.",
+      "CLAUDE.md files are combined, not overridden. Ancestor files load at launch and subdirectory files load when Claude reads files there. If two instructions contradict each other, Claude may follow either, so remove the conflict. `@path` imports pull in other files.",
+      "CLAUDE.md is context, not enforcement. Anything that must be blocked, such as reading `.env` files, needs permission deny rules or a PreToolUse hook.",
+      "settings.json scopes: user (`~/.claude/settings.json`), shared project (`.claude/settings.json`, committed), project local (`.claude/settings.local.json`, kept out of git), and managed (policy deployed by the organization).",
+      "Precedence, highest first: managed, then command line (`--settings`, flags), then project local, then shared project, then user. Nothing overrides managed settings, which makes them the place for organization-wide policy.",
+      "List keys such as `permissions.allow` and `permissions.deny` merge across files instead of replacing each other. A managed `availableModels` list is the exception: it is applied as-is, and additions in lower-scope files are ignored.",
+      "Permission rules are evaluated deny, then ask, then allow, and the first match decides. Specificity does not change that order, so a deny in any file beats an allow elsewhere.",
+      "A managed `model` only sets the model a session starts with, and users can still switch with `/model`. Model selection is locked with `availableModels` in managed settings. `ANTHROPIC_MODEL` in the shell overrides the `model` key from any file.",
+      "Model pinning: every Claude model ID is a fixed snapshot, including the dateless IDs used from the 4.6 generation on. API aliases for earlier models point to the latest dated snapshot, so they can change behavior. Pin IDs in central config and upgrade through reviewed, eval-gated changes.",
+      "Treat prompts as code: keep them in version control, change them through reviewed PRs, run the eval gate in CI before promoting, and log the prompt version with each request. Never edit production prompts ad hoc.",
+      "Version the model ID, prompt, sampling parameters and tool schemas together as one release configuration, and run evals when any of them changes. A model-only upgrade can break a prompt tuned for the old model.",
+      "Plugin dependencies go in the `dependencies` array of `.claude-plugin/plugin.json`. Without a version, a dependency tracks the latest release, so pin a tested semver range (e.g. `~2.1.0`). A plugin that contains only a name and dependencies works as a team bundle installed with one command.",
+      "Enable team plugins and marketplaces for everyone in a repository through the committed project `.claude/settings.json` (`enabledPlugins`, `extraKnownMarketplaces`), not through each developer's local files."
+    ],
+    "docs": [
+      {
+        "title": "Claude Code settings",
+        "url": "https://code.claude.com/docs/en/settings"
+      },
+      {
+        "title": "Memory (CLAUDE.md)",
+        "url": "https://code.claude.com/docs/en/memory"
+      },
+      {
+        "title": "Configure permissions",
+        "url": "https://code.claude.com/docs/en/permissions"
+      },
+      {
+        "title": "Plugin dependencies",
+        "url": "https://code.claude.com/docs/en/plugins/dependencies"
+      },
+      {
+        "title": "Model IDs and versioning",
+        "url": "https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions"
+      }
+    ]
+  }
+}
