@@ -34,7 +34,8 @@ function toRow(examId: string, q: ContentQuestion, pool: 'bank' | 'imported') {
     accepted: q.accepted ?? null,
     explanation: q.explanation,
     reference: q.reference ?? null,
-    caseId: q.caseId ?? null,
+    // Scenario ids are per exam in content; namespace them so they stay unique in the database.
+    caseId: q.caseId ? (q.caseId.includes(':') ? q.caseId : `${examId}:${q.caseId}`) : null,
     source: 'seed',
     provenance: q.source ?? null,
   };
