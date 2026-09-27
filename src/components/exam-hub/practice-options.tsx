@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
-import { ArrowRight, BookOpenCheck, CalendarClock, ChevronDown, Hourglass, RotateCcw, Timer } from 'lucide-react';
+import { ArrowRight, BookOpenCheck, CalendarClock, ChevronDown, Gauge, Hourglass, RotateCcw, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -22,19 +22,22 @@ import { DifficultyPicker } from './difficulty-picker';
 
 type Setup = SetupKind | null;
 
-export function PracticeOptions({ exam, signedIn, defaultName, hasImported, due, mistakes }: {
+export function PracticeOptions({ exam, signedIn, defaultName, hasImported, due, mistakes, autoOpen }: {
   exam: ExamConfig;
   signedIn: boolean;
   defaultName: string;
   hasImported: boolean;
   due: number;
   mistakes: number;
+  /** open this setup sheet on arrival (links from the study plan) */
+  autoOpen?: SetupKind;
 }) {
   const router = useRouter();
   const setup = useHubUi((s) => s.setup);
   const openSetup = useHubUi((s) => s.openSetup);
   const closeSetup = useHubUi((s) => s.closeSetup);
   const start = useStartAttempt();
+  useEffect(() => { if (autoOpen) openSetup(autoOpen); }, [autoOpen, openSetup]);
   const open = (s: SetupKind) => (signedIn ? openSetup(s) : router.push(`/sign-up?next=/exams/${exam.id}`));
 
   const cards = [
@@ -86,8 +89,11 @@ export function PracticeOptions({ exam, signedIn, defaultName, hasImported, due,
         ))}
       </div>
 
-      {signedIn && (due > 0 || mistakes > 0) && (
+      {signedIn && (
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" disabled={start.isPending} onClick={() => start.mutate({ examId: exam.id, kind: 'adaptive' })}>
+            <Gauge /> Adaptive test · {Math.min(20, exam.itemCount)} questions
+          </Button>
           {due > 0 && (
             <Button variant="outline" size="sm" disabled={start.isPending} onClick={() => start.mutate({ examId: exam.id, kind: 'review' })}>
               <CalendarClock /> Daily review · {due} due

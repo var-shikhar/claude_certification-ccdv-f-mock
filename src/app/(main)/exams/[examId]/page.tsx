@@ -14,24 +14,28 @@ import { KINDS } from '@/lib/attempt-kinds';
 import { cn } from '@/lib/utils';
 import { getExamHubData, type ExamHubData } from '@/server/analytics';
 import { getExam, getPoolCounts, getSkillCounts, getStudyNotes } from '@/server/exams';
+import { getStudyPlan } from '@/server/plan';
 import { getUser } from '@/server/session';
+import { WeekPlan } from '@/components/plan/study-plan';
 
 export async function generateMetadata({ params }: { params: Promise<{ examId: string }> }): Promise<Metadata> {
   const ex = await getExam((await params).examId);
   return ex ? { title: `${ex.code} practice exams`, description: ex.meta.tagline ?? ex.title } : { title: 'Exam not found' };
 }
 
-export default async function ExamHubPage({ params }: { params: Promise<{ examId: string }> }) {
+export default async function ExamHubPage({ params, searchParams }: { params: Promise<{ examId: string }>; searchParams: Promise<{ start?: string }> }) {
   const { examId } = await params;
+  const { start } = await searchParams;
   const ex = await getExam(examId);
   if (!ex || !ex.isPublished) notFound();
   const cfg = ex.config;
   const user = await getUser();
-  const [hub, counts, notes, pools] = await Promise.all([
+  const [hub, counts, notes, pools, plan] = await Promise.all([
     user ? getExamHubData(user.id, ex.id) : Promise.resolve(null),
     getSkillCounts(ex.id),
     getStudyNotes(ex.id),
     getPoolCounts(ex.id),
+    user ? getStudyPlan(user.id, ex.id) : Promise.resolve(null),
   ]);
   const totalQuestions = Object.values(counts).reduce((a, b) => a + b, 0);
 
@@ -78,8 +82,11 @@ export default async function ExamHubPage({ params }: { params: Promise<{ examId
           hasImported={pools.imported > 0}
           due={hub?.due ?? 0}
           mistakes={hub?.mistakes ?? 0}
+          autoOpen={user && (start === 'quick' || start === 'full' || start === 'practice') ? start : undefined}
         />
       </Reveal>
+
+      {plan && <Reveal delay={0.1}><WeekPlan plan={plan} /></Reveal>}
 
       <Reveal delay={0.1}>
         <Syllabus exam={cfg} mastery={hub?.readiness?.skills ?? null} counts={counts} studySkills={Object.keys(notes)} signedIn={Boolean(user)} />

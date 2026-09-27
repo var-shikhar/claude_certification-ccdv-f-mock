@@ -125,7 +125,7 @@ export default async function ResultPage({ params }: { params: Promise<{ id: str
         </section>
       </Reveal>
 
-      <ReviewList items={result.items} />
+      <ReviewList items={result.items} attemptId={result.id} aiTutor={result.aiTutor} />
     </div>
   );
 }

@@ -5,7 +5,7 @@ const response = z.array(z.string().max(500)).max(12);
 
 export const startAttemptSchema = z.object({
   examId: id,
-  kind: z.enum(['full', 'quick', 'practice', 'mistakes', 'review', 'saved', 'diagnostic']),
+  kind: z.enum(['full', 'quick', 'practice', 'mistakes', 'review', 'saved', 'diagnostic', 'adaptive']),
   difficulty: z.string().max(32).optional(),
   pool: z.enum(['bank', 'imported', 'all']).optional(),
   domains: z.array(z.number().int().positive()).max(30).optional(),
@@ -101,3 +101,30 @@ export const importSchema = z.object({
 });
 
 export const setRoleSchema = z.object({ role: z.enum(['learner', 'author', 'admin']) });
+
+// ---------------------------------------------------------------- AI
+
+export const interviewSetupSchema = z.object({
+  role: z.string().max(40),
+  level: z.string().max(20),
+  focus: z.enum(['technical', 'behavioral', 'mixed']),
+  questionTarget: z.number().int().min(2).max(10).default(5),
+});
+
+export const interviewAnswerSchema = z.object({ answer: z.string().min(1).max(4000) });
+
+export const tutorSchema = z.object({
+  questionId: id,
+  attemptId: z.string().max(40).optional(),
+  messages: z.array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().min(1).max(4000) })).min(1).max(30),
+});
+
+export const generateSchema = z.object({
+  examId: id,
+  skillId: z.string().max(80),
+  count: z.number().int().min(1).max(10),
+  difficulty: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
+  types: z.array(z.enum(['single', 'multi', 'truefalse'])).min(1),
+  source: z.string().max(20_000).optional(),
+  instructions: z.string().max(1000).optional(),
+});

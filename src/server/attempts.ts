@@ -6,12 +6,13 @@ import {
   type AttemptKind, type AttemptSettings, type AttemptSummary,
 } from '@/db/schema';
 import {
-  assembleForm, difficultyMode, formFromItems, isCorrect, newSeed, scoreAttempt, toPublicQuestion, toRevealedQuestion,
+  assembleForm, difficultyMode, formFromItems, isCorrect, mulberry32, newSeed, pickNextAdaptive, scoreAttempt, shuffle, toPublicQuestion, toRevealedQuestion, updateAbility,
   type ExamConfig, type Question,
 } from '@/lib/engine';
 import { KINDS } from '@/lib/attempt-kinds';
 import type { AttemptListItem, PlayerState, ProgressPatch, ResultState } from '@/lib/dto';
 import { XP, recordActivity } from './activity';
+import { aiEnabled } from './ai/client';
 import { AppError, notFound } from './errors';
 import { getAssemblyPool, getCaseStudies, getExam, getQuestionsByIds } from './exams';
 import { ensureEnrollment, getOrCreateProfile } from './profile';
@@ -22,11 +23,12 @@ type AttemptRow = typeof attempt.$inferSelect;
 /** Requests that land this long after the deadline are refused and the attempt is closed. */
 const GRACE_MS = 15_000;
 const DIAGNOSTIC_ITEMS = 15;
+const ADAPTIVE_LENGTH = 20;
 const MAX_TIME_PER_ITEM_MS = 4 * 60 * 60 * 1000;
 
 export interface StartInput {
   examId: string;
-  kind: Extract<AttemptKind, 'full' | 'quick' | 'practice' | 'mistakes' | 'review' | 'saved' | 'diagnostic'>;
+  kind: Extract<AttemptKind, 'full' | 'quick' | 'practice' | 'mistakes' | 'review' | 'saved' | 'diagnostic' | 'adaptive'>;
   difficulty?: string;
   pool?: 'bank' | 'imported' | 'all';
   domains?: number[];
@@ -69,6 +71,14 @@ export async function startAttempt(userId: string, userName: string, input: Star
       form = assembleForm(cfg, await getAssemblyPool(ex.id, 'bank'), { seed, total: mode.items, difficulty });
       minutes = Math.ceil(mode.minutes * preset.timeFactor);
       settings.candidateName = (input.candidateName ?? userName).trim().slice(0, 80);
+      break;
+    }
+    case 'adaptive': {
+      const target = Math.min(ADAPTIVE_LENGTH, cfg.itemCount);
+      const first = pickNextAdaptive(cfg, await getAssemblyPool(ex.id, 'bank'), new Set(), [], 0, target, mulberry32(seed));
+      if (!first) throw new AppError('This exam has no questions yet.', 400, 'EMPTY');
+      form = formFromItems([first], seed);
+      settings.adaptive = { theta: 0, target };
       break;
     }
     case 'diagnostic': {
@@ -223,6 +233,8 @@ export async function getPlayerState(userId: string, attemptId: string): Promise
     revealed,
     cases: await getCaseStudies(questions.map((q) => q.caseId)),
     bookmarks: saved.map((s) => s.questionId),
+    aiTutor: aiEnabled(),
+    adaptive: a.settings.adaptive ? { target: a.settings.adaptive.target } : undefined,
   };
 }
 
@@ -329,6 +341,7 @@ async function finalize(a: AttemptRow, { timedOut }: { timedOut: boolean }) {
     bySkill: rest.bySkill.map((s) => ({ ...s, id: String(s.id) })),
     durationMs,
     timedOut,
+    ...(a.settings.adaptive ? { ability: Math.round(a.settings.adaptive.theta * 100) / 100 } : {}),
   };
   const scored = KINDS[a.kind].scored;
   const earnsCertificate = a.kind === 'full' && report.passed && difficultyMode(cfg, a.difficulty).certificate;
@@ -394,6 +407,7 @@ export async function getResult(userId: string, attemptId: string): Promise<Resu
     scale: { min: cfg.scale.min, max: cfg.scale.max, passing: cfg.scale.passing },
     certificateId: cert?.id ?? null,
     certificateEligibleMode: a.kind === 'full' && difficultyMode(cfg, a.difficulty).certificate,
+    aiTutor: aiEnabled(),
     items: questions.map((q: Question) => {
       const selected = a.responses[q.id] ?? [];
       return {
@@ -462,4 +476,59 @@ export async function getActiveAttempts(userId: string) {
     });
   }
   return live;
+}
+
+// ---------------------------------------------------------------- adaptive
+
+/**
+ * Adaptive tests: grade the current (last) item, update the ability
+ * estimate, then either pick the next item or finish. There is no going back.
+ */
+export async function answerAdaptive(userId: string, attemptId: string, questionId: string, response: string[]) {
+  const a = await loadActive(userId, attemptId);
+  const state = a.settings.adaptive;
+  if (a.kind !== 'adaptive' || !state) throw new AppError('This is not an adaptive test.', 400);
+  if (a.itemIds[a.itemIds.length - 1] !== questionId) throw new AppError('That question has already been answered.', 409, 'STALE');
+  if (!response.some((r) => r.trim())) throw new AppError('Choose an answer first.', 400);
+
+  const [q] = await getQuestionsByIds([questionId]);
+  const answered = a.itemIds.length;
+  const theta = updateAbility(state.theta, q.difficulty, isCorrect(q, response), answered - 1);
+  const responses = { ...a.responses, [questionId]: response };
+
+  if (answered >= state.target) {
+    const closed = { ...a, responses, settings: { ...a.settings, adaptive: { ...state, theta } } };
+    await db.update(attempt).set({ responses, settings: closed.settings }).where(eq(attempt.id, a.id));
+    await finalize(closed, { timedOut: false });
+    return { finished: true as const };
+  }
+
+  const ex = (await getExam(a.examId))!;
+  const pool = await getAssemblyPool(ex.id, 'bank');
+  const used = new Set(a.itemIds);
+  const answeredSkills = (await getQuestionsByIds(a.itemIds)).map((x) => x.skill);
+  const next = pickNextAdaptive(ex.config, pool, used, answeredSkills, theta, state.target, mulberry32(a.seed + answered));
+  if (!next) {
+    const closed = { ...a, responses, settings: { ...a.settings, adaptive: { ...state, theta } } };
+    await db.update(attempt).set({ responses, settings: closed.settings }).where(eq(attempt.id, a.id));
+    await finalize(closed, { timedOut: false });
+    return { finished: true as const };
+  }
+  const order = ['single', 'multi', 'order', 'match'].includes(next.type) ? shuffle(next.options.map((o) => o.id), mulberry32(a.seed + answered * 7)) : next.options.map((o) => o.id);
+  await db.update(attempt).set({
+    responses,
+    itemIds: [...a.itemIds, next.id],
+    optionOrder: { ...a.optionOrder, [next.id]: order },
+    current: a.itemIds.length,
+    settings: { ...a.settings, adaptive: { ...state, theta } },
+  }).where(and(eq(attempt.id, a.id), eq(attempt.status, 'active')));
+
+  const [full] = await getQuestionsByIds([next.id]);
+  const names = nameMaps(ex.config);
+  return {
+    finished: false as const,
+    item: { ...toPublicQuestion(full, order), skillName: names.skill[full.skill] ?? full.skill, domainName: names.domain[full.domain] ?? '' },
+    position: a.itemIds.length + 1,
+    target: state.target,
+  };
 }

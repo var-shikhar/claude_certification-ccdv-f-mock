@@ -32,6 +32,10 @@ export interface PlayerState {
   revealed: Record<string, RevealedItem>;
   cases: Record<string, { title: string; scenario: string }>;
   bookmarks: string[];
+  /** AI tutor available for revealed items */
+  aiTutor: boolean;
+  /** adaptive tests only */
+  adaptive?: { target: number };
 }
 
 export interface ProgressPatch {
@@ -66,6 +70,7 @@ export interface ResultState {
   scale: { min: number; max: number; passing: number };
   certificateId: string | null;
   certificateEligibleMode: boolean;
+  aiTutor: boolean;
   items: ResultItem[];
 }
 

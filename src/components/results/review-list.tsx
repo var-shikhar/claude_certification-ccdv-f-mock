@@ -12,13 +12,14 @@ import { ReportDialog } from '@/components/player/report-dialog';
 import { RichText } from '@/components/player/rich-text';
 import { api } from '@/lib/api';
 import type { ResultItem } from '@/lib/dto';
+import { TutorButton } from '@/components/tutor/tutor-sheet';
 import { cn } from '@/lib/utils';
 
 type Filter = 'all' | 'incorrect' | 'flagged' | 'unanswered';
 
 const fmtTime = (ms: number) => (ms < 60_000 ? `${Math.max(1, Math.round(ms / 1000))}s` : `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`);
 
-export function ReviewList({ items }: { items: ResultItem[] }) {
+export function ReviewList({ items, attemptId, aiTutor = false }: { items: ResultItem[]; attemptId?: string; aiTutor?: boolean }) {
   const incorrect = items.filter((i) => !i.correct).length;
   const [filter, setFilter] = useState<Filter>(incorrect ? 'incorrect' : 'all');
   const [open, setOpen] = useState<string | null>(null);
@@ -115,6 +116,7 @@ export function ReviewList({ items }: { items: ResultItem[] }) {
                           <Bookmark className={cn(saved.has(item.id) && 'fill-primary')} />
                           {saved.has(item.id) ? 'Saved' : 'Save for later'}
                         </Button>
+                        {aiTutor && <TutorButton questionId={item.id} attemptId={attemptId} wasCorrect={item.correct} />}
                         <Button variant="ghost" size="sm" onClick={() => setReporting(item.id)}><OctagonAlert /> Report</Button>
                       </div>
                     </div>

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
-  assembleForm, formFromItems, isCorrect, mulberry32, pickByDifficulty, scoreAttempt, skillAllocation, toPublicQuestion, toScaled,
+  assembleForm, formFromItems, isCorrect, mulberry32, pickByDifficulty, pickNextAdaptive, scoreAttempt, skillAllocation, toPublicQuestion, toScaled, updateAbility,
   type Question,
 } from '@/lib/engine';
 import { loadAllExams, loadExamBundle } from '@/lib/content/load';
@@ -206,5 +206,34 @@ describe('sanitizing', () => {
     const q = QUESTIONS[0];
     const order = [...q.options.map((o) => o.id)].reverse();
     expect(toPublicQuestion(q, order).options.map((o) => o.id)).toEqual(order);
+  });
+});
+
+describe('adaptive', () => {
+  test('ability rises after correct answers and falls after misses', () => {
+    let up = 0;
+    let down = 0;
+    for (let i = 0; i < 6; i++) { up = updateAbility(up, 3, true, i); down = updateAbility(down, 2, false, i); }
+    expect(up).toBeGreaterThan(0.8);
+    expect(down).toBeLessThan(-0.8);
+    expect(Math.abs(updateAbility(10, 4, true, 50))).toBeLessThanOrEqual(2.5);
+  });
+
+  test('next item matches ability and fills the most under-covered skill', () => {
+    const rand = mulberry32(5);
+    const hard = pickNextAdaptive(EXAM, QUESTIONS, new Set(), [], 1.3, 20, rand)!;
+    const easy = pickNextAdaptive(EXAM, QUESTIONS, new Set(), [], -1.3, 20, rand)!;
+    expect(hard.difficulty).toBeGreaterThanOrEqual(3);
+    expect(easy.difficulty).toBeLessThanOrEqual(2);
+    // Twenty picks never repeat and spread across many skills.
+    const used = new Set<string>();
+    const skills: string[] = [];
+    for (let i = 0; i < 20; i++) {
+      const q = pickNextAdaptive(EXAM, QUESTIONS, used, skills, 0, 20, rand)!;
+      expect(used.has(q.id)).toBe(false);
+      used.add(q.id);
+      skills.push(q.skill);
+    }
+    expect(new Set(skills).size).toBeGreaterThanOrEqual(12);
   });
 });

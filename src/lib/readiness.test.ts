@@ -3,6 +3,7 @@ import { loadExamBundle } from '@/lib/content/load';
 import { computeReadiness, levelFor } from '@/lib/readiness';
 import { computeStreak } from '@/lib/streak';
 import { schedule, NEW_CARD } from '@/lib/srs';
+import { buildPlan, prioritiseSkills } from '@/lib/study-plan';
 
 const { config: EXAM } = loadExamBundle('ccdv-f');
 
@@ -77,5 +78,33 @@ describe('spaced repetition', () => {
     expect(hit2.intervalDays).toBe(3);
     expect(hit3.intervalDays).toBeGreaterThan(3);
     expect(schedule(hit3, false, now).lapses).toBe(miss.lapses + 1);
+  });
+});
+
+describe('study plan', () => {
+  const base = {
+    today: '2026-09-27', targetDate: null as string | null, answered: 40, due: 0, dailyGoal: 10,
+    secondsPerItem: 135, quickItems: 20, quickMinutes: 45, fullMinutes: 120,
+  };
+  const skills = computeReadiness(EXAM, EXAM.skills.flatMap((s, i) => Array.from({ length: 4 }, () => ({ skill: s.id, difficulty: 2, correct: i % 3 !== 0 })))).skills;
+
+  test('a brand-new learner starts with the diagnostic', () => {
+    const plan = buildPlan({ ...base, answered: 0, skills });
+    expect(plan[0].tasks[0].kind).toBe('diagnostic');
+    expect(plan).toHaveLength(7);
+  });
+
+  test('due reviews come first today, then the highest-gain drill', () => {
+    const plan = buildPlan({ ...base, due: 7, skills });
+    expect(plan[0].tasks.map((t) => t.kind)).toEqual(['review', 'drill']);
+    const top = prioritiseSkills(skills)[0];
+    expect(plan[0].tasks[1].skillId).toBe(top.skillId);
+  });
+
+  test('the plan tapers into a full mock and ends on exam day', () => {
+    const plan = buildPlan({ ...base, targetDate: '2026-10-01', skills });
+    expect(plan.map((d) => d.date)).toEqual(['2026-09-27', '2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01']);
+    expect(plan[2].tasks.some((t) => t.kind === 'full')).toBe(true);
+    expect(plan[4].tasks[0].kind).toBe('rest');
   });
 });

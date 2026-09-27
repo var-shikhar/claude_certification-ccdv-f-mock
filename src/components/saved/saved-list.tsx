@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/lib/api';
 import type { RevealedQuestion } from '@/lib/engine/sanitize';
 import { cn } from '@/lib/utils';
+import { TutorButton } from '@/components/tutor/tutor-sheet';
 
 export interface SavedItem {
   questionId: string;
@@ -28,7 +29,7 @@ export interface SavedItem {
 
 const KEY = ['bookmarks'] as const;
 
-export function SavedList({ initial }: { initial: SavedItem[] }) {
+export function SavedList({ initial, aiTutor = false }: { initial: SavedItem[]; aiTutor?: boolean }) {
   const queryClient = useQueryClient();
   const { data: items = [] } = useQuery({ queryKey: KEY, queryFn: () => api.get<SavedItem[]>('/api/bookmarks'), initialData: initial, staleTime: 30_000 });
   const [open, setOpen] = useState<string | null>(null);
@@ -104,6 +105,7 @@ export function SavedList({ initial }: { initial: SavedItem[] }) {
                           <RichText text={item.question.explanation} className="text-sm" />
                         </div>
                         <NoteEditor item={item} />
+                        {aiTutor && <TutorButton questionId={item.questionId} />}
                         <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => remove.mutate(item)}>
                           <Trash2 /> Remove from saved
                         </Button>

@@ -29,6 +29,7 @@ import { ReportDialog } from './report-dialog';
 import { RichText } from './rich-text';
 import { SaveIndicator } from './save-indicator';
 import { useAttempt } from './use-attempt';
+import { TutorButton } from '@/components/tutor/tutor-sheet';
 
 const TIME_COMMIT_MS = 30_000;
 
@@ -251,6 +252,7 @@ export function ExamPlayer({ initial }: { initial: PlayerState }) {
                     </h3>
                     <RichText text={revealed.explanation} className="text-sm" />
                     {revealed.reference && <p className="text-xs text-muted-foreground">Reference: {revealed.reference}</p>}
+                    {state.aiTutor && <div className="pt-1"><TutorButton questionId={item.id} attemptId={state.id} wasCorrect={revealed.correct} /></div>}
                   </motion.section>
                 )}
               </AnimatePresence>

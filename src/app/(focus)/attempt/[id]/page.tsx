@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
+import { AdaptivePlayer } from '@/components/player/adaptive-player';
 import { ExamPlayer } from '@/components/player/exam-player';
 import { getPlayerState } from '@/server/attempts';
 import { AppError } from '@/server/errors';
@@ -15,5 +16,5 @@ export default async function AttemptPage({ params }: { params: Promise<{ id: st
     throw err;
   });
   if ('finished' in state) redirect(`/attempt/${id}/result`);
-  return <ExamPlayer initial={state} />;
+  return state.kind === 'adaptive' ? <AdaptivePlayer initial={state} /> : <ExamPlayer initial={state} />;
 }

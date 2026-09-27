@@ -13,7 +13,10 @@ import { cn } from '@/lib/utils';
 import { getMyExams, type DashboardExam } from '@/server/analytics';
 import { getActiveAttempts, listAttempts } from '@/server/attempts';
 import { getActivityHeatmap, getOrCreateProfile, getStreak } from '@/server/profile';
+import { getStudyPlan, type PlanView } from '@/server/plan';
 import { requireUser } from '@/server/session';
+import { TodayPlan } from '@/components/plan/study-plan';
+import { PlanTaskButton } from '@/components/plan/plan-task-button';
 
 export const metadata: Metadata = { title: 'Home' };
 
@@ -36,6 +39,7 @@ export default async function DashboardPage() {
 
   const firstName = user.isAnonymous ? '' : user.name.split(' ')[0];
   const primary = myExams.find((e) => e.id === profile.primaryExamId) ?? myExams[0] ?? null;
+  const plan = primary ? await getStudyPlan(user.id, primary.id) : null;
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6 sm:py-10">
@@ -53,7 +57,7 @@ export default async function DashboardPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
         <div className="space-y-6">
-          <Reveal delay={0.05}><UpNext active={active} exams={myExams} primary={primary} /></Reveal>
+          <Reveal delay={0.05}><UpNext active={active} exams={myExams} primary={primary} plan={plan} /></Reveal>
 
           <Reveal delay={0.1}>
             <section className="space-y-3">
@@ -123,6 +127,7 @@ export default async function DashboardPage() {
               </div>
             </section>
           </Reveal>
+          {plan && <Reveal delay={0.12}><TodayPlan plan={plan} /></Reveal>}
           <Reveal delay={0.15}>
             <section className="rounded-3xl border bg-card p-5">
               <h2 className="mb-4 text-sm font-semibold text-muted-foreground">Activity</h2>
@@ -135,16 +140,18 @@ export default async function DashboardPage() {
   );
 }
 
-function UpNext({ active, exams, primary }: {
+function UpNext({ active, exams, primary, plan }: {
   active: Awaited<ReturnType<typeof getActiveAttempts>>;
   exams: DashboardExam[];
   primary: DashboardExam | null;
+  plan: PlanView | null;
 }) {
   let eyebrow = 'Up next';
   let title: string;
   let body: string;
   let action: React.ReactNode;
   const mostDue = [...exams].sort((a, b) => b.due - a.due)[0];
+  const nextTask = plan?.days[0]?.tasks.find((t) => !t.done && t.kind !== 'rest');
 
   if (active[0]) {
     const a = active[0];
@@ -152,6 +159,11 @@ function UpNext({ active, exams, primary }: {
     title = `${a.examCode} · ${KINDS[a.kind].label}`;
     body = `Question ${a.position} of ${a.itemCount}, ${a.answered} answered${a.deadline ? '. The timer is still running.' : '.'}`;
     action = <Button asChild variant="premium" size="xl"><Link href={`/attempt/${a.id}`}><Play data-icon="inline-start" />Resume</Link></Button>;
+  } else if (plan && nextTask) {
+    eyebrow = `Today's plan · ${plan.examCode}`;
+    title = nextTask.label;
+    body = `${nextTask.detail} About ${nextTask.minutes} minutes.`;
+    action = <PlanTaskButton examId={plan.examId} task={nextTask} size="xl" variant="premium" label="Start now" />;
   } else if (mostDue && mostDue.due > 0) {
     title = `Daily review: ${mostDue.due} question${mostDue.due === 1 ? '' : 's'} due`;
     body = `Questions you missed in ${mostDue.code} are ready to revisit. It takes a few minutes and makes them stick.`;

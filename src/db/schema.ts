@@ -189,6 +189,8 @@ export interface AttemptSettings {
   /** show the answer after each item */
   instant?: boolean;
   candidateName?: string;
+  /** adaptive tests: running ability estimate and planned length */
+  adaptive?: { theta: number; target: number };
 }
 
 export interface AttemptSummary {
@@ -203,6 +205,8 @@ export interface AttemptSummary {
   durationMs: number;
   /** the timer ran out and the attempt submitted itself */
   timedOut?: boolean;
+  /** adaptive tests: final ability estimate on a -2.5..2.5 scale */
+  ability?: number;
 }
 
 export interface IntegrityLog {
@@ -360,7 +364,13 @@ export const userBadge = pgTable('user_badge', {
 
 // ---------------------------------------------------------------- interviews
 
-export interface InterviewTurn { role: 'interviewer' | 'candidate'; content: string; at: string }
+export interface InterviewTurn {
+  role: 'interviewer' | 'candidate';
+  content: string;
+  at: string;
+  /** interviewer turns: a new main question, a follow-up on the last answer, or the closing message */
+  kind?: 'question' | 'follow_up' | 'wrap_up';
+}
 export interface InterviewReport {
   overall: number;
   summary: string;
