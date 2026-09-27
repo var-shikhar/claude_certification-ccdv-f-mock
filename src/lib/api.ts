@@ -2,7 +2,7 @@
 // so toasts can show something useful.
 
 export class ApiError extends Error {
-  constructor(message: string, readonly status: number, readonly code?: string) {
+  constructor(message: string, readonly status: number, readonly code?: string, readonly data?: Record<string, unknown>) {
     super(message);
   }
 }
@@ -16,7 +16,7 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
   });
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
-  if (!res.ok) throw new ApiError(data?.error ?? `Request failed (${res.status})`, res.status, data?.code);
+  if (!res.ok) throw new ApiError(data?.error ?? `Request failed (${res.status})`, res.status, data?.code, data ?? undefined);
   return data as T;
 }
 

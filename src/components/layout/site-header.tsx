@@ -16,7 +16,7 @@ export async function SiteHeader() {
   const streak = user && profile ? await getStreak(user.id, profile.timezone) : null;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/75 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-40 print:hidden border-b border-border/60 bg-background/75 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 sm:px-6">
         <Logo href={user ? '/dashboard' : '/'} />
         {user ? (

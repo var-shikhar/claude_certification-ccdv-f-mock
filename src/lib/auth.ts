@@ -35,6 +35,7 @@ export const auth = betterAuth({
   emailAndPassword: { enabled: true, minPasswordLength: 8, autoSignIn: true },
   socialProviders,
   user: {
+    deleteUser: { enabled: true },
     additionalFields: {
       role: { type: 'string', required: false, defaultValue: 'learner', input: false },
     },

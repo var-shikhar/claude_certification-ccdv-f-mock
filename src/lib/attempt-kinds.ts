@@ -20,6 +20,7 @@ export const KINDS: Record<AttemptKind, KindInfo> = {
   practice: { label: 'Practice drill', when: 'Learn as you go: see the answer and explanation after each question.', feedback: 'instant', scored: false },
   mistakes: { label: 'Retry mistakes', when: 'Only the questions you most recently got wrong.', feedback: 'instant', scored: false },
   review: { label: 'Daily review', when: 'Spaced-repetition questions that are due today.', feedback: 'instant', scored: false },
+  saved: { label: 'Saved questions', when: 'The questions you bookmarked, with answers as you go.', feedback: 'instant', scored: false },
   diagnostic: { label: 'Diagnostic', when: '15 questions across the whole syllabus to find your starting point.', feedback: 'end', scored: true },
   adaptive: { label: 'Adaptive test', when: 'Questions get harder or easier based on how you answer.', feedback: 'end', scored: true },
   challenge: { label: 'Challenge', when: 'A shared question set to compare scores with friends.', feedback: 'end', scored: true },

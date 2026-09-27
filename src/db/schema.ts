@@ -178,7 +178,7 @@ export const studyNote = pgTable('study_note', {
 
 // ---------------------------------------------------------------- attempts
 
-export type AttemptKind = 'full' | 'quick' | 'practice' | 'mistakes' | 'review' | 'adaptive' | 'diagnostic' | 'challenge' | 'assignment';
+export type AttemptKind = 'full' | 'quick' | 'practice' | 'mistakes' | 'review' | 'saved' | 'adaptive' | 'diagnostic' | 'challenge' | 'assignment';
 export type AttemptStatus = 'active' | 'submitted' | 'expired' | 'abandoned';
 
 export interface AttemptSettings {

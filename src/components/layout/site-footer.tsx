@@ -3,7 +3,7 @@ import { Logo } from '@/components/brand/logo';
 
 export function SiteFooter() {
   return (
-    <footer className="mt-24 border-t bg-secondary/30">
+    <footer className="mt-24 border-t bg-secondary/30 print:hidden">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div className="space-y-3">
           <Logo />

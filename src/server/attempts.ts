@@ -14,7 +14,7 @@ import type { AttemptListItem, PlayerState, ProgressPatch, ResultState } from '@
 import { XP, recordActivity } from './activity';
 import { AppError, notFound } from './errors';
 import { getAssemblyPool, getCaseStudies, getExam, getQuestionsByIds } from './exams';
-import { getOrCreateProfile } from './profile';
+import { ensureEnrollment, getOrCreateProfile } from './profile';
 import { applyAnswersToCards } from './srs';
 
 type AttemptRow = typeof attempt.$inferSelect;
@@ -26,7 +26,7 @@ const MAX_TIME_PER_ITEM_MS = 4 * 60 * 60 * 1000;
 
 export interface StartInput {
   examId: string;
-  kind: Extract<AttemptKind, 'full' | 'quick' | 'practice' | 'mistakes' | 'review' | 'diagnostic'>;
+  kind: Extract<AttemptKind, 'full' | 'quick' | 'practice' | 'mistakes' | 'review' | 'saved' | 'diagnostic'>;
   difficulty?: string;
   pool?: 'bank' | 'imported' | 'all';
   domains?: number[];
@@ -103,6 +103,15 @@ export async function startAttempt(userId: string, userName: string, input: Star
       form = formFromItems(await getQuestionsByIds(due.map((d) => d.questionId)), seed);
       break;
     }
+    case 'saved': {
+      const saved = await db.select({ questionId: bookmark.questionId }).from(bookmark)
+        .where(and(eq(bookmark.userId, userId), eq(bookmark.examId, ex.id)))
+        .orderBy(desc(bookmark.updatedAt))
+        .limit(Math.max(1, Math.min(input.count ?? 30, 60)));
+      if (!saved.length) throw new AppError('You have no saved questions for this exam yet.', 400, 'EMPTY');
+      form = formFromItems(await getQuestionsByIds(saved.map((s) => s.questionId)), seed);
+      break;
+    }
     default:
       throw new AppError('Unknown practice mode.', 400);
   }
@@ -126,6 +135,7 @@ export async function startAttempt(userId: string, userName: string, input: Star
     startedAt: now,
     deadline: minutes ? new Date(now.getTime() + minutes * 60_000) : null,
   }).returning({ id: attempt.id });
+  await ensureEnrollment(userId, ex.id);
   return row;
 }
 

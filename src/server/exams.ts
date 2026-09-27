@@ -107,3 +107,13 @@ export const getSkillCounts = cache(async (examId: string) => {
     .groupBy(question.skill);
   return Object.fromEntries(rows.map((r) => [r.skill, r.n])) as Record<string, number>;
 });
+
+/** Published question counts per pool (the reviewed bank vs. imported practice sets). */
+export const getPoolCounts = cache(async (examId: string) => {
+  const rows = await db
+    .select({ pool: question.pool, n: sql<number>`count(*)::int` })
+    .from(question)
+    .where(and(eq(question.examId, examId), eq(question.status, 'published')))
+    .groupBy(question.pool);
+  return { bank: rows.find((r) => r.pool === 'bank')?.n ?? 0, imported: rows.find((r) => r.pool === 'imported')?.n ?? 0 };
+});

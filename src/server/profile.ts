@@ -1,7 +1,7 @@
 import 'server-only';
-import { and, desc, eq, gte } from 'drizzle-orm';
+import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { activityDay, profile } from '@/db/schema';
+import { activityDay, enrollment, profile } from '@/db/schema';
 import { computeStreak, dayKey } from '@/lib/streak';
 
 export type ProfileRow = typeof profile.$inferSelect;
@@ -36,4 +36,11 @@ export async function getActivityHeatmap(userId: string, days = 84) {
     .select({ day: activityDay.day, items: activityDay.items, xp: activityDay.xp })
     .from(activityDay)
     .where(and(eq(activityDay.userId, userId), gte(activityDay.day, since)));
+}
+
+/** Marks an exam as one the learner is working on (first attempt, onboarding, or "Add to my exams"). */
+export async function ensureEnrollment(userId: string, examId: string) {
+  await db.insert(enrollment).values({ userId, examId }).onConflictDoNothing();
+  await db.update(profile).set({ primaryExamId: examId })
+    .where(and(eq(profile.userId, userId), sql`${profile.primaryExamId} is null`));
 }
