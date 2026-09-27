@@ -1,0 +1,98 @@
+{
+  "tool-interfaces": {
+    "summary": "Write tool names and descriptions that let the model reliably pick the right tool among similar ones, and recognise when a system prompt is overriding good descriptions.",
+    "points": [
+      "Tool descriptions are the primary mechanism the model uses to select a tool. Minimal descriptions (\"Retrieves customer information\" / \"Retrieves order details\") leave it nothing to choose on, and the exam's preferred first fix for misrouting is to expand the descriptions, not to add few-shot examples, a routing layer or a merged tool.",
+      "A strong description covers: what the tool does, when to use it and when not to, the input formats it accepts with example values (`ORD-48213377`), what it returns and does not return, and an explicit boundary against similar tools (\"for goodwill credit with no returned order use `issue_store_credit`\"). Aim for several sentences, more for complex tools.",
+      "Overlapping or near-identical descriptions cause misrouting (`analyze_content` vs `analyze_document`). Fix by renaming and rewriting so each tool states its input type and purpose, e.g. `analyze_content` becomes `extract_web_results` with a web-specific description.",
+      "Split generic tools that take a free-text instruction into purpose-specific tools with defined input/output contracts: `analyze_document` becomes `extract_data_points`, `summarize_content` and `verify_claim_against_source`. This fixes both selection and downstream parsing.",
+      "Edge-case guidance belongs in the description: say what to do when a required input is missing (\"if the customer has not provided an order ID, use `search_orders`\"). This prevents fabricated parameters before the call is made; `strict: true` only guarantees schema shape, not that values are real.",
+      "System prompt wording can override well-written descriptions. Instructions that reuse a tool name as an ordinary verb (\"verify the customer's account\", \"extract the key facts\") create unintended keyword associations. When behaviour changes right after a prompt edit, or an A/B run without the prompt routes correctly, review the prompt for keyword-sensitive wording rather than rewriting descriptions or renaming widely referenced tools.",
+      "Use unambiguous parameter names (`user_id` rather than `user`) and, for format-sensitive inputs, `input_examples` on the tool definition. Consolidate related operations (fewer, more capable tools) and namespace by service (`jira_search`, `github_list_prs`) as the tool set grows.",
+      "Common distractors: adding \"MUST\" or \"IMPORTANT\" imperatives instead of clarifying boundaries, shortening descriptions to save tokens, deleting a sibling tool's description, switching to a bigger model, changing temperature, or reordering the tools array (order is not a selection mechanism)."
+    ],
+    "docs": [
+      { "title": "Define tools (best practices, input_examples, tool_choice)", "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools" },
+      { "title": "Writing tools for agents", "url": "https://www.anthropic.com/engineering/writing-tools-for-agents" },
+      { "title": "Strict tool use", "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/strict-tool-use" }
+    ]
+  },
+  "mcp-errors": {
+    "summary": "Return MCP tool failures as structured, categorised results so the agent can retry, explain or escalate correctly instead of guessing.",
+    "points": [
+      "MCP has two error channels. Protocol errors are JSON-RPC errors for unknown tools or malformed requests. Tool execution errors (API failures, invalid data, business-logic refusals) go inside the tool result with `isError: true` so the model can see and reason about them. On the Claude API the equivalent is `is_error: true` on the `tool_result` block.",
+      "Four error categories the exam uses: transient (timeouts, 503, rate limits), validation (invalid input format), business (policy violations such as an expired refund window) and permission (missing scope or credentials).",
+      "Return structured metadata: an `errorCategory`, an `isRetryable` boolean and a human-readable description. Uniform errors (\"Operation failed\") prevent the agent from choosing a recovery and typically cause wasted identical retries.",
+      "Only transient errors are retryable with the same input. Validation errors need a corrected input; permission and business errors need escalation or explanation. Mark business violations `retriable: false` and include a customer-friendly explanation (\"refunds are available within 30 days of delivery; this order was delivered 45 days ago\") so the agent can communicate the policy and alternatives.",
+      "If you cannot change the agent's prompt, the error contract is your lever: a technical `message` for the agent plus a separate `customerMessage` that is safe to relay stops raw exceptions and stack traces reaching customers.",
+      "Distinguish an access failure from a valid empty result. A successful query with no matches should be a normal result that says so (`{\"orders\": [], \"matched\": 0}`); a 403 or timeout must be `isError: true` with a category and retryability. Collapsing both into `[]` makes the agent tell customers they have no orders during an outage.",
+      "Inside subagents, recover transient failures locally with bounded backoff. Propagate to the coordinator only errors that cannot be resolved locally, and include the failure type, what was attempted and any partial results so the coordinator can pick an alternative or proceed with known gaps.",
+      "Anti-patterns the exam uses as distractors: returning success with empty content to keep the pipeline moving, throwing so the server crashes, retrying permission errors with backoff, retrying every error inside the server and then returning a generic failure, terminating the whole job on one subagent error, and mapping errors to bare HTTP codes.",
+      "Write instructive error text that says what went wrong and what to try next (\"Rate limit exceeded. Retry after 60 seconds.\"). Error messages are part of the tool interface and steer the model toward correct usage."
+    ],
+    "docs": [
+      { "title": "MCP specification — Tools (error handling)", "url": "https://modelcontextprotocol.io/specification/2025-06-18/server/tools" },
+      { "title": "Handle tool calls (is_error)", "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls" },
+      { "title": "How we built our multi-agent research system", "url": "https://www.anthropic.com/engineering/multi-agent-research-system" }
+    ]
+  },
+  "tool-distribution": {
+    "summary": "Give each agent only the tools its role needs, add narrowly scoped cross-role tools for frequent needs, and use tool_choice to guarantee that a tool (or a specific tool) is called.",
+    "points": [
+      "Too many tools degrade selection: an agent with 18 tools makes more mistakes than one with 4-5. Decision complexity, not model capacity, is the problem, so \"use a bigger model\" is a non-answer.",
+      "Agents holding tools outside their specialisation tend to misuse them (a synthesis agent running web searches). Remove the tool rather than instructing the agent not to use it; a prompt rule is probabilistic, a missing tool is deterministic.",
+      "Scoped tool access: restrict each subagent's tool set to its role. Replace generic tools with constrained alternatives, e.g. `fetch_url` becomes `load_document` that validates the URL is an assigned document source.",
+      "Scoped cross-role tools: when one agent needs another role's capability frequently (85% simple fact checks, 85% symbol lookups), give it a narrow read-only tool for that case (`verify_fact`, `find_symbol_definition`) and keep routing complex cases through the coordinator. Do not hand over the other agent's full tool set, batch lookups to the end, or speculatively pre-load data.",
+      "`tool_choice` options: `auto` (default with tools; model may answer with text or call a tool), `any` (must call one of the provided tools, model chooses which), `tool` with a `name` (must call that specific tool), and `none` (no tool calls).",
+      "Use `any` when several tools are valid outcomes but a text-only reply is not (e.g. `record_invoice` or `flag_unreadable`). Use `tool` to force a prerequisite such as `extract_metadata` on the first request, then send follow-up turns with `auto` so enrichment tools can run; leaving the forced choice on every turn loops on the same tool.",
+      "When `tool_choice` is `any` or `tool`, the API prefills the assistant message, so the model emits no natural-language text before the `tool_use` block even if asked. To capture a rationale while keeping the guarantee, add a `rationale` field to the tool's input schema; switching to `auto` loses the guarantee.",
+      "Combine forced tool use with `strict: true` on the tool definition when inputs must match the schema exactly. Note: current docs say some newer models reject `any`/`tool` with a 400 and recommend `auto` plus strict tools or structured outputs; the exam tests the guide's framing, so answer in terms of the option semantics above.",
+      "Changing `tool_choice` between requests invalidates cached message blocks under prompt caching; tool definitions and the system prompt stay cached.",
+      "In the Agent SDK, restrict tools per agent with `allowedTools` / `disallowedTools` and per-subagent `tools` lists; MCP tools are named `mcp__<server>__<tool>` and `mcp__<server>__*` allows a whole server."
+    ],
+    "docs": [
+      { "title": "Define tools (controlling Claude's output with tool_choice)", "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools" },
+      { "title": "Agent SDK — Permissions (allowedTools)", "url": "https://code.claude.com/docs/en/agent-sdk/permissions" },
+      { "title": "How we built our multi-agent research system", "url": "https://www.anthropic.com/engineering/multi-agent-research-system" }
+    ]
+  },
+  "mcp-integration": {
+    "summary": "Configure MCP servers at the right scope with secrets kept out of the repo, and make MCP tools and resources discoverable and attractive to the agent.",
+    "points": [
+      "Three Claude Code MCP scopes: local (default; this project only, private, stored in `~/.claude.json`), project (`.mcp.json` at the repository root, committed and shared with the team) and user (`~/.claude.json`, all of one user's projects, private). Shared team tooling goes in project scope; personal or experimental servers go in user scope.",
+      "Add servers with `claude mcp add --transport http|sse|stdio <name> --scope project|user|local ...`; for stdio servers `--` separates Claude's options from the server command, and `--env KEY=value` passes environment to the server. `claude mcp list`, `claude mcp get <name>`, `claude mcp remove <name>` and `/mcp` inside a session manage and inspect servers.",
+      "`.mcp.json` supports environment variable expansion: `${VAR}` and `${VAR:-default}` in `command`, `args`, `env`, `url` and `headers`. Reference `${GITHUB_TOKEN}` in the committed file and set the variable on each machine or CI runner. Never commit token values, and do not park them in CLAUDE.md (it is committed and loaded into context).",
+      "If a referenced variable is unset with no default, the config still loads: `claude mcp list` shows a missing-variable warning and the literal `${VAR}` text is used as-is, so the server may connect and then fail authentication. In CI, map the secret into the exact variable name the file expects.",
+      "All scopes load together. Tools from every configured server, project and user alike, are discovered at connection time and available simultaneously. If the same server name is defined in several scopes, the highest-precedence definition wins (local, then project, then user).",
+      "Project `.mcp.json` servers require a one-time approval prompt in interactive sessions; in `claude -p`, Agent SDK and cloud runs they load without prompting. MCP tool names appear as `mcp__<server>__<tool>` in permission rules, `allowed-tools`, subagent `tools` lists and hook matchers.",
+      "If the agent prefers a built-in tool (Grep) over a more capable MCP tool, the usual cause is a thin MCP description. Enhance it to explain capabilities, outputs and when to prefer it over the built-in alternative; do not remove the built-in tool or add blanket \"always use X\" prompt rules.",
+      "Prefer existing community or vendor MCP servers for standard integrations (Jira, GitHub, Slack, databases); reserve custom servers for team-specific workflows nothing else covers.",
+      "MCP resources expose content catalogues (issue summaries, documentation hierarchies, database schemas) so the agent can see what data exists without exploratory tool calls. Resources are application-driven context; tools are model-controlled actions. A static copy in CLAUDE.md or a `list_everything` tool are the wrong substitutes.",
+      "In the Agent SDK, pass servers in the `mcpServers` option (stdio `command`/`args`/`env`, or `type: \"http\"`/`\"sse\"` with `url` and `headers`); a project `.mcp.json` is picked up when the `project` setting source is enabled. Grant access with `allowedTools: [\"mcp__server__*\"]` rather than broad permission modes, and check the `init` system message for server status (`connected`, `failed`, `needs-auth`)."
+    ],
+    "docs": [
+      { "title": "Connect Claude Code to tools via MCP", "url": "https://code.claude.com/docs/en/mcp" },
+      { "title": "Agent SDK — Connect to external tools with MCP", "url": "https://code.claude.com/docs/en/agent-sdk/mcp" },
+      { "title": "MCP specification — Resources", "url": "https://modelcontextprotocol.io/specification/2025-06-18/server/resources" }
+    ]
+  },
+  "builtin-tools": {
+    "summary": "Pick the right built-in tool for the job (Grep for contents, Glob for paths, Read/Write for whole files, Edit for unique-anchor changes, Bash for commands) and explore codebases incrementally.",
+    "points": [
+      "Grep searches file contents for a pattern: callers of a function (`calculateTax\\(`), error messages, import statements. It is built on ripgrep, so use ripgrep regex syntax and escape metacharacters (`interface\\{\\}`).",
+      "Glob finds files by path pattern: `**/*.test.tsx`, `src/**/*.ts`, `*.{json,yaml}`. Results are sorted by modification time. Use it for \"which files match this naming convention\", never for \"which files contain this text\".",
+      "Read loads full file contents (with line numbers; also images, PDFs and notebooks). Write creates or overwrites a whole file with exactly the content given, so writing only the changed lines destroys the rest of the file.",
+      "Edit makes targeted modifications by exact string replacement and requires `old_string` to appear exactly once. If it appears more than once, either widen the anchor with surrounding context to make it unique or set `replace_all: true` when every occurrence should change.",
+      "When Edit fails because the match is not unique and no practical unique anchor exists (identical generated blocks), the reliable fallback is Read the whole file then Write the full modified content. Retrying the same Edit is deterministic and will fail again; `replace_all` changes occurrences you did not intend.",
+      "Edit is the default for small changes because it costs only the changed lines; Read plus full Write for every one-line change bloats context and risks overwriting concurrent modifications (formatter hooks, other tools). Bash `sed -i` by line number is fragile after edits and bypasses the Edit/Write safeguards and hook matchers.",
+      "Build codebase understanding incrementally: Grep for entry points (route registrations, `main`, server bootstrap), then Read those files and follow imports to trace the flow. Do not Read every file upfront and do not infer flow from file names alone.",
+      "Trace usage across wrapper or barrel modules by first identifying all exported names (Read the index file), then Grep for each name across the codebase. Searching for the module path only shows which files import the barrel, not which functions they use.",
+      "Read, Grep and Glob run without permission prompts; Write, Edit and Bash require permission. Use Bash for running commands (tests, builds, git), not as a substitute for the file tools.",
+      "MCP tools with rich descriptions can complement built-ins (semantic cross-repo search alongside Grep); the built-in is still the right choice for exact-string searches in the current checkout."
+    ],
+    "docs": [
+      { "title": "Tools available to Claude", "url": "https://code.claude.com/docs/en/tools" },
+      { "title": "Common workflows", "url": "https://code.claude.com/docs/en/common-workflows" }
+    ]
+  }
+}

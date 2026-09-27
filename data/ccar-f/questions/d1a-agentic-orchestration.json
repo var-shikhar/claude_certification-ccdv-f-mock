@@ -1,0 +1,938 @@
+[
+  {
+    "id": "ARF-D1-T1-001",
+    "domain": 1,
+    "skill": "agentic-loops",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer is writing the control loop for a customer support agent that calls `get_customer`, `lookup_order` and `process_refund` through the Messages API. After each response from Claude, the loop must decide whether to execute tools and call the model again or to return the reply to the customer. Which condition should drive that decision?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Continue while the response contains no `text` block; stop as soon as any assistant text appears.",
+        "why": "Claude often emits explanatory text alongside a `tool_use` block in the same response, so the presence of text says nothing about whether the turn is finished."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Continue while `stop_reason` is `\"tool_use\"` (run the tools, return their results); stop on `\"end_turn\"`.",
+        "why": "`stop_reason` is the API's explicit signal: `\"tool_use\"` means Claude is waiting for tool results, `\"end_turn\"` means it has finished its response."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Continue until the loop has completed five iterations, since three tool calls plus a final reply should never need more than that in this workflow.",
+        "why": "A fixed iteration count is at best a safety net; using it as the primary stopping rule cuts off legitimate multi-step work and keeps looping after Claude has finished."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Continue until the assistant's text contains the phrase \"Resolution complete\", which the system prompt asks it to append.",
+        "why": "Parsing natural-language markers for termination is fragile: the model may phrase it differently or omit it, and the API already reports completion through `stop_reason`."
+      }
+    ],
+    "explanation": "The agentic loop is driven by `stop_reason`. When it is `\"tool_use\"`, run the requested tools, append `tool_result` blocks and call the model again; when it is `\"end_turn\"`, the model is done. Text presence, phrase matching and arbitrary iteration caps are the anti-patterns the exam expects you to reject.",
+    "reference": "Claude API docs — Handle tool calls; Building effective agents"
+  },
+  {
+    "id": "ARF-D1-T1-002",
+    "domain": 1,
+    "skill": "agentic-loops",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer-productivity agent is supposed to explore a repository with `Grep` and `Read` before answering. In testing it answers after a single model call almost every time, with replies such as \"I'll start by searching the codebase for the config loader\" and no search ever happens. The loop code reads the first content block of each response and exits when that block's `type` is `\"text\"`. What is the most likely cause and fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The response holds a `text` block before the `tool_use` block; branch on `stop_reason` and handle every `tool_use` block in `content`.",
+        "why": "Claude commonly narrates before calling a tool, so the first block is text while `stop_reason` is `\"tool_use\"`. The loop must key on `stop_reason` and iterate over all content blocks."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The model needs more steps; raise `max_tokens` so it can fit the tool call in the same response.",
+        "why": "The tool call is already in the response; the loop just never reaches it. `max_tokens` governs output length, not how the client interprets the content array."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The model is refusing to use tools; add \"You MUST call Grep before answering and never answer from memory\" to the system prompt and lower the temperature.",
+        "why": "The model did decide to call a tool; the loop discarded that request. Prompt pressure does not fix control-flow logic that never executes the tool."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The tools are missing from the request; pass the `tools` array on every call, not only the first.",
+        "why": "Nothing in the symptom suggests the tools were absent: the model announces a search, which it would not do without a matching tool definition in context."
+      }
+    ],
+    "explanation": "Assistant responses are arrays of content blocks, and a `tool_use` block is frequently preceded by text. Loop termination must be decided by `stop_reason`, and tool execution must iterate over every `tool_use` block in the response rather than peeking at the first one.",
+    "reference": "Claude API docs — Handle tool calls"
+  },
+  {
+    "id": "ARF-D1-T1-003",
+    "domain": 1,
+    "skill": "agentic-loops",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A support agent's loop executes `get_customer` and `lookup_order` when Claude requests both in one response, then must feed the outputs back so Claude can decide the next action. Which two practices are required for the results to be incorporated correctly? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Append a `user` message whose content contains one `tool_result` block per call, each carrying the matching `tool_use_id`.",
+        "why": "Tool results are returned as `tool_result` blocks in a `user` message, and the `tool_use_id` is how the API pairs each result with the request that produced it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Send each tool's output in a `system` message so it carries higher authority than the customer's text.",
+        "why": "Tool output belongs in `tool_result` blocks; placing it in the system prompt breaks the request/result pairing and treats untrusted data as instructions."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Keep the full message history, including the assistant's `tool_use` turn, in the next request so the results follow the request that produced them.",
+        "why": "Tool results must immediately follow the `tool_use` message; dropping or reordering history produces an API error and removes the reasoning the model needs to plan the next step."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Replace the conversation with only the latest tool results to keep the context window small.",
+        "why": "Discarding history removes the customer's request and the model's own reasoning; the API also rejects `tool_result` blocks that do not follow their `tool_use` blocks."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Put a short text block such as \"Here are the results:\" before the `tool_result` blocks to help the model parse them.",
+        "why": "In the user message that returns tool results, `tool_result` blocks must come first; any text must come after them or the request fails."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Return only the successful result and wait for the model to ask again about any tool that failed.",
+        "why": "Every `tool_use` block needs a `tool_result`; a failure should be returned with `is_error: true` and an instructive message so the model can adapt."
+      }
+    ],
+    "explanation": "Between iterations the loop appends a `user` message containing a `tool_result` block for every `tool_use` block, matched by `tool_use_id`, with results first and any text after, on top of the intact message history. That is how new information enters the model's reasoning for the next action.",
+    "reference": "Claude API docs — Handle tool calls; Parallel tool use"
+  },
+  {
+    "id": "ARF-D1-T1-004",
+    "domain": 1,
+    "skill": "agentic-loops",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A codebase-exploration agent runs with `max_iterations = 10` as its only stopping rule and a `while` loop that breaks when the counter is reached. Metrics show 30% of runs hit the cap and return a partial answer, and 5% of runs that finished early continued calling tools after the model had already answered. An engineer proposes raising the cap to 50. Which change best fixes both symptoms?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Ask the model to print \"DONE\" in its final message and break when that string appears in the text.",
+        "why": "Text-marker parsing is fragile and unnecessary because `stop_reason` already reports completion reliably."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Raise the cap to 50 so the model has room to finish the longer explorations, and keep the counter as the exit condition because it is simple and predictable.",
+        "why": "A larger cap reduces truncation but does nothing about the runs that keep going after the model has finished, and it multiplies wasted calls in those runs."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Exit on `stop_reason == \"end_turn\"`, keep the cap only as a safety guardrail, and log the runs that hit it for investigation.",
+        "why": "The model's own completion signal ends the loop at the right moment; the cap remains as a bound against runaway loops, and instrumentation reveals why some tasks need many steps."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Remove the iteration cap entirely and rely on the model to stop when it decides it is done.",
+        "why": "Unbounded autonomy is a production risk; a cap or budget is a required guardrail even when `stop_reason` is the primary stopping mechanism."
+      }
+    ],
+    "explanation": "Arbitrary iteration caps should be a guardrail, not the primary stopping mechanism. Terminate on `stop_reason: \"end_turn\"`, keep a bound (turns or budget) against runaway loops, and treat runs that hit the bound as signals to investigate rather than as normal exits.",
+    "reference": "Building effective agents; Claude Agent SDK docs — Agent loop (turns and budget)"
+  },
+  {
+    "id": "ARF-D1-T1-005",
+    "domain": 1,
+    "skill": "agentic-loops",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A support agent handles returns, billing disputes and account issues. To make it \"more reliable\", a team replaces the model-driven loop with a fixed sequence in code: call `get_customer`, then `lookup_order`, then `process_refund`, then reply. Billing questions now trigger pointless order lookups, account-only requests fail because no order exists, and first-contact resolution drops from 78% to 61%. Compliance still requires that no refund is issued without a verified customer. Which design satisfies both the resolution target and the compliance rule?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Restore the model-driven loop and switch to a larger model so it never skips verification.",
+        "why": "A bigger model still gives probabilistic compliance; the compliance rule needs a deterministic control, not a stronger prompt-follower."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep the fixed sequence but add an intent classifier that selects one of three hard-coded tool sequences (returns, billing, account) for each incoming request.",
+        "why": "A decision tree of sequences still cannot adapt to multi-concern or unexpected requests; high-ambiguity support traffic is exactly where pre-configured paths break."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Ask the model to output a complete plan of tool calls up front, then execute the plan in code without further model calls.",
+        "why": "Executing a plan blind discards the loop's core benefit: the model cannot react to what `lookup_order` actually returned before deciding whether a refund applies."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Restore the model-driven loop and enforce only the verification prerequisite with a programmatic gate on `process_refund`.",
+        "why": "Letting the model decide the next action based on tool results handles varied requests, while a deterministic gate guarantees the one ordering rule that must never be violated."
+      }
+    ],
+    "explanation": "Agentic loops let Claude reason about which tool to call next from the conversation and tool results, which is what open-ended support requests need. Pre-configured tool sequences should be reserved for the few invariants that must hold every time, and those are enforced with programmatic gates rather than by hard-coding the whole flow.",
+    "reference": "Building effective agents; Claude Agent SDK docs — Hooks"
+  },
+  {
+    "id": "ARF-D1-T1-006",
+    "domain": 1,
+    "skill": "agentic-loops",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A document-extraction agent's loop is written as `while response.stop_reason != \"end_turn\": execute tool_use blocks; append results; call model`. In production, about 3% of runs on long documents spin until the budget guard trips, and the traces show the same request being resent repeatedly with no new `tool_result` blocks. Which diagnosis and fix are correct?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The model is stuck deciding between tools; add an iteration cap of three as the exit condition for these runs and return whatever partial extraction exists at that point.",
+        "why": "A cap stops the bleeding but hides the cause; the loop is still resending an unchanged request whenever the model stops for a reason other than `end_turn` or `tool_use`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Truncated responses end with `stop_reason: \"max_tokens\"` and carry no `tool_use` blocks, so nothing is appended and the same request repeats; branch explicitly on each stop reason and handle `max_tokens` separately.",
+        "why": "Long extractions overflow the output budget; a loop that treats every non-`end_turn` as \"continue\" re-sends the same context forever. Explicit branches make the loop total over all stop reasons."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The system prompt lacks a completion instruction; add \"Always finish your extraction in one response\".",
+        "why": "An instruction cannot lift the output-token limit, and the loop's control flow would still resend an unchanged request whenever truncation occurs."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Empty text content signals completion on long documents; exit the loop when the response contains no text block, and treat any remaining `tool_use` blocks as spurious because the extraction is already complete.",
+        "why": "Text presence is not a completion signal and a truncated response can still contain text; keying on content shape reproduces the anti-pattern the loop should avoid."
+      }
+    ],
+    "explanation": "`stop_reason` has more values than `\"tool_use\"` and `\"end_turn\"`; `\"max_tokens\"` in particular yields a response with no tool calls, so a loop that continues on anything other than `end_turn` appends nothing and repeats itself. Handle each stop reason explicitly and keep budget caps as a guardrail, not as the fix.",
+    "reference": "Claude API docs — Handling stop reasons; Handle tool calls"
+  },
+  {
+    "id": "ARF-D1-T2-001",
+    "domain": 1,
+    "skill": "coordinator-subagents",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A multi-agent research system has a coordinator and four subagents: web search, document analysis, synthesis and report generation. When the web-search subagent finishes, where should its findings go next?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Back to the coordinator, which decides what to invoke next and what to pass along.",
+        "why": "In a hub-and-spoke design the coordinator owns routing, aggregation and error handling; every subagent result returns to it as the Task tool result."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Directly to the synthesis subagent, so the coordinator is not a bottleneck and synthesis can start as soon as the first results arrive.",
+        "why": "Direct subagent-to-subagent handoffs bypass the coordinator's observability and error handling and make it impossible to see what information flowed where."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Into a shared conversation history that every subagent automatically reads on its next turn.",
+        "why": "Subagents run in isolated contexts and do not share a conversation; there is no automatic shared history for them to read."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "To the report subagent, which appends it to the running draft as findings arrive.",
+        "why": "Streaming raw search output into the report skips analysis and synthesis and leaves no single component responsible for deciding what the report should contain."
+      }
+    ],
+    "explanation": "Coordinator-subagent systems use a hub-and-spoke topology: the coordinator delegates, receives each subagent's final output, aggregates and decides the next step. Subagents do not talk to each other or share memory.",
+    "reference": "Claude Agent SDK docs — Subagents; How we built our multi-agent research system"
+  },
+  {
+    "id": "ARF-D1-T2-002",
+    "domain": 1,
+    "skill": "coordinator-subagents",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "The coordinator in a research system runs the full pipeline (web search, document analysis, synthesis, report) for every request. A query such as \"When was the EU AI Act adopted?\" takes 90 seconds and four subagent invocations, while a broad topic like \"state of battery recycling in Europe\" gets exactly the same treatment. What change best addresses this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Have the coordinator assess each query's complexity and invoke only the subagents that request needs.",
+        "why": "The coordinator's job includes deciding which subagents to invoke; dynamic selection matches effort to query complexity instead of always routing through the whole pipeline."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Switch all subagents to a smaller, faster model to reduce per-stage latency.",
+        "why": "A faster model shortens each stage but keeps the wasted stages and can reduce quality on the broad topics that actually need them."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Cache the outputs of each subagent keyed by query so repeated or near-duplicate questions return instantly without re-running the pipeline.",
+        "why": "Caching helps only for repeats; the first request for every simple question still pays for four unnecessary invocations."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Run all four subagents in parallel so the pipeline finishes in the time of the slowest one.",
+        "why": "The stages depend on each other's outputs, and parallelism does not remove work that should not be done at all for a simple question."
+      }
+    ],
+    "explanation": "A coordinator should assess query requirements and dynamically select subagents rather than always running the full pipeline. Simple factual questions need one search; broad topics justify decomposition, analysis and synthesis.",
+    "reference": "How we built our multi-agent research system; Claude Agent SDK docs — Subagents"
+  },
+  {
+    "id": "ARF-D1-T2-003",
+    "domain": 1,
+    "skill": "coordinator-subagents",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "For broad topics the coordinator spawns three web-search subagents with the same prompt: \"Research recent developments in <topic>\". Reviewing traces shows that about 60% of the sources found by each subagent are also found by another, and whole aspects of the topic go unresearched. Which two changes to the coordinator would most directly reduce duplication and improve coverage? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Decompose the topic into distinct subtopics and assign each subagent one, stating what is in and out of its scope.",
+        "why": "Partitioning the research scope by subtopic is the standard way to minimize overlap and make coverage explicit."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Let the three search subagents message each other so they can avoid repeating searches.",
+        "why": "Peer-to-peer coordination breaks the hub-and-spoke pattern, adds traffic the coordinator cannot observe, and the agents still start from identical briefs."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Assign each subagent a different source type, for example peer-reviewed papers, industry reports and news, with a required output format.",
+        "why": "Splitting by source type is another valid partitioning axis; combined with a defined output shape it gives the coordinator complementary, mergeable results."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Increase the number of search subagents from three to eight with the same prompt.",
+        "why": "More agents with the same undifferentiated brief multiply overlap and cost without changing which aspects get covered."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Give all three subagents access to the coordinator's conversation history so they can see each other's progress.",
+        "why": "Subagents receive only their own prompt; there is no shared history to grant, and even if there were, identical objectives would still produce identical searches."
+      }
+    ],
+    "explanation": "Duplication comes from vague, identical delegation. The coordinator should partition the research scope, by subtopic or by source type, and give each subagent a distinct objective, explicit boundaries and an output format.",
+    "reference": "How we built our multi-agent research system"
+  },
+  {
+    "id": "ARF-D1-T2-004",
+    "domain": 1,
+    "skill": "coordinator-subagents",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A research coordinator receives the synthesis subagent's draft, notices that two of the five subtopics it planned have no supporting findings, and currently responds by re-invoking synthesis with \"be more thorough\". Reports still ship with the gaps, and each retry adds 20 seconds. What should the coordinator do instead when it detects insufficient coverage?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Give the synthesis subagent the web-search tools so it can fill gaps itself without returning control to the coordinator, saving a round trip per gap.",
+        "why": "Moving open-ended research into synthesis removes the coordinator's control over scope and partitioning and hides the extra searches from its traces."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Have the report subagent add a disclaimer listing the subtopics that were not covered.",
+        "why": "Disclosing gaps is better than hiding them, but it accepts an incomplete report when the system can still close the gaps with targeted re-delegation."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Re-invoke synthesis with a higher reasoning-effort setting and a longer output budget.",
+        "why": "Synthesis can only combine what it was given; no amount of effort creates findings for subtopics that were never researched."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Identify the missing subtopics, re-delegate targeted queries to search and analysis, then re-run synthesis, bounded by a round limit.",
+        "why": "This is the iterative-refinement loop: the coordinator evaluates output for gaps, re-delegates with targeted queries, and re-synthesizes, with a bound to keep cost predictable."
+      }
+    ],
+    "explanation": "The coordinator should evaluate the synthesis output against explicit coverage criteria, re-delegate targeted queries to the search and analysis subagents for the gaps, and re-run synthesis until coverage is sufficient, bounded by a round limit.",
+    "reference": "How we built our multi-agent research system"
+  },
+  {
+    "id": "ARF-D1-T2-005",
+    "domain": 1,
+    "skill": "coordinator-subagents",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A research coordinator is asked for a report on \"the effect of new privacy regulation on small businesses\". It decomposes the topic into \"GDPR fines for SMEs\", \"GDPR consent requirements\" and \"GDPR data-subject requests\", every subagent completes successfully, and the report omits US state laws, sector-specific rules and compliance cost data. Which change to the coordinator's prompt best prevents this class of failure on future topics?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Ask the synthesis subagent to add sections on any dimensions it believes are missing, drawing on its own general knowledge so that every report reads as complete.",
+        "why": "Filling gaps from parametric knowledge produces uncited, possibly outdated claims and hides the fact that no research was done on those areas."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Instruct the web-search subagent to always broaden its queries beyond the assigned subtopic and include adjacent jurisdictions and sectors.",
+        "why": "The search subagent did its assigned job correctly; loosening its scope undermines partitioning and does not fix a coordinator that never planned the missing areas."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Have the coordinator enumerate the topic's dimensions (jurisdictions, sectors, cost, legal aspects), plan coverage across them, and check the synthesis against that plan.",
+        "why": "Overly narrow decomposition is a coordinator planning failure; making it enumerate dimensions and verify coverage against them fixes the root cause rather than a symptom."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Raise the number of subagents the coordinator spawns per topic from three to six.",
+        "why": "More subagents on a narrow decomposition just research the same narrow slice in more detail."
+      }
+    ],
+    "explanation": "When every subagent succeeds but the report is incomplete, look at the coordinator's decomposition. Prompting the coordinator to map the topic's dimensions, plan coverage and verify the synthesis against that plan addresses narrow decomposition at its source.",
+    "reference": "How we built our multi-agent research system; Claude Agent SDK docs — Subagents"
+  },
+  {
+    "id": "ARF-D1-T2-006",
+    "domain": 1,
+    "skill": "coordinator-subagents",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "After a refactor that let the document-analysis subagent call the web-search subagent directly and write into a shared scratchpad file, a research system shows three regressions: two document-analysis failures never surfaced in the coordinator's logs, the final report cites contradictory statistics for the same metric, and audit needs a complete trace of which agent produced each finding. Token spend must stay roughly flat. Which two changes best address all three regressions within the constraints? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Remove the direct subagent-to-subagent calls and the shared scratchpad; return every subagent's output, including structured error reports, to the coordinator.",
+        "why": "Routing all communication through the coordinator restores observability, consistent error handling and a trace of every finding's origin without adding model calls."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Give every subagent all tools and the full topic so each can produce a complete report; have the coordinator pick the best one.",
+        "why": "Running four full researches multiplies token spend and still leaves conflicting statistics unreconciled."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Have the coordinator aggregate results, flag conflicting values with their sources, and re-delegate targeted queries to resolve them before invoking synthesis.",
+        "why": "Aggregation and conflict resolution belong to the coordinator; targeted re-delegation is cheap and produces a reconciled, attributed set of findings."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Replace the coordinator with a fixed sequential chain so the ordering of stages is always identical.",
+        "why": "A fixed chain loses dynamic subagent selection and gap-driven refinement, and it does not explain how errors or conflicting statistics would be handled."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Let the synthesis subagent message the web-search subagent whenever it finds a contradiction.",
+        "why": "This re-creates the peer-to-peer communication that hid failures in the first place and keeps the coordinator blind to the extra searches."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Run the whole pipeline twice and keep only statistics that agree between the runs.",
+        "why": "Doubling the pipeline doubles spend and discards legitimately different figures instead of attributing and reconciling them."
+      }
+    ],
+    "explanation": "Hub-and-spoke exists for observability, consistent error handling and controlled information flow. Undo the peer-to-peer shortcuts, make every result and error flow back to the coordinator, and let the coordinator own aggregation, conflict flagging and targeted re-delegation.",
+    "reference": "How we built our multi-agent research system; Claude Agent SDK docs — Subagents"
+  },
+  {
+    "id": "ARF-D1-T3-001",
+    "domain": 1,
+    "skill": "subagent-invocation",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A team defines `web-search`, `doc-analysis` and `synthesis` subagents in the `agents` option of an Agent SDK `query()` call and runs the coordinator with `allowedTools: [\"Read\", \"Grep\", \"Glob\", \"WebSearch\"]`. The coordinator does all the work itself and never spawns a subagent. What is the most likely cause?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Subagent definitions must also be listed by name in the coordinator's system prompt, with instructions on when to delegate, before Claude will use them.",
+        "why": "The `agents` option registers subagents and their descriptions; there is no requirement to repeat them in the system prompt."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Each `AgentDefinition` is missing a `model` field, so the subagents cannot start.",
+        "why": "`model` is optional; when omitted the subagent uses the default model for subagents."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Subagents can only be defined as markdown files in `.claude/agents/`, not programmatically.",
+        "why": "Programmatic definition through `agents` is the recommended approach for SDK applications; filesystem files are an alternative."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "The `Task` tool (`Agent` in newer SDK versions) is missing from `allowedTools`.",
+        "why": "Subagents are invoked through the Task/Agent tool, and the coordinator's `allowedTools` must include it for delegation to happen."
+      }
+    ],
+    "explanation": "The Task tool (named `Agent` in current SDK releases and `Task` in the exam guide and older versions) is how a coordinator spawns subagents. Defining agents is not enough; the coordinator's `allowedTools` must include that tool.",
+    "reference": "Claude Agent SDK docs — Subagents"
+  },
+  {
+    "id": "ARF-D1-T3-002",
+    "domain": 1,
+    "skill": "subagent-invocation",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A research coordinator invokes the synthesis subagent with the prompt \"Synthesize the findings gathered in the previous steps into a cited summary\". The output is generic, contains no citations, and ignores the twelve documents the analysis subagent summarized. Which two changes fix the invocation? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Include the complete web-search results and document-analysis outputs directly in the Task prompt sent to the synthesis subagent.",
+        "why": "A subagent starts with a fresh context and receives only its own prompt; anything it must reason over has to be passed explicitly."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Set `memory: \"project\"` on the synthesis `AgentDefinition` so it shares memory with the coordinator.",
+        "why": "Agent memory is not a channel for handing one invocation's findings to another; subagents do not share memory between invocations or with the parent."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Pass the findings as structured records that separate each claim's content from its metadata (source URL, document name, page number).",
+        "why": "Structured content-plus-metadata records let the synthesis agent keep attribution and emit citations instead of losing provenance in prose."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add \"You have access to the coordinator's conversation above\" to the synthesis system prompt.",
+        "why": "Stating that context exists does not make it exist; the subagent still sees nothing but its own system prompt and the Task prompt."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Raise the synthesis subagent's `maxTurns` so it has time to locate the earlier findings.",
+        "why": "More turns cannot recover information that was never placed in the subagent's context."
+      }
+    ],
+    "explanation": "Subagents do not inherit the parent's conversation history or share memory across invocations. The coordinator must put the complete prior findings in the subagent's prompt, ideally as structured data that keeps content and source metadata separate so attribution survives.",
+    "reference": "Claude Agent SDK docs — Subagents (What subagents inherit)"
+  },
+  {
+    "id": "ARF-D1-T3-003",
+    "domain": 1,
+    "skill": "subagent-invocation",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A coordinator splits a topic into four independent subtopics and researches them by spawning a search subagent, waiting for its result, then spawning the next, and so on. Each search takes about 40 seconds, so the research phase takes close to three minutes. What is the most effective way to cut that time?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Raise the concurrent-subagent limit environment variable from its default of 20 to 40.",
+        "why": "Only four subagents are involved, well under the default limit; the serialization comes from the coordinator issuing one call per turn."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Merge the four subtopics into one search subagent with a longer prompt so only one invocation is needed and the results come back in a single message.",
+        "why": "One agent doing four searches sequentially takes about as long and loses the context isolation and partitioning benefits of separate subagents."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Prompt the coordinator to emit all four Task calls in one response so they run concurrently.",
+        "why": "Parallel subagents are launched by issuing multiple Task tool calls in one coordinator turn; independent subtasks then finish in roughly the time of the slowest one."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Fork the coordinator's session four times and run one subtopic in each fork.",
+        "why": "Session forks branch conversation history for exploring alternatives; they are not the mechanism for spawning parallel subagents from a coordinator."
+      }
+    ],
+    "explanation": "Parallelism in the Agent SDK comes from the coordinator emitting several Task tool calls in one response. Spawning one subagent per turn serializes the work regardless of concurrency limits.",
+    "reference": "Claude Agent SDK docs — Subagents (Parallelization)"
+  },
+  {
+    "id": "ARF-D1-T3-004",
+    "domain": 1,
+    "skill": "subagent-invocation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer-productivity system defines a `legacy-analyzer` subagent with `description: \"Analyzer\"` and no `tools` field. Two problems appear: the coordinator sometimes sends questions about the local `/legacy` sources to the `web-search` subagent instead, and on one run the analyzer rewrote a file while \"tidying\" it. Which `AgentDefinition` change resolves both problems?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add \"Never modify files under any circumstances\" to the analyzer's `prompt` and mention the analyzer by name in every coordinator prompt so it is always chosen.",
+        "why": "A prompt rule is probabilistic, and hard-coding the analyzer's name removes the coordinator's ability to select subagents dynamically."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Restrict `tools` to `[\"Read\", \"Grep\", \"Glob\"]` and leave the description unchanged.",
+        "why": "Tool restriction fixes the accidental write but the one-word description still gives the coordinator nothing to match local-code questions against."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Give it a description saying when to use it (local `/legacy` code, module structure, call graphs) and set `tools: [\"Read\", \"Grep\", \"Glob\"]`.",
+        "why": "The description is what the coordinator uses to choose a subagent, and an explicit tool list is the deterministic way to make an analysis agent read-only."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Set `model: \"opus\"` on the analyzer so it is smart enough not to modify files, and rely on the coordinator to learn its role from the name.",
+        "why": "Model choice does not remove `Write` or `Edit` from the subagent's tool set, and the name alone is too little for reliable selection."
+      }
+    ],
+    "explanation": "An `AgentDefinition` carries a description (used for selection), a system prompt (behavior) and a `tools` list (capability boundary). Omitting `tools` inherits every available tool, so a read-only agent must list only read tools, and a specific description is what makes dynamic selection reliable.",
+    "reference": "Claude Agent SDK docs — Subagents (AgentDefinition configuration, Tool restrictions)"
+  },
+  {
+    "id": "ARF-D1-T3-005",
+    "domain": 1,
+    "skill": "subagent-invocation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A research coordinator's system prompt is a numbered procedure: \"1. Call web-search with the topic. 2. Call doc-analysis on each of the top five results. 3. Call synthesis. 4. Call report.\" When the first search returns mostly paywalled abstracts, the coordinator follows the steps anyway and produces a thin report. The team wants the coordinator to adapt without adding a special case for every failure mode. What should the prompt look like instead?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "State the research goal and quality criteria (source count, source diversity, citation) and let the coordinator decide which subagents to invoke and when to search again.",
+        "why": "Goal-and-criteria prompts let the coordinator judge whether its findings are sufficient and adapt its delegation, which is exactly what fixed procedures cannot do."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep the procedure and raise the coordinator's `maxTurns` so it can repeat the four steps more times.",
+        "why": "Repeating a procedure that produced thin results yields more thin results; the problem is the absence of judgment, not the number of turns."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Hard-code a list of fallback sources in the web-search subagent's prompt for when the primary search fails.",
+        "why": "Fallback lists are another brittle special case, and the coordinator would still not know that the first results were inadequate."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Extend the procedure with step 1b: \"If the results are paywalled, search again with `site:arxiv.org`, and if that also fails, search with `filetype:pdf`\" so the known failure is covered.",
+        "why": "Patching one failure mode into a fixed procedure leaves every other unanticipated situation unhandled and makes the prompt grow with each incident."
+      }
+    ],
+    "explanation": "Coordinator prompts should specify research goals and measurable quality criteria rather than step-by-step procedures. That gives the coordinator room to evaluate intermediate results and adapt which subagents it invokes.",
+    "reference": "How we built our multi-agent research system; Claude Agent SDK docs — Subagents"
+  },
+  {
+    "id": "ARF-D1-T3-006",
+    "domain": 1,
+    "skill": "subagent-invocation",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An Agent SDK session spent 40 minutes mapping a legacy billing module: its dependency graph, dead code and test coverage. No files have changed since. The team now wants to explore two mutually exclusive refactoring strategies (strangler-fig extraction versus in-place modularization) so that each exploration starts from the full analysis, neither is influenced by the other's conclusions, and the original analysis session stays intact for later reuse. Which approach meets all three requirements?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Resume the analysis session with the first strategy, then resume the same session again with the second strategy so both benefit from the complete analysis.",
+        "why": "The second resume sees the first exploration's conclusions in history, and both explorations are appended to the original session, which is no longer a clean baseline."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Start two fresh sessions and paste a one-paragraph summary of the analysis into each prompt.",
+        "why": "Starting fresh with a summary is the right choice when prior tool results are stale, but here the analysis is current and detailed; a summary discards most of it."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Resume the analysis session twice with `forkSession: true`, one fork per strategy.",
+        "why": "A fork creates a new session with a copy of the history; two forks give independent branches from the same baseline while the original session is left unchanged."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "From the analysis session, spawn two subagents with the prompt \"Using the analysis above, evaluate strategy X\".",
+        "why": "Subagents start with a fresh context and do not see the parent's history, so \"the analysis above\" would be empty from their point of view."
+      }
+    ],
+    "explanation": "`forkSession` (or `fork_session` in Python) creates an independent session seeded with a copy of the original's history. It is the mechanism for exploring divergent approaches from a shared, still-valid analysis baseline while preserving the original.",
+    "reference": "Claude Agent SDK docs — Sessions (Fork to explore alternatives)"
+  },
+  {
+    "id": "ARF-D1-T4-001",
+    "domain": 1,
+    "skill": "workflow-enforcement",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A support agent decides mid-conversation to escalate a billing dispute to a human agent through `escalate_to_human`. The human team works in a separate ticketing system and cannot see the agent's conversation transcript. What should the escalation payload contain?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The customer's sentiment score and a priority flag so the human can triage quickly.",
+        "why": "Priority helps queueing but tells the human nothing about who the customer is, what was found or what to do next."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A structured summary: verified customer ID, root cause, actions taken, disputed amount and recommended next action.",
+        "why": "A structured handoff gives a human with no transcript access everything needed to act without re-investigating."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The raw JSON returned by `get_customer` and `lookup_order`, plus the full list of tool calls, so nothing is lost in summarization and the human can verify everything.",
+        "why": "Raw tool output forces the human to redo the analysis and omits the agent's own findings about cause and recommended resolution."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A single sentence such as \"Customer disputes a charge, please assist\" so the human starts with an open mind.",
+        "why": "A one-line handoff throws away the investigation already performed and makes the customer repeat everything."
+      }
+    ],
+    "explanation": "Mid-process escalation should use a structured handoff protocol with customer details, root cause, actions taken, amounts and a recommended action, because the receiving human typically lacks access to the agent's transcript.",
+    "reference": "CCAR-F Exam Guide — Task 1.4; Building effective agents"
+  },
+  {
+    "id": "ARF-D1-T4-002",
+    "domain": 1,
+    "skill": "workflow-enforcement",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A customer writes: \"My order arrived damaged, I was charged twice, and my delivery address on file is wrong.\" The support agent resolves the damaged item, replies, and the customer has to write back twice more for the other two issues. First-contact resolution for multi-concern messages is 35%. Which change best fixes this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Escalate every message containing more than one concern to a human agent.",
+        "why": "Multi-concern messages are common and each concern is routine; escalating them all caps first-contact resolution and wastes human capacity."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Ask the customer to submit one ticket per issue so each conversation has a single concern.",
+        "why": "Pushing the burden onto the customer is the failure mode the metric measures; the system should handle what the customer actually wrote."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Process the concerns strictly one at a time, sending a reply after each one and waiting for the customer to confirm before starting on the next.",
+        "why": "Three separate replies to one message is confusing and slower, and later concerns still risk being dropped."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Decompose the message into distinct items, investigate them in parallel with the shared verified-customer context, then send one unified resolution.",
+        "why": "Decomposition plus parallel investigation over shared context, followed by a synthesized reply, resolves everything in one contact."
+      }
+    ],
+    "explanation": "Multi-concern requests should be decomposed into distinct items, investigated in parallel with shared context such as the verified customer ID, and then synthesized into a single unified resolution.",
+    "reference": "CCAR-F Exam Guide — Task 1.4"
+  },
+  {
+    "id": "ARF-D1-T4-003",
+    "domain": 1,
+    "skill": "workflow-enforcement",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Policy requires that `process_refund` is never called unless `get_customer` has returned a verified customer ID in the current session. The team wants this guaranteed, not merely likely. Which two implementations provide deterministic enforcement? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A `PreToolUse` hook matching `process_refund` that returns `permissionDecision: \"deny\"` unless session state records a verified customer ID.",
+        "why": "A hook runs in your code on every tool call and can block the call outright, independent of what the model decides."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A system prompt line in capitals: \"YOU MUST CALL get_customer BEFORE process_refund.\"",
+        "why": "Instructions raise compliance but keep a non-zero failure rate; emphasis does not make them deterministic."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Three few-shot examples in which the agent verifies the customer before every refund.",
+        "why": "Examples shape behavior probabilistically; the exam treats them as guidance, not enforcement."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Make the `process_refund` tool handler require a verification token that only `get_customer` issues, and reject calls without a valid token.",
+        "why": "Enforcing the prerequisite inside the tool itself means no sequence of model decisions can produce a refund without a prior verified lookup."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Update the `process_refund` description to say \"Only call after get_customer has verified the customer.\"",
+        "why": "Descriptions improve tool selection but are still read and followed by the model; they cannot block a call."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Ask the model to emit a checklist confirming verification before each refund call.",
+        "why": "A self-reported checklist is another model output and can be wrong or skipped; it is not a gate."
+      }
+    ],
+    "explanation": "When compliance must be guaranteed, enforce prerequisites programmatically: a hook that denies the downstream call until the prerequisite state exists, or a tool handler that refuses to run without proof of the prerequisite. Prompt wording, examples, descriptions and self-checks are all probabilistic.",
+    "reference": "Claude Agent SDK docs — Hooks; CCAR-F Exam Guide — Task 1.4"
+  },
+  {
+    "id": "ARF-D1-T4-004",
+    "domain": 1,
+    "skill": "workflow-enforcement",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Escalations from a support agent currently arrive as \"Customer unhappy about refund, please help\", and human agents take three times longer on them than on tickets they open themselves. A proposal to attach the full 12,000-token transcript was rejected by the support team, who need to act on a handoff within one minute and have no access to the agent's tools. Which handoff design satisfies these constraints?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Send the customer's sentiment, tenure and lifetime value so the human can decide how generous to be.",
+        "why": "Customer profile data does not tell the human what happened, what was tried or what the agent recommends."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Let the human agent chat with the support agent to ask follow-up questions about the case.",
+        "why": "An interactive back-and-forth adds latency and depends on the agent's session still being available; the handoff itself should carry the case."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Attach the full transcript but add a two-line summary at the top and highlight the tool calls so the human can skim straight to the parts that matter.",
+        "why": "The support team explicitly rejected transcripts, and a two-line summary omits the specifics (IDs, amounts, actions taken) they need to act quickly."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "A structured handoff: customer ID and verification status, root cause, actions already taken, refund amount, recommended action and open questions.",
+        "why": "A fixed structure of the fields the human must act on is consumable in under a minute and does not depend on the human re-running tools."
+      }
+    ],
+    "explanation": "Structured handoff summaries make escalation actionable for humans who lack transcript and tool access. Include identity and verification state, root cause, actions already taken, amounts, the recommended action and open questions, and leave the raw transcript out.",
+    "reference": "CCAR-F Exam Guide — Task 1.4"
+  },
+  {
+    "id": "ARF-D1-T4-005",
+    "domain": 1,
+    "skill": "workflow-enforcement",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A `PreToolUse` hook now denies `process_refund` whenever no verified customer ID is in session state, and misdirected refunds have dropped to zero. But in 9% of refund conversations the agent, after the denial, tells the customer \"I'm unable to process refunds\" and ends the conversation instead of verifying the customer and retrying. Which change best fixes the new failure without weakening the guarantee?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Return an actionable `permissionDecisionReason` (\"Blocked: call get_customer to verify the customer, then retry\") so the model recovers in the loop.",
+        "why": "The deny reason is fed back to the model as the tool result; a specific instruction lets it perform the missing prerequisite and retry, keeping the gate intact."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Have the hook call `get_customer` itself when it detects the missing prerequisite, store the result in session state, and then allow the refund to proceed.",
+        "why": "The hook has no verified identity input to look up, the model never sees the verification result, and silently performing steps hides the workflow from the conversation and its audit trail."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Escalate to a human every time the hook denies a call.",
+        "why": "A denial signals a missing routine step, not a policy exception; escalating every one wastes human capacity and lowers first-contact resolution."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Remove the hook and rely on a strengthened system prompt so the agent is never blocked.",
+        "why": "This trades a guaranteed control for a probabilistic one and reintroduces the misdirected refunds the hook eliminated."
+      }
+    ],
+    "explanation": "Programmatic gates should block the action and tell the model why. A specific, actionable denial reason lets the agent complete the prerequisite and retry inside the same loop, preserving deterministic enforcement while avoiding dead ends.",
+    "reference": "Claude Agent SDK docs — Hooks (Block a tool call)"
+  },
+  {
+    "id": "ARF-D1-T4-006",
+    "domain": 1,
+    "skill": "workflow-enforcement",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A support agent has a `PreToolUse` gate: `process_refund` is allowed only if `get_customer` has been called earlier in the session. Despite this, an audit finds that 2% of refunds went to the wrong account. In every such case the transcript shows `get_customer` called with the customer's stated name and returning a different customer than the one who placed the order later retrieved by `lookup_order`. What is the root cause, and what change closes the gap?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The gate is working; the remaining errors are a prompting problem, so add few-shot examples of correct verification.",
+        "why": "The gate let a refund proceed on a mismatched identity, which is a gap in the enforced predicate, not something examples can guarantee away."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The gate checks that the tool was invoked, not that it produced a verified outcome; require a verified customer ID that matches the customer on the order from `lookup_order`.",
+        "why": "A prerequisite gate must test the state the policy cares about (verified identity consistent with the order), not merely that a call happened."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add a second gate that requires `lookup_order` to be called after `get_customer` and before `process_refund`, so the full sequence is always enforced in order.",
+        "why": "Ordering was already satisfied in the failing cases; enforcing more ordering does not check that the identities agree."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lower the refund threshold in the existing amount-based hook so large mistaken refunds are escalated to a human.",
+        "why": "A threshold limits damage per incident but does not stop refunds going to the wrong account below the threshold."
+      }
+    ],
+    "explanation": "Programmatic prerequisites must be defined in terms of verified outcomes, not tool invocations. Blocking on \"`get_customer` returned a verified ID that matches the order's customer\" enforces the actual business rule; blocking on \"`get_customer` was called\" enforces only its shadow.",
+    "reference": "Claude Agent SDK docs — Hooks; CCAR-F Exam Guide — Task 1.4"
+  }
+]

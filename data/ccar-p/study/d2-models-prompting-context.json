@@ -1,0 +1,120 @@
+{
+  "model-selection": {
+    "summary": "Choose the Claude model for a workload from measured quality, latency and cost trade-offs: the smallest tier that meets the quality bar, routed by task, and upgraded only where evals show the need.",
+    "points": [
+      "Think in tiers and trade-offs, not names or prices. The current families are Claude 5 (Fable 5.1 as the most capable model for the hardest reasoning and long-horizon agentic work, Opus 5.5 in the Opus tier, Sonnet 5 as the balanced tier) plus Haiku 4.5 as the small, fast, low-cost tier. Higher tiers buy capability at the cost of latency and per-token price.",
+      "Start from a quality bar measured on your own representative data, then pick the smallest model that meets it. A quality gap on a labelled sample is evidence; 'the text is nuanced' is not.",
+      "The small tier fits high-volume, low-stakes, latency-bound work: classification, routing, extraction with clear rules, pre-screening of inputs, and worker or subagent roles under a stronger orchestrator.",
+      "Escalate to a higher tier when an eval gap cannot be closed with prompt tuning and examples, when the task needs reasoning across several documents, or when it is a long-horizon agentic loop where small per-step errors compound into failed runs.",
+      "Route by task for mixed workloads: a lightweight classifier or rules sends simple requests to the fast tier and hard ones to a capable tier. One model for everything either overspends on the easy majority or underserves the hard minority.",
+      "Symptoms of model mismatch after the prompt has been tuned: looping, re-reading the same files, stopping short on multi-step work, missing conditions that interact across documents. More turns, more emphasis or a reviewer of the same tier do not fix these.",
+      "'Switch to a bigger model' is the exam's favourite non-answer for problems that live elsewhere: vague prompts, missing programmatic guardrails, broken retrieval, bloated tool sets, or a need for determinism. A larger model does not provide reproducibility or authorisation.",
+      "Before building a two-model cascade, measure the more capable model at a lower `effort` setting on the same tasks; it often meets the bar at comparable cost with far less machinery. A single model means one prompt cache namespace, one thing to monitor and no confidence threshold to tune.",
+      "Judge cost per completed task, not per request. A cheaper model that needs more retries, turns or human corrections is not cheaper.",
+      "Current models use adaptive thinking with `effort` controlling depth; the fixed thinking budget belongs to older models such as Haiku 4.5. Do not build keys on which sampling parameters a specific model accepts.",
+      "Context window size is a per-model property, not a tier ranking; check the model's specification rather than assuming a larger tier always has a larger window.",
+      "Pin the model per route or per conversation. Switching models mid-conversation invalidates the prompt cache and changes behaviour, and prompts tuned for one model may over- or under-trigger tools on another, so any model change is re-evaluated.",
+      "When presenting the choice to stakeholders, state the measured trade-off: quality on the eval, time-to-first-token and total latency, cost per task, and any feature or platform availability constraints."
+    ],
+    "docs": [
+      { "title": "Models overview", "url": "https://platform.claude.com/docs/en/about-claude/models/overview" },
+      { "title": "Choosing a model", "url": "https://platform.claude.com/docs/en/about-claude/models/choosing-a-model" },
+      { "title": "Effort", "url": "https://platform.claude.com/docs/en/build-with-claude/effort" },
+      { "title": "Building effective agents", "url": "https://www.anthropic.com/engineering/building-effective-agents" }
+    ]
+  },
+  "system-prompts": {
+    "summary": "Design system prompts, reusable templates and guardrails that give Claude a clear role and explicit criteria, keep untrusted input structurally separate, and leave anything that must be guaranteed to programmatic checks.",
+    "points": [
+      "The system prompt is the operator channel: role, scope, standing boundaries, output format and, for every boundary, the behaviour to use instead (redirect, decline politely, ask a clarifying question). Even a one-sentence role changes tone and focus.",
+      "Write at the right altitude. Hardcoded if/else logic is brittle, breaks when a rule is added and encourages over-refusal; vague guidance gives no direction. Aim for concise principles, strong heuristics and a few canonical examples.",
+      "Be clear and direct: replace adjectives such as 'short' or 'professional' with checkable criteria (sentence limits, register, required closing), and explain why a rule exists. Current models follow instructions literally and respond strongly to the system prompt, so dial back emphatic 'MUST' and capitals, which cause over-triggering rather than precision.",
+      "Structure with XML tags: separate `<instructions>`, `<context>`, `<examples>` and `<input>` so the model knows what each block is for. Wrap examples in `<example>` tags so they are not mistaken for data.",
+      "Templates keep static instructions in the system prompt and put variable, user-supplied content in the user turn inside delimited tags, with a statement that the tagged content is data to process, not instructions. Interpolating raw user text into the instructions invites prompt injection.",
+      "Render templates in a fixed order with the static parts first so the prefix is stable and cacheable; put timestamps, user names and per-request values after the static block or in the user turn.",
+      "Split guardrails by the strength of guarantee needed. Prompt instructions shape probabilistic behaviour (tone, style, refusal wording). Anything that must hold every time (pattern blocking, verbatim disclaimers, schema validity, identity verification, authorisation) is enforced by code: output filters, structured outputs, tool-handler gates and permission-aware retrieval.",
+      "Not controls: repeating a rule, moving it to the user turn, keyword stripping of inputs, temperature zero, self-reported confidence, or a second LLM reviewer as the only check. Each reduces risk at best and none makes a requirement guaranteed.",
+      "Assistant prefill on the last turn is not supported on current models; use structured outputs, strict tool schemas, 'respond without preamble' instructions or XML output tags instead.",
+      "Mid-conversation operator instructions are appended as a system-role message in `messages` on models that support it, rather than editing the top-level system prompt, which would invalidate the cached prefix.",
+      "Treat prompts as code: version them, compose them from modules, and cover every rule with an eval so a change to wording is measured rather than assumed."
+    ],
+    "docs": [
+      { "title": "Prompting best practices", "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices" },
+      { "title": "Prompt engineering overview", "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview" },
+      { "title": "Mitigate jailbreaks and prompt injections", "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks" },
+      { "title": "Effective context engineering for AI agents", "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents" }
+    ]
+  },
+  "prompting-techniques": {
+    "summary": "Choose and combine zero-shot, few-shot and chain-of-thought prompting, plus structure and long-context techniques, according to the task's difficulty, format needs and latency budget.",
+    "points": [
+      "Zero-shot is the cheapest and fastest: clear, direct instructions with no examples. It is the right default for simple tasks and latency-bound features, and it is where you start before adding anything else.",
+      "Few-shot (multishot) examples are the most reliable way to steer format, tone, naming conventions and consistency. Use about three to five that are relevant to the real inputs, diverse across classes and edge cases, and wrapped in `<example>` tags inside `<examples>`.",
+      "Examples steer towards whatever they show: a skewed set (one source, one label) biases outputs. Adding more of the same makes it worse; removing them and writing 'be unbiased' loses the format guidance.",
+      "Chain-of-thought helps when the task needs multi-step reasoning: interacting conditions, policy application, analysis across documents. It costs latency and output tokens, so remove it from simple, latency-bound tasks and confirm the benefit with an A/B measurement.",
+      "Reasoning must come before the answer to help; asking for the answer first and a justification after does not improve accuracy. Separate reasoning and answer with tags such as `<reasoning>` and `<answer>` so code can extract the decision.",
+      "On current models the built-in mechanism is adaptive thinking with `effort` controlling depth; explicit 'think step by step' prompting is the fallback when thinking is off. Few-shot examples can include `<thinking>` sections to show the reasoning pattern.",
+      "Long-context prompting: put longform documents at the top and the query and instructions at the end; wrap each document in `<document>` tags with `<source>` and other metadata; ask the model to extract relevant quotes before answering so it grounds the response and ignores the rest.",
+      "XML tags reduce misinterpretation whenever a prompt mixes instructions, context, examples and variable inputs; use consistent tag names and refer to them in the instructions.",
+      "Give Claude a role in the system prompt to focus behaviour and tone; a single sentence is enough to matter.",
+      "Prefill of the last assistant turn is no longer supported. For JSON or schema-bound output use structured outputs or a strict tool schema; for skipping preamble use a direct instruction or output tags; examples and instructions shape content but do not guarantee structure.",
+      "Prompt chaining (sequential calls) is still worth it when you need to inspect intermediate outputs or enforce a pipeline; otherwise adaptive thinking handles most multi-step reasoning inside one call.",
+      "Current models follow instructions literally, so remove aggressive language written for older models and state what you want rather than shouting it. Measure every prompting change against an eval rather than trusting intuition."
+    ],
+    "docs": [
+      { "title": "Prompting best practices", "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices" },
+      { "title": "Prompt engineering overview", "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview" },
+      { "title": "Adaptive thinking", "url": "https://platform.claude.com/docs/en/build-with-claude/thinking" },
+      { "title": "Structured outputs", "url": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs" }
+    ]
+  },
+  "context-tokens": {
+    "summary": "Manage the context window as a finite attention budget: measure token usage, keep only high-signal content, and use retrieval, compaction, context editing, notes and subagents to stay effective on long tasks.",
+    "points": [
+      "The context window is shared between input, thinking and output. Count tokens before sending, reserve headroom for the answer, and give oversized inputs an explicit path (chunked retrieval, summarise-then-answer) instead of silently truncating.",
+      "`max_tokens` caps output only; raising it does not make more input fit, and a larger context window does not cure noisy context.",
+      "Context rot: accuracy degrades as low-signal tokens accumulate, well before the window is full. The goal of context engineering is the smallest possible set of high-signal tokens that maximises the desired outcome.",
+      "Tool results are the largest and least controlled contributor to agent context. Trim them at the source: return only needed fields, paginate long lists, and keep error messages structured and short.",
+      "Prefer just-in-time retrieval to pre-loading: keep lightweight references (titles, paths, links, IDs) in context and load content when a step needs it. A hybrid that pre-loads a small stable core and retrieves the rest balances speed and flexibility.",
+      "Compaction summarises a conversation nearing its limit while preserving decisions, unresolved issues and implementation details and discarding redundant outputs. Age-based truncation and restarting lose exactly the state that matters. Server-side compaction returns a compaction block that must be passed back with the full response content.",
+      "Context editing clears old tool results (and optionally thinking) from the conversation before the model sees it; it is a clearing strategy, distinct from compaction, which summarises.",
+      "Structured note-taking keeps progress, facts and decisions in persistent memory outside the context window (a notes file or memory tool), so an agent can re-read what it needs rather than re-reading whole sources.",
+      "Sub-agent architectures give each focused task a clean context window and return condensed summaries to the lead agent, isolating verbose exploration.",
+      "In RAG, fewer high-relevance chunks beat many marginal ones; improve retrieval quality with reranking rather than compensating with volume.",
+      "Read the token profile before choosing a lever: if tool results and repeated reads dominate, clearing and notes win; lowering thinking effort only helps when thinking is a large share.",
+      "Tokenizers differ between model generations, so re-measure token counts with the token-counting endpoint when migrating, rather than assuming counts carry over."
+    ],
+    "docs": [
+      { "title": "Effective context engineering for AI agents", "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents" },
+      { "title": "Context windows", "url": "https://platform.claude.com/docs/en/build-with-claude/context-windows" },
+      { "title": "Compaction", "url": "https://platform.claude.com/docs/en/build-with-claude/compaction" },
+      { "title": "Context editing", "url": "https://platform.claude.com/docs/en/build-with-claude/context-editing" },
+      { "title": "Token counting", "url": "https://platform.claude.com/docs/en/build-with-claude/token-counting" }
+    ]
+  },
+  "prompt-reuse": {
+    "summary": "Reuse prompt content efficiently with prompt caching for stable prefixes, modular versioned templates for shared sections, and Agent Skills for procedural knowledge loaded on demand.",
+    "points": [
+      "Prompt caching is an exact prefix match. The prompt renders as tools, then system, then messages; a `cache_control` breakpoint caches everything up to that point, and any byte change earlier in the prefix invalidates everything after it.",
+      "Put static content first (tools, system prompt, reference documents, examples) and dynamic content after the last breakpoint or in the user turn. Timestamps, request IDs, user names and unsorted JSON at the front of the system prompt silently defeat caching.",
+      "Up to four breakpoints per request; place them at stability boundaries (end of tools and system, end of shared reference material, last turn of a growing conversation). A top-level automatic option places one breakpoint on the last cacheable block for simple multi-turn cases.",
+      "The default cache lifetime is five minutes, refreshed each time the prefix is read; a one-hour option exists for prefixes reused across longer gaps. Cache writes cost more than normal input and reads cost much less, so the longer lifetime must earn its higher write cost; entries with the longer lifetime must precede shorter ones.",
+      "Invalidators: changing the model (caches are model-scoped), adding, removing or reordering tools, changing thinking or `effort` settings, and editing anything in the prefix. Changes to later messages only affect the messages tier.",
+      "There is a model-dependent minimum cacheable prefix length; shorter prefixes silently do not cache. Verify with `usage`: `cache_read_input_tokens` at zero on identical prefixes means an invalidator; `cache_creation_input_tokens` near full size every request means the prefix is being rewritten or the model is alternating.",
+      "Caching cuts input cost and time-to-first-token for repeated content; the Batch API cuts cost for asynchronous work but increases latency. They address different problems and can be combined.",
+      "Modular prompts: compose each prompt from versioned modules (shared compliance or policy block, product block, task block) rendered in a fixed order with shared static modules first. One source of truth for shared text, and the stable prefix caches across all variants.",
+      "Agent Skills package procedural knowledge as a directory with a `SKILL.md` whose YAML frontmatter has a required `name` and `description`; the description must say what the Skill does and when to use it because it is what triggers the Skill.",
+      "Progressive disclosure: level 1 (name and description) is always in context at a small cost per Skill; level 2 (the `SKILL.md` body) loads only when triggered; level 3 (bundled reference files and scripts) loads only when referenced, and scripts run via bash so only their output enters context.",
+      "Skills fit knowledge that is sometimes needed and procedural (workflows, formatting rules, house style, tooling steps) in an environment with a filesystem and code execution: the API with the code execution tool, Claude Code (`.claude/skills/` or `~/.claude/skills/`) and claude.ai. Content needed on every request belongs in a cached system prompt, not a Skill.",
+      "Custom Skills do not sync across surfaces (claude.ai, API, Claude Code) and have different sharing scopes; they are installed software, so use only trusted sources and audit bundled scripts.",
+      "Common exam distractors: truncating or summarising required content to save tokens, moving shared text into the user turn, adding breakpoints to 'extend' a cache lifetime, and packaging always-needed content as a Skill."
+    ],
+    "docs": [
+      { "title": "Prompt caching", "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching" },
+      { "title": "Agent Skills overview", "url": "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview" },
+      { "title": "Skill authoring best practices", "url": "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices" },
+      { "title": "Prompt engineering overview (templates and variables)", "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview" },
+      { "title": "Batch processing", "url": "https://platform.claude.com/docs/en/build-with-claude/batch-processing" }
+    ]
+  }
+}

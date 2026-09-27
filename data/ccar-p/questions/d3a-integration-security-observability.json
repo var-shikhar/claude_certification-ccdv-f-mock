@@ -1,0 +1,938 @@
+[
+  {
+    "id": "ARP-D3-T1-001",
+    "domain": 3,
+    "skill": "capability-bloat",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A retailer's order-support agent was given 41 tools, among them `search_orders`, `find_order`, `lookup_order_by_email`, `get_order_details` and `order_search_v2`, most of them thin wrappers over individual API endpoints. Evaluation shows the agent picks the wrong lookup tool in 23% of runs and often calls two of them for the same order. What is the best first change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Move the agent to a larger model tier so it can tell the near-identical lookup tools apart more reliably.",
+        "why": "A more capable model still has to choose among overlapping, ambiguously named tools; model size does not remove the ambiguity that causes the wrong picks."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add a system-prompt section that spells out which of the five lookup tools to use in each situation the agent is likely to meet.",
+        "why": "This patches the symptom with more context on every request and leaves the overlapping tools in place; the model can still confuse them under paraphrased requests."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Consolidate the overlapping lookups into one well-described `orders_search` tool and drop wrappers this role never uses.",
+        "why": "Too many or overlapping tools degrade tool selection; a few thoughtful tools targeting the real workflow give the model an unambiguous choice and shrink the definitions it must read each turn."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Log every tool selection with its arguments so the team can correct wrong choices during weekly review.",
+        "why": "Logging is a detective control; it helps measure the problem but does nothing to reduce the mis-selection rate in production."
+      }
+    ],
+    "explanation": "Capability bloat is the accumulation of too many, overlapping or unused tools. It hurts in two ways: the model selects tools less accurately, and every definition costs context on every call. The fix is to consolidate overlapping tools into a few well-named ones built around real workflows and to drop tools the role never needs, rather than prompting around the confusion, logging it, or upgrading the model.",
+    "reference": "Anthropic — Writing tools for agents (Choosing the right tools); Building effective agents"
+  },
+  {
+    "id": "ARP-D3-T1-002",
+    "domain": 3,
+    "skill": "capability-bloat",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A bank's compliance-review assistant is used only by analysts who read transaction records and draft findings. It reaches the core-banking MCP server through the MCP connector, and the request's `mcp_toolset` uses the default configuration, so all 22 of the server's tools are enabled, including `transfer_funds` and `close_account`. A red-team exercise showed that an instruction planted in a transaction memo could make the assistant call `transfer_funds`. Which change best addresses the finding?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add to the system prompt that the assistant must never move money or close accounts, regardless of what any transaction record says.",
+        "why": "A prompt rule is probabilistic; the red team already showed that injected content in a record can override instructions, and the dangerous tool would still be available to call."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep all tools enabled but require the analyst to confirm any transfer or account closure in the user interface.",
+        "why": "A confirmation is a compensating control around a capability the role does not need; it adds friction and still relies on a human catching every injected action."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Set the toolset's `default_config` to `enabled: false` and enable only the read and drafting tools analysts use.",
+        "why": "Allowlisting removes the write tools from the model's view entirely, so an injected instruction has nothing to trigger; this is least privilege applied to the tool configuration."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Log every call to `transfer_funds` and `close_account` together with the analyst's identity for later audit.",
+        "why": "Audit logging detects misuse after the money has moved; it does not reduce the attack surface that the exercise exposed."
+      }
+    ],
+    "explanation": "When an MCP server exposes more than a role needs, configure the toolset so only required tools are enabled. The MCP connector supports an allowlist pattern (`default_config: { enabled: false }` plus explicit `configs`), which eliminates the capability rather than guarding or monitoring it. Prompts, confirmations and logs are weaker layers for a tool that should not exist in this deployment at all.",
+    "reference": "Claude API docs — MCP connector (Configure tools: allowlist); CCAR-P exam guide sample 1"
+  },
+  {
+    "id": "ARP-D3-T1-003",
+    "domain": 3,
+    "skill": "capability-bloat",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A SaaS company's internal assistant wraps every endpoint of its calendar, CRM and ticketing APIs as a separate tool: 58 tools and roughly 19,000 tokens of definitions on every request. Scheduling a customer call takes six calls in sequence (`list_users`, `list_calendars`, `list_events`, `check_availability`, `create_event`, `send_invite`), and the agent regularly confuses `crm_search_contacts` with `ticket_search_contacts`. Which two changes most directly reduce this capability bloat? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Replace the six scheduling primitives with a single `schedule_event` tool that performs the workflow end to end.",
+        "why": "Consolidating a fixed multi-call workflow into one tool cuts tool count, tokens and the number of turns the agent needs, while removing intermediate steps it can get wrong."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Namespace tools by service, for example `crm_contacts_search` and `tickets_contacts_search`, and delete tools no workflow actually uses.",
+        "why": "Clear namespaces make similar tools distinguishable, and pruning unused tools shrinks the definitions the model must read on every call."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Expand every tool description to several paragraphs so all 58 tools are fully disambiguated from each other.",
+        "why": "Longer descriptions for every tool add tokens on each request and keep the overlapping surface intact; description quality matters, but not as a substitute for fewer, clearer tools."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Raise `max_tokens` so the agent has more room to reason through which of the similar tools to call.",
+        "why": "`max_tokens` caps output length; it has no effect on how many tools exist or how distinguishable they are."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Require a human confirmation before each tool call so wrong selections can be caught before they execute.",
+        "why": "Confirming 58 tools' calls adds friction on every action and treats the symptom; it does not reduce the bloated tool surface."
+      }
+    ],
+    "explanation": "Anthropic's tool-writing guidance warns against wrapping every API endpoint as a tool: agents work best with a few consolidated tools built around high-impact workflows, with clear namespacing so similar tools are not confused. Bloat is fixed by consolidating and pruning, not by longer descriptions, bigger budgets or confirmations.",
+    "reference": "Anthropic — Writing tools for agents (Choosing the right tools; Namespacing)"
+  },
+  {
+    "id": "ARP-D3-T1-004",
+    "domain": 3,
+    "skill": "capability-bloat",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A hospital's discharge-summary job is built on the Agent SDK and is meant to be read-only. The team set `allowedTools: [\"Read\", \"Grep\", \"Glob\"]` and, to avoid prompts in the headless run, `permissionMode: \"bypassPermissions\"`. An audit shows the job ran `Bash` to execute a script and `Write` to change a file, although neither tool is in `allowedTools`. Why did this happen, and what is the correct fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The model ignored the allowlist under prompt injection from a document; add a system-prompt rule that only Read, Grep and Glob may be used.",
+        "why": "The allowlist was never a restriction on which tools exist, so no injection was needed; a prompt rule adds nothing enforceable."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Hooks were missing; add a `PostToolUse` hook that logs every Bash and Write call so misuse is detected quickly.",
+        "why": "A post-execution log runs after the script has already run and the file has already changed; it detects rather than prevents."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Replace the list with `allowedTools: [\"*\"]` and reject Bash and Write in a `canUseTool` callback instead.",
+        "why": "An unanchored `*` allow entry is ignored, and under `bypassPermissions` calls are approved before `canUseTool` is ever consulted, so the callback would not run."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "`allowedTools` pre-approves listed tools but does not remove the others, and `bypassPermissions` approves whatever falls through; put `Bash`, `Write` and `Edit` in `disallowedTools`.",
+        "why": "A bare-name deny rule removes the tool definition from the request, so the model cannot see or attempt it, and deny rules apply even in `bypassPermissions` mode."
+      }
+    ],
+    "explanation": "In the Agent SDK, `allowedTools` adds allow rules; unlisted tools still exist and fall through to the permission mode, where `bypassPermissions` approves them. To take a capability away from a role, use `disallowedTools` with the bare tool name, which strips the definition from the request. Removing the tool is the least-privilege answer; prompts and post-hoc logs are not.",
+    "reference": "Claude Agent SDK docs — Configure permissions (Allow and deny rules; bypassPermissions warning)"
+  },
+  {
+    "id": "ARP-D3-T1-005",
+    "domain": 3,
+    "skill": "capability-bloat",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A state benefits agency runs one Claude agent behind three surfaces: a public chatbot for applicants, a caseworker console and an auditor portal. To simplify deployment, every request is sent with the union of all tools: `check_status`, `explain_policy`, `update_case`, `approve_benefit` and `export_case_history`. Applicants are authenticated but must never change a case; auditors must never approve benefits. Last month an applicant got the agent to call `update_case` with a crafted message. Which design change best fits?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Keep the shared tool list and add a confirmation step in the chatbot before `update_case` or `approve_benefit` executes.",
+        "why": "Applicants should not have a path to those tools at all; a confirmation keeps the capability in the applicant's blast radius and relies on a human catching every injected call."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Assemble the `tools` array per request from the caller's authenticated role, so each surface exposes only the tools that role needs.",
+        "why": "Building the toolset from the verified role removes out-of-role capabilities from the model's view entirely, which is least privilege applied per role rather than per deployment."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add a role banner such as \"This user is an applicant\" to the system prompt and instruct the model to refuse any tool outside that role.",
+        "why": "A prompt-level role check is probabilistic; the incident already demonstrated that a crafted message can steer the model past instructions while the tool is available."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Route all three surfaces through a larger model tier that follows role instructions more reliably.",
+        "why": "Model capability is not an authorization mechanism; a stronger model with the same tool list still has `update_case` available to an applicant."
+      }
+    ],
+    "explanation": "One agent serving several roles should not carry the union of every role's tools. Derive the tool list from the authenticated caller's role at request time so each role sees only what it needs. This eliminates the capability for the wrong role instead of guarding it with prompts, confirmations or a bigger model.",
+    "reference": "CCAR-P exam guide sample 1 (least privilege); Claude API docs — Tool use overview"
+  },
+  {
+    "id": "ARP-D3-T1-006",
+    "domain": 3,
+    "skill": "capability-bloat",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An electricity utility's outage-communications assistant connects through the MCP connector to a customer-platform MCP server. It should only read outage tickets and draft customer notices, so the team denylisted `delete_ticket` and `update_ticket` with `enabled: false` and connected using the platform's admin token. Last week the vendor added `bulk_update_tickets` to the server; it appeared enabled by default and, during an incident, the assistant used it and changed 1,200 tickets. Which change gives the strongest guarantee against a repeat?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Switch to an allowlist (`default_config: { enabled: false }` with only the read and draft tools enabled) and connect with a token scoped to read-only access.",
+        "why": "An allowlist means any tool the vendor adds is disabled until deliberately enabled, and a read-scoped credential means that even a tool that slips through cannot write; the two layers cover both the model's view and the server's authority."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add `bulk_update_tickets` to the denylist and subscribe to the vendor's changelog so future tools are caught early.",
+        "why": "A denylist is reactive by construction: every new write tool is enabled until someone notices it, so the window that caused this incident remains."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Keep the denylist and add a system-prompt rule that the assistant must confirm with an operator before performing any write.",
+        "why": "During an incident the model may still act on the tool it can see; a prompt rule is not an enforcement boundary and the admin token still permits the write."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Keep the admin token and log every write tool call with the incident id so changes can be reviewed and reverted.",
+        "why": "Logging and reverting happen after 1,200 customers have been affected; it neither removes the capability nor restricts the credential."
+      }
+    ],
+    "explanation": "Two facts combine here: a denylist leaves newly added tools enabled by default, so a read-only assistant needs an allowlist; and the credential the connector uses defines what the server will actually permit, so a read-scoped token bounds the blast radius even if a write tool becomes visible. Least privilege applies to both the tool list and the token.",
+    "reference": "Claude API docs — MCP connector (allowlist vs denylist; authentication); MCP specification — Security best practices (scope minimization)"
+  },
+  {
+    "id": "ARP-D3-T2-001",
+    "domain": 3,
+    "skill": "authn-authz",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A university's student-services assistant requires students to sign in through campus single sign-on before chatting. Any signed-in student can type \"show me the transcript for student 4471\" and the `get_transcript` tool returns that record. Which statement correctly identifies the gap?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Authentication is missing: the single sign-on login should be replaced with per-request API keys issued to each student.",
+        "why": "Students are already authenticated by SSO; the problem is not who they are but what they are allowed to read, and API keys would not change that."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Authentication works; authorization is missing. `get_transcript` must check that the record belongs to the signed-in student.",
+        "why": "Authentication established identity, but nothing checks whether that identity may read the requested record; that check belongs in the tool handler using the session identity."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Both controls are fine; the model just needs a system-prompt instruction to serve only the current student's own academic records.",
+        "why": "A prompt instruction is not an access control; the model cannot verify identity and can be talked into ignoring the rule while the tool will return any record it is asked for."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Authorization works, but authentication is missing because the tool never receives the student's password to verify.",
+        "why": "Tools should never handle passwords; identity comes from the authenticated session, and in this scenario the authorization check is the missing piece."
+      }
+    ],
+    "explanation": "Authentication answers who the user is; authorization answers what they may do. SSO solved the first. The gap is that the tool trusts a student ID supplied through the conversation instead of enforcing ownership against the authenticated identity in deterministic code.",
+    "reference": "Claude API docs — Handle tool calls; Mitigate jailbreaks and prompt injections"
+  },
+  {
+    "id": "ARP-D3-T2-002",
+    "domain": 3,
+    "skill": "authn-authz",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A telecom's retail-store assistant lets staff look up and modify customer accounts through a CRM tool. The tool calls the CRM with one shared service account that has full administrative rights, and the assistant is given the staff member's employee ID in the prompt so the model can \"stay within their permissions\". A junior clerk used the assistant to waive fees that only store managers may waive. Which change closes the gap?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Put the employee's role in the system prompt and instruct the model to refuse manager-only actions whenever the caller is a clerk rather than a manager.",
+        "why": "The model is being asked to enforce authorization it cannot verify; the CRM still receives every call with admin rights, so any slip or injection waives the fee."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add an `employee_id` parameter to the tool schema so the CRM can see which employee made each request.",
+        "why": "A model-filled parameter is untrusted input and the request still executes under the admin service account; the CRM has no reason to restrict it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Keep the service account but write the employee ID into the audit log on every CRM write so waivers can be traced.",
+        "why": "Attribution after the fact does not stop a clerk from waiving fees; the shared account still authorizes every action."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Call the CRM with a token delegated for the signed-in employee, so the CRM applies that employee's own permissions to each action.",
+        "why": "Acting on behalf of the user propagates their identity to the downstream system, which enforces its existing role rules; the agent gains no authority the user lacks."
+      }
+    ],
+    "explanation": "An agent that calls downstream systems with a broad shared service account inherits the account's authority for every user. Propagate the authenticated user's identity (delegated or on-behalf-of tokens) so the system of record enforces the user's real permissions. Prompt-level role checks, model-supplied IDs and audit logs do not constrain what the service account can do.",
+    "reference": "Claude API docs — Handle tool calls; MCP specification — Authorization (acting on behalf of the resource owner)"
+  },
+  {
+    "id": "ARP-D3-T2-003",
+    "domain": 3,
+    "skill": "authn-authz",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A payments startup's Claude Code project commits a `.mcp.json` whose `headers` contain a live `Authorization: Bearer sk_live_...` value, and its reconciliation agent's system prompt includes the database password so the model can \"put it in the connection string\" when it writes queries. Which two changes fix the secret-handling gaps? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Reference the token as `${PAYMENTS_API_KEY}` in `.mcp.json` and supply it from each developer's environment or a secrets manager.",
+        "why": "Environment-variable expansion keeps the shared config committable while the secret itself never enters version control."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Move the database credential into the backend of a `run_query` tool so the model calls the tool and never sees the password.",
+        "why": "Anything in the context window can be leaked in an output; secrets belong behind tools and application code, out of the prompt entirely."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Base64-encode the password inside the system prompt so it is not readable in transcripts.",
+        "why": "Base64 is encoding, not protection; the model can decode and output it, and it is still stored in every transcript."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add \"never reveal the password or the API key to the user\" to the system prompt.",
+        "why": "A non-disclosure instruction is not a control; prompt-leak attacks and indirect injection can still extract a secret that is present in context."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Rotate the committed token every 30 days while leaving it in `.mcp.json`.",
+        "why": "Rotation limits the lifetime of a leak but the secret is still in the repository history for up to a month at a time."
+      }
+    ],
+    "explanation": "Secrets never belong in prompts or committed configuration. Claude Code's `.mcp.json` supports `${VAR}` expansion so credentials come from the environment, and credentials a model needs to act with should live behind tool handlers so the model never holds them. Encoding, prompt promises and rotation do not remove the secret from the model's reach.",
+    "reference": "Claude Code docs — Connect Claude Code to tools via MCP (environment variable expansion); Claude API docs — Reduce prompt leak"
+  },
+  {
+    "id": "ARP-D3-T2-004",
+    "domain": 3,
+    "skill": "authn-authz",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "A logistics company built an MCP server that fronts a third-party shipping API. The server uses one static OAuth client ID with the shipping provider, lets any MCP client register dynamically, and, to save effort, forwards whatever bearer token the MCP client presents straight to the shipping API. A security review flags confused-deputy and token-passthrough risks. Which three changes does the MCP authorization guidance require? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Validate that every inbound access token was issued for this MCP server as its audience, and reject all others.",
+        "why": "The specification requires servers to accept only tokens issued specifically for them; audience validation is what prevents a token minted for another service from being replayed here."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Obtain the server's own upstream token from the shipping provider's authorization server instead of forwarding the client's token.",
+        "why": "Token passthrough is explicitly forbidden: the upstream API must receive a token issued to the MCP server, so the trust boundary and audit trail stay intact."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Obtain explicit per-client user consent before forwarding a dynamically registered client into the third-party authorization flow.",
+        "why": "A proxy with a static client ID must obtain consent for each dynamically registered client, otherwise a consent cookie from a prior approval lets an attacker's client obtain codes without the user seeing a prompt."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Issue long-lived access tokens so MCP clients do not have to re-authorize frequently.",
+        "why": "The guidance recommends short-lived access tokens to limit the impact of theft; long-lived tokens increase exposure."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Accept access tokens in the URL query string as well as the `Authorization` header for client compatibility.",
+        "why": "Tokens must be sent in the `Authorization: Bearer` header and must not appear in query strings, where they leak into logs and referrers."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Treat the MCP session ID as proof of the client's identity on subsequent requests so tokens need not be re-checked.",
+        "why": "Sessions must not be used for authentication; every inbound request must carry and be verified against a valid token."
+      }
+    ],
+    "explanation": "An MCP server that proxies a third-party API is a resource server in its own right: it must validate token audience, use its own separately issued credential upstream (never pass the client's token through), and, when it uses a static client ID with dynamic client registration, obtain per-client consent to avoid the confused-deputy attack. Long-lived tokens, query-string tokens and session-as-identity all weaken the model.",
+    "reference": "MCP specification — Authorization (Security considerations); Security best practices (Confused deputy, Token passthrough, Session hijacking)"
+  },
+  {
+    "id": "ARP-D3-T2-005",
+    "domain": 3,
+    "skill": "authn-authz",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A defense contractor deploys Claude Code to 600 engineers. Policy says the agent must never run `curl` or `wget` and must never edit anything under `/etc/secrets`. Several teams have already added `Bash(curl *)` to their project `.claude/settings.json` allow lists, and individuals can edit `.claude/settings.local.json` freely. The security team needs the block to hold regardless of what any developer or team configures. Where should the rules go?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "In each repository's `.claude/settings.json` under `permissions.deny`, committed to version control so every team member inherits the same deny rules on checkout.",
+        "why": "Project settings are owned by the teams that have already been adding curl allows; anyone with commit access can remove the deny rule again."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "In every developer's `~/.claude/settings.json`, pushed once by IT during machine setup.",
+        "why": "User settings are fully editable by the developer and sit below project and managed settings in precedence, so the block would not hold."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "In managed settings (`managed-settings.json` via MDM) as `permissions.deny` rules for `Bash(curl *)`, `Bash(wget *)` and `Edit(//etc/secrets/**)`.",
+        "why": "Managed settings sit at the top of the precedence order and cannot be overridden by user, project, local or command-line settings, and deny rules win over allow rules."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "In a `CLAUDE.md` at the organization root instructing Claude never to use curl or wget and never to touch `/etc/secrets`.",
+        "why": "Memory files shape behaviour but are not enforced; a prompt-level instruction can be ignored or overridden and gives no guarantee."
+      }
+    ],
+    "explanation": "Guaranteed enforcement across a fleet needs a deterministic control at the layer nothing below can override: managed settings deployed by the organization. Deny rules there take precedence over any allow rule from project, local or user files, and the `//path` form anchors the edit rule to the absolute filesystem path.",
+    "reference": "Claude Code docs — Settings files and precedence; Configure permissions; Deploy managed settings"
+  },
+  {
+    "id": "ARP-D3-T2-006",
+    "domain": 3,
+    "skill": "authn-authz",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An insurer's claims-adjustment agent runs on the Agent SDK. Role-based authorization is implemented in the `canUseTool` callback: it checks the adjuster's approval limit before allowing `Edit` on reserve files and denies `Bash` writes for trainees. To speed up a pilot, an engineer set `permissionMode: \"acceptEdits\"` and added `Bash` to `allowedTools`. Audit logs now show trainee sessions editing reserve files above their limit with no callback invocation at all. What is the root cause and the correct fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Calls auto-approved by `acceptEdits` or an allow rule never reach `canUseTool`; move the authorization check into a `PreToolUse` hook, which runs before every other step.",
+        "why": "The evaluation order resolves auto-approved calls before the callback, so checks placed there are silently bypassed; a `PreToolUse` hook runs first for every call and its deny holds in every mode."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The callback has a bug in its tool-name matching; add explicit branches for the `Edit` and `Bash` tool names inside `canUseTool` and redeploy it.",
+        "why": "The logs show the callback was never invoked, so fixing its internals changes nothing; the calls are resolved before it is consulted."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`acceptEdits` disables hooks; switch to `bypassPermissions` so that hooks run again and can deny the trainee edits.",
+        "why": "Hooks run in every permission mode, and `bypassPermissions` approves even more calls before the callback, making the gap wider rather than narrower."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add `Edit` to `disallowedTools` so reserve files can only be changed through a separate manual process outside the agent.",
+        "why": "A bare-name deny removes the tool for every user, including adjusters who are authorized; the requirement is per-role authorization, not blanket removal."
+      }
+    ],
+    "explanation": "Two facts combine: the Agent SDK evaluates hooks, then deny rules, ask rules, the permission mode and allow rules before `canUseTool`, so a call approved by `acceptEdits` or an allow rule never reaches the callback; and a `PreToolUse` hook runs before all of those and can deny in any mode. Authorization that must apply to every call therefore belongs in a hook, not in the callback.",
+    "reference": "Claude Agent SDK docs — Configure permissions (How permissions are evaluated; auto-approved tools never reach canUseTool); Control execution with hooks"
+  },
+  {
+    "id": "ARP-D3-T3-001",
+    "domain": 3,
+    "skill": "accuracy-latency",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A legal-research chat product generates answers of about 1,500 tokens that take roughly 9 seconds to complete. Users say \"nothing happens\" and leave the page before the answer appears. The product owner accepts the total generation time; the complaint is about the empty wait. Which change best addresses the complaint?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Switch to a larger model tier, which is expected to produce the full 1,500-token answer in noticeably fewer seconds than the current one.",
+        "why": "Larger models are generally slower per token, not faster, and the user would still stare at a blank screen until the whole answer arrives."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Lower `max_tokens` to 400 so every answer finishes in under three seconds.",
+        "why": "Capping output truncates legal answers mid-sentence; it trades correctness for speed rather than fixing the perceived wait."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add \"be concise\" to the system prompt so the model finishes most answers in under three seconds.",
+        "why": "Conciseness instructions are probabilistic and may drop needed detail; they do not change the fact that the user sees nothing until generation ends."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Stream the response so text appears as it is generated; total time is unchanged but the first tokens arrive almost at once.",
+        "why": "Streaming attacks perceived latency directly: time-to-first-token drops to well under a second and users can start reading while the rest is produced."
+      }
+    ],
+    "explanation": "Streaming does not shorten total generation time, but it transforms the user experience by delivering tokens incrementally, so time-to-first-token becomes the wait users feel. When total latency is acceptable and the complaint is the blank wait, streaming is the right lever; truncation and terse prompts sacrifice accuracy for a problem streaming solves for free.",
+    "reference": "Claude API docs — Streaming Messages"
+  },
+  {
+    "id": "ARP-D3-T3-002",
+    "domain": 3,
+    "skill": "accuracy-latency",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A retailer's live-chat triage service classifies each incoming message into one of 12 intents and must respond within 1.5 seconds at p95. The team enabled adaptive thinking at `effort: \"high\"` for every request; accuracy rose from 92% to 93%, but p95 latency went to 4.8 seconds. Evals show that only the 9% of messages mentioning multiple orders benefit from the extra reasoning. Which configuration best meets the SLA?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Keep high effort for all messages and add streaming so the intent label appears sooner on screen.",
+        "why": "The output is a single label; streaming cannot make a label appear before the model has finished thinking, so the p95 stays far above 1.5 s."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Use `effort: \"low\"` for routine messages and route multi-order messages to the high-effort configuration.",
+        "why": "Routing spends reasoning only where the evals show it pays off, keeping the 91% majority within the SLA while preserving the accuracy gain where it matters."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Move everything to a larger model tier so it reaches 93% accuracy without any thinking enabled.",
+        "why": "A larger model is slower per token and its accuracy without reasoning on this task is unmeasured; it does not follow from the eval data."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Keep high effort everywhere and raise the SLA to 5 seconds, since accuracy is the priority for triage decisions.",
+        "why": "The SLA is a stated constraint, and the evals show the extra reasoning does nothing for 91% of traffic, so the latency cost buys almost nothing."
+      }
+    ],
+    "explanation": "Accuracy-latency decisions should be justified by measurement against the SLA. When reasoning helps only a known subset of inputs, route: cheap, fast configuration for the majority and the slower, more accurate configuration only for cases the data shows benefit. Effort is the primary lever for trading reasoning depth against latency on a single model.",
+    "reference": "Claude API docs — Effort; Anthropic — Building effective agents (Routing)"
+  },
+  {
+    "id": "ARP-D3-T3-003",
+    "domain": 3,
+    "skill": "accuracy-latency",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A law firm's contract-review assistant answers questions over retrieved clauses. Partners will accept slower answers in exchange for better accuracy on complex questions. Which two changes are most likely to raise answer accuracy at the cost of higher latency? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Retrieve more candidate chunks and rerank them before building the prompt.",
+        "why": "Deeper retrieval with reranking improves the chance the right clauses are in context, at the price of an extra retrieval stage and a longer prompt."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Enable adaptive thinking with a higher effort level for the review step.",
+        "why": "More reasoning before answering improves accuracy on complex questions and directly increases time to the final answer."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Enable prompt caching for the static firm guidelines in the system prompt.",
+        "why": "Caching reduces latency and cost for a repeated prefix; it does not change what the model concludes."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Stream the response to the reviewer's screen as it is generated.",
+        "why": "Streaming improves perceived latency and has no effect on accuracy."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Route simple questions to a smaller, faster model.",
+        "why": "Routing simple questions to a smaller model reduces latency and cost; it is the opposite direction of the trade-off asked about."
+      }
+    ],
+    "explanation": "The levers that buy accuracy with latency are more reasoning (extended or adaptive thinking, higher effort, a more capable model) and more or better context (deeper retrieval, reranking). Streaming, caching and routing to smaller models move the other way: they reduce latency or cost without improving answers.",
+    "reference": "Claude API docs — Effort; Thinking; Prompt caching; Streaming"
+  },
+  {
+    "id": "ARP-D3-T3-004",
+    "domain": 3,
+    "skill": "accuracy-latency",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An insurer's quote agent needs five independent lookups per quote (driver record, vehicle data, claims history, credit tier, regional pricing), each taking about 700 ms. The agent currently issues one tool call per turn, so a quote spends about 4.5 s waiting on tools plus model time; the product SLA is 3 s. Accuracy must not change. Which change best meets the SLA?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Set `disable_parallel_tool_use: true` so the sequence of calls is predictable, and add a cache in front of each of the five lookups.",
+        "why": "Forcing one call per turn is the current bottleneck; caching helps only for repeated drivers and vehicles and does not remove the serial round trips."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Switch to a smaller model so that each of the five turns completes faster.",
+        "why": "Tool wait time, not model time, dominates the 4.5 s, and a smaller model risks the accuracy that must not change."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Let the model issue all five `tool_use` blocks in one turn, run them concurrently, and return the results in one user message.",
+        "why": "Parallel tool use collapses five serial round trips into one, so tool time approaches the slowest lookup (about 700 ms) with no change to what the agent computes."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Drop the two lookups that most often return no data to save about 1.4 s per quote.",
+        "why": "Removing inputs changes the quote logic and therefore accuracy, which the stem rules out."
+      }
+    ],
+    "explanation": "When tool calls are independent, parallel tool use is the latency lever that costs no accuracy: the model emits several `tool_use` blocks in one assistant turn, your code executes them concurrently, and all `tool_result` blocks go back in one user message. Serial calls, smaller models and dropping inputs either fail the SLA or change the answer.",
+    "reference": "Claude API docs — Parallel tool use"
+  },
+  {
+    "id": "ARP-D3-T3-005",
+    "domain": 3,
+    "skill": "accuracy-latency",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A fintech must explain each declined card transaction to the customer inside the app (interactive, 5 s p95 SLA) and also produce a regulator-facing monthly report of the same decisions (no latency requirement, accuracy audited). Offline evals: configuration X (largest model, high effort) scores 97% explanation accuracy at 8.5 s p95; configuration Y (mid-tier model, medium effort) scores 93% at 2.1 s. Which decision is most defensible?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Use Y for the in-app explanation to meet the SLA, and X through the Batch API for the audited report, documenting the measured accuracy gap for each path.",
+        "why": "Each path gets the configuration its own constraint demands: the interactive SLA rules out X there, while the audited report has no latency limit and should take the most accurate option; the eval numbers justify both."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Use X everywhere and negotiate the app SLA up to 10 s, because accuracy matters most in financial services.",
+        "why": "The SLA is a given constraint; asking to change it instead of designing to it is not a justified configuration decision."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Use Y everywhere for consistency, since 93% accuracy is acceptable and the two outputs should never disagree.",
+        "why": "The report is audited and has no latency constraint, so accepting a 4-point accuracy loss there is unjustified; consistency can be handled by reconciliation."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use X for the app with streaming enabled so the 8.5 s wait feels shorter to the customer, and Y for the monthly report to keep batch costs down.",
+        "why": "Streaming does not make an 8.5 s completion meet a 5 s completion SLA, and it assigns the less accurate configuration to the path that is audited for accuracy."
+      }
+    ],
+    "explanation": "Justify configuration by the SLA of each path, not by a single global preference. Interactive paths take the configuration that fits the latency budget with the best measured accuracy; asynchronous, audited paths can afford the most accurate configuration and can run through batch processing at lower cost. Recording the eval numbers per path is what makes the decision defensible to a CTO or regulator.",
+    "reference": "Claude API docs — Batch processing; Effort; CCAR-P exam guide (Domain 3: evaluate accuracy-latency trade-offs and justify configuration decisions)"
+  },
+  {
+    "id": "ARP-D3-T3-006",
+    "domain": 3,
+    "skill": "accuracy-latency",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A SaaS help-desk assistant runs multi-turn sessions with a 6,000-token cached system prompt. After moving to a larger model at `effort: \"high\"`, p95 latency rose from 3.2 s to 7.9 s, almost entirely from thinking tokens. An eval on 2,000 real tickets shows `effort: \"medium\"` matches high-effort quality on this workload, while `effort: \"low\"` loses 6 points of resolution accuracy. The 4 s SLA must be met and cache hit rates must stay above 90% across a session; the model does not support per-message effort changes. Which configuration is best?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Switch to a smaller model at high effort to recover the latency, without re-running the evals since high effort is unchanged.",
+        "why": "Accuracy on the smaller model is unmeasured, so the decision cannot be justified; the existing eval already found a configuration on the current model that meets both constraints."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Start each session at `low` effort for speed and switch the top-level effort to `high` on any turn where the question looks hard, keeping the same system prompt.",
+        "why": "Low effort fails the accuracy bar by 6 points, and changing the top-level effort between turns invalidates the cached prefix, breaking the 90% hit-rate requirement."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Keep high effort and cut the system prompt from 6,000 to 2,000 tokens so the model has less to process each turn.",
+        "why": "The latency comes from thinking tokens, not from reading a cached prompt, and shrinking the prompt drops content the assistant relies on."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Run the whole session at `effort: \"medium\"` and hold it constant, because a top-level effort change between turns invalidates the cached prefix.",
+        "why": "Medium effort is the measured setting that preserves quality while cutting thinking latency, and keeping it fixed across the session keeps the cache intact."
+      }
+    ],
+    "explanation": "This combines two facts: evals identify medium effort as the cheapest setting that holds quality, so it is the justified accuracy-latency choice; and because top-level effort is rendered into the prompt, changing it mid-conversation invalidates prompt-cache breakpoints, so the setting must stay constant within a cached session. Adaptive per-turn effort is only cache-safe on models that support per-message effort.",
+    "reference": "Claude API docs — Effort (Best practices: hold top-level effort constant within cached conversations); Thinking and prompt caching"
+  },
+  {
+    "id": "ARP-D3-T4-001",
+    "domain": 3,
+    "skill": "observability",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A freight forwarder's shipment-exception agent uses an orchestrator, three subagents and two MCP servers. When a customer was wrongly told that a container had cleared customs, the on-call engineer found the final reply in the chat log but could not tell which subagent produced the claim or which tool result it came from. What should the team add first?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A trace id minted at the top-level request and carried through every model call, subagent and tool call, so each hop is logged under it.",
+        "why": "End-to-end correlation is the foundation of observability in multi-hop agents; with a shared trace id the engineer can walk from the final reply back to the exact subagent turn and tool result."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A higher log level on the orchestrator so that its full final prompt, the model's answer and the timestamp are captured for every request.",
+        "why": "Logging more of the orchestrator alone still leaves subagent turns and tool results unlinked; the missing piece is correlation across hops, not verbosity on one hop."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A weekly export of all chat logs into the data warehouse so analysts can query conversations at scale.",
+        "why": "Bulk export helps with aggregate analysis but not with reconstructing a single request's path across agents and tools."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A \"report a problem\" button so customers can flag wrong answers together with a screenshot.",
+        "why": "User reports are a useful signal but arrive after the fact and still leave the engineer unable to trace where the wrong claim originated."
+      }
+    ],
+    "explanation": "In systems with orchestrators, subagents and tool servers, every hop must share a correlation or trace id so that model calls, tool calls, inputs and outputs can be reassembled into one causal chain. Without it, more logging on any single component does not make an incident reconstructible.",
+    "reference": "Claude Agent SDK docs — Control execution with hooks (Log and audit every tool call); Anthropic — How we built our multi-agent research system (observability and tracing)"
+  },
+  {
+    "id": "ARP-D3-T4-002",
+    "domain": 3,
+    "skill": "observability",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A bank's platform team must report Claude Code token spend and tool-permission decisions per team for 400 developers, and the security office requires that prompt contents never leave developer machines. Which setup satisfies both requirements?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add `CLAUDE_CODE_ENABLE_TELEMETRY` and the OTLP exporter variables to each repository's committed `.claude/settings.json` `env` block.",
+        "why": "Claude Code ignores the telemetry exporter variables in a repository's settings files, precisely so that a project cannot decide where telemetry goes or what it captures."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Ask each developer to enable telemetry locally and set `OTEL_LOG_USER_PROMPTS=1` so the team can audit how the tool is used.",
+        "why": "Per-developer opt-in gives incomplete coverage, and exporting prompt text violates the security requirement."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Set the OpenTelemetry exporter variables in managed settings and leave `OTEL_LOG_USER_PROMPTS` unset so prompt text is not exported.",
+        "why": "Managed settings apply to every developer, and the exported metrics and events (token usage, cost, tool decisions) carry user and organization attributes while prompt content stays off by default."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Wrap the `claude` binary in a shell script that captures terminal output and ships it to a central log store.",
+        "why": "Screen-scraping captures prompts and responses verbatim, breaking the privacy requirement, and gives no structured token or permission-decision data."
+      }
+    ],
+    "explanation": "Claude Code exports metrics (session count, token usage, cost, code-edit permission decisions) and events (prompts, tool results, API requests, tool decisions) through OpenTelemetry. Administrators configure it fleet-wide via managed settings; repository settings cannot turn it on or redirect it. Prompt, tool-detail and response content are redacted unless explicitly enabled, which is how the privacy requirement is met.",
+    "reference": "Claude Code docs — Monitoring (OpenTelemetry): Administrator configuration; Privacy controls"
+  },
+  {
+    "id": "ARP-D3-T4-003",
+    "domain": 3,
+    "skill": "observability",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A healthcare payer's prior-authorization assistant (RAG over policy documents) has suffered two silent quality regressions this quarter that were discovered only from member complaints. Which two practices would most improve the team's ability to detect and diagnose such regressions? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Record a structured trace per request: prompt version, retrieved chunk ids, model, token usage, latency and every tool call.",
+        "why": "Structured per-request metadata lets the team correlate a drop in quality with a specific prompt release, index refresh or retrieval change instead of guessing."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Sample transcripts weekly, stratified by intent and outcome, and score them against a rubric with a model grader plus human spot checks.",
+        "why": "Regular graded sampling turns quality into a measured time series so a regression shows up in a dashboard before it shows up in complaints."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Alert on HTTP 5xx and timeout rates reported by the API client.",
+        "why": "Both regressions were silent: the API returned successful responses whose content was wrong, which error-rate alerts cannot see."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Log complete prompts, including member PHI, to the shared logging cluster so engineers can replay any request.",
+        "why": "Copying PHI into a broadly readable log store creates a compliance problem; replays should use redacted transcripts or a tightly controlled store."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Rely on the in-app thumbs-down button as the sole quality signal.",
+        "why": "User feedback is sparse, biased and late; it is a supplement to measured quality, not a replacement."
+      }
+    ],
+    "explanation": "Quality regressions in LLM systems are usually invisible to infrastructure metrics. Detecting them needs structured traces that record what changed (prompt version, retrieval results, model) and a continuous, stratified sample of graded transcripts that produces a quality time series. Error alerts, raw PHI logging and thumbs-down alone do not provide that.",
+    "reference": "Anthropic — Demystifying evals for AI agents; Claude API docs — Define your success criteria; Develop test cases"
+  },
+  {
+    "id": "ARP-D3-T4-004",
+    "domain": 3,
+    "skill": "observability",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An online marketplace's shopping assistant has shown zero API errors and stable latency for two months, yet conversion from assistant sessions has fallen 18% and \"unhelpful answer\" tickets have doubled. The team's dashboards track only error rate, latency and token spend. What should the observability strategy add?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Finer-grained error alerting, split by endpoint, status code and region, with a lower paging threshold.",
+        "why": "There are no errors to split; the failure is in answer quality, which error metrics do not measure at any granularity."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Continuously computed quality metrics (grader scores on sampled chats, tool-call success, escalation rate) with alerts on drift from baseline.",
+        "why": "Quality drift is a first-class production signal for LLM systems; measuring it continuously and alerting on deviation catches degradations that never surface as errors."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Full stack traces and request bodies on every call so engineers can debug any incident faster.",
+        "why": "Verbose debugging data is expensive at scale and still provides no signal that quality is drifting; nothing would have paged anyone."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A switch to the most capable model tier so that answer quality stops drifting.",
+        "why": "Changing the model without measurement neither explains the drift nor detects the next one; the gap is in monitoring, not in model choice."
+      }
+    ],
+    "explanation": "Infrastructure health is not product health for LLM systems: a model can return well-formed, fast, error-free answers that are increasingly wrong. Monitoring at scale must include quality metrics such as graded transcript samples, tool-call success and escalation rates, with alerting on drift from a baseline, not only on errors and latency.",
+    "reference": "Anthropic — Demystifying evals for AI agents; Claude Code docs — Monitoring (metrics and events)"
+  },
+  {
+    "id": "ARP-D3-T4-005",
+    "domain": 3,
+    "skill": "observability",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A hospital network needs full transcripts from its patient-intake assistant to debug failures, but the privacy office will not allow protected health information in the central logging platform, which 200 engineers can read. Debug access must still be possible for a small on-call group for 30 days. Which logging design satisfies all of these constraints?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Central logs get PHI-redacted transcripts; raw transcripts go to a separate access-controlled store with 30-day retention and audited on-call access.",
+        "why": "Redaction keeps PHI out of the broadly readable platform, while a segregated, access-controlled, time-limited store preserves the raw detail the on-call group needs."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Log full transcripts to the central platform, encrypt the index at rest, and rely on the platform's own access logs to detect and investigate improper reads.",
+        "why": "Encryption at rest does not stop 200 authorized users from reading PHI through the platform; the privacy office's constraint is about who can read, not about disk theft."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Disable transcript logging entirely and debug from structured metadata such as latency, tokens and tool names only.",
+        "why": "Metadata alone cannot explain why an intake conversation went wrong, so the debugging requirement is not met."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Log full transcripts to the central platform but base64-encode the message bodies so they are not searchable.",
+        "why": "Base64 is trivially reversible; the PHI is still present and readable by every engineer with platform access."
+      }
+    ],
+    "explanation": "PII-aware logging separates what most people can see from what a few people may see: redact or tokenize sensitive fields before data enters shared observability tooling, and keep any raw copies in a segregated store with strict access control, audit trails and short retention. Encryption at rest and encoding do not address access by authorized readers.",
+    "reference": "Claude API docs — Mitigate jailbreaks and prompt injections (PII handling); Claude Code docs — Monitoring (privacy controls)"
+  },
+  {
+    "id": "ARP-D3-T4-006",
+    "domain": 3,
+    "skill": "observability",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 3,
+    "stem": "A telecom's customer-care agent handles 20 million turns a day across 40 regions. Storing every full transcript would cost more than the model calls themselves, and the team currently keeps a uniform 0.5% random sample, which has missed two region-specific failure modes. Requirements: every turn must be attributable end to end, regional regressions must be detectable within a day, and PII must not sit in the analytics store. Which three elements should the monitoring design include? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Structured, PII-redacted metadata for 100% of turns: trace id, region, prompt version, tokens, latency, tool outcomes and grader score where available.",
+        "why": "Metadata is cheap enough to keep for every turn, gives end-to-end attribution through the trace id, and stays free of PII once redacted."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Stratified transcript sampling by region and outcome, oversampling escalations, low-confidence answers and failed tool calls.",
+        "why": "Stratifying guarantees every region and rare failure class is represented, which a uniform random sample cannot do at this scale."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Per-region quality dashboards with drift alerts on grader score and escalation rate against each region's own baseline.",
+        "why": "Regional regressions only surface when quality is tracked per region; a single global average hides a failure confined to one market."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Retention of every raw transcript in cold storage so any incident can be replayed in full.",
+        "why": "It breaks the cost constraint the stem states and stores PII in bulk; sampled, redacted transcripts plus full metadata are the scalable alternative."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "A single global error-rate alert, since regional differences average out over 20 million turns.",
+        "why": "Averaging is exactly why the regional failures were missed, and error rate does not capture quality drift at all."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Increase the uniform random sample from 0.5% to 2% so that rare failures appear more often.",
+        "why": "A larger uniform sample is still uniform: rare strata remain under-represented and the transcript cost quadruples for little gain."
+      }
+    ],
+    "explanation": "Observability at scale keeps lightweight, PII-redacted metadata for everything and reserves expensive full transcripts for a stratified sample that deliberately over-represents the regions and outcomes most likely to hide failures. Quality metrics then need to be sliced by the dimension along which regressions occur, with alerts on drift per slice rather than one global average.",
+    "reference": "Anthropic — Demystifying evals for AI agents; Claude Code docs — Monitoring (cardinality controls, privacy controls)"
+  }
+]

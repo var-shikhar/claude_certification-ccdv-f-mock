@@ -1,0 +1,1394 @@
+[
+  {
+    "id": "ARF-D5-T1-001",
+    "domain": 5,
+    "skill": "conversation-context",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A customer support agent built on the Agent SDK summarises older turns once a session passes roughly 30 turns, because sessions regularly exceed the context budget. In a 42-turn billing session the customer stated early on that they expected a refund of $84.50 to reach their card by Friday. After summarisation the history reads \"customer expects a refund soon\", and the agent promises \"the amount will be returned within 5-7 days\". Which change most directly prevents this loss?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Instruct the summariser to \"be thorough and keep all important details\" when it condenses older turns.",
+        "why": "This is prompt pleading. Summaries condense by nature, and a vague instruction gives no guarantee that a specific amount, date or stated expectation survives the next compression."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Switch to a model with a larger context window so summarisation is never needed.",
+        "why": "A larger window delays the problem rather than solving it, and the team has said that summarisation must stay; it also does nothing about the quality of the summaries when they do happen."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Keep amounts, dates, order numbers, statuses and stated expectations in a persistent case-facts block sent with every prompt, outside the summarised history.",
+        "why": "Progressive summarisation reliably blurs numbers, percentages, dates and what the customer said they expect. Keeping those facts in a structured block that is never summarised preserves them exactly for every turn."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Disable summarisation entirely and resend the full raw transcript, including every tool result and every earlier order lookup, on every turn of the session so nothing is ever condensed.",
+        "why": "The team has stated that sessions exceed the context budget, so resending everything is not viable; verbose tool results also crowd out the facts that matter."
+      }
+    ],
+    "explanation": "Summaries are lossy in a predictable way: they turn precise values into vague phrases. The fix is structural, not an instruction: pull transactional facts into a separate, persistent context layer that rides alongside the summarised history and is never itself compressed.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.1; Anthropic — Effective context engineering for AI agents (compaction)"
+  },
+  {
+    "id": "ARF-D5-T1-002",
+    "domain": 5,
+    "skill": "conversation-context",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "The support agent's `lookup_order` MCP tool returns the full order record: 40+ fields including warehouse routing codes, marketing attribution and internal SKU metadata. A return only needs about five of them (order id, items, purchase date, delivery status, return eligibility). After six lookups in one session, order JSON makes up most of the context and the agent starts missing details the customer gave earlier. What is the best fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Trim the tool result to the return-relevant fields before it enters context (in the tool handler or a `PostToolUse` hook), keeping the full record in the backend.",
+        "why": "Tool results consume tokens out of proportion to their relevance. Filtering to the five fields that matter, deterministically and before the result is added to the conversation, stops the accumulation at its source."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add a system prompt instruction telling the agent to read only the order id, items, purchase date, delivery status and return eligibility, and to ignore every other field in the lookup result.",
+        "why": "The tokens are still in context whether or not the model is told to ignore them; the instruction does not reduce context usage or the crowding-out effect."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Summarise the conversation after every tool call so that order data is condensed immediately.",
+        "why": "Summarising more often makes the progressive-summarisation problem worse, blurring the customer's numbers and dates, and it treats a symptom created by an over-verbose tool."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Have the agent call `lookup_order` once per session and cache the result in the system prompt.",
+        "why": "Customers often raise several orders in one session, and moving a 40-field record into the system prompt keeps every irrelevant field in context on every turn."
+      }
+    ],
+    "explanation": "Verbose tool outputs accumulate and consume context disproportionately to their value. Trim them to relevant fields before they are appended to the conversation rather than asking the model to ignore what is already there.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.1; Claude Code docs — Manage costs effectively (offload processing to hooks)"
+  },
+  {
+    "id": "ARF-D5-T1-003",
+    "domain": 5,
+    "skill": "conversation-context",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "In a multi-agent research system the coordinator concatenates the outputs of five subagents (about 60,000 tokens of narrative, with each subagent's reasoning chain included) and hands the result to the synthesis agent. Reviewers notice the final reports reliably cover the first and last subagents' findings but omit key statistics from the third and fourth. Which two changes best address this? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Place a key-findings summary at the beginning of the aggregated input and organise the detailed results under explicit section headers per subagent.",
+        "why": "Models process the beginning and end of long inputs more reliably than the middle. Front-loading the critical findings and giving the body clear structure mitigates this position effect."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add the instruction \"pay equal attention to every section of this input\" to the synthesis prompt.",
+        "why": "The lost-in-the-middle effect is a property of how long inputs are processed, not a lack of effort; an instruction does not change where information sits in the input."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Move the most important findings to the middle of the input, since that is where the synthesis agent reads most carefully.",
+        "why": "This inverts the actual effect: the middle of a long input is where findings are most likely to be dropped."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Have the subagents return structured data (key facts, citations, relevance scores, dates) instead of verbose narrative and reasoning chains.",
+        "why": "Structured, compact outputs from upstream agents shrink the aggregated input so there is far less \"middle\" to lose and the synthesis agent's limited budget is spent on facts rather than reasoning transcripts."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Switch the synthesis agent to a model with a larger context window so all 60,000 tokens fit comfortably.",
+        "why": "The input already fits; the problem is recall quality across a long input, which a larger window does not improve on its own."
+      }
+    ],
+    "explanation": "Two levers counter position effects in aggregated inputs: reduce the volume by making upstream agents return structured key facts rather than prose, and organise what remains with a findings summary first and explicit section headers.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.1; Anthropic — Effective context engineering for AI agents (context rot)"
+  },
+  {
+    "id": "ARF-D5-T1-004",
+    "domain": 5,
+    "skill": "conversation-context",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A customer raises three issues in one support session: a return on order 4471 ($129.00), a double charge of $42.10 on invoice 88213, and an address change. By turn 25 the agent has attempted to refund $129.00 against invoice 88213 and reported the return as \"in progress\" for the wrong order. The product team will not restrict customers to one issue per session. Which design best keeps the issues straight?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Start a fresh session for each new issue the customer raises, discarding the earlier context.",
+        "why": "This loses the verified customer identity and the coherence of the conversation, and customers frequently refer back to an earlier issue mid-session."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Keep a structured issue ledger (order id, invoice id, amount, status per issue) as a separate context layer that is updated as facts arrive and sent with every prompt.",
+        "why": "Persisting per-issue structured data outside the summarised history gives the agent an exact, unambiguous record of which amount belongs to which order, for every turn of a multi-issue session."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add \"keep careful track of which amount belongs to which issue\" to the system prompt.",
+        "why": "This asks the model to do bookkeeping in its head across a long, summarised history; it is the probabilistic version of the structured ledger and fails in exactly the long sessions where it matters."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Summarise the history more frequently, every five turns instead of every thirty, so that the context stays short and the agent has fewer turns in which to confuse the issues.",
+        "why": "More frequent summarisation increases the chance that the specific amounts and identifiers are condensed into vague phrases, which is the root of the confusion."
+      }
+    ],
+    "explanation": "Multi-issue sessions need structured issue data (identifiers, amounts, statuses) kept in a separate context layer that is never summarised. The alternatives either lose coherence, rely on the model's memory, or increase the very summarisation that blurs the facts.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.1"
+  },
+  {
+    "id": "ARF-D5-T1-005",
+    "domain": 5,
+    "skill": "conversation-context",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "In a research system, the document-analysis subagent returns roughly 15,000 tokens per document: a narrative summary, its reasoning, and quotations. The synthesis agent must combine analyses of eight documents within a 30,000-token budget for inputs. Reports are missing figures and misattributing methods to the wrong papers. What should the architect change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Have the synthesis agent read each analysis sequentially, replacing the previous one with a rolling summary before loading the next, so that only one full analysis is ever in context at a time and the budget is never exceeded.",
+        "why": "Repeated summarisation compounds losses: numbers, dates and methodological details from the first documents degrade a little more each round, which is a common cause of misattribution."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Truncate each analysis to its first 3,500 tokens so all eight fit in the budget.",
+        "why": "Truncation keeps whatever the analysis agent happened to write first and drops the rest, so figures near the end of any analysis are lost regardless of importance."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Have the document-analysis subagent return structured output (key facts, figures, citations with source location, publication date, methodological context) instead of narrative and reasoning.",
+        "why": "When a downstream agent has a limited budget, the upstream agent should return compact structured data with the metadata synthesis needs; reasoning chains and prose add tokens without adding facts."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Tell the document-analysis subagent to \"be concise\" and keep the rest of the pipeline unchanged.",
+        "why": "\"Concise\" is a vague adjective; it does not specify which facts or metadata must be preserved, so the output will vary and can still drop the figures synthesis needs."
+      }
+    ],
+    "explanation": "Fix the shape of the data at its source: subagents feeding a budget-constrained downstream agent should return structured key facts with dates, source locations and methodological context, not verbose reasoning. Rolling summaries and truncation both discard information unpredictably.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.1; Anthropic — How we built our multi-agent research system"
+  },
+  {
+    "id": "ARF-D5-T1-006",
+    "domain": 5,
+    "skill": "conversation-context",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "To cut token spend, a developer changes the support agent so that each Messages API request contains only the system prompt, a well-maintained case-facts block (customer id, order ids, amounts, statuses) and the customer's latest message. Costs drop, but the agent now re-asks questions the customer answered two turns earlier, re-verifies identity mid-conversation and sometimes contradicts its own previous answer. The case-facts block is verified to be complete and correct on every turn. What is the root cause and the right fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The case-facts block is not being read; add \"always consult the case facts before asking a question\" to the system prompt.",
+        "why": "The block is complete and correct, and the missing information is conversational (what was asked and answered, what the agent already said), which a facts block is not designed to hold."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The API is stateless, so dropping prior turns removed conversational coherence; send the complete (or compacted) conversation history in each request, with the case-facts block alongside it.",
+        "why": "A case-facts block preserves transactional facts through summarisation; it complements the conversation history rather than replacing it. Without the history the model has no record of what it or the customer already said."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Enable prompt caching so the API retains the earlier turns between requests.",
+        "why": "Prompt caching lowers the cost of re-sending an identical prefix; it does not store conversation state server-side. The turns still have to be included in the request to be seen."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Store every turn in a vector database and, for each request, retrieve the three previous messages most semantically similar to the customer's latest message alongside the case-facts block, so the agent has some history without paying for all of it.",
+        "why": "Selective retrieval of scattered turns breaks the flow of a conversation; the model cannot tell what was already asked, answered or promised from three disconnected snippets."
+      }
+    ],
+    "explanation": "Two facts combine here: the Messages API is stateless, so conversational coherence depends on sending the history each time; and a case-facts block is an addition to, not a substitute for, that history. Caching changes cost, not state.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.1; Claude API docs — Prompt caching"
+  },
+  {
+    "id": "ARF-D5-T2-001",
+    "domain": 5,
+    "skill": "escalation",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A customer's first message to the support agent reads: \"I've explained this twice to the chatbot already. Just get me a person.\" The agent replies \"I can help with that. Let me look up your recent orders first,\" calls `lookup_order`, and only escalates three turns later. According to escalation best practice, what should the agent have done?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Investigate first, because the agent can only judge whether escalation is necessary after it understands the issue.",
+        "why": "An explicit request for a human is itself an escalation trigger; no investigation is required to honour it, and delaying it is what frustrates customers."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Run sentiment analysis on the message and escalate only if the frustration score exceeds the threshold.",
+        "why": "Sentiment is an unreliable proxy and is unnecessary here: the customer has stated the trigger directly."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Offer to resolve the issue once, and escalate if the customer repeats the request.",
+        "why": "Offering first is the right pattern for frustration without an explicit request; when the customer explicitly demands a human, the request is honoured immediately."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Call `escalate_to_human` immediately, without first attempting investigation.",
+        "why": "An explicit customer request for a human agent is an immediate escalation trigger; the guide is clear that such requests are honoured without a preliminary investigation."
+      }
+    ],
+    "explanation": "Escalation triggers should be explicit criteria. An explicit demand for a human is the clearest of them and is honoured immediately; the \"acknowledge and offer to resolve\" pattern applies to frustration, not to a stated request for a person.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.2"
+  },
+  {
+    "id": "ARF-D5-T2-002",
+    "domain": 5,
+    "skill": "escalation",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "The support agent's policy document covers price adjustments when an item goes on sale on the company's own site within 14 days of purchase. A customer sends a screenshot showing a competitor selling the same item for $30 less and asks for the difference back. The agent reasons that this is \"basically a price adjustment\" and issues a $30 refund through `process_refund`. What should the agent have done?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Escalate to a human, because the policy is silent on competitor price matching and the agent must not extrapolate a policy exception on its own.",
+        "why": "Policy gaps and exceptions are explicit escalation triggers even when the case is not complex; where the policy does not cover the customer's specific request, the decision belongs with a human."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Decline the request, since anything not explicitly allowed by the policy must be refused.",
+        "why": "A flat refusal is also a policy decision the agent is not authorised to make; the correct behaviour for a gap is to escalate, not to guess in either direction."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Ask the customer to rate how strongly they feel about the price difference and escalate only if they say they are upset.",
+        "why": "Sentiment does not determine whether the policy covers the request; the trigger here is the policy gap, which is present regardless of the customer's mood."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Issue the refund but apply the own-site rule's constraints to it, using the 14-day window and the same maximum adjustment, since the policy's intent clearly extends to any lower price the customer finds.",
+        "why": "Applying the own-site rule's constraints to a different kind of request is still extrapolation; the policy does not authorise competitor matching at all."
+      }
+    ],
+    "explanation": "Escalation is not only for complex cases. When the policy is ambiguous or silent on the customer's specific request, the agent should escalate rather than generalise from a related rule, whether that generalisation would grant or refuse.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.2"
+  },
+  {
+    "id": "ARF-D5-T2-003",
+    "domain": 5,
+    "skill": "escalation",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "The support agent's first-contact resolution is 61% against an 80% target. Log analysis shows that 30% of all escalations are customers who used angry language about a simple late-delivery status question, and in those transcripts the agent escalated without ever offering to check the shipment. Which two changes should the team make? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Route messages with a sentiment score below a threshold straight to `escalate_to_human` so upset customers reach a person faster.",
+        "why": "This is the behaviour causing the problem: sentiment does not correlate with case complexity, and angry customers with a simple question are exactly the ones the agent can help."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Instruct the agent to acknowledge the frustration and offer to resolve the issue when it is within its capability, escalating only if the customer then reiterates a preference for a human.",
+        "why": "Frustration alone is not an escalation trigger. Acknowledging it and offering resolution keeps straightforward cases in the agent while still honouring a customer who insists on a person."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Have the agent self-report a confidence score before each response and escalate when it is below 6 out of 10.",
+        "why": "Self-reported confidence is poorly calibrated and does not track case complexity; it would add noise without addressing the sentiment-driven over-escalation."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Add explicit escalation criteria to the system prompt (explicit request for a human, policy gap or exception, inability to make progress) with few-shot examples of escalate versus resolve.",
+        "why": "Clear decision boundaries with worked examples replace the implicit \"angry means escalate\" heuristic with the triggers that actually indicate a case needs a person."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Remove the `escalate_to_human` tool for sessions classified as shipping questions.",
+        "why": "This blocks legitimate escalations, including customers who explicitly ask for a human or whose shipping problem turns out to need a policy exception."
+      }
+    ],
+    "explanation": "Sentiment is an unreliable proxy for complexity. Replace it with explicit criteria and examples, and handle frustration by acknowledging it and offering resolution, escalating when the customer explicitly asks for a person or reiterates that preference.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.2"
+  },
+  {
+    "id": "ARF-D5-T2-004",
+    "domain": 5,
+    "skill": "escalation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A customer writes \"Hi, this is Maria Gonzalez, I need to return my order.\" The agent calls `get_customer` with the name and receives three matching accounts in different cities. The team's target is 80%+ first-contact resolution, and refunds have gone to the wrong account twice this month. What instruction should govern the agent's next step?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Select the account with the most recent order, since a customer asking about a return most likely bought something recently.",
+        "why": "A heuristic pick is a guess with financial consequences; the two misdirected refunds show what happens when identity is inferred rather than confirmed."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Escalate to a human immediately, because the agent cannot safely proceed with an ambiguous identity.",
+        "why": "The ambiguity is resolvable by the customer in one message; escalating every multi-match case would cut first-contact resolution without improving accuracy."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Ask for an additional identifier (order number, account email or phone number on file) and re-run `get_customer` before any order operation.",
+        "why": "Multiple matches require clarification, not heuristic selection. Requesting an identifier resolves the ambiguity deterministically and keeps the case with the agent."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Call `lookup_order` for all three accounts, keep whichever account has an order that is still eligible for return, and proceed with that one, since the customer's intent narrows the choice down.",
+        "why": "This still guesses among candidates, exposes other customers' order data in the agent's context, and fails if more than one account has a returnable order."
+      }
+    ],
+    "explanation": "When a tool returns multiple matches, the agent should ask for additional identifiers rather than choose by heuristic. Escalating is unnecessary because the customer can resolve the ambiguity, and guessing is what caused the misdirected refunds.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.2"
+  },
+  {
+    "id": "ARF-D5-T2-005",
+    "domain": 5,
+    "skill": "escalation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "In a billing dispute session, `process_refund` has returned `REFUND_EXCEEDS_LIMIT` four times as the agent tries different amounts, the customer has rephrased the request three times, and nine turns have passed with no change in the case state. The customer has not asked for a human, and the agent keeps saying \"let me try another approach\". Which change best fixes this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Raise the agent's maximum turn limit and add a prompt instruction to try smaller partial amounts, so it has more room to find a refund the tool will accept.",
+        "why": "More turns extend a loop that is not converging; the refund limit is a policy boundary the agent cannot legitimately work around."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Define an explicit no-progress trigger (same tool error repeated, or no state change across a set number of turns) and escalate with a summary of what was attempted.",
+        "why": "Inability to make meaningful progress is one of the core escalation triggers. Making it an explicit, checkable criterion stops the loop and hands the human a useful starting point."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Leave the behaviour as is; escalation should only happen when the customer explicitly asks for a person.",
+        "why": "An explicit request is one trigger among several; policy gaps and lack of progress are also triggers, and waiting for the customer to give up is a poor outcome."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Increase the refund limit in the `process_refund` tool so the agent can complete the refund on its own.",
+        "why": "The limit exists because larger refunds need human authorisation; widening the tool's authority to avoid an escalation removes a control rather than fixing the decision logic."
+      }
+    ],
+    "explanation": "Escalation triggers should be explicit and observable. Repeated identical tool failures and no state change over several turns are measurable signs of no progress, and the escalation should carry what was attempted so the human does not start from zero.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.2"
+  },
+  {
+    "id": "ARF-D5-T2-006",
+    "domain": 5,
+    "skill": "escalation",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A team is writing few-shot examples for the support agent's escalation section and needs the keyed behaviour for two transcripts. Transcript 1: \"This is the THIRD time my package is late. I'm furious. What is going on?\" (a delivery status the agent can check and, if needed, reship). Transcript 2: \"My package is late again. I want to speak to a human about this.\" Which pair of behaviours should the examples demonstrate?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Transcript 1: escalate immediately because the strong negative sentiment signals a case the agent is unlikely to satisfy. Transcript 2: acknowledge the request but offer to check the shipment first, since the issue is straightforward and within the agent's capability.",
+        "why": "This reverses both rules: sentiment is not a trigger, and an explicit request for a human is honoured without first attempting to resolve."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Both transcripts: acknowledge the frustration, check the shipment, and escalate only if the customer asks again.",
+        "why": "The second customer has already asked for a human; making them ask twice is exactly the delay the immediate-escalation rule exists to prevent."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Both transcripts: escalate immediately, because a repeated late delivery is a service failure that a human should own.",
+        "why": "Repeated lateness is not a policy gap or a lack of progress; the first customer has not asked for a person and the agent can resolve the issue, so escalating cuts first-contact resolution for no gain."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Transcript 1: acknowledge the frustration and offer to check and resolve the delivery, escalating only if the customer then asks for a human. Transcript 2: escalate immediately without investigating.",
+        "why": "Frustration about a resolvable issue calls for acknowledgement plus an offer to resolve; an explicit request for a human is an immediate trigger. The examples should make that distinction visible."
+      }
+    ],
+    "explanation": "The discriminator is whether the customer explicitly asked for a person. Strong sentiment on a resolvable issue is met with acknowledgement and an offer to resolve (escalating if they reiterate); an explicit request for a human is honoured immediately, regardless of how simple the issue looks.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.2"
+  },
+  {
+    "id": "ARF-D5-T3-001",
+    "domain": 5,
+    "skill": "error-propagation",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "In a multi-agent research system, the document-analysis subagent fails to download a PDF because the publisher's server times out. It returns `{\"status\": \"ok\", \"findings\": []}` to the coordinator, which proceeds as though the document contained nothing relevant. Which return value should the subagent have produced instead?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`{\"status\": \"error\", \"message\": \"analysis unavailable\"}`",
+        "why": "A generic status tells the coordinator something failed but not what, why, or what to try next, so it cannot make an informed recovery decision."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A structured error: failure type (`fetch_timeout`), the URL and attempts made, any partial results (such as the retrieved abstract), and alternatives such as a cached copy or mirror.",
+        "why": "Structured error context lets the coordinator choose between retrying, trying an alternative source, or proceeding with partial results, instead of silently treating a failure as an empty document."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Raise the timeout exception so the whole research run stops and can be restarted later.",
+        "why": "One unreachable PDF does not invalidate the other subagents' work; terminating the workflow on a single failure throws away recoverable progress."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Keep the empty result but log the timeout, the URL and the retry count to the observability system so an engineer can review failed fetches after the run completes and re-run the document if needed.",
+        "why": "Logging helps humans afterwards but still hides the failure from the coordinator at the moment it needs to decide, so the report is produced with a silent gap."
+      }
+    ],
+    "explanation": "Returning an empty result marked as success silently suppresses the error. Subagents should return structured error context (failure type, what was attempted, partial results, alternatives) so the coordinator can recover intelligently.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.3"
+  },
+  {
+    "id": "ARF-D5-T3-002",
+    "domain": 5,
+    "skill": "error-propagation",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "The web-search subagent returns `results: []` both when its search API times out and when a query genuinely matches nothing. The coordinator therefore retries every empty response up to three times, which wastes budget on legitimate no-match queries and sometimes gives up on queries that only needed one retry. What is the right fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Have the coordinator treat any empty result as final and never retry.",
+        "why": "This makes transient timeouts look like genuine gaps, so the report silently loses coverage whenever the API hiccups."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Increase the coordinator's retry count to five so transient failures are more likely to be covered.",
+        "why": "More retries on every empty result multiplies the waste on legitimate no-match queries and still does not tell the coordinator which case it is in."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Report the two cases differently: an access failure (with failure type and retry advice) versus a successful query with zero matches.",
+        "why": "A timeout needs a retry decision; a valid empty result is a finding. Reporting them differently lets the coordinator retry only when it makes sense."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Have the subagent automatically broaden the query whenever it gets an empty result, dropping terms until something is returned, so the coordinator always receives at least one match.",
+        "why": "Silently widening the query changes what was asked and can return irrelevant matches as if they answered the original question, hiding both failures and genuine gaps."
+      }
+    ],
+    "explanation": "An access failure and a valid empty result look identical if both are reported as \"no results\". Error reporting must separate them so the coordinator can retry the former and accept the latter.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.3"
+  },
+  {
+    "id": "ARF-D5-T3-003",
+    "domain": 5,
+    "skill": "error-propagation",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A research coordinator runs five subagents in parallel. Whenever one raises an exception (usually a rate-limit or a brief network error), the coordinator's top-level handler aborts the entire run, discarding the other four subagents' completed work. The team wants failures handled gracefully without hiding them. Which two changes should they make? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Have each subagent implement local recovery for transient failures (retry with backoff, alternative source) and propagate only errors it cannot resolve, including what it attempted and any partial results.",
+        "why": "Transient failures are best handled where they happen; escalating only unresolved errors, with context, keeps the coordinator informed without burdening it with every hiccup."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Wrap every subagent call in a handler that converts any exception into an empty result so the run always completes.",
+        "why": "This suppresses errors: the report is produced with silent gaps and the coordinator never learns that a topic went unresearched."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add \"never fail; always return a complete answer\" to each subagent's system prompt.",
+        "why": "Network and rate-limit errors are not under the model's control, and the instruction pressures the subagent to fabricate or pad results rather than report a failure."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Have the coordinator continue with the successful subagents' results and record which topic areas are missing, so synthesis can annotate the gaps.",
+        "why": "One failure should not discard four successes; keeping the run alive and tracking the gap lets the coordinator retry, substitute, or proceed with a clearly annotated partial result."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Restart the entire research run from scratch whenever any subagent fails.",
+        "why": "This is the current behaviour with extra cost; it repeats work that already succeeded and gives the same failure a fresh chance to abort the run."
+      }
+    ],
+    "explanation": "The two anti-patterns are terminating the whole workflow on a single failure and silently swallowing errors. The middle path is local recovery in the subagent, propagation of unresolved errors with context, and a coordinator that continues while tracking gaps.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.3; Anthropic — How we built our multi-agent research system (error handling)"
+  },
+  {
+    "id": "ARF-D5-T3-004",
+    "domain": 5,
+    "skill": "error-propagation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A research run on EU battery regulation could not access an industry association's paywalled reports, which were expected to cover recycling-cost data. The subagent propagated a clear structured error. The synthesis agent nevertheless produced a polished report that reads as complete, and a reader later relied on its recycling-cost section, which rested on a single blog post. Which change addresses this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Have the coordinator retry the paywalled fetch several more times with longer backoff, and only proceed to synthesis once every planned source has either been retrieved or exhausted its retries.",
+        "why": "A paywall is not a transient failure; retries cannot resolve it, and the problem shown is that the final report hid the gap, not that too few attempts were made."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Instruct the synthesis agent to fill any gaps from its own general knowledge so that sections are never thin.",
+        "why": "This substitutes unsourced model knowledge for missing evidence and makes the gap even harder to detect."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Drop the recycling-cost section entirely whenever a source for it was unavailable.",
+        "why": "Removing the section hides both the partial evidence that was found and the fact that a gap exists; the reader cannot tell the topic was ever in scope."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Give the synthesis output coverage annotations that mark which findings are well supported and which topic areas have gaps because sources were unavailable.",
+        "why": "The error was propagated correctly; the failure was in how synthesis presented it. Coverage annotations carry the known gap through to the reader, who can then weigh the thinly supported section appropriately."
+      }
+    ],
+    "explanation": "Error propagation does not end at the coordinator. Synthesis output should indicate which findings are well supported and which areas have gaps due to unavailable sources, so a partial result is never mistaken for a complete one.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.3"
+  },
+  {
+    "id": "ARF-D5-T3-005",
+    "domain": 5,
+    "skill": "error-propagation",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "An architect is defining the error envelope that research subagents return to the coordinator. The coordinator must be able to choose between three recovery paths: retry with a modified query, switch to an alternative source, or proceed with what was found. Which three elements or behaviours must the envelope include to support those decisions? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A failure type that distinguishes timeouts, authentication and rate-limit errors from a successful query with zero matches.",
+        "why": "The failure type tells the coordinator whether retrying could help at all; a valid empty result should not be retried, while a timeout might be."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A single generic status such as `search_unavailable`, to avoid leaking implementation details to the coordinator.",
+        "why": "A generic status hides the context the coordinator needs; the coordinator is part of the same system, so there is nothing to protect by withholding details."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The exact query or URL that was attempted, together with any partial results gathered before the failure.",
+        "why": "Knowing what was tried lets the coordinator modify the query rather than repeat it, and partial results allow it to proceed rather than start over."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Automatic conversion of every failure into an empty result list so the coordinator's parser never encounters an error branch.",
+        "why": "This is silent suppression: the coordinator can no longer tell a failure from a genuine gap, and none of the three recovery paths can be chosen intelligently."
+      },
+      {
+        "id": "E",
+        "correct": true,
+        "text": "Suggested alternative approaches, such as a different source, a narrower query or a cached copy.",
+        "why": "The subagent has the most context about what might work; passing alternatives gives the coordinator a concrete next move for the alternative-source path."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Re-raising the exception to the top-level handler so the run stops before any decision is made on incomplete data.",
+        "why": "Terminating the workflow removes the coordinator's ability to recover at all; the goal is to enable a decision, not to prevent one."
+      }
+    ],
+    "explanation": "Structured error context has four ingredients: failure type (including the access-failure versus empty-result distinction), what was attempted, partial results, and alternatives. Generic statuses, silent suppression and workflow termination each remove the coordinator's ability to recover.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.3"
+  },
+  {
+    "id": "ARF-D5-T3-006",
+    "domain": 5,
+    "skill": "error-propagation",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "The web-search subagent retries failed calls three times with exponential backoff. On a query that needed seven source fetches, the fifth fetch timed out on all three attempts and the subagent returned `{\"status\": \"error\", \"message\": \"search unavailable\"}`, discarding the four sources it had already retrieved. The coordinator, seeing only that status, re-invoked the subagent, which repeated the same three retries and failed again. Total: six wasted attempts, zero sources delivered. What should change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Keep local retries, but on exhaustion return structured context (failure type `timeout_after_retries`, the failing fetch, the four retrieved sources as partial results, alternatives) so the coordinator can proceed or switch source instead of repeating the same retries.",
+        "why": "Local recovery is right for transient errors, but when it fails the subagent must propagate what it attempted and what it found. That lets the coordinator avoid duplicating retries and still use the four good sources."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Remove the subagent's retries entirely and make the coordinator the only place that retries, with its own exponential backoff and a cap of three attempts per subagent invocation, so attempts are never duplicated across layers and the retry policy lives in one configurable place.",
+        "why": "Centralising retries fixes the duplication but leaves the generic status and the discarded partial results, so the coordinator still cannot decide intelligently and still loses four sources."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Raise the subagent's retry limit to six and keep the generic status so the coordinator never needs to retry.",
+        "why": "More retries against a source that is not responding wastes more budget, and the generic status still hides the four sources that were successfully retrieved."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Return the four retrieved sources with `status: ok` and drop the three that were not fetched.",
+        "why": "This suppresses the error: the coordinator would treat a partial result as complete and the report would silently lack coverage of the missing sources."
+      }
+    ],
+    "explanation": "Two principles combine: subagents handle transient failures locally and propagate only what they cannot resolve; and what they propagate must be structured (failure type, attempts, partial results, alternatives). A generic status after local retries makes the coordinator repeat work and lose good results.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.3"
+  },
+  {
+    "id": "ARF-D5-T4-001",
+    "domain": 5,
+    "skill": "codebase-context",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer has spent two hours in one Claude Code session exploring a 400,000-line monolith. Early on, Claude read `OrderRepository` and `RefundSaga` and explained them precisely. Now, when asked how refunds reach the ledger, Claude answers in terms of \"a typical repository pattern\" and gives a different answer from the one it gave an hour ago. What is happening, and what is the most direct countermeasure?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The model is hallucinating because the sampling temperature is too high; lower it.",
+        "why": "The answers were accurate earlier in the same session; the change over time points to context, not sampling settings."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The repository is too large for any model; split it into separate repositories before continuing.",
+        "why": "Large codebases are explored routinely; the issue is how the session's context is managed, not the size of the repository on disk."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Context has degraded as the session filled with discovery output; record key findings (class names, flows, decisions) in a scratchpad file and have Claude consult it for later questions.",
+        "why": "Inconsistent answers and a drift toward generic \"typical patterns\" are the signature of context degradation. A persistent notes file keeps specific findings available regardless of what compaction or context rot does to the conversation."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The project `CLAUDE.md` is missing architectural detail; paste the full class list and a description of every module into it so the information is loaded at the start of every future session and can never be forgotten.",
+        "why": "`CLAUDE.md` holds stable project instructions, and a full class list would bloat every future session; the degradation here is within a single long session."
+      }
+    ],
+    "explanation": "In extended sessions, models start giving inconsistent answers and referring to generic patterns instead of the specific classes discovered earlier. Scratchpad files that persist key findings across context boundaries are the primary countermeasure.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.4; Anthropic — Effective context engineering for AI agents (structured note-taking)"
+  },
+  {
+    "id": "ARF-D5-T4-002",
+    "domain": 5,
+    "skill": "codebase-context",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An Agent SDK developer-productivity tool helps engineers understand a legacy payments service. When asked to \"trace every dependency of the refund flow\", the main agent runs dozens of `Grep` and `Read` calls whose raw output (about 50,000 tokens) lands in its own context, after which it loses track of the engineer's original questions. How should the architect restructure this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Have the main agent spawn subagents for specific questions (\"find all test files\", \"trace refund flow dependencies\") that return condensed findings while it keeps high-level coordination.",
+        "why": "Subagents run in their own context windows, so the verbose search output stays isolated and only a compact summary returns to the main agent, which preserves its ability to coordinate."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Limit the main agent to `Glob` so it never reads file contents into context.",
+        "why": "Tracing dependencies requires reading code; removing the capability prevents the task rather than managing its output."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Increase the main agent's `max_turns` so it has room to finish the trace before context becomes a problem.",
+        "why": "More turns mean more accumulated output; the constraint is context volume per turn, not the number of turns."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Ask the main agent to \"only keep the important parts\" of each tool result as it goes, restating each `Grep` and `Read` result in its own words immediately after reading it so the raw output is superseded.",
+        "why": "The tool result is already in context by the time the model reads it; an instruction cannot remove tokens that have been appended to the conversation."
+      }
+    ],
+    "explanation": "Delegating verbose exploration to subagents isolates the noisy output in their context windows while the main agent receives only distilled findings and keeps coordinating.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.4; Claude Code docs — Subagents"
+  },
+  {
+    "id": "ARF-D5-T4-003",
+    "domain": 5,
+    "skill": "codebase-context",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "During a long Claude Code session mapping a legacy service, the context is now mostly test-runner output and directory listings. The developer wants to keep working in the same session and must retain the module map and the list of open questions Claude built up. Which command fits?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`/clear`, then ask Claude to rebuild the module map from scratch.",
+        "why": "`/clear` discards the whole conversation, including the findings the developer wants to keep, and rebuilding them costs the tokens that were just spent."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`/compact` with focus instructions, such as `/compact Preserve the module map and open questions; drop test output and directory listings`.",
+        "why": "`/compact` summarises the history to free context, and custom instructions tell Claude what to preserve during that summarisation, which is exactly the selective reduction needed here."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Wait for auto-compaction, which will decide on its own what to keep.",
+        "why": "Auto-compaction will happen eventually, but without focus instructions it may not prioritise the module map and open questions over other content."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Paste the full session transcript into the project `CLAUDE.md` so nothing is lost, and rely on Claude to read the relevant sections back whenever the module map is needed again.",
+        "why": "`CLAUDE.md` is loaded into every future session; filling it with a transcript of test output bloats all later context and does nothing for the current session."
+      }
+    ],
+    "explanation": "`/compact` reduces context by summarising the history, and it accepts custom instructions that steer what is kept. `/clear` starts over, and auto-compaction without guidance does not know which findings matter.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.4; Claude Code docs — Manage costs effectively (manage context proactively)"
+  },
+  {
+    "id": "ARF-D5-T4-004",
+    "domain": 5,
+    "skill": "codebase-context",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A codebase-exploration agent works in two phases: phase 1 maps the service boundaries of a 30-module system; phase 2 spawns one subagent per module to trace its data flow. Logs show phase-2 subagents spend most of their budget rediscovering the boundaries and naming conventions that phase 1 already established. Which two changes fix this? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Pass the complete phase-1 transcript, including all tool output, into each phase-2 subagent's initial prompt.",
+        "why": "The raw transcript is mostly discovery noise; 30 copies of it consume budget and reintroduce the lost-in-the-middle problem in each subagent."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Summarise phase-1's key findings (module boundaries, entry points, conventions) before spawning phase 2, and inject that summary into each subagent's initial context.",
+        "why": "A phase summary carries forward exactly what the next phase needs at a fraction of the tokens, so subagents start from established knowledge instead of rediscovering it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Rely on the subagents inheriting the main agent's conversation automatically when they are spawned.",
+        "why": "Subagents start with a fresh, isolated context; they do not see the parent conversation unless the relevant information is explicitly passed to them."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Raise each subagent's turn limit so it has enough budget to redo the discovery.",
+        "why": "This pays for the duplicated work 30 times over rather than eliminating it."
+      },
+      {
+        "id": "E",
+        "correct": true,
+        "text": "Have each phase write its findings to scratchpad files in a known location that later phases and subagents read and update.",
+        "why": "Persistent scratchpad files survive context boundaries and let every later agent reference specific findings rather than re-derive them."
+      }
+    ],
+    "explanation": "Between exploration phases, summarise what was learned and inject it into the next phase's initial context, and persist findings to scratchpad files. Subagents do not inherit the parent's context, and raw transcripts are too noisy to pass wholesale.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.4; Claude Code docs — Subagents"
+  },
+  {
+    "id": "ARF-D5-T4-005",
+    "domain": 5,
+    "skill": "codebase-context",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A migration-analysis job runs a coordinator and five exploration agents over a legacy system for about six hours. At hour four the host is restarted for patching and the whole run is lost; the team reruns from the beginning. They need the job to survive interruptions without redoing completed work. Which design should they adopt?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Log every tool call and its full result to stdout with timestamps, persist the log to disk, and after a crash replay the log through the coordinator so it can reconstruct where each agent had reached before continuing the run.",
+        "why": "Replaying raw tool calls reconstructs noise, not conclusions, and the coordinator would still have to reprocess hours of output to regain its state."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep all intermediate findings inside the coordinator's own context so a single conversation resume restores everything.",
+        "why": "This bloats the coordinator's context for six hours and ties recovery to in-memory conversation state, which is exactly what the crash destroyed."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Switch to a larger, faster model so the job finishes before the next maintenance window.",
+        "why": "Shortening the run does not make it resumable; any interruption still loses all progress."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Have each agent export structured state (completed modules, findings, open items) to a known location, keep a coordinator manifest, and on resume load the manifest and inject each agent's state into its prompt.",
+        "why": "Structured state exports plus a manifest give the coordinator a precise picture of what was finished and what remains, so the job resumes where it stopped instead of starting over."
+      }
+    ],
+    "explanation": "Crash recovery for long multi-agent jobs depends on structured, external state: each agent writes its progress to a known place, the coordinator records a manifest, and on resume the manifest is loaded and injected into agent prompts.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.4; Anthropic — How we built our multi-agent research system (resumable systems)"
+  },
+  {
+    "id": "ARF-D5-T4-006",
+    "domain": 5,
+    "skill": "codebase-context",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer is 85% of the way through the context window in a Claude Code session, mid-way through tracing a refund flow across 12 specific classes that Claude has identified by name. The next step is to run a test suite that prints about 3,000 lines, then continue the trace. Constraints: none of the 12 class names may be lost, the test output must not consume the main context, and the developer wants to stay in this session. Which sequence satisfies all three?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Run the tests in the main session, then `/compact` to summarise everything that has accumulated.",
+        "why": "The test output lands in the main context first, and compaction afterwards is where the specific class names are most at risk of being blurred into a summary."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`/clear`, run the tests in the fresh session, and re-derive the refund trace afterwards.",
+        "why": "This deliberately discards the 12 class names and the trace so far, violating the first constraint and the wish to stay in the session's work."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Write the 12 classes and current trace to a scratchpad file, delegate the test run to a subagent that returns only failures, then `/compact` with instructions to preserve the trace and scratchpad reference.",
+        "why": "The scratchpad makes the findings durable, the subagent keeps 3,000 lines of output in its own context, and a focused compaction frees room while telling Claude what must survive."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Rely on auto-compaction to trigger when the window fills, since it is designed to identify and keep architectural decisions and unresolved work while discarding redundant tool output such as test logs, so no manual step is needed.",
+        "why": "Auto-compaction without guidance may not prioritise the class names, and the test output would still be dumped into the main context before it fires."
+      }
+    ],
+    "explanation": "The three techniques compose: persist specific findings to a scratchpad before any compaction, isolate verbose operations in a subagent, and use `/compact` with focus instructions to reclaim context in the same session.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.4; Claude Code docs — Manage costs effectively; Claude Code docs — Subagents"
+  },
+  {
+    "id": "ARF-D5-T5-001",
+    "domain": 5,
+    "skill": "human-review",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "An extraction pipeline processes invoices, purchase orders and delivery notes into JSON. On a labelled test set it scores 97% field-level accuracy overall. The operations lead proposes removing human review for all documents on the strength of that number. What should the architect check first?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Whether the 97% holds at a lower temperature, which would make the extractions more reliable.",
+        "why": "Sampling settings do not address the question of where the 3% of errors fall; the risk is in the distribution of errors, not the randomness of generation."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Accuracy broken down by document type and by field, to confirm the aggregate is not hiding poor performance on one segment.",
+        "why": "An aggregate figure can hide, for example, 80% accuracy on delivery notes or on a single critical field such as total amount; automation decisions must be made per segment."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Whether the JSON schema validation passes for 100% of the outputs.",
+        "why": "Schema validity means the output is well formed, not that the values are correct; a wrong total in the right format passes validation."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Whether switching to a larger model raises the overall accuracy to 99% on the same labelled test set, since a higher headline figure would make the decision easier to defend.",
+        "why": "A higher aggregate still says nothing about per-segment performance and postpones the analysis that should gate the decision."
+      }
+    ],
+    "explanation": "Aggregate accuracy can mask poor performance on specific document types or fields. Validate accuracy by segment before reducing human review, because automation is applied per document type and per field, not on average.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.5"
+  },
+  {
+    "id": "ARF-D5-T5-002",
+    "domain": 5,
+    "skill": "human-review",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "The extraction model now outputs a confidence score for every field. The team plans to auto-accept any field with confidence at or above 0.8 and send the rest to reviewers, having chosen 0.8 because \"it sounds reasonable\". How should the threshold be set instead?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Ask the model in the system prompt to be conservative and only report 0.8 or higher when it is genuinely sure.",
+        "why": "This tries to fix calibration by instruction; it changes how scores are worded without measuring whether a given score corresponds to a given error rate."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Use the same 0.8 threshold for every field and document type, since the score is the model's own estimate.",
+        "why": "A raw model estimate is not automatically calibrated, and the error rate at a given score can differ substantially between fields and document types."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Set the threshold each day so that exactly the number of documents the reviewers can handle falls below it, adjusting it upward on quiet days and downward on busy ones.",
+        "why": "Capacity should drive prioritisation among items that need review, not define what counts as accurate; this can auto-accept fields with high error rates on busy days."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Calibrate on a labelled validation set: measure the actual error rate at each confidence level per field, then choose thresholds that meet the target error rate.",
+        "why": "Confidence scores only route review attention correctly once they have been checked against ground truth; calibration on labelled data turns an arbitrary number into a threshold with a known error rate."
+      }
+    ],
+    "explanation": "Field-level confidence scores are useful for routing review only after they are calibrated against a labelled validation set. Thresholds should be chosen from measured error rates, per field, not from intuition or reviewer capacity.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.5"
+  },
+  {
+    "id": "ARF-D5-T5-003",
+    "domain": 5,
+    "skill": "human-review",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "The extraction pipeline handles about 5,000 documents a day, but the review team can examine only 300. The architect must decide which extractions consume that limited reviewer capacity. Which two routing rules best prioritise it? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Route extractions where any critical field's calibrated confidence falls below its threshold.",
+        "why": "Calibrated low confidence is the model's most direct signal that a value is likely wrong, so it should claim reviewer attention first."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Route the 300 longest documents each day, since more pages means more chance of error.",
+        "why": "Length is a weak proxy; a long, clean document is less risky than a short one with an ambiguous total, and this rule ignores the model's own signals."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Route documents where the source itself is ambiguous or contradictory, for example two different totals or an illegible date, regardless of confidence.",
+        "why": "When the source is internally inconsistent there is no single correct extraction for the model to be confident about; a human has to decide."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Route documents from the highest-value customers first, whatever their extraction quality.",
+        "why": "Customer tier is a business priority, not an error signal; spending the whole budget on clean documents from big customers leaves real errors unreviewed."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Route only extractions the model marked with the highest confidence, since overconfident errors are the most damaging.",
+        "why": "High-confidence errors are monitored with a small stratified sample, not by spending the entire review budget on the outputs least likely to be wrong."
+      }
+    ],
+    "explanation": "Reviewer capacity should go to the items most likely to be wrong or undecidable: low calibrated confidence on important fields and ambiguous or contradictory source documents. Length, customer tier and high confidence are not error signals.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.5"
+  },
+  {
+    "id": "ARF-D5-T5-004",
+    "domain": 5,
+    "skill": "human-review",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "After calibration, the pipeline auto-accepts extractions with confidence at or above the per-field thresholds; these are now 88% of volume and are never seen by a human. Three months later a supplier changes its invoice layout and the model starts reading the tax line as the total, at high confidence. The error is discovered only when finance reconciles the quarter. What ongoing control would have caught this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Reviewing every low-confidence extraction more carefully.",
+        "why": "The failing extractions were high confidence; more scrutiny of the low-confidence stream cannot observe an error pattern that never enters it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Waiting for downstream complaints and treating them as the error signal for the auto-accepted stream.",
+        "why": "That is what happened, and it took a quarter; downstream detection is slow and only catches errors that someone notices."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Ongoing stratified random sampling of auto-accepted extractions across document types and suppliers, reviewed by humans to measure the high-confidence error rate and surface novel patterns.",
+        "why": "A stratified sample of the stream that is otherwise unobserved is the only way to measure its real error rate and to detect new failure modes such as a changed layout."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Running a second, independently prompted model over the auto-accepted extractions, flagging any field where the two disagree, and sending only the disagreements to human review, since two models are unlikely to make the same mistake.",
+        "why": "A second pass helps with some errors but does not measure the human-verified error rate, and both models can read a new layout the same wrong way; it is a supplement, not the control that measures drift."
+      }
+    ],
+    "explanation": "Once high-confidence extractions are automated, they must still be measured. Ongoing stratified random sampling of that stream detects calibration drift and novel error patterns that low-confidence routing can never see.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.5"
+  },
+  {
+    "id": "ARF-D5-T5-005",
+    "domain": 5,
+    "skill": "human-review",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "An extraction team currently reviews 100% of output by hand and wants to reduce that to about 20% within a quarter, without letting error rates on any document type rise. Which three steps must be in place before review is reduced? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Treat any output that passes JSON schema validation as verified and exempt it from review.",
+        "why": "Schema validation checks structure, not truth; a plausible but wrong value in the correct type passes every time."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Measure accuracy by document type and by field on labelled data to confirm performance is consistent across every segment.",
+        "why": "Reducing review is safe only where accuracy is known to be high; per-segment analysis finds the document types or fields that must keep full review."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Use the model's overall self-reported document confidence as the only gate, accepting anything scored 8/10 or higher.",
+        "why": "An uncalibrated, document-level score cannot tell which field is wrong and has no known relationship to the actual error rate."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Have the model output field-level confidence and calibrate the review thresholds against a labelled validation set.",
+        "why": "Field-level scores calibrated on ground truth are what make routing decisions trustworthy and let the 20% be spent where errors actually are."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Review only the first 20% of each day's batch, since errors are equally likely anywhere in the queue.",
+        "why": "This spends the review budget without regard to risk and provides no signal about the 80% that is never checked."
+      },
+      {
+        "id": "F",
+        "correct": true,
+        "text": "Set up ongoing stratified random sampling of the auto-accepted extractions to monitor their error rate after the change.",
+        "why": "Automation must be monitored; sampling the unreviewed stream detects drift and new error patterns that the calibration data did not contain."
+      }
+    ],
+    "explanation": "Safely reducing human review requires per-segment accuracy validation, calibrated field-level confidence thresholds, and continuing stratified sampling of what is auto-accepted. Schema validity and uncalibrated overall scores are not evidence of correctness.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.5"
+  },
+  {
+    "id": "ARF-D5-T5-006",
+    "domain": 5,
+    "skill": "human-review",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An extraction pipeline reports 97% aggregate accuracy and routes fields below calibrated confidence thresholds to review. Calibration was done last year on a validation set drawn from the three suppliers that then existed. A fourth supplier was onboarded in June with a very different invoice layout; the stratified sample for June shows 82% accuracy on that supplier's `total_amount` field, yet 95% of those wrong values carried confidence above the threshold. What is the underlying failure and the correct response?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Calibration does not transfer to a segment absent from the validation set; route the new supplier's documents to review until it has its own labelled set, then recalibrate thresholds per segment.",
+        "why": "Confidence-to-error relationships are only known for the data they were calibrated on. A new layout is a new segment with its own calibration, so it needs review until that calibration exists."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Raise the global confidence threshold to 0.95 so that fewer wrong values are auto-accepted.",
+        "why": "A global change floods review with correct extractions from the three well-calibrated suppliers while still not measuring the new supplier's actual calibration."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Trust the confidence scores, since they were calibrated on a labelled set and the aggregate accuracy is still 97%.",
+        "why": "Both facts are misleading here: the labelled set did not contain the new layout, and the aggregate is masking an 82% segment that the stratified sample exposed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add few-shot examples of the new supplier's invoices to the extraction prompt and keep the existing thresholds, since better accuracy on the new layout will bring the segment back in line with the other three suppliers.",
+        "why": "Examples may improve accuracy on the new layout, but nothing would verify that, and the miscalibrated confidence would continue to auto-accept whatever errors remain."
+      }
+    ],
+    "explanation": "Two facts combine: aggregate accuracy hides a per-segment failure that only stratified sampling revealed, and confidence calibration is only valid for the segments in the validation set. A new document type needs human review and its own calibration before its high-confidence extractions can be automated.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.5"
+  },
+  {
+    "id": "ARF-D5-T6-001",
+    "domain": 5,
+    "skill": "provenance",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A multi-agent research system produces reports whose claims cannot be traced back to a source. The web-search and document-analysis subagents each return a few paragraphs of prose findings; the synthesis agent merges them and writes the report. Where should the architect intervene first?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add \"cite your sources\" to the synthesis agent's prompt.",
+        "why": "The synthesis agent never received the sources in a usable form; it cannot cite what was lost upstream and may fabricate plausible-looking citations."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Run a final web search for each claim in the finished report and attach the highest-ranked page that supports it, so every statement carries a link before the report is delivered.",
+        "why": "Post-hoc searching finds a source that agrees, not the source the finding actually came from, and can attach a claim to a weaker or different document."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Have the synthesis agent include the raw subagent prose as an appendix.",
+        "why": "Appending prose does not map claims to sources; the reader still cannot tell which sentence came from where."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Require subagents to output structured claim-to-source mappings (claim, source URL or document name, excerpt) that synthesis must preserve and merge.",
+        "why": "Attribution is lost the moment findings are compressed into prose without a claim-source mapping; capturing it in structured form at the source and preserving it through synthesis is the only reliable way to keep it."
+      }
+    ],
+    "explanation": "Provenance must be captured where the finding is made and carried as structured data through every later step. Instructions to cite, post-hoc searches and appendices cannot recover attribution that was never recorded.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.6; Anthropic — How we built our multi-agent research system (citations)"
+  },
+  {
+    "id": "ARF-D5-T6-002",
+    "domain": 5,
+    "skill": "provenance",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Two credible sources found by the research system give different figures for a market's 2025 size: an analyst firm says $4.2B and an industry body says $5.1B, using different definitions of the market. The synthesis agent's draft states \"the market was $4.2B in 2025\" with no mention of the second figure. How should synthesis handle this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Present both figures, each attributed to its source with that source's definition and methodology noted, and flag the discrepancy explicitly.",
+        "why": "When credible sources conflict, the honest output is the annotated conflict; the reader, or a coordinator, can then decide which definition fits their question."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Report the average of the two figures, $4.65B, as the best estimate.",
+        "why": "Averaging numbers that measure different things produces a value no source supports and hides that a definitional difference exists."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Keep the figure from the source with the higher domain authority and drop the other, since a reader needs one number to act on and analyst firms are generally more reliable than industry bodies.",
+        "why": "Arbitrarily selecting one credible value discards information; authority does not settle a difference that stems from definitions."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Omit the market-size figure altogether because the sources disagree.",
+        "why": "The disagreement is itself a finding; dropping the data leaves the reader with less than the research produced."
+      }
+    ],
+    "explanation": "Conflicting statistics from credible sources should be annotated with their attribution and methodological context rather than resolved by averaging, authority or omission.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.6"
+  },
+  {
+    "id": "ARF-D5-T6-003",
+    "domain": 5,
+    "skill": "provenance",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "The synthesis agent flagged a \"contradiction\" because one source reports 34% adoption of a technology and another reports 41%. On inspection, the first figure came from a survey collected in 2022 and the second from a 2024 survey by the same organisation. The subagents' outputs contain only the figures and the source names. What change prevents this misreading?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Instruct the synthesis agent to treat the larger figure as the current one whenever two numbers from the same organisation differ, on the assumption that adoption only grows over time.",
+        "why": "This is a guess dressed as a rule; larger is not later, and it would misorder figures that genuinely conflict."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Have the synthesis agent discard the older-looking figure so the report contains a single number.",
+        "why": "Synthesis cannot tell which figure is older from the data it has, and the trend from 34% to 41% is itself useful information."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Require subagents to include the publication date and data-collection date of every figure in their structured output.",
+        "why": "With dates attached, the two figures read as a time series rather than a contradiction, and synthesis can present them as change over time."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Merge the two sources into one entry since they come from the same organisation.",
+        "why": "Merging erases the temporal distinction entirely and would attach one date, or none, to two different measurements."
+      }
+    ],
+    "explanation": "Temporal differences are misread as contradictions when dates are missing. Structured subagent outputs should carry publication and collection dates so synthesis can interpret figures correctly.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.6"
+  },
+  {
+    "id": "ARF-D5-T6-004",
+    "domain": 5,
+    "skill": "provenance",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Reviewers of a research system's reports raise two complaints: quarterly revenue comparisons, breaking news and technical benchmark results are all rendered as the same flat bullet list, and settled findings sit next to hotly disputed ones with the same tone, so readers cannot tell which claims are safe to act on. Which two changes to the synthesis stage address these? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add a disclaimer at the top of every report stating that some findings may be uncertain.",
+        "why": "A blanket disclaimer tells the reader nothing about which findings are uncertain, so it does not help them decide what to rely on."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Structure reports with explicit sections that separate well-established findings from contested ones, preserving each source's own characterisation and methodological context.",
+        "why": "Separating established from contested findings, with the original hedging and methods retained, gives readers the confidence signal they need without the synthesis agent overstating or flattening it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Have the synthesis agent pick the consensus value for each contested point and present only that.",
+        "why": "Manufacturing a consensus discards the disagreement and its provenance; contested findings should be shown as contested."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Render each content type in the form that suits it: financial comparisons as tables, news as prose, technical findings as structured lists.",
+        "why": "Different content types carry information differently; a uniform bullet format loses the structure that makes financial data comparable and technical results scannable."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Convert every finding into a uniform sentence template so the report has a consistent style.",
+        "why": "This is the complaint, not the cure: forcing all content into one format strips comparability from numbers and nuance from contested claims."
+      }
+    ],
+    "explanation": "Good synthesis preserves signal about certainty and content type: separate well-established from contested findings while keeping source characterisations, and render financial, news and technical content in the formats that suit them.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.6"
+  },
+  {
+    "id": "ARF-D5-T6-005",
+    "domain": 5,
+    "skill": "provenance",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "The document-analysis subagent processes a batch of regulatory filings. When two filings state different values for the same metric it currently stops and returns an error asking which one to use, which stalls the pipeline; a proposed patch has it silently keep the first value it read. Which behaviour should the architect specify instead?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Keep the stop-and-ask behaviour, since a human should resolve every conflict before analysis continues, and add a queue so the blocked run waits for the reviewer's answer rather than failing.",
+        "why": "Halting the whole analysis on each discrepancy blocks unrelated work and turns a routine data condition into a pipeline outage."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Complete the analysis with both values included and annotated with their sources and context, and let the coordinator decide how to reconcile them before synthesis.",
+        "why": "The analysis agent has the evidence but not the authority to reconcile; finishing its job with the conflict preserved gives the coordinator what it needs to decide without stalling the run."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Adopt the patch: keep the first value read and continue, since filings are usually consistent.",
+        "why": "Silently choosing a value hides the conflict from every downstream stage and can put an incorrect figure into a cited report."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Report the conflict as a fetch failure so the coordinator retries the documents.",
+        "why": "This mislabels a data condition as an access error; retrying the fetch returns the same two values and wastes budget."
+      }
+    ],
+    "explanation": "When sources within an analysis conflict, the analysis agent should finish its work with both values annotated and hand the reconciliation decision to the coordinator, rather than blocking the pipeline or silently picking one.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.6"
+  },
+  {
+    "id": "ARF-D5-T6-006",
+    "domain": 5,
+    "skill": "provenance",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "To fit within the synthesis agent's budget, the coordinator condenses the five subagents' outputs (about 40,000 tokens with full claim-source mappings) into a 2,000-token summary before synthesis. Reports now attribute statistics to the wrong sources, and the citation pass that runs on the finished report cannot locate the passages it is supposed to cite. The synthesis budget cannot be raised. What is the root cause and the fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The synthesis prompt lacks a citation instruction; add \"attribute every statistic to its source\" and keep the pipeline unchanged.",
+        "why": "The synthesis agent only sees the 2,000-token summary; if the mappings were dropped there, no instruction can restore which source a statistic came from."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Skip the coordinator's condensation and pass all 40,000 tokens to synthesis.",
+        "why": "This violates the stated budget constraint and would reintroduce lost-in-the-middle problems on top of it."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Attribution is lost in the condensation step; store full subagent outputs externally, carry compact claim-source references (source id, excerpt locator) for every claim in the summary, and run the citation pass against the stored originals.",
+        "why": "Compression without preserving claim-source mappings is the classic point where provenance disappears. Keeping the mappings as lightweight references in the summary, with the originals in external storage, keeps the summary small and the citations exact."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Have the citation pass re-search the web for each statistic in the finished report and cite the best-matching page it finds, so every number carries a verifiable link even when the summary lost the original mapping and no additional context budget is needed.",
+        "why": "Re-searching cites whatever agrees with the number, not the document the finding came from, so the report's provenance becomes a fabrication even when it looks well cited."
+      }
+    ],
+    "explanation": "Two facts combine: summarisation loses attribution unless claim-source mappings are explicitly preserved, and a context budget can be respected by keeping full outputs in external storage while passing lightweight references. The citation pass then works from the originals, not from a search for something that agrees.",
+    "reference": "CCAR-F Exam Guide — Task Statement 5.6; Anthropic — How we built our multi-agent research system (external memory, citation agent)"
+  }
+]

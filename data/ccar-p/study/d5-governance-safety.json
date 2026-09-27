@@ -1,0 +1,124 @@
+{
+  "guardrails": {
+    "summary": "Design layered, mostly deterministic guardrails for a Claude system: screen inputs, bound the system prompt, handle untrusted content structurally, validate outputs in code, and enforce least privilege on tools so that no single probabilistic control is load-bearing.",
+    "points": [
+      "Two threat models: in jailbreaks and direct prompt injection the user is the adversary; in indirect prompt injection the user is trusted but third-party content (emails, web pages, OCR text, tool results) carries the attack. Different mitigations apply to each.",
+      "Against jailbreaks: a harmlessness screen (a lightweight model such as a Haiku-tier classifier, constrained with structured outputs to a boolean), input validation, a system prompt that states boundaries and how to refuse, and throttling or banning repeat offenders.",
+      "Against indirect injection: put untrusted content only inside `tool_result` blocks, label what it is and where it came from, JSON-encode it so it cannot break out of its delimiters, state in the system prompt that tool content is data, and screen tool outputs with a small classifier before Claude acts on them.",
+      "Do not place your own instructions inside tool results; Claude treats that content skeptically. Send follow-up instructions in a user turn instead.",
+      "Least privilege is the strongest guardrail: an agent that reads untrusted content should not also hold secrets or an unconstrained high-impact action. Remove capabilities the role does not need rather than logging or guarding them (CCAR-P sample 1).",
+      "Output validation belongs in code: constrain output shape with structured outputs, validate machine-checkable facts (approved product lists, IDs, amounts) against a source of truth, and use a cheap classifier only for the fuzzy parts. Self-certification tokens and majority voting are not guarantees.",
+      "Agent SDK enforcement order: hooks, deny rules, ask rules, permission mode, allow rules, then `canUseTool`. A `PreToolUse` hook deny and scoped deny rules apply even in `bypassPermissions`; `allowedTools` does not constrain that mode and auto-approved calls never reach `canUseTool`.",
+      "Prompt leak: try monitoring and post-processing first (output screening, regex or an LLM filter), remove details the model does not need (move endpoints and secrets behind tools), and add leak-resistant wording only when necessary because it can degrade task quality.",
+      "Keeping Claude in character: define the role in the system prompt with detail, list expected scenarios and canned responses for edge cases, and use retrieval for a fixed knowledge set. Prefill is not available on newer models; use structured outputs or system instructions.",
+      "Content moderation with Claude: define categories with explicit definitions, return structured JSON (violation, categories, explanation, or a risk level), batch when latency allows, track precision and recall, and iterate the policy text as needs change. Built-in safety behaviour may refuse some content regardless of prompt.",
+      "Classic distractors: capital-letter MUST instructions as the only control, regex blocklists as the sole input filter, switching to a bigger model, lowering temperature, keyword stripping, encoding data instead of removing it, and after-the-fact log review presented as prevention.",
+      "Red-team before launch with documents, emails and tool outputs that contain injection attempts, then monitor outputs continuously and feed findings back into prompts, validation and filters."
+    ],
+    "docs": [
+      { "title": "Mitigate jailbreaks and prompt injections", "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks" },
+      { "title": "Reduce prompt leak", "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-prompt-leak" },
+      { "title": "Increase output consistency (keep Claude in character)", "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/increase-consistency" },
+      { "title": "Content moderation with Claude", "url": "https://platform.claude.com/docs/en/about-claude/use-case-guides/content-moderation" },
+      { "title": "Agent SDK — Configure permissions", "url": "https://code.claude.com/docs/en/agent-sdk/permissions" },
+      { "title": "Agent SDK — Intercept and control agent behavior with hooks", "url": "https://code.claude.com/docs/en/agent-sdk/hooks" }
+    ]
+  },
+  "risks-failure-modes": {
+    "summary": "Recognise the characteristic ways LLM systems fail (hallucination, injection through tool results, over-reliance, compounding errors in loops, non-determinism, silent drift after model or data changes) and pick mitigations that address the mechanism rather than the symptom.",
+    "points": [
+      "Hallucination: reduce it by allowing \"I don't know\", grounding in direct quotes from long documents, requiring citations and retracting uncited claims, restricting the model to provided knowledge, and using chain-of-thought or best-of-N comparison to reveal inconsistencies. These reduce but never eliminate hallucination; validate critical information.",
+      "Confident-but-wrong answers that start right after a document refresh, with model and latency unchanged, point to the retrieval or indexing layer, not the model (CCAR-P sample 3).",
+      "Compounding errors: in an N-step agent loop per-step error multiplies (twelve steps at 95% gives about 54% end to end). Mitigate with programmatic validation between steps, checkpoints, short loops, and turn limits; more steps or a bigger model do not change the arithmetic.",
+      "Non-determinism: outputs vary run to run even at low temperature. Test with labelled evaluation sets and statistical pass thresholds, assert on structured fields rather than prose, and never rely on single-sample exact-match tests, retries until green, or cached fixtures.",
+      "Silent drift: model upgrades, prompt edits, retrieval changes and data refreshes change behaviour without errors. Pin versions, gate every change behind a regression eval, and monitor quality metrics; error rate and latency dashboards stay flat during a quality regression.",
+      "Over-reliance (automation bias): when reviewers approve almost everything in seconds the human check has stopped working. Require active verification on a stratified sample plus all low-confidence or high-value items and track override rate as a health metric.",
+      "Prompt injection via tool results and retrieved content is a failure mode of the architecture, not of the model alone; contain it with least privilege and gated actions so a fooled model cannot cause irreversible harm.",
+      "Irreversible actions (payments, deletions, outbound messages) must be gated by deterministic checks such as resolving entities to canonical IDs and validating against a system of record before the action executes.",
+      "Sampling parameters are not safety controls: temperature affects repeatability, not groundedness or resistance to manipulation.",
+      "Model self-reported confidence is not calibrated; do not use it as the sole trigger for escalation or as a substitute for evaluation.",
+      "Treat model and data changes like code deploys: change-triggered evaluation, canaries and rollback plans, with the eval suite covering the segments that matter to the business.",
+      "Common distractors: switch to a larger model, lower temperature, ask the model to be careful, add more context, or retry; each fails to address the underlying mechanism."
+    ],
+    "docs": [
+      { "title": "Reduce hallucinations", "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations" },
+      { "title": "Increase output consistency", "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/increase-consistency" },
+      { "title": "Structured outputs", "url": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs" },
+      { "title": "Develop test cases", "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests" },
+      { "title": "Building effective agents", "url": "https://www.anthropic.com/engineering/building-effective-agents" }
+    ]
+  },
+  "human-in-the-loop": {
+    "summary": "Place human review where risk and uncertainty justify it: approval gates before irreversible or high-impact actions, stratified sampling for volume work, explicit escalation triggers with context handoff, and audit trails that make decisions reconstructable.",
+    "points": [
+      "Calibrate by risk: irreversible or high-value actions get an approval gate before execution; reversible, low-value or already-reviewed steps run automatically with logging and sampling. Approving everything adds delay without reducing risk.",
+      "Anthropic's Usage Policy requires, for high-risk uses affecting individuals (legal, healthcare, insurance underwriting and coverage, credit and lending, employment, housing, academic testing), that a qualified professional review the decision before it is finalized, and that users are told AI is involved. The requirement follows the type of decision, not its dollar value.",
+      "Sampling review: use stratified random samples across the segments that matter (customer, document layout, language, confidence band) and report error rate per stratum; review 100% of low-confidence and high-value items. Convenience samples, complaint-driven review and model self-flagging leave blind spots.",
+      "Escalation triggers should be explicit and testable: request outside policy scope, failed or conflicting tool results, ambiguity, explicit request for a person, actions above a threshold. Sentiment, self-reported confidence and turn count are weak proxies.",
+      "Handoffs must carry context: a structured summary of the conversation, actions already taken and their results, so the human does not start from zero.",
+      "Audit trails capture what was true at decision time: prompt and model versions, retrieved evidence, tool calls, the recommendation with its stated factors, the human decision and who made it. Re-running a later model on appeal does not reconstruct the original decision.",
+      "Agent SDK mechanics: `canUseTool` prompts a human only for calls no earlier step resolved; allow rules and permissive modes auto-approve before it. A `PreToolUse` hook can return `ask` (or `deny`/`defer`) to force a decision on the risky subset, and `PostToolUse` hooks give an audit log of every executed call.",
+      "Permission modes: `default` prompts through the callback; `acceptEdits` auto-approves file operations; `plan` never auto-approves edits; `dontAsk` denies instead of prompting; `bypassPermissions` approves everything except deny rules, ask rules and hook denies. Subagents inherit the parent's mode.",
+      "Watch the override rate: a review step where humans accept 99% of outputs in seconds has become rubber-stamping; redesign the review, do not just raise model accuracy.",
+      "Contestability complements but does not replace prior review: an appeal path is necessary for decisions affecting people, but auto-deciding and letting people appeal is not human-in-the-loop.",
+      "Design review capacity as a constraint: route by risk (denials, low confidence, high value) to 100% review and sample the rest so total effort stays within budget while coverage is where harm concentrates."
+    ],
+    "docs": [
+      { "title": "Agent SDK — Handle approvals and user input", "url": "https://code.claude.com/docs/en/agent-sdk/user-input" },
+      { "title": "Agent SDK — Intercept and control agent behavior with hooks", "url": "https://code.claude.com/docs/en/agent-sdk/hooks" },
+      { "title": "Agent SDK — Configure permissions", "url": "https://code.claude.com/docs/en/agent-sdk/permissions" },
+      { "title": "Anthropic Usage Policy", "url": "https://www.anthropic.com/legal/aup" },
+      { "title": "Building effective agents", "url": "https://www.anthropic.com/engineering/building-effective-agents" }
+    ]
+  },
+  "compliance": {
+    "summary": "Build compliance into the architecture: minimise and pseudonymise data before it reaches the model, choose the deployment path and contractual instruments (BAA, DPA, ZDR, regional endpoints, FedRAMP-authorized platforms) that match the regulation, and design your own stores for retention limits and erasure.",
+    "points": [
+      "Data minimisation first: send only the fields the task needs, redact or tokenize identifiers before the API call, keep the re-identification mapping in-house, and keep raw PII out of your logs. Output instructions, Base64 encoding and retention agreements do not minimise what is processed.",
+      "Anthropic's commercial terms incorporate a Data Processing Addendum with Standard Contractual Clauses; accepting the terms accepts the DPA. Access through a cloud platform (Bedrock, Google Cloud) is governed by that platform's terms and the cloud provider is the data processor.",
+      "GDPR by design: maintain a record of processing, set retention limits, and make erasure possible in every store you control (conversation logs, vector indexes, eval datasets). Hashing or pseudonymising identifiers does not anonymise data; the provider's deletion window is not your erasure tooling.",
+      "Commercial API retention: inputs and outputs are deleted from Anthropic's backend within a default window (30 days) unless otherwise agreed; content flagged for trust and safety and legal holds are retained longer. API data is not used for training by default.",
+      "Zero data retention (ZDR) is enabled per organisation on request and covers eligible features of the Messages and Token Counting APIs; it does not cover features that must store data (Message Batches, Files API, Managed Agents sessions, Console usage) or consumer plans. Retention can be turned on per workspace in a ZDR organisation for those features.",
+      "HIPAA: PHI requires a signed Business Associate Agreement and a HIPAA-enabled organisation; use only BAA-eligible features (Messages API yes; Batch, Files and computer use excluded at the time of writing), and keep PHI out of third-party integrations. Some newer \"covered\" models require 30-day retention and are not available under ZDR unless authorised.",
+      "Anthropic's published credentials include SOC 2 Type I and Type II, ISO 27001, ISO/IEC 42001 and a HIPAA-ready configuration with BAA; reports are requested through the Trust Center. Do not treat a SOC 2 report as equivalent to a regulatory authorization.",
+      "FedRAMP: authorization attaches to a cloud service boundary. US government workloads reach Claude through FedRAMP-authorized cloud platforms (for example Amazon Bedrock, which is listed at Moderate in commercial regions and High in GovCloud); `inference_geo`, SOC 2 and ZDR are not FedRAMP authorizations.",
+      "Data residency has two parts: where inference runs and where data rests. The first-party API's `inference_geo` offers `\"us\"` or `\"global\"` (US-only at a pricing premium) with workspace-level defaults and allowlists; EU or other regional pinning uses regional endpoints on Bedrock or Google Cloud, also at a premium. Your own stores must be placed in region separately.",
+      "Enterprise plans support custom retention periods (minimum 30 days) set by an owner; features built on Claude Code on the web and some others are outside those controls.",
+      "Cloud platforms recommend logging activity on a rolling basis for misuse investigation; enabling those logs does not give the cloud provider or Anthropic access to your content.",
+      "Common distractors: \"not used for training\" presented as HIPAA or GDPR compliance, consumer accounts for regulated data, name-only redaction as de-identification, DPA or SCCs presented as data residency, and ZDR presented as covering every endpoint."
+    ],
+    "docs": [
+      { "title": "API and data retention (ZDR and HIPAA readiness)", "url": "https://platform.claude.com/docs/en/manage-claude/api-and-data-retention" },
+      { "title": "Data residency", "url": "https://platform.claude.com/docs/en/manage-claude/data-residency" },
+      { "title": "How long do you store personal data? (commercial)", "url": "https://privacy.claude.com/en/articles/7996866-how-long-do-you-store-personal-data" },
+      { "title": "Business Associate Agreements (BAA) for commercial customers", "url": "https://support.claude.com/en/articles/8114513-business-associate-agreements-baa-for-commercial-customers" },
+      { "title": "How do I view and sign your Data Processing Addendum (DPA)?", "url": "https://support.claude.com/en/articles/7996862-how-do-i-view-and-sign-your-data-processing-addendum-dpa" },
+      { "title": "What certifications has Anthropic obtained?", "url": "https://support.claude.com/en/articles/10015870-what-certifications-has-anthropic-obtained" },
+      { "title": "Claude on Amazon Bedrock (global vs regional endpoints)", "url": "https://platform.claude.com/docs/en/build-with-claude/claude-on-amazon-bedrock" },
+      { "title": "AWS FedRAMP services in scope", "url": "https://aws.amazon.com/compliance/services-in-scope/FedRAMP/" }
+    ]
+  },
+  "ethics": {
+    "summary": "Address bias, fairness, transparency, explainability and contestability as design requirements: measure outcomes per segment, remove proxies for protected characteristics, disclose AI involvement, produce auditable reasons, and keep qualified humans accountable for decisions about people.",
+    "points": [
+      "Bias testing means disaggregated evaluation: compare selection rates, error rates, precision and recall across segments (gender, age, ethnicity where lawful, language or dialect, region). Aggregate accuracy can hide systematic disadvantage for a subgroup.",
+      "Look for proxies: names, postcodes, schools, photos, employment gaps and dialect can carry protected-characteristic signal even when the characteristic itself is absent. Removing one proxy (names) does not make a system fair.",
+      "An instruction such as \"be fair\" or \"do not discriminate\" is not a control and not a measurement; fairness is demonstrated with outcome data after the change.",
+      "Uniform thresholds on unequal error distributions preserve disparities; close gaps by measuring per group and tuning prompts, examples or thresholds until group error rates converge, then keep monitoring.",
+      "Transparency: Anthropic's Usage Policy requires telling end users that AI is used to help produce advice, decisions or recommendations, at minimum at the start of each session. Human-like personas without disclosure, or disclosure buried in terms of service, are not sufficient.",
+      "High-risk domains (employment, credit, insurance, housing, healthcare, legal, academic testing) require a qualified professional to review the decision before it is finalized; AI should prepare, summarise and recommend, not decide.",
+      "Explainability: reasons must reflect the inputs actually used and be captured at decision time in structured form (factors referencing verifiable data). A post-hoc \"explain your decision\" call is a rationalisation; a bare score is not a reason.",
+      "Contestability: provide a route for people to challenge decisions that goes to a human, with the audit record available; explanations attached to content-moderation decisions and appeal paths are recommended practice.",
+      "Adverse actions (pausing benefits, removing content, declining credit) should not trigger automatically from an AI flag when the flag rate is unequal across groups; route to a human investigator and measure the effect of any change per segment.",
+      "Fairness across languages and user groups is a launch criterion: gate release on per-language or per-segment evaluations meeting the same threshold rather than shipping the best-served group first.",
+      "Consent screens, disclaimers and footers do not transfer responsibility away from the deployer or remove the need for human review, equal quality and explainability.",
+      "Document limitations and intended use so stakeholders and reviewers understand where the system should not be relied upon."
+    ],
+    "docs": [
+      { "title": "Anthropic Usage Policy (high-risk use case requirements)", "url": "https://www.anthropic.com/legal/aup" },
+      { "title": "Content moderation with Claude", "url": "https://platform.claude.com/docs/en/about-claude/use-case-guides/content-moderation" },
+      { "title": "Define your success criteria", "url": "https://platform.claude.com/docs/en/test-and-evaluate/define-success" },
+      { "title": "Reduce hallucinations (grounding and citations)", "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations" }
+    ]
+  }
+}

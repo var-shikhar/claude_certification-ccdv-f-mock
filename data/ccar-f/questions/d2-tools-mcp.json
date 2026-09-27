@@ -1,0 +1,1184 @@
+[
+  {
+    "id": "ARF-D2-T1-001",
+    "domain": 2,
+    "skill": "tool-interfaces",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "In a multi-agent research system, the web-search subagent has two tools: `analyze_content` (\"Analyzes content and returns key points\") and `analyze_document` (\"Analyzes a document and returns key points\"). Logs show the subagent sends fetched web pages to `analyze_document` about a third of the time, which expects an uploaded PDF and fails. What is the most effective first fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add a system prompt rule stating that web pages must always be passed to `analyze_content`.",
+        "why": "A prompt rule is a probabilistic patch layered on top of two descriptions that still say the same thing; the underlying ambiguity remains for every future prompt change."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Rename `analyze_content` to `extract_web_results` with a web-specific description, leaving `analyze_document` for uploaded files.",
+        "why": "Tool descriptions are the primary mechanism the model uses to choose a tool. Two near-identical descriptions cause misrouting; a name and description that state the input type and boundary remove the overlap at its source."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Merge both tools into a single `analyze` tool that inspects its input and decides internally whether it is a web page or a document.",
+        "why": "Collapsing two different backends into one tool hides a real distinction (web HTML versus uploaded files) inside the tool and moves the routing problem into your server code."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Switch the subagent to a larger model that can infer the difference from the tool names.",
+        "why": "A larger model still sees two descriptions that are functionally identical; there is no information to infer from. Model size is not a fix for an ambiguous interface."
+      }
+    ],
+    "explanation": "When two tools have overlapping descriptions the model has no basis for choosing between them. The exam guide's remedy is to rename the tool and rewrite the description to state what input it takes and when to use it versus its sibling, which is exactly the analyze_content to extract_web_results example.",
+    "reference": "Claude API docs — Define tools (best practices for tool definitions); CCAR-F exam guide task 2.1"
+  },
+  {
+    "id": "ARF-D2-T1-002",
+    "domain": 2,
+    "skill": "tool-interfaces",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A customer support agent has a `verify_account` tool whose description clearly says it triggers a step-up identity check and should be used only before password resets or account-ownership changes. After a system prompt update that added \"Always verify the customer's account before answering,\" the agent now calls `verify_account` on nearly every ticket, including simple order-status questions, which annoys customers with verification codes. The description was not changed. What is the most likely cause and fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The `verify_account` description is too short to be reliable; expand it with input formats, example queries and an explicit list of the ticket types it applies to.",
+        "why": "The stem says the description already states the tool's purpose and boundaries clearly and was unchanged when the behaviour changed, so the description is not the variable that moved."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The tool is listed first in the `tools` array, so the model favours it; move it to the end of the list.",
+        "why": "Tool order is not a documented selection mechanism, and nothing about the order changed between the good and bad behaviour."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Temperature is too high; set it to 0 so the model stops making random tool choices.",
+        "why": "The behaviour is systematic, not random: the agent consistently calls the tool after the prompt change. Sampling temperature does not explain a consistent shift."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "The prompt phrase \"verify the customer's account\" created a keyword match with `verify_account`; reword it to name the intended tool, e.g. `get_customer`.",
+        "why": "System prompt wording can override a well-written description when its keywords match a tool name. Reviewing the prompt for keyword-sensitive instructions and naming the intended behaviour precisely removes the unintended association."
+      }
+    ],
+    "explanation": "Tool selection is influenced by both the tool descriptions and the system prompt. An instruction that reuses a tool's name as an ordinary verb (\"verify the account\") can create an association the description never intended. When behaviour changes right after a prompt edit, review the prompt for keyword-sensitive wording rather than rewriting descriptions that were already working.",
+    "reference": "CCAR-F exam guide task 2.1 (impact of system prompt wording on tool selection)"
+  },
+  {
+    "id": "ARF-D2-T1-003",
+    "domain": 2,
+    "skill": "tool-interfaces",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A support agent has `process_refund` (\"Processes a refund\") and `issue_store_credit` (\"Issues store credit\"). In 15% of billing cases it uses the wrong one, for example issuing store credit when a customer returned an item and wanted their card refunded. The team is rewriting the `process_refund` description. Which two additions would most improve selection between the two tools? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "State the expected inputs with examples (an `order_id` such as `ORD-48213377`, an amount in the order's currency) and that the money goes back to the original payment method, not to a store balance.",
+        "why": "Input formats, example values and a clear statement of what the tool does and does not do give the model concrete criteria to match a request against."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Cut the description to one sentence so it costs fewer tokens on every request.",
+        "why": "Minimal descriptions are the cause of unreliable selection between similar tools; the guidance is to make descriptions more detailed, not shorter."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Add a boundary sentence: \"Use this when a returned or cancelled order is being refunded. For goodwill compensation with no returned order, use `issue_store_credit` instead.\"",
+        "why": "Explaining when to use the tool versus the similar alternative is exactly the differentiation the model needs when two tools look alike."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Prefix the description with \"IMPORTANT: prefer this tool for all money-related requests.\"",
+        "why": "An imperative preference statement would push refunds onto goodwill cases too; it biases selection instead of clarifying the boundary between the two tools."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Delete the description from `issue_store_credit` so the agent stops considering it.",
+        "why": "Removing information makes the second tool even more ambiguous; the model still sees the tool and now has less to go on when deciding."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Repeat the routing rule in every user turn instead of in the tool definition.",
+        "why": "Per-turn repetition adds tokens and drift risk while leaving the tool definitions ambiguous; the description is the durable place for selection criteria."
+      }
+    ],
+    "explanation": "A good tool description explains what the tool does, the inputs it expects (with examples), its outputs and side effects, and when to use it versus similar tools. Boundary statements that name the sibling tool are the most direct way to separate two overlapping tools.",
+    "reference": "Claude API docs — Define tools (best practices); Anthropic — Writing tools for agents"
+  },
+  {
+    "id": "ARF-D2-T1-004",
+    "domain": 2,
+    "skill": "tool-interfaces",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "The document-analysis subagent in a research system exposes one tool, `analyze_document(document_id, instruction: string)`, where `instruction` is free text such as \"pull out the statistics\" or \"check whether it supports claim X.\" The synthesis subagent must parse the results, but they vary from bullet lists to paragraphs, and in 20% of runs the tool summarises when a claim check was requested. Results also must be machine-parseable so the synthesis agent can attach source attribution to each claim. Which redesign best meets these needs?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Split it into `extract_data_points`, `summarize_content` and `verify_claim_against_source`, each with a defined input schema and a fixed output contract.",
+        "why": "Purpose-specific tools with defined input and output contracts remove the free-text interpretation step, so the model picks the operation by description and the synthesis agent always receives a known shape."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep the single tool and add an `output_format` free-text parameter the caller fills in.",
+        "why": "Another free-text field adds a second thing to interpret; it does not give the synthesis agent a fixed contract or stop the tool from summarising when verification was asked for."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Keep the single tool and add several example instructions to its description showing each style of request.",
+        "why": "Examples improve how the instruction is phrased, but a single generic tool still returns whatever shape the server decides; the parseability requirement is not met."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Have the coordinator run a second model call that normalises each analysis result into JSON before passing it on.",
+        "why": "Post-processing adds latency and cost to compensate for an ambiguous interface, and it cannot recover a claim check that was never performed."
+      }
+    ],
+    "explanation": "Generic tools with free-text instructions produce inconsistent behaviour and unstructured output. The exam guide's pattern is to split a generic analyze_document into purpose-specific tools (extract_data_points, summarize_content, verify_claim_against_source) with defined input and output contracts, which fixes both selection and downstream parsing.",
+    "reference": "CCAR-F exam guide task 2.1 (splitting generic tools); Anthropic — Writing tools for agents"
+  },
+  {
+    "id": "ARF-D2-T1-005",
+    "domain": 2,
+    "skill": "tool-interfaces",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A support agent has `lookup_order(order_id)` and `search_orders(customer_id, date_range)`, both with solid descriptions of what they return. When a verified customer says \"where is my package?\" without giving an order number, the agent calls `lookup_order` with a fabricated ID such as `ORD-00000001` in about 8% of such cases and then tells the customer the order does not exist. The team wants to stop the wrong call before it is made, without adding a round trip. What should they change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Set `strict: true` on `lookup_order` so the API validates the `order_id` argument against the schema and rejects non-conforming calls before they reach your server.",
+        "why": "Strict tool use guarantees the input matches the JSON schema's types and required fields; a well-formed but invented ID passes schema validation, so this does not prevent the call."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Return a validation error with `isRetryable: false` from `lookup_order` whenever the ID is not found.",
+        "why": "A structured error is good practice but it acts after the wrong call has been made and costs the round trip the team wants to avoid."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Add edge-case guidance to the `lookup_order` description: it needs an ID the customer gave, and without one the agent should use `search_orders`.",
+        "why": "Descriptions should cover edge cases and boundaries, including what to do when the required input is missing. Naming the alternative tool for that case steers selection before any call is made."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Force `search_orders` with `tool_choice` on every turn so the agent can never call `lookup_order` first.",
+        "why": "Forcing one tool on every turn breaks the 92% of conversations where the customer supplies an order number and also stops the agent from replying with text."
+      }
+    ],
+    "explanation": "The model fills in a required parameter it does not have because nothing told it what to do in that case. Edge-case and boundary text in the description (\"if the customer has not given an order ID, use search_orders instead\") is the low-cost, pre-call fix; schema strictness and error responses only catch the problem after the fact.",
+    "reference": "Claude API docs — Define tools; Strict tool use; CCAR-F exam guide task 2.1"
+  },
+  {
+    "id": "ARF-D2-T1-006",
+    "domain": 2,
+    "skill": "tool-interfaces",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A research system's document-analysis subagent has `extract_data_points` (for tables and numeric figures) and `summarize_content` (for narrative sources), each with detailed descriptions including when not to use it. It keeps calling `extract_data_points` on narrative essays, producing empty results. An evaluation shows routing is 96% correct when the subagent runs with no system prompt and 68% with the production prompt, which contains \"Extract the key facts from every source before writing.\" Both tool names appear in three other subagents' prompts and in the evaluation fixtures. What is the best change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Rename `extract_data_points` to `pull_numeric_values` and update the three other subagent prompts and the evaluation fixtures so the word \"extract\" no longer matches a tool name.",
+        "why": "Renaming a correctly named tool to dodge a prompt sentence inverts the fix, and the stem says the name is referenced by three other prompts and the eval fixtures, so it forces changes everywhere."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Reword the prompt sentence to state the routing without the tool-name keyword: narrative sources go to `summarize_content`, tables and figures to `extract_data_points`.",
+        "why": "The A/B evidence isolates the system prompt as the cause. Rewriting the keyword-sensitive sentence to state the intended routing restores the descriptions' authority and touches nothing else."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add a \"do not use on narrative prose\" boundary to the `extract_data_points` description.",
+        "why": "The description already includes when not to use the tool, and the evaluation shows the descriptions route correctly on their own; the override is coming from the prompt."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Force `summarize_content` first with `tool_choice` and let the agent extract afterwards.",
+        "why": "Forcing a summary for every source, including tables, wastes calls and does not address the prompt wording that is causing the misrouting."
+      }
+    ],
+    "explanation": "Two facts combine here: the descriptions are demonstrably adequate (96% without the prompt), and the prompt contains a keyword (\"extract\") that maps onto a tool name. The exam guide's skill is reviewing system prompts for keyword-sensitive instructions that override well-written descriptions; renaming a widely referenced tool is the costlier, backwards fix.",
+    "reference": "CCAR-F exam guide task 2.1 (reviewing system prompts for keyword-sensitive instructions)"
+  },
+  {
+    "id": "ARF-D2-T2-001",
+    "domain": 2,
+    "skill": "mcp-errors",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A support agent's `process_refund` MCP tool calls a payment gateway. When the gateway times out, the server currently returns the text \"Operation failed\" with no other information, and the agent gives up or retries unpredictably. Following the MCP tool error pattern, what should the tool return in this case?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A result with `isError: true` and structured content: `errorCategory: \"transient\"`, `isRetryable: true`, plus a readable message.",
+        "why": "Tool execution failures are reported inside the result with the isError flag so the model can see them, and structured metadata (category, retryability, message) lets the agent choose the right recovery."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A JSON-RPC protocol error with a descriptive code so the client treats the request itself as failed and passes nothing back to the model.",
+        "why": "Protocol errors are for problems like unknown tools or malformed requests; an API failure during execution is a tool execution error and belongs in the result with isError set."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A normal result with `isError: false` and empty content, so the agent moves on quietly.",
+        "why": "Marking a failure as success hides the problem; the agent may tell the customer the refund went through when it did not."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Let the exception crash the tool handler so the server restarts and the call is dropped.",
+        "why": "Crashing gives the agent no information at all and may drop unrelated in-flight calls; the failure should be communicated, not thrown away."
+      }
+    ],
+    "explanation": "MCP distinguishes protocol errors (JSON-RPC errors for unknown tools or invalid requests) from tool execution errors, which are returned in the result with isError: true so the model can reason about them. Adding an error category, an isRetryable flag and a human-readable description turns a generic failure into something the agent can act on.",
+    "reference": "MCP specification — Tools (error handling); CCAR-F exam guide task 2.2"
+  },
+  {
+    "id": "ARF-D2-T2-002",
+    "domain": 2,
+    "skill": "mcp-errors",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Company policy allows refunds only within 30 days of delivery. When a customer asks for a refund on an order delivered 45 days ago, the `process_refund` MCP tool returns `isError: true` with the message \"Operation failed,\" and logs show the agent retrying the same call three times before telling the customer \"something went wrong.\" Which response should the tool return instead?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`isError: true`, `errorCategory: \"transient\"`, `isRetryable: true`, message \"Refund rejected, please try again later,\" so the agent waits and reattempts once the system is less busy.",
+        "why": "A policy violation is not transient; marking it retryable is what causes the wasted retries, and the message gives the customer nothing useful."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`isError: false` with content \"Refund not processed\" so the agent does not treat it as a failure.",
+        "why": "Reporting a refused refund as a successful call hides the failure from the agent's recovery logic and risks the agent telling the customer the refund succeeded."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`isError: true`, `errorCategory: \"business\"`, `isRetryable: false`, and a customer-friendly message explaining the 30-day window and the alternatives available.",
+        "why": "A business-rule violation is non-retryable by definition. The retriable-false flag stops repeated attempts, and the explanation lets the agent tell the customer why and what alternatives exist."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A JSON-RPC error with code -32602 (invalid params) because the order is outside the allowed window.",
+        "why": "The parameters were valid; the refund was refused by business logic during execution. That is a tool execution error, reported in the result, not a protocol-level invalid-params error."
+      }
+    ],
+    "explanation": "Uniform error responses prevent the agent from making appropriate recovery decisions. Business-rule violations should carry a business category, a non-retryable flag and a customer-friendly explanation so the agent stops retrying and can communicate the policy and alternatives.",
+    "reference": "CCAR-F exam guide task 2.2 (retriable: false flags and customer-friendly explanations); MCP specification — Tools"
+  },
+  {
+    "id": "ARF-D2-T2-003",
+    "domain": 2,
+    "skill": "mcp-errors",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "You are adding an `isRetryable` flag to every error returned by the support agent's MCP tools. The flag means \"retrying the identical call unchanged after a short backoff is reasonable.\" For which two of these failures should `isRetryable` be `true`? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The payment gateway returned HTTP 503 Service Unavailable.",
+        "why": "Service unavailability is a transient condition; the same request is likely to succeed once the dependency recovers."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The `order_id` argument did not match the required `ORD-` followed by eight digits format.",
+        "why": "A validation error will fail identically on every unchanged retry; the agent needs a corrected input, not a repeat, so it is non-retryable."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The orders database call exceeded its 5-second timeout.",
+        "why": "Timeouts are transient: the query may complete on the next attempt, so a bounded retry with backoff is appropriate."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The agent's service account lacks the `refunds:write` scope.",
+        "why": "A permission error is deterministic; repeating the call with the same credentials cannot succeed. It should be escalated, not retried."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The refund amount exceeds the order total, violating a business rule.",
+        "why": "Business-rule violations are non-retryable; the agent should explain the rule to the customer or escalate rather than retry."
+      }
+    ],
+    "explanation": "The retryable distinction separates transient errors (timeouts, service unavailability, rate limits) from deterministic ones (validation, permission, business rules). Marking only transient errors retryable prevents wasted attempts and tells the agent when to change its input or escalate instead.",
+    "reference": "CCAR-F exam guide task 2.2 (transient vs validation vs business vs permission errors)"
+  },
+  {
+    "id": "ARF-D2-T2-004",
+    "domain": 2,
+    "skill": "mcp-errors",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "The `lookup_order` MCP tool returns an empty list `[]` both when a customer genuinely has no orders and when the orders service returns HTTP 403 or times out (the handler catches those and returns `[]`). During a 20-minute outage, the agent told 140 customers \"I can't find any orders on your account.\" The team wants the agent to retry or escalate during outages but still answer correctly for customers with no orders. What is the right change to the tool?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Return `null` instead of `[]` when the backend fails, and keep `[]` for no matches.",
+        "why": "A bare null carries no category, retryability or message; the agent has to guess what it means, and the guess will differ from run to run."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add a system prompt rule: \"If `lookup_order` returns an empty list, call it again twice with a short pause, and only then tell the customer that no orders were found on the account.\"",
+        "why": "This retries genuine empty results as well as outages, tripling load for the no-orders case, and it still cannot tell the agent whether the empty list was an access failure."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Return `isError: true` for both situations so the agent always escalates when nothing comes back.",
+        "why": "Treating a valid empty result as an error escalates customers who simply have no orders and blocks the agent from answering them correctly."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Return a normal result such as `{\"orders\": [], \"matched\": 0}` for no matches, and `isError: true` with an `errorCategory` and `isRetryable` flag for backend failures.",
+        "why": "This distinguishes a valid empty result (a successful query with zero matches) from an access failure that needs a retry or escalation decision, which is precisely what the agent needs to behave correctly in both cases."
+      }
+    ],
+    "explanation": "An access failure and a valid empty result are different outcomes and must look different to the agent. Successful queries with no matches should return a normal result that says so; failures should return isError with a category and retryability so the agent can retry transient problems and escalate permission problems.",
+    "reference": "CCAR-F exam guide task 2.2 (distinguishing access failures from valid empty results)"
+  },
+  {
+    "id": "ARF-D2-T2-005",
+    "domain": 2,
+    "skill": "mcp-errors",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "In a multi-agent research system, the web-search subagent's `web_search` MCP tool sometimes returns `isError: true` with `errorCategory: \"transient\"` (rate limited) and sometimes `errorCategory: \"permission\"` (the search API key lacks access to a paid index). The team is defining how the subagent should handle these before returning to the coordinator. Which two behaviours follow the recommended error-recovery pattern? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Handle rate-limit errors locally with a bounded backoff-and-retry, without involving the coordinator unless the retries are exhausted.",
+        "why": "Transient failures are best recovered where they occur; local retry keeps the coordinator's context clean and avoids round trips for problems that resolve on their own."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Return every error to the coordinator immediately so it can decide whether to retry.",
+        "why": "Escalating transient errors that the subagent could fix locally floods the coordinator with noise and adds latency for no benefit."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "When a permission error or an exhausted retry cannot be resolved locally, return structured context to the coordinator: the failure type, the queries attempted, and any partial results gathered.",
+        "why": "Only unresolvable errors should propagate, and they should carry enough context (type, what was attempted, partial results) for the coordinator to choose an alternative or proceed with gaps."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Retry permission errors with exponential backoff until the API key is granted access.",
+        "why": "A permission error is deterministic; backing off cannot change the credential's scope, so this wastes time and hides a failure that needs a human or the coordinator."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "On any error, return an empty result set marked successful so the coordinator's pipeline is not interrupted.",
+        "why": "Reporting failure as success removes any chance of recovery and produces a report with silent coverage gaps."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Raise the exception to the top-level runner so the whole research job stops and can be restarted cleanly.",
+        "why": "Terminating the entire job discards the work of every other subagent when the coordinator could have continued with partial results."
+      }
+    ],
+    "explanation": "The pattern is local recovery for transient failures inside the subagent, and propagation to the coordinator only for errors that cannot be resolved locally, accompanied by structured context (failure type, attempted queries, partial results). Silent success and job-wide termination are the two failure modes to avoid.",
+    "reference": "CCAR-F exam guide task 2.2 (local error recovery within subagents); Anthropic — How we built our multi-agent research system"
+  },
+  {
+    "id": "ARF-D2-T2-006",
+    "domain": 2,
+    "skill": "mcp-errors",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A support agent shared by three business units cannot have its prompt changed by your team; you own only the refunds MCP server. Two problems appear in production: (1) 18% of refund attempts end in three identical retries followed by \"I couldn't process your refund,\" even for policy refusals such as expired return windows; (2) customers sometimes receive raw text like \"PaymentGatewayException 0x41: settlement batch closed.\" All errors are currently returned as `isError: true` with `content: \"Operation failed: \" + stackTrace`. Which server-side change addresses both problems?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Have the server retry internally three times with backoff and then return \"Operation failed\" if all attempts fail.",
+        "why": "Internal retries help transient cases but the returned error is still uniform, so the agent cannot tell policy refusals from outages and customers still get no usable explanation."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Return structured errors with `errorCategory`, `isRetryable` (false for business and permission errors), a technical `message` for the agent, and a separate `customerMessage` that is safe to relay verbatim.",
+        "why": "The category and retryable flag stop the agent from retrying non-retryable refusals, and a distinct customer-facing message gives the agent safe wording without any prompt change, which is the only lever your team controls."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Classify every error as `transient` with `isRetryable: true` and add a hint telling the agent to wait longer between attempts.",
+        "why": "Policy refusals would be retried even more; this makes problem (1) worse and does nothing about the raw technical text reaching customers."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Map each failure to an HTTP status code in the content and let the agent infer the meaning from the code.",
+        "why": "Status codes alone do not say whether a retry is sensible or what to tell the customer; the agent would still be guessing, and stack traces would be replaced by equally unhelpful numbers."
+      }
+    ],
+    "explanation": "Uniform errors waste retries and leak technical detail. Because the prompt is off limits, the fix has to live in the tool's error contract: a category, an explicit retryable flag, a message for the agent and a customer-friendly explanation the agent can pass on. That combination resolves the retry storm and the raw-exception leakage together.",
+    "reference": "CCAR-F exam guide task 2.2 (structured error metadata and customer-friendly explanations)"
+  },
+  {
+    "id": "ARF-D2-T3-001",
+    "domain": 2,
+    "skill": "tool-distribution",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A multi-agent research system gives every subagent the same 18 tools. The synthesis subagent, whose job is to combine findings already collected, has started running its own `web_search` calls, and its output quality has dropped. What is the best change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Restrict each subagent to the tools its role needs; the synthesis agent keeps only combining and citation tools.",
+        "why": "Too many tools degrade selection, and agents with tools outside their specialisation tend to misuse them. Scoped tool access removes both problems at once."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add \"You must not search the web; use only the findings you were given\" to the synthesis agent's system prompt and re-run the evaluation.",
+        "why": "A prompt rule is probabilistic; the tool is still available and can still be called. Removing it is deterministic."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Move `web_search` to the end of the tool list so the synthesis agent is less likely to notice it.",
+        "why": "Tool order is not a documented way to control selection, and the tool would remain fully callable."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Upgrade the synthesis agent to a larger model that can handle 18 tools reliably.",
+        "why": "More capacity does not change the fact that the agent has tools it should never use; the right fix is to not give them."
+      }
+    ],
+    "explanation": "Giving an agent many tools (18 instead of 4-5) increases decision complexity and makes misuse of out-of-role tools more likely. Restrict each subagent to the tools relevant to its role rather than trying to talk it out of using the others.",
+    "reference": "CCAR-F exam guide task 2.3 (scoped tool access); Anthropic — How we built our multi-agent research system"
+  },
+  {
+    "id": "ARF-D2-T3-002",
+    "domain": 2,
+    "skill": "tool-distribution",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A structured extraction pipeline defines two tools, `record_invoice` (for successfully parsed invoices) and `flag_unreadable` (for scans that cannot be parsed). Either is an acceptable outcome, but downstream code requires one of them to be called on every document. In 3% of runs the model instead answers with prose such as \"Here is the extracted data: ...\" and the pipeline crashes. On a model that supports forced tool use, which `tool_choice` setting fixes this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`{\"type\": \"auto\"}` plus the instruction \"Always respond by calling a tool\" in the system prompt.",
+        "why": "auto lets the model decide whether to call a tool at all; the prompt raises the probability but the 3% prose responses are exactly the residual it does not eliminate."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`{\"type\": \"tool\", \"name\": \"record_invoice\"}`.",
+        "why": "Forcing record_invoice guarantees a tool call but removes the model's ability to choose flag_unreadable for scans that cannot be parsed, which the pipeline needs."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`{\"type\": \"any\"}`.",
+        "why": "any guarantees the model calls one of the provided tools instead of returning conversational text, while still letting it choose between record_invoice and flag_unreadable."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`{\"type\": \"none\"}` so the model returns JSON text that the pipeline can parse.",
+        "why": "none prevents any tool call, which is the opposite of the requirement, and free-text JSON is what the pipeline is trying to avoid."
+      }
+    ],
+    "explanation": "tool_choice: any guarantees a tool call without dictating which tool, which fits a workflow where several tools are valid outcomes but text is not. tool_choice: tool forces one specific tool; auto (the default) permits a text-only answer.",
+    "reference": "Claude API docs — Define tools (forcing tool use); CCAR-F exam guide task 2.3"
+  },
+  {
+    "id": "ARF-D2-T3-003",
+    "domain": 2,
+    "skill": "tool-distribution",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "In an extraction pipeline, `extract_metadata` must run before any of the enrichment tools (`enrich_vendor`, `enrich_tax_codes`) because they consume its output. In 9% of runs the model calls an enrichment tool first and gets incomplete data. The team's agentic loop already handles multiple turns. On a model that supports forced tool use, what is the most reliable fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Set `tool_choice: {\"type\": \"any\"}` for the whole loop so the model always calls a tool.",
+        "why": "any guarantees that some tool is called, not which one; an enrichment tool is still a valid choice on the first turn."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Send the first request with `tool_choice` forcing `extract_metadata`, then continue the loop with `tool_choice: {\"type\": \"auto\"}`.",
+        "why": "Forced selection guarantees the prerequisite tool runs first; switching back to auto in the follow-up turns lets the model choose the appropriate enrichment tools once metadata is available."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add \"You MUST call `extract_metadata` before any enrichment tool; never call `enrich_vendor` or `enrich_tax_codes` first\" to the system prompt.",
+        "why": "This is the tempting probabilistic fix; the 9% failure rate is what remains when ordering is left to instruction-following rather than enforced."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Keep `tool_choice: {\"type\": \"tool\", \"name\": \"extract_metadata\"}` on every request in the loop.",
+        "why": "Leaving the forced choice in place means every turn calls extract_metadata again, so the enrichment tools can never run."
+      }
+    ],
+    "explanation": "Use forced tool selection to guarantee a specific tool is called first, then process subsequent steps in follow-up turns with auto. Forcing must be turned off after the prerequisite call, and any does not control which tool is chosen.",
+    "reference": "Claude API docs — Define tools (forcing tool use); CCAR-F exam guide task 2.3"
+  },
+  {
+    "id": "ARF-D2-T3-004",
+    "domain": 2,
+    "skill": "tool-distribution",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A research system has a coordinator and four subagents (web search, document analysis, synthesis, report). All five share one 18-tool set that includes a generic `fetch_url` tool. The document-analysis agent has fetched arbitrary web pages with `fetch_url` instead of the assigned documents, and selection errors are common across agents. Which two changes best apply the tool-distribution principles? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Give each subagent only the 3-5 tools its role requires, for example search and fetch for the web-search agent and document readers for the document-analysis agent.",
+        "why": "Scoping tools to roles reduces decision complexity and prevents cross-specialisation misuse, the two documented causes of selection errors in shared tool sets."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep the shared 18-tool set but add a paragraph to each subagent's prompt listing which tools it should use.",
+        "why": "The tools remain callable, so the misuse can still happen, and the model still has to choose among 18 definitions on every turn."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Replace all 18 tools with one `do_action` tool that takes a free-text `instruction` the server interprets.",
+        "why": "A single catch-all tool moves the routing problem into the server and loses the typed contracts that make each operation predictable."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "For the document-analysis agent, replace the generic `fetch_url` with a constrained `load_document` tool that validates that the URL is one of the assigned document sources.",
+        "why": "Replacing a generic tool with a constrained alternative removes the capability to wander off-task while keeping the legitimate use available."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Give the synthesis agent the full web-search tool set so it can verify anything itself without round trips.",
+        "why": "This over-provisions the synthesis agent with tools outside its specialisation, which is the misuse pattern the redesign is trying to eliminate."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Route every tool call through the coordinator so subagents never hold tools directly.",
+        "why": "Centralising all calls turns the coordinator into a bottleneck and fills its context with raw tool output, defeating the purpose of subagents."
+      }
+    ],
+    "explanation": "Two principles apply: restrict each subagent to the tools its role needs, and replace generic tools with constrained alternatives (fetch_url to load_document with URL validation) where an agent has misused broad capability. Prompt lists, catch-all tools and full centralisation do not remove the underlying capability or complexity.",
+    "reference": "CCAR-F exam guide task 2.3 (restricting subagent tool sets; replacing generic tools with constrained alternatives)"
+  },
+  {
+    "id": "ARF-D2-T3-005",
+    "domain": 2,
+    "skill": "tool-distribution",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer-productivity system has a code-exploration subagent (Read, Grep, Glob, Bash) and a boilerplate-generation subagent (Read, Write, Edit). Tracing shows the generation agent needs to look up an existing type or function definition in 85% of tasks; today it returns to the coordinator, which dispatches the exploration agent and re-invokes generation, adding two round trips per task. The remaining 15% of lookups are open-ended investigations across many files. What is the best way to cut the overhead without weakening the separation of roles?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Give the generation agent the exploration agent's full tool set, including Bash, so it can investigate anything itself.",
+        "why": "Over-provisioning the generation agent with Bash and unrestricted search is the cross-specialisation misuse the design is meant to prevent, and it makes the agent's tool set larger and less reliable."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Have the exploration agent pre-collect every definition in the repository into the generation agent's prompt before each task.",
+        "why": "Speculative pre-loading cannot predict which definitions will be needed and bloats the generation agent's context on every run."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Have the generation agent batch all of its lookups and return them to the coordinator at the end of its pass.",
+        "why": "Later boilerplate often depends on an earlier lookup, so deferring lookups to the end blocks the work rather than shortening it."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Give the generation agent a scoped, read-only `find_symbol_definition(name)` tool for the common lookup, and keep routing open-ended investigations through the coordinator to the exploration agent.",
+        "why": "A limited cross-role tool for a specific high-frequency need covers the 85% case with least privilege, while complex cases keep the existing coordination path."
+      }
+    ],
+    "explanation": "Scoped tool access allows limited cross-role tools for specific high-frequency needs. A narrow read-only lookup gives the generation agent what it needs most of the time without handing it the exploration agent's full capabilities; the rare complex cases still go through the coordinator.",
+    "reference": "CCAR-F exam guide task 2.3 (scoped cross-role tools for high-frequency needs)"
+  },
+  {
+    "id": "ARF-D2-T3-006",
+    "domain": 2,
+    "skill": "tool-distribution",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An extraction pipeline runs on a model that supports forced tool use and calls the API with `tool_choice: {\"type\": \"tool\", \"name\": \"record_invoice\"}` so that every document ends in a schema-valid `record_invoice` call, which the pipeline requires. Compliance now also wants a one-sentence rationale for each extraction stored alongside the record. The system prompt was updated to say \"Before calling the tool, write one sentence explaining your extraction,\" but no text block ever appears before the `tool_use` block. Which change satisfies both requirements?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Keep the forced `tool_choice` and add a required `rationale` string field to the `record_invoice` input schema.",
+        "why": "When tool_choice is any or tool, the API prefills the assistant turn so no natural-language text precedes the tool call, even if asked. Putting the rationale inside the tool input keeps the guarantee and captures the explanation."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Switch to `tool_choice: {\"type\": \"auto\"}` and instruct the model in the user message to explain and then call `record_invoice`.",
+        "why": "auto allows a text preamble, but it also allows a text-only answer with no tool call, which breaks the pipeline's requirement that every document ends in a record_invoice call."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Switch to `tool_choice: {\"type\": \"any\"}` so the model is free to add text before choosing the tool.",
+        "why": "any prefills the assistant message in the same way as tool, so text before the tool_use block is still suppressed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Move the instruction from the system prompt to the tool description and use stronger wording such as \"MUST explain first.\"",
+        "why": "The suppression is a mechanical effect of forced tool choice, not an instruction-following failure; no wording anywhere will produce a text block the API is preventing."
+      }
+    ],
+    "explanation": "Two facts combine: forced tool selection (any or tool) prefills the assistant message so the model emits no text before the tool_use block, and dropping the forcing would lose the guaranteed call. The way to keep both the guarantee and the rationale is to make the rationale part of the tool's input schema.",
+    "reference": "Claude API docs — Define tools (forcing tool use: any/tool prefill behaviour)"
+  },
+  {
+    "id": "ARF-D2-T4-001",
+    "domain": 2,
+    "skill": "mcp-integration",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A development team wants its Jira MCP server available to every engineer who clones the repository, so the configuration must be version-controlled alongside the code. Where should the server be configured?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "In each engineer's `~/.claude.json` using `claude mcp add --scope user`.",
+        "why": "User scope is stored in the engineer's home directory and applies across all of their projects, but it is private to that user and is not shared through the repository."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "In a project-scoped `.mcp.json` file at the repository root.",
+        "why": "Project-scoped servers live in .mcp.json in the project root, are checked into version control, and are picked up by every team member who clones or pulls the repository."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "In the project's `CLAUDE.md` under an \"MCP servers\" heading.",
+        "why": "CLAUDE.md holds instructions and context for Claude; it is not a configuration file that Claude Code reads for MCP server definitions."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "In `.claude/commands/jira.md` so it loads as a slash command.",
+        "why": "The commands directory defines custom slash commands, not MCP server connections."
+      }
+    ],
+    "explanation": "Claude Code has three MCP scopes: local (private, this project), project (.mcp.json at the repo root, shared via version control) and user (~/.claude.json, all of one user's projects). Shared team tooling belongs in project scope.",
+    "reference": "Claude Code docs — Connect Claude Code to tools via MCP (MCP installation scopes)"
+  },
+  {
+    "id": "ARF-D2-T4-002",
+    "domain": 2,
+    "skill": "mcp-integration",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A team's committed `.mcp.json` contains a GitHub MCP server entry with `\"headers\": {\"Authorization\": \"Bearer ghp_a1B2c3...\"}`, a real personal access token. Security has flagged it. The team still needs the server configuration shared with everyone via the repository. What should they do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add `.mcp.json` to `.gitignore` so the token is no longer committed.",
+        "why": "Ignoring the file removes the shared configuration for the whole team, which the stem says they still need."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Move the token into the project `CLAUDE.md` so it is separated from the server definition.",
+        "why": "CLAUDE.md is also committed and is loaded into the model's context, so the secret is still in the repo and now also in every prompt."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Change the header to `\"Authorization\": \"Bearer ${GITHUB_TOKEN}\"` and have each engineer set `GITHUB_TOKEN` locally.",
+        "why": ".mcp.json supports environment variable expansion (${VAR}, and ${VAR:-default}) in command, args, env, url and headers, so the shared file carries no secret and each machine supplies its own token at runtime."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Have each engineer re-add the server in user scope with their own token and delete the project entry so nothing sensitive is ever committed.",
+        "why": "This works for credentials but abandons the shared, version-controlled configuration and requires every engineer to reproduce the setup by hand."
+      }
+    ],
+    "explanation": "Environment variable expansion in .mcp.json is the mechanism for credential management without committing secrets: the shared file references ${GITHUB_TOKEN}, and the value comes from each developer's or CI runner's environment.",
+    "reference": "Claude Code docs — Connect Claude Code to tools via MCP (environment variable expansion)"
+  },
+  {
+    "id": "ARF-D2-T4-003",
+    "domain": 2,
+    "skill": "mcp-integration",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "An engineer wants to try an experimental database-schema MCP server in all of her projects for a week without affecting teammates, while the team's shared servers in the repository's `.mcp.json` continue to work. Which two statements are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Adding it with `claude mcp add --scope user` stores it in `~/.claude.json` and makes it available across all of her projects without touching the repository.",
+        "why": "User scope is the documented home for personal or experimental servers: private to the user and available in every project on that machine."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A user-scoped server disables the project's `.mcp.json` servers while it is configured.",
+        "why": "Scopes coexist; a user-scoped server only takes precedence over a project server if they share the same name."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "In a session, tools from the project `.mcp.json` servers and from her user-scoped server are discovered at connection time and are available to the agent simultaneously.",
+        "why": "Claude Code connects to all configured servers across scopes and exposes their tools together, so the experiment and the team servers work side by side."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "She should add it to `.mcp.json` with a `\"personal\": true` flag so teammates' clients skip it.",
+        "why": "No such flag exists, and anything in .mcp.json is committed and shared with the team."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Teammates must run `claude mcp add` on their own machines for the `.mcp.json` servers to load.",
+        "why": "Project-scoped servers are read from the committed .mcp.json file itself; teammates get them when they pull, subject to a one-time approval prompt."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "User-scoped servers only load in projects that have no `.mcp.json` file.",
+        "why": "User-scoped servers load in every project regardless of whether a project-scoped file is present."
+      }
+    ],
+    "explanation": "Project scope (.mcp.json) is for shared team tooling and user scope (~/.claude.json) is for personal or experimental servers. Both load at the same time; tools from every configured server are discovered at connection and are available simultaneously, with name collisions resolved by scope precedence.",
+    "reference": "Claude Code docs — Connect Claude Code to tools via MCP (MCP installation scopes; scope precedence)"
+  },
+  {
+    "id": "ARF-D2-T4-004",
+    "domain": 2,
+    "skill": "mcp-integration",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer-productivity agent has a custom MCP server whose `search_code` tool does semantic search across 40 repositories and returns ranked definitions with file paths and signatures. Its description is \"Search code.\" In practice the agent almost always uses the built-in Grep on the local checkout instead and misses cross-repository results. Grep is still needed for literal string searches within the current repo. What is the best fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Remove Grep from the agent's allowed tools so that every code search has to go through `search_code`, and accept slower literal searches.",
+        "why": "This breaks the literal local searches the stem says are still needed, and it treats a description problem as a permissions problem."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add \"Always use `search_code` instead of Grep\" to the system prompt.",
+        "why": "A blanket instruction is probabilistic and wrong for the literal-search cases; it also leaves the tool's capabilities undocumented for the model."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Rename the MCP server so its tools sort before the built-in tools.",
+        "why": "Ordering is not a selection mechanism, and the tool would still be described by two words."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Rewrite the `search_code` description to explain its cross-repo semantic scope, its ranked output, and when to use it versus Grep.",
+        "why": "MCP tool descriptions are delivered to the model like any other tool description; a detailed one lets the agent see that the MCP tool is more capable for these cases and leaves Grep for what it does best."
+      }
+    ],
+    "explanation": "When an agent prefers a built-in tool over a more capable MCP tool, the usual cause is a thin MCP description. Enhance it to explain capabilities, outputs and the boundary against the built-in alternative rather than removing or overriding the built-in tool.",
+    "reference": "CCAR-F exam guide task 2.4 (enhancing MCP tool descriptions); Claude API docs — Define tools"
+  },
+  {
+    "id": "ARF-D2-T4-005",
+    "domain": 2,
+    "skill": "mcp-integration",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A platform team is integrating a developer-productivity agent with Jira and with an internal release-checklist system that has a bespoke API. Traces show the agent makes 6-10 exploratory `list_issues` and `get_issue` calls per task just to discover which issues and epics exist before it can start. Which two decisions best follow the MCP integration guidance? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Write a custom Jira MCP server so the team controls every tool name and description from day one.",
+        "why": "Jira is a standard integration with existing community and vendor servers; building one from scratch spends effort on undifferentiated work and must then be maintained."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Use an existing community or vendor Jira MCP server, and reserve custom server development for the internal release-checklist workflow.",
+        "why": "The guidance is to prefer existing servers for standard integrations and to build custom servers only for team-specific workflows that nothing else covers."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Expose the issue and epic catalogue (IDs, titles, status summaries) as MCP resources so the agent can see what exists without exploratory tool calls.",
+        "why": "MCP resources are the mechanism for giving agents visibility into available data such as issue summaries or schemas, which removes the discovery calls that are inflating each task."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Paste the current issue list into the project `CLAUDE.md` so the agent already knows it.",
+        "why": "The list changes daily; a static copy in CLAUDE.md goes stale immediately and costs context on every session regardless of relevance."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Add a `list_everything` tool that returns every issue, epic and comment in one call.",
+        "why": "One giant call replaces many small ones with an oversized result that blows the context window; a catalogue is a resource, not a tool result."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Give the agent more Jira tools so it can explore faster in parallel.",
+        "why": "More tools increase selection complexity and do nothing to remove the need for exploratory calls."
+      }
+    ],
+    "explanation": "Two guidance points apply: choose existing community servers for standard integrations like Jira and reserve custom servers for team-specific workflows, and expose content catalogues (issue summaries, documentation hierarchies, database schemas) as MCP resources so agents do not need exploratory tool calls to learn what data is available.",
+    "reference": "CCAR-F exam guide task 2.4; MCP specification — Resources"
+  },
+  {
+    "id": "ARF-D2-T4-006",
+    "domain": 2,
+    "skill": "mcp-integration",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A CI job runs `claude -p \"Review this PR and comment on the linked issue\"` with a project `.mcp.json` that defines a GitHub MCP server using `\"Authorization\": \"Bearer ${GITHUB_TOKEN}\"`. It works on every developer's laptop. In CI the job starts, `claude mcp list` output in the logs shows a missing-variable warning for the server, and every GitHub tool call returns 401. The CI system stores the token as a secret named `GH_PAT`. What is the correct fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Export the secret into the job environment under the name the file expects, for example `GITHUB_TOKEN: ${{ secrets.GH_PAT }}`, so `${GITHUB_TOKEN}` expands at runtime.",
+        "why": "Expansion reads the runner's environment; when the referenced variable is unset the config still loads with a warning and the literal ${GITHUB_TOKEN} text is sent, which is why the server connects but authentication fails."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add `enableAllProjectMcpServers: true` to the repository's `.claude/settings.json` so the CI run approves the project server.",
+        "why": "In claude -p runs project-scoped servers load without an approval prompt, and the logs show the server was loaded; the failure is the unexpanded token, not approval."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Replace `${GITHUB_TOKEN}` with the token value in `.mcp.json` for the CI branch only.",
+        "why": "Committing a secret to any branch defeats the purpose of expansion and leaks the token through the repository history."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Have the CI job run `claude mcp add --scope user github ...` with the token before starting, so the user-scoped entry takes precedence.",
+        "why": "This would work only by duplicating the configuration on an ephemeral runner and still requires the secret to be supplied; the simple, intended mechanism is to provide the environment variable the shared file already references."
+      }
+    ],
+    "explanation": "Two facts explain the symptom: ${VAR} expansion in .mcp.json reads the process environment at runtime, and when the variable is missing Claude Code warns and uses the unexpanded text rather than failing to load. The server therefore connects but sends a useless bearer value. Mapping the CI secret into the expected variable name fixes it without touching the shared file.",
+    "reference": "Claude Code docs — Connect Claude Code to tools via MCP (environment variable expansion; project servers in non-interactive runs)"
+  },
+  {
+    "id": "ARF-D2-T5-001",
+    "domain": 2,
+    "skill": "builtin-tools",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer-productivity agent needs to list every React test file in a repository so it can add a shared setup import. Test files are named like `Button.test.tsx` and are spread across many directories. Which built-in tool call is the right first step?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Grep for the string `.test.tsx` inside file contents.",
+        "why": "Grep searches file contents, not file names; it would only find files that happen to mention the string in their text."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Glob with the pattern `**/*.test.tsx`.",
+        "why": "Glob matches file paths by name or extension pattern across the tree, which is exactly the job of finding files by naming convention."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Read the root directory and each subdirectory to see which files are present.",
+        "why": "Read loads file contents; walking directories by hand is slow, fills context, and is what Glob exists to avoid."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Write a new `tests.txt` file listing the test files the agent remembers from earlier sessions.",
+        "why": "The agent has no reliable memory of file names across sessions; it must discover them from the filesystem."
+      }
+    ],
+    "explanation": "Glob is for finding files by path pattern (names, extensions, directories); Grep is for searching file contents for patterns like function names or error messages. Finding every *.test.tsx file is a Glob task.",
+    "reference": "Claude Code docs — Tools available to Claude; CCAR-F exam guide task 2.5"
+  },
+  {
+    "id": "ARF-D2-T5-002",
+    "domain": 2,
+    "skill": "builtin-tools",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Before renaming `calculateTax` in a legacy billing service, an engineer asks the agent to find every place the function is called across a 1,200-file codebase, including calls from files whose names give no hint. Which approach should the agent use?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Glob for `**/calculateTax*` to find files named after the function.",
+        "why": "Glob matches file names; callers live in files with unrelated names, so this misses almost all of them."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Read every file in the repository and note the calls as it goes.",
+        "why": "Reading 1,200 files upfront floods the context window and is far slower than a content search."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Read `billing/tax.ts` where the function is defined and rely on its doc comments and the module changelog to list the callers.",
+        "why": "Definition-site comments are rarely complete or current; the callers must be discovered from the code itself."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Grep for `calculateTax\\(` across the codebase, then Read the reported files to confirm each call.",
+        "why": "Grep searches file contents for a pattern across the whole tree, which finds callers regardless of file name; reading only the hits keeps context small."
+      }
+    ],
+    "explanation": "Locating callers of a function, error messages or import statements is a content search, which is Grep's job. Follow up with Read on the matched files rather than reading the codebase wholesale.",
+    "reference": "Claude Code docs — Tools available to Claude; CCAR-F exam guide task 2.5"
+  },
+  {
+    "id": "ARF-D2-T5-003",
+    "domain": 2,
+    "skill": "builtin-tools",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A developer-productivity agent is asked to explain how an HTTP request flows through an unfamiliar 400-file legacy service so a new engineer can add an endpoint. Which two approaches reflect the recommended way to build codebase understanding with the built-in tools? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Read all 400 files first so the agent has complete knowledge before answering.",
+        "why": "Reading everything upfront overflows the context with irrelevant code and leaves little room for reasoning; understanding should be built incrementally."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Grep for entry points such as route registrations or the server bootstrap, then Read those files and follow their imports to trace the flow.",
+        "why": "Starting from entry points found by content search and following imports with targeted reads is the incremental exploration pattern the guide recommends."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Glob for `**/*.ts` and Read the results in alphabetical order until the flow becomes clear.",
+        "why": "Alphabetical order has nothing to do with request flow; this is reading everything with extra steps."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "When the trace reaches a wrapper module that re-exports many names, Read it to list the exported names, then Grep for each name to see where it is actually used.",
+        "why": "Wrapper and barrel modules hide usage behind re-exports; identifying the exported names first and searching for each is how usage is traced through them."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Rely on directory and file names alone to infer the flow, avoiding tool calls to save tokens.",
+        "why": "Names in legacy services are often misleading; a few targeted Grep and Read calls are cheap compared with a wrong explanation."
+      }
+    ],
+    "explanation": "Build understanding incrementally: Grep to find entry points, Read to follow imports and trace flows, and for wrapper modules identify the exported names and search for each across the codebase. Reading all files upfront is the anti-pattern.",
+    "reference": "CCAR-F exam guide task 2.5 (building codebase understanding incrementally; tracing usage across wrapper modules)"
+  },
+  {
+    "id": "ARF-D2-T5-004",
+    "domain": 2,
+    "skill": "builtin-tools",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An agent must change `return null;` to `return defaultHeader();` inside the `parseHeader` function only. Its Edit call fails: the `old_string` `return null;` appears four times in the file, because four generated handlers share 30 lines of byte-identical body and differ only in their signature line. The agent must make exactly one change reliably. What should it do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Read the whole file, then Write it back with only the `parseHeader` occurrence changed.",
+        "why": "When Edit cannot find a unique anchor, Read followed by Write of the full content is the documented fallback for a reliable, precisely targeted modification."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Retry Edit with `replace_all: true`.",
+        "why": "replace_all changes all four occurrences, altering three handlers that must stay as they are."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Run `sed -i '58s/return null;/return defaultHeader();/'` via Bash, estimating the line number from the earlier error.",
+        "why": "Guessing a line number without reading the file is fragile and, if wrong, silently edits a different handler."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Retry the identical Edit call; the match may succeed on the second attempt.",
+        "why": "Edit's uniqueness check is deterministic; the same anchor will fail the same way every time."
+      }
+    ],
+    "explanation": "Edit performs targeted modifications by exact, unique text matching. When the anchor is not unique and cannot practically be made unique, the reliable fallback is Read (load the full file) followed by Write (write the full modified file). replace_all is only right when every occurrence should change.",
+    "reference": "CCAR-F exam guide task 2.5 (Read + Write fallback when Edit fails on non-unique matches); Claude Code docs — Tools available to Claude"
+  },
+  {
+    "id": "ARF-D2-T5-005",
+    "domain": 2,
+    "skill": "builtin-tools",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A legacy service has a `utils/index.ts` barrel file that re-exports 42 functions from nine internal modules. The team wants to delete the functions that nothing else in the codebase uses. Most importers write `import { formatDate, slugify } from '../utils'`, so the module path alone does not reveal which functions are used. How should the agent determine the unused exports?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Grep for `from '../utils'` and count the importing files; any function in a module imported by fewer than two files is unused.",
+        "why": "The import path shows which files touch the barrel, not which of the 42 names they use; a single importer can use many functions and a widely imported barrel can still have dead exports."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Glob for `utils/**/*.ts` and Read every module to judge which functions look unused.",
+        "why": "Reading the definitions cannot tell you about usage elsewhere; usage has to be searched for across the rest of the codebase."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Read `utils/index.ts` to list all 42 exported names, then Grep for each name across the codebase (excluding the utils modules) and mark names with zero hits as candidates for removal.",
+        "why": "Tracing usage across wrapper modules means first identifying the exported names and then searching for each one individually, which is the only way to attribute usage to a specific function."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use Bash to delete the nine modules and rerun the build to see which imports break.",
+        "why": "This destroys the code before knowing what is used, produces one error at a time, and misses dynamic or test-only usages."
+      }
+    ],
+    "explanation": "Barrel files hide usage behind a single import path. The recommended pattern is to identify all exported names first, then Grep for each name across the codebase to find where it is actually used; searching for the module path alone cannot attribute usage per function.",
+    "reference": "CCAR-F exam guide task 2.5 (tracing function usage across wrapper modules)"
+  },
+  {
+    "id": "ARF-D2-T5-006",
+    "domain": 2,
+    "skill": "builtin-tools",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A boilerplate-generation agent must make four small, independent one-line changes to a 2,400-line `config/routes.ts` during one session. Today it Reads the entire file and Writes the entire file for each change; the session's context fills up by the third change, and once it overwrote an edit that a formatter hook had just applied. Each target line is unique within a few lines of surrounding context. Which approach is most appropriate?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Keep the Read-then-Write cycle but run compaction between changes to recover context.",
+        "why": "Compaction treats the symptom; whole-file rewrites still cost 2,400 lines twice per change and still risk clobbering concurrent modifications."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Read the relevant range to confirm a unique anchor, then Edit with surrounding context; fall back to Read plus full Write only if no anchor is unique.",
+        "why": "Edit is the targeted tool for modifications with unique text matching, costing only the changed lines. Read plus Write is the fallback for non-unique anchors, not the default."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Use Bash `sed -i` with line numbers taken from one initial Read for all four changes, so that no further file contents enter the context at any point.",
+        "why": "Line numbers shift after the first edit and after the formatter runs, and Bash edits bypass the read-before-write safeguards and hook matchers set up for Edit and Write."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Write a new file containing only the four changed lines and tell the developer to merge it.",
+        "why": "Write replaces the whole file with what it is given; writing four lines would destroy the other 2,396, and handing off a merge defeats the purpose of the agent."
+      }
+    ],
+    "explanation": "Edit is for targeted modifications using unique text matching and should be the default for small changes; Read followed by full Write is the fallback when Edit cannot find a unique anchor. Whole-file rewrites for one-line changes waste context and increase the chance of overwriting concurrent edits.",
+    "reference": "CCAR-F exam guide task 2.5; Claude Code docs — Tools available to Claude (Edit uniqueness requirement)"
+  }
+]

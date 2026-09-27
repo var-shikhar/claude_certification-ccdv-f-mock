@@ -1,0 +1,137 @@
+{
+  "explicit-criteria": {
+    "summary": "Write prompts whose criteria are explicit and categorical, so automated review and extraction report the right things, skip the rest, and classify consistently, instead of relying on vague adjectives or confidence hedges.",
+    "points": [
+      "Explicit criteria beat vague instructions. \"Flag a comment only when the behaviour it claims contradicts what the code actually does\" is testable; \"check that comments are accurate\" leaves the model to decide what accurate means.",
+      "General hedges such as \"be conservative\", \"be careful\", or \"only report high-confidence findings\" do not improve precision. They do not define the target, so the model keeps finding the same things and merely reports fewer or more of them at random.",
+      "Confidence-based filtering (asking for a score and dropping findings below a threshold) tends to remove real findings the model was unsure about while keeping confidently wrong ones. Fix the criteria, not the threshold.",
+      "Write report-versus-skip lists: name the categories to report (logic bugs, security issues, broken error handling) and the categories to skip (naming, formatting, patterns already used locally in the file). Include thresholds where numbers are involved (\"differs by more than 1%\").",
+      "False positives in one category erode trust in every category. Developers who dismiss noisy style findings soon stop reading security findings too.",
+      "When a category has a high false-positive rate, temporarily disable it, keep the accurate categories flowing, rewrite the disabled category with explicit criteria, measure it on a sample, and only then re-enable it.",
+      "If a required category has systematic false positives with an identifiable pattern (for example, string-built SQL in test fixtures with constant values), add that pattern as an explicit skip condition rather than disabling the category or adding a confidence hedge.",
+      "Severity must be defined, not described with adjectives. Give each level concrete criteria and a code example (critical = data loss, security exposure or a production-path crash; low = no runtime impact) so the same defect gets the same severity in every PR.",
+      "Emphasis (capitals, \"MUST\", \"IMPORTANT\") is not a criterion. Neither is temperature, `max_tokens`, or a larger model tier; none of them tells the model what to look for.",
+      "Majority voting across repeated runs does not remove systematic false positives, because every run applies the same misunderstanding; it only suppresses intermittently caught real issues.",
+      "Rationale fields make inconsistent judgements easier to audit but do not make them consistent. Path-based severity rules ignore what the defect actually is.",
+      "The same principle applies to extraction flags: replace \"flag suspicious invoices\" with the concrete conditions (tax ID mismatch, line items not summing to total, duplicate invoice number)."
+    ],
+    "docs": [
+      { "title": "Prompting best practices (be clear and direct)", "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices" },
+      { "title": "Be clear, direct, and detailed", "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/be-clear-and-direct" },
+      { "title": "Claude Code common workflows", "url": "https://code.claude.com/docs/en/common-workflows" }
+    ]
+  },
+  "few-shot": {
+    "summary": "Use a small number of targeted examples to make output consistently formatted, to demonstrate how ambiguous cases are decided, and to teach a distinction the model can generalise, especially where detailed instructions alone have failed.",
+    "points": [
+      "Few-shot examples are the most effective technique for consistently formatted, actionable output when detailed instructions still produce inconsistent results. Show the exact shape (location, issue, severity, suggested fix) rather than describing it.",
+      "Two to four targeted examples usually beat a long list. Pick cases at the decision boundary: ambiguous tool selection, a borderline severity, an acceptable pattern that resembles a bug, a real bug that resembles an acceptable pattern.",
+      "Include the reasoning. An example that shows why one action was chosen over a plausible alternative lets the model generalise the judgement to novel inputs; a bare input/output pair teaches only that one case.",
+      "For ambiguous tool selection (\"my order was damaged and I was charged twice\"), examples with reasoning fix what improved descriptions alone leave inconsistent. Forcing `tool_choice: any` guarantees a tool call but not the right one.",
+      "For branch-level test coverage gaps, worked examples (function, existing tests, the unexercised branch, the reasoning that found it, the closing test) generalise where an enumerated list of branch patterns catches only what it names.",
+      "To reduce false positives on sanctioned patterns, pair an acceptable pattern annotated as acceptable with a superficially similar genuine issue annotated as a real finding. Contrasting examples teach the boundary; allowlists and skip rules only cover listed cases.",
+      "Examples must be in the same format the output must take. Prose examples for a structured output make consistency worse, not better.",
+      "Only negative examples (\"do not flag this\") push the model toward under-reporting; always include positive examples of correct findings too.",
+      "In extraction, few-shot examples reduce hallucination and empty required fields when documents vary in structure: show correct extraction from a paper whose methods are embedded in the results, from inline citations versus a bibliography, and from informal measurements such as a sample size in a caption.",
+      "Diversity beats volume. Fifteen examples from the same template the model already handles add tokens and teach nothing; one example of each failing structure does.",
+      "Forbidding null (\"this field must never be null\") does not teach the model where to look; it invites fabrication. Demonstrate the correct extraction instead, and keep genuinely absent values nullable.",
+      "Common traps offered as distractors: adding \"MUST\", raising `max_tokens`, changing temperature, switching model tier, or regex post-processing of inconsistent output. None of them demonstrates the desired behaviour.",
+      "Wrap examples in clear delimiters (for example `<example>` tags) and keep them relevant to the real task so they are not mistaken for instructions or for the input."
+    ],
+    "docs": [
+      { "title": "Prompting best practices (examples)", "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices" },
+      { "title": "Use examples (multishot prompting)", "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/multishot-prompting" },
+      { "title": "Define tools (input_examples)", "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools" }
+    ]
+  },
+  "structured-output": {
+    "summary": "Get schema-compliant structured output through tool use with JSON schemas (or structured outputs), choose the right `tool_choice`, and design schemas (nullable fields, extensible enums, normalisation rules) so the model is never forced to fabricate.",
+    "points": [
+      "Tool use with a JSON schema is the most reliable way to get structured output: define an extraction tool whose `input_schema` is the record schema, force the call, and read the record from the `tool_use` block's `input`. This eliminates JSON syntax errors, preambles and markdown fences that break `JSON.parse` on text responses.",
+      "`tool_choice` has three relevant settings: `{\"type\": \"auto\"}` lets the model answer in text instead of calling a tool; `{\"type\": \"any\"}` forces it to call one of the provided tools but lets it choose which; `{\"type\": \"tool\", \"name\": \"extract_metadata\"}` forces that specific tool. (`none` prevents tool calls.)",
+      "Use `any` when several extraction schemas exist and the document type is unknown but structured output is mandatory. Use a forced named tool when a particular extraction must run first, before a dependent enrichment step, and let the application sequence the follow-up.",
+      "Prompt instructions such as \"always call extract_metadata first\" make an ordering likely; a forced `tool_choice` makes it certain. When the ordering or the structured response must always hold, use the API-level control.",
+      "Strict schemas (`strict: true` on the tool, or `output_config.format` structured outputs) guarantee syntax and types, not semantics. Line items that do not sum to the total, or a unit price placed in the `quantity` field, are valid JSON and pass the schema; catch them with semantic validation in code.",
+      "Numeric range constraints (`minimum`, `maximum`), string length limits and recursive schemas are not supported by strict structured output, and even in an ordinary validator they cannot express cross-field rules such as \"rows must sum to total\".",
+      "Required fields force the model to produce a value even when the source has none, which is where fabricated PO numbers and invented dates come from. Make a field nullable (`anyOf` string/null) whenever the source may legitimately lack it, and describe when null is expected.",
+      "Do not make everything optional: fields that are always present should stay required so validation still catches missing data. A prompt line saying \"never guess\" cannot override a schema that demands a value.",
+      "For categorical fields, use an enum extended with `\"other\"` plus a detail string (and `\"unclear\"` where ambiguity is common) so unusual cases are captured without breaking the controlled vocabulary. Free-text categories destroy downstream consistency; a closed enum forces wrong assignments.",
+      "Include format normalisation rules in the prompt alongside the schema: locale for numeric dates (day/month/year), the output format (ISO 8601), units, and the reference date for relative expressions. The schema constrains the shape of the value; the rules govern its interpretation.",
+      "Carry provenance for ambiguous values: a nullable source-text field and an ambiguity flag let downstream validation route uncertain records to review instead of accepting a confident but arbitrary reading.",
+      "A self-attestation field (`is_valid: true`) is filled by the same model that made the mistake and is not validation. Switching between tool use and `output_config` format changes nothing about semantic guarantees.",
+      "Newer models may reject forced tool selection (`any` or a named tool); the documented alternative is `auto` with `strict: true` tools or structured outputs. The exam tests the `auto` / `any` / named-tool distinction as described in the exam guide."
+    ],
+    "docs": [
+      { "title": "Structured outputs", "url": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs" },
+      { "title": "Define tools (forcing tool use, tool_choice)", "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools" },
+      { "title": "Strict tool use", "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/strict-tool-use" },
+      { "title": "Handle tool calls", "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls" }
+    ]
+  },
+  "validation-retry": {
+    "summary": "Validate extracted data in code, retry with the document plus the specific error when the failure is correctable, recognise when retries cannot help, and instrument findings so false-positive patterns can be analysed.",
+    "points": [
+      "Retry-with-error-feedback: the follow-up request must include the original document, the failed extraction, and the specific validation error (\"line items sum to 1,240.00 but total is 1,420.00\"). Resending the same request, raising temperature, or appending \"be more careful\" gives the model nothing to correct with.",
+      "Never retry with only the failed JSON and the error message. Without the source document the model can only edit numbers until the rule passes, which is fabrication.",
+      "Distinguish semantic validation errors (values do not sum, wrong field placement, date before order date) from schema syntax errors. Tool use with a strict schema eliminates the second class; the first class still needs code validation.",
+      "Retries fix format and structural errors (a date not in ISO format, an array returned as a comma-joined string) because the information is in the document. Retries cannot recover information that is absent from the source, for example a policy number that lives only in an attachment that was never sent.",
+      "When a field is repeatedly null because the source lacks it, stop retrying: supply the missing input where available, otherwise make the field nullable and route the record to a human queue. Raising the retry limit, strengthening the error message, or asking the model to infer the value are the wrong responses.",
+      "Bound the loop: a fixed retry budget (for example two retries), a stop condition when the model reports the value is not present, and a human review route for unresolved records. Loops that retry until valid, regardless of cause, waste money and eventually drop documents.",
+      "Self-correction flows: extract `calculated_total` (the model's own sum of the rows) alongside `stated_total` (the figure printed in the document) so validation can tell an extraction mistake from a source document that disagrees with itself.",
+      "Add a `conflict_detected` boolean (with a detail string) that the model sets when the source gives inconsistent values for the same figure. Route those records to review instead of retrying them or silently replacing the stated value with the computed one.",
+      "Never instruct the model to overwrite stated figures so validation passes; that destroys the evidence of a discrepancy and reports numbers the document never contained.",
+      "Feedback loops for review quality: add a `detected_pattern` field to every structured finding naming the code construct that triggered it. Aggregating developer dismissals per pattern shows exactly which criteria produce false positives, which is far more actionable than free-text dismissal reasons or raw logs.",
+      "Self-reported confidence is not a substitute for pattern tracking or validation; filtering findings by confidence hides them without explaining them.",
+      "Common distractors: larger context window (irrelevant when the page is not in the request), bigger model, more retries, or skipping code validation because the schema is strict."
+    ],
+    "docs": [
+      { "title": "Structured outputs", "url": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs" },
+      { "title": "Building effective agents (evaluator-optimizer)", "url": "https://www.anthropic.com/engineering/building-effective-agents" },
+      { "title": "Reduce hallucinations", "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations" }
+    ]
+  },
+  "batch-processing": {
+    "summary": "Choose the Message Batches API for latency-tolerant, non-blocking bulk work, derive submission cadence from the SLA, handle failures selectively by `custom_id`, and refine prompts on a sample before committing large volumes.",
+    "points": [
+      "Message Batches API facts: 50% lower cost than synchronous calls, results within up to 24 hours (most batches finish much sooner), no guaranteed latency SLA, and each request in a batch is processed independently.",
+      "Appropriate: overnight technical-debt reports, weekly compliance audits, nightly test generation, large evaluations. Inappropriate: anything a person or pipeline is blocked on, such as a pre-merge check or an interactive \"explain this failure\" request. Match the API to the workflow's latency requirement.",
+      "\"Batches are usually fast\" is not a guarantee; do not put blocking work on the batch API with a timeout fallback. Keep synchronous calls for blocking steps and batch the rest.",
+      "Every batch request needs a unique `custom_id`. Results can come back in any order, so always correlate by `custom_id`, never by position.",
+      "Result types per request: `succeeded`, `errored` (for example an invalid request or a document over the context limit), `expired` (the 24-hour window passed before the request ran) and `canceled`. Errored, expired and canceled requests are not billed, but they are also not processed.",
+      "Handle failures selectively: resubmit only the failed `custom_id` values. Resubmit expired requests unchanged; modify requests that errored for a repeatable reason first (chunk or summarise oversized documents, then encode the parent document in the new `custom_id` values so pieces can be reassembled). Never resubmit the whole batch.",
+      "Cadence from SLA: longest submission interval = deadline minus maximum batch processing time minus any margin. With a 30-hour deadline, 24-hour batches and a 2-hour margin, submit at least every 4 hours. Daily submission can take 48 hours worst case.",
+      "Requests that expire close to a deadline should be resubmitted synchronously, not into the next batch, because a new batch may take another 24 hours. Only the urgent few go synchronous; the bulk stays batched.",
+      "A batch request can include tools and may return a `tool_use` block, but the batch cannot execute the tool and continue the same request. Multi-turn tool loops (extract, look up vendor via MCP, finalise) must be split into stages with application-side tool execution between batches.",
+      "A batch cannot run a validate-and-retry loop inside itself either; failures come back as failures and need another submission round, which costs money and up to a day. Refine the prompt synchronously on a stratified sample of a few hundred documents until the first-pass success rate is acceptable, then submit the large batch.",
+      "Streaming, fast mode and cache pre-warming (`max_tokens: 0`) are not available inside batches. Prompt caching works on a best-effort basis; consider the 1-hour cache duration when many requests share a large prefix.",
+      "Dry-run a single request shape through the synchronous Messages API before batching; batch validation errors are only reported when the whole batch has ended.",
+      "Distractors the exam likes: switching an entire workload to synchronous calls after a handful of failures (doubles cost), submitting several prompt variants against the full volume instead of a sample, and treating unbilled expired requests as complete."
+    ],
+    "docs": [
+      { "title": "Batch processing (Message Batches API)", "url": "https://platform.claude.com/docs/en/build-with-claude/batch-processing" },
+      { "title": "Prompt caching", "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching" }
+    ]
+  },
+  "multi-pass-review": {
+    "summary": "Design review architectures that use an independent Claude instance rather than self-review, split large reviews into per-file passes plus a cross-file integration pass, and use verification passes with calibrated confidence to route findings.",
+    "points": [
+      "Self-review limitation: a model that generated code or a report retains the reasoning that produced it, so when asked to review its own output in the same session it tends to confirm its decisions. Sterner instructions, repetition, or extended thinking in that session do not remove the bias.",
+      "Use a second, independent instance to review generated code: start it fresh with only the code (and any spec) and none of the generation conversation. Independent review catches subtle issues that self-review instructions or extended thinking miss.",
+      "The same applies to claim verification in research systems: a separate verification subagent that receives only the draft report and the sources, with no synthesis history, catches citations that do not support their sentences.",
+      "Attention dilution: a single pass over many files gives detailed feedback on the first files and superficial feedback on the rest, misses obvious bugs, and produces contradictory findings (flagging a pattern in one file and approving it in another). A larger context window does not fix attention quality.",
+      "Multi-pass review: run focused per-file passes for local issues, then a separate integration pass over the full diff plus call sites for cross-file data flow, signature changes and inconsistent handling. Either half alone leaves a gap.",
+      "Per-file passes cannot see other files, so instructing them to \"consider how this file interacts with the rest of the PR\" asks for analysis they cannot perform; that is the integration pass's job.",
+      "Requiring developers to split PRs, or to list impacted callers by hand, shifts the burden to people without improving the system.",
+      "Consensus voting across several full-PR runs suppresses real issues that are only caught intermittently, multiplies cost, and does not fix systematic misjudgements that every run shares.",
+      "Verification passes: after a first pass produces findings, an independent instance re-examines each finding against the code and reports a confidence value with it. Use the confidence for calibrated routing: post confident findings directly, send uncertain ones to a summary or a human triage queue, and never silently discard them.",
+      "Confidence reported by the same conversation that produced the findings is inflated (nearly everything comes back at 0.9+ and nothing is retracted). Moving the threshold on an uncalibrated signal does not help; move verification to an independent instance and check its confidence against labelled accept/dismiss outcomes before trusting thresholds.",
+      "Confidence is not severity: how sure the verifier is that a finding is real is a different quantity from how bad the finding is.",
+      "Do not skip verification when the first pass claims high confidence in itself, and do not replace per-finding verification with pattern-level dismissal history; `detected_pattern` statistics are for prompt improvement, not for deciding whether a specific finding is real."
+    ],
+    "docs": [
+      { "title": "Building effective agents (evaluator-optimizer, orchestrator-workers)", "url": "https://www.anthropic.com/engineering/building-effective-agents" },
+      { "title": "Claude Code common workflows", "url": "https://code.claude.com/docs/en/common-workflows" },
+      { "title": "Demystifying evals for AI agents", "url": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents" }
+    ]
+  }
+}
