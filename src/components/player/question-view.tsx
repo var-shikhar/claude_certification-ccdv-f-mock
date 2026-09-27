@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AnimatePresence, motion, Reorder } from 'motion/react';
 import { ArrowDown, ArrowUp, Check, GripVertical, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -32,7 +32,12 @@ export function selectHint(item: Pick<PublicQuestion, 'type' | 'select'>, chosen
   }
 }
 
-export function QuestionView({ item, response, onChange, revealed, disabled }: QuestionViewProps) {
+export function QuestionView(props: QuestionViewProps) {
+  const { item } = props;
+  return <QuestionBody key={`${item.id}:${item.type}:${item.options.map((o) => o.id).join('')}`} {...props} />;
+}
+
+function QuestionBody({ item, response, onChange, revealed, disabled }: QuestionViewProps) {
   const readOnly = Boolean(revealed) || disabled || !onChange;
   const change = (next: string[]) => { if (!readOnly) onChange?.(next); };
   switch (item.type) {
@@ -142,7 +147,6 @@ function OrderList({ item, response, onChange, revealed, readOnly }: {
   const byId = new Map(item.options.map((o) => [o.id, o]));
   const initial = response.length === item.options.length ? response : item.options.map((o) => o.id);
   const [order, setOrder] = useState(initial);
-  useEffect(() => { setOrder(response.length === item.options.length ? response : item.options.map((o) => o.id)); }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const commit = (next: string[]) => { setOrder(next); onChange(next); };
   const move = (from: number, to: number) => {
@@ -269,7 +273,6 @@ function FillIn({ response, onChange, revealed, readOnly }: {
   response: string[]; onChange: (r: string[]) => void; revealed?: RevealedQuestion | null; readOnly: boolean;
 }) {
   const [value, setValue] = useState(response[0] ?? '');
-  useEffect(() => setValue(response[0] ?? ''), [response]);
   if (revealed) {
     return (
       <div className="space-y-2">

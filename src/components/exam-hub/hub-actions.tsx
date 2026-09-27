@@ -13,6 +13,7 @@ import { useStartAttempt } from '@/hooks/use-start-attempt';
 import { api } from '@/lib/api';
 import { authClient } from '@/lib/auth-client';
 import { useHubUi, type SetupKind } from '@/stores/hub-ui';
+import type { StartInput } from '@/server/attempts';
 
 export function OpenSetupButton({ kind, children, ...props }: { kind: SetupKind; children: React.ReactNode } & Omit<React.ComponentProps<typeof Button>, 'onClick'>) {
   const openSetup = useHubUi((s) => s.openSetup);
@@ -21,6 +22,11 @@ export function OpenSetupButton({ kind, children, ...props }: { kind: SetupKind;
 
 /** Visitors can try the diagnostic straight away as a guest. */
 export function GuestDiagnosticButton({ examId }: { examId: string }) {
+  return <GuestStartButton input={{ examId, kind: 'diagnostic' }} label="Try the free diagnostic" />;
+}
+
+/** Starts an attempt for a visitor by opening a guest session first; progress carries over on sign-up. */
+export function GuestStartButton({ input, label }: { input: StartInput; label: string }) {
   const router = useRouter();
   const start = useStartAttempt();
   const [busy, setBusy] = useState(false);
@@ -33,18 +39,18 @@ export function GuestDiagnosticButton({ examId }: { examId: string }) {
       return;
     }
     router.refresh();
-    start.mutate({ examId, kind: 'diagnostic' }, { onSettled: () => setBusy(false) });
+    start.mutate(input, { onSettled: () => setBusy(false) });
   }
   return (
     <Button variant="premium" size="xl" onClick={go} disabled={busy}>
       {busy ? <Spinner /> : <Sparkles data-icon="inline-start" />}
-      Try the free diagnostic
+      {label}
     </Button>
   );
 }
 
 /** Small popover to set or change the exam date (drives the countdown and study plan). */
-export function ExamDateButton({ examId, targetDate }: { examId: string; targetDate: string | null }) {
+export function ExamDateButton({ examId, targetDate, daysLeft }: { examId: string; targetDate: string | null; daysLeft: number | null }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(targetDate ?? '');
@@ -53,7 +59,7 @@ export function ExamDateButton({ examId, targetDate }: { examId: string; targetD
     onSuccess: () => { setOpen(false); toast.success('Exam date saved'); router.refresh(); },
     onError: () => toast.error('Could not save the date.'),
   });
-  const days = targetDate ? Math.ceil((new Date(`${targetDate}T00:00:00`).getTime() - Date.now()) / 86_400_000) : null;
+  const days = daysLeft;
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>

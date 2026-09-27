@@ -11,6 +11,9 @@ import { cn } from '@/lib/utils';
 import { getProgressData } from '@/server/analytics';
 import { listAttempts } from '@/server/attempts';
 import { requireUser } from '@/server/session';
+import { BadgeGrid, Leaderboard } from '@/components/achievements/achievements';
+import { listBadges, weeklyLeaderboard } from '@/server/gamification';
+import { getOrCreateProfile } from '@/server/profile';
 
 export const metadata: Metadata = { title: 'Progress' };
 
@@ -18,9 +21,14 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
   const { exam: examParam, tab } = await searchParams;
   const user = await requireUser('/progress');
   const data = await getProgressData(user.id, examParam);
-  const history = await listAttempts(user.id, { examId: data.examId ?? undefined, limit: 100 });
+  const [history, badges, board, profile] = await Promise.all([
+    listAttempts(user.id, { examId: data.examId ?? undefined, limit: 100 }),
+    listBadges(user.id),
+    weeklyLeaderboard(user.id),
+    getOrCreateProfile(user.id),
+  ]);
   const current = data.exams.find((e) => e.id === data.examId);
-  const defaultTab = tab === 'history' || tab === 'certificates' ? tab : 'overview';
+  const defaultTab = tab === 'history' || tab === 'certificates' || tab === 'achievements' ? tab : 'overview';
 
   if (!data.exams.length && !data.certificates.length) {
     return (
@@ -62,6 +70,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
           <TabsTrigger value="certificates">Certificates{data.certificates.length ? ` · ${data.certificates.length}` : ''}</TabsTrigger>
+          <TabsTrigger value="achievements">Achievements</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -142,6 +151,10 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
               ))}
             </div>
           )}
+        </TabsContent>
+        <TabsContent value="achievements" className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+          <BadgeGrid badges={badges} />
+          <Leaderboard top={board.top} me={board.me} optedIn={profile.leaderboardOptIn} anonymous={Boolean(user.isAnonymous)} />
         </TabsContent>
       </Tabs>
     </div>

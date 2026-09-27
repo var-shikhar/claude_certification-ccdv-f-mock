@@ -21,6 +21,10 @@ export function useStartAttempt() {
         });
         return;
       }
+      if (err instanceof ApiError && err.code === 'UPGRADE') {
+        toast.info(err.message, { action: { label: 'See Pro', onClick: () => router.push('/pricing') }, duration: 10000 });
+        return;
+      }
       if (err instanceof ApiError && err.status === 401) {
         router.push(`/sign-in?next=${encodeURIComponent(window.location.pathname)}`);
         return;

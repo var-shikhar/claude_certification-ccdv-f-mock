@@ -16,8 +16,10 @@ import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { api } from '@/lib/api';
 import { authClient } from '@/lib/auth-client';
+import { ManageBillingButton } from '@/components/billing/billing-buttons';
+import Link from 'next/link';
 
-interface Settings { name: string; email: string; isAnonymous: boolean; dailyGoal: number; timezone: string; leaderboardOptIn: boolean }
+interface Settings { name: string; email: string; isAnonymous: boolean; dailyGoal: number; timezone: string; leaderboardOptIn: boolean; plan: 'free' | 'pro'; billing: boolean }
 
 export function SettingsForm({ initial }: { initial: Settings }) {
   const router = useRouter();
@@ -101,6 +103,12 @@ export function SettingsForm({ initial }: { initial: Settings }) {
           <Switch checked={prefs.leaderboardOptIn} onCheckedChange={(v) => savePrefs.mutate({ leaderboardOptIn: v })} />
         </Label>
       </Section>
+
+      {initial.billing && !initial.isAnonymous && (
+        <Section title="Plan" description={initial.plan === 'pro' ? 'You are on Pro. Thanks for supporting certMonkey!' : 'You are on the free plan.'}>
+          {initial.plan === 'pro' ? <ManageBillingButton /> : <Button asChild variant="premium"><Link href="/pricing">See Pro</Link></Button>}
+        </Section>
+      )}
 
       <Section title="Appearance" description="certMonkey follows your device by default.">
         <ToggleGroup type="single" variant="outline" value={theme ?? 'system'} onValueChange={(v) => v && setTheme(v)}>

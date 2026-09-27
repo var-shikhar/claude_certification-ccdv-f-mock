@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
-  ArrowLeft, ArrowRight, Bookmark, BookOpen, Check, ChevronDown, CircleHelp, Ellipsis, Flag, LayoutGrid, LogOut, OctagonAlert, Trash2, X,
+  ArrowLeft, ArrowRight, Bookmark, BookOpen, Check, ChevronDown, CircleHelp, Ellipsis, Flag, LayoutGrid, LogOut, Maximize, OctagonAlert, Trash2, X,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -32,6 +33,7 @@ import { useAttempt } from './use-attempt';
 import { TutorButton } from '@/components/tutor/tutor-sheet';
 
 const TIME_COMMIT_MS = 30_000;
+const NO_RESPONSE: string[] = [];
 
 export function ExamPlayer({ initial }: { initial: PlayerState }) {
   const { state, saveState, update, check, bookmark, submit, abandon } = useAttempt(initial);
@@ -41,7 +43,8 @@ export function ExamPlayer({ initial }: { initial: PlayerState }) {
   const [reportOpen, setReportOpen] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
   const [direction, setDirection] = useState(1);
-  const offsetMs = useMemo(() => new Date(initial.serverNow).getTime() - Date.now(), [initial.serverNow]);
+  // Server time minus device time, measured once when the attempt loads.
+  const [offsetMs] = useState(() => new Date(initial.serverNow).getTime() - Date.now());
 
   useEffect(() => { ui.reset(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -50,7 +53,7 @@ export function ExamPlayer({ initial }: { initial: PlayerState }) {
   const total = state.items.length;
   const index = Math.min(state.current, total - 1);
   const item = state.items[index];
-  const response = state.responses[item.id] ?? [];
+  const response = useMemo(() => state.responses[item.id] ?? NO_RESPONSE, [state.responses, item.id]);
   const revealed = state.revealed[item.id] ?? null;
   const flagged = Boolean(state.flags[item.id]);
   const saved = state.bookmarks.includes(item.id);
@@ -61,9 +64,9 @@ export function ExamPlayer({ initial }: { initial: PlayerState }) {
   const hasAnswer = response.some((r) => r.trim().length > 0);
 
   // ---- time on each question (absolute totals, committed on leave and every 30s)
-  const shownAt = useRef(Date.now());
+  const shownAt = useRef(0);
   const stateRef = useRef(state);
-  stateRef.current = state;
+  useEffect(() => { stateRef.current = state; }, [state]);
   const commitTime = useCallback((questionId: string) => {
     const delta = Date.now() - shownAt.current;
     shownAt.current = Date.now();
@@ -137,6 +140,41 @@ export function ExamPlayer({ initial }: { initial: PlayerState }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [go, index, toggleFlag, ui, primary, item, revealed, response, setResponse]);
 
+  // ---- light integrity checks for timed, scored attempts: count tab switches and full-screen exits
+  const integrityRef = useRef(state.integrity);
+  useEffect(() => { integrityRef.current = state.integrity; }, [state.integrity]);
+  const leftTab = useRef(false);
+  const warned = useRef(false);
+  const wasFullscreen = useRef(false);
+  useEffect(() => {
+    if (!state.proctored) return;
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        leftTab.current = true;
+        update({ integrity: { ...integrityRef.current, blurs: integrityRef.current.blurs + 1 } });
+      } else if (leftTab.current && !warned.current) {
+        warned.current = true;
+        toast.warning('You left the exam tab. On a proctored exam, that can end your attempt.', { duration: 6000 });
+      }
+    };
+    const onFullscreen = () => {
+      if (wasFullscreen.current && !document.fullscreenElement) {
+        update({ integrity: { ...integrityRef.current, fullscreenExits: integrityRef.current.fullscreenExits + 1 } });
+      }
+      wasFullscreen.current = Boolean(document.fullscreenElement);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    document.addEventListener('fullscreenchange', onFullscreen);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      document.removeEventListener('fullscreenchange', onFullscreen);
+    };
+  }, [state.proctored, update]);
+
+  const enterFullscreen = () => {
+    document.documentElement.requestFullscreen?.().catch(() => toast.error('Full screen is not available in this browser.'));
+  };
+
   const jumpToFirst = (pred: (id: string) => boolean) => {
     const i = state.items.findIndex((q) => pred(q.id));
     ui.setFinishOpen(false);
@@ -160,6 +198,9 @@ export function ExamPlayer({ initial }: { initial: PlayerState }) {
               </DropdownMenuItem>
               {state.deadline && (
                 <p className="px-2 pb-1.5 text-xs text-muted-foreground">The timer keeps running while you&apos;re away.</p>
+              )}
+              {state.proctored && (
+                <DropdownMenuItem onSelect={enterFullscreen}><Maximize /> Enter full screen</DropdownMenuItem>
               )}
               <DropdownMenuItem onSelect={() => setReportOpen(true)}><OctagonAlert /> Report this question</DropdownMenuItem>
               <DropdownMenuSeparator />

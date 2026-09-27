@@ -11,6 +11,7 @@ import { StartButton } from '@/components/results/start-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { KINDS } from '@/lib/attempt-kinds';
+import { daysUntil } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 import { getExamHubData, type ExamHubData } from '@/server/analytics';
 import { getExam, getPoolCounts, getSkillCounts, getStudyNotes } from '@/server/exams';
@@ -37,7 +38,6 @@ export default async function ExamHubPage({ params, searchParams }: { params: Pr
     getPoolCounts(ex.id),
     user ? getStudyPlan(user.id, ex.id) : Promise.resolve(null),
   ]);
-  const totalQuestions = Object.values(counts).reduce((a, b) => a + b, 0);
 
   return (
     <div className="mx-auto max-w-6xl space-y-10 px-4 py-8 sm:px-6 sm:py-10">
@@ -170,7 +170,7 @@ function ProgressCard({ examId, hub, passing }: { examId: string; hub: ExamHubDa
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-semibold">Your progress</h2>
-            <ExamDateButton examId={examId} targetDate={hub.targetDate} />
+            <ExamDateButton examId={examId} targetDate={hub.targetDate} daysLeft={hub.targetDate ? daysUntil(hub.targetDate) : null} />
           </div>
           <dl className="grid grid-cols-3 gap-2 sm:max-w-md">
             <MiniStat label="Predicted" value={r?.predictedScaled != null ? String(r.predictedScaled) : '—'} good={r?.predictedScaled != null && r.predictedScaled >= passing} />

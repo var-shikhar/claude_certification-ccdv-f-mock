@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -19,11 +19,12 @@ function mergePatch(into: ProgressPatch, patch: ProgressPatch): ProgressPatch {
     flags: patch.flags ? { ...into.flags, ...patch.flags } : into.flags,
     timeSpent: patch.timeSpent ? { ...into.timeSpent, ...patch.timeSpent } : into.timeSpent,
     current: patch.current ?? into.current,
+    integrity: patch.integrity ?? into.integrity,
   };
 }
 
 const isEmptyPatch = (p: ProgressPatch) =>
-  !Object.keys(p.responses ?? {}).length && !Object.keys(p.flags ?? {}).length && !Object.keys(p.timeSpent ?? {}).length && p.current === undefined;
+  !Object.keys(p.responses ?? {}).length && !Object.keys(p.flags ?? {}).length && !Object.keys(p.timeSpent ?? {}).length && p.current === undefined && !p.integrity;
 
 function applyPatch(state: PlayerState, patch: ProgressPatch): PlayerState {
   return {
@@ -32,6 +33,7 @@ function applyPatch(state: PlayerState, patch: ProgressPatch): PlayerState {
     flags: patch.flags ? { ...state.flags, ...patch.flags } : state.flags,
     timeSpent: patch.timeSpent ? { ...state.timeSpent, ...patch.timeSpent } : state.timeSpent,
     current: patch.current ?? state.current,
+    integrity: patch.integrity ?? state.integrity,
   };
 }
 
@@ -43,7 +45,7 @@ function applyPatch(state: PlayerState, patch: ProgressPatch): PlayerState {
 export function useAttempt(initial: PlayerState) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const key = attemptKey(initial.id);
+  const key = useMemo(() => attemptKey(initial.id), [initial.id]);
   const url = `/api/attempts/${initial.id}`;
 
   const { data: state } = useQuery({
@@ -98,7 +100,7 @@ export function useAttempt(initial: PlayerState) {
     return save.mutateAsync(patch).then(() => undefined, () => undefined);
   }, [save]);
   const flushRef = useRef(flush);
-  flushRef.current = flush;
+  useEffect(() => { flushRef.current = flush; }, [flush]);
 
   /** Optimistically apply a change and queue it for saving. */
   const update = useCallback((patch: ProgressPatch) => {
@@ -107,7 +109,7 @@ export function useAttempt(initial: PlayerState) {
     setSaveState((s) => (s === 'offline' ? s : 'pending'));
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => flushRef.current(), SAVE_DEBOUNCE_MS);
-  }, [queryClient, key]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [queryClient, key]);
 
   // Last-chance save when the tab is hidden or closed.
   useEffect(() => {

@@ -9,6 +9,7 @@ import { StartButton } from '@/components/results/start-button';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { KINDS } from '@/lib/attempt-kinds';
+import { daysUntil } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 import { getMyExams, type DashboardExam } from '@/server/analytics';
 import { getActiveAttempts, listAttempts } from '@/server/attempts';
@@ -209,7 +210,7 @@ function UpNext({ active, exams, primary, plan }: {
 
 function MyExamCard({ exam }: { exam: DashboardExam }) {
   const r = exam.readiness;
-  const days = exam.targetDate ? Math.ceil((new Date(`${exam.targetDate}T00:00:00`).getTime() - Date.now()) / 86_400_000) : null;
+  const days = exam.targetDate ? daysUntil(exam.targetDate) : null;
   return (
     <Link href={`/exams/${exam.id}`} className="group rounded-2xl border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40">
       <div className="flex items-start justify-between gap-3">

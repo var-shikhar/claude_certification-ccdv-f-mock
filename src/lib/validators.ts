@@ -5,7 +5,7 @@ const response = z.array(z.string().max(500)).max(12);
 
 export const startAttemptSchema = z.object({
   examId: id,
-  kind: z.enum(['full', 'quick', 'practice', 'mistakes', 'review', 'saved', 'diagnostic', 'adaptive']),
+  kind: z.enum(['full', 'quick', 'practice', 'mistakes', 'review', 'saved', 'diagnostic', 'adaptive', 'challenge', 'assignment']),
   difficulty: z.string().max(32).optional(),
   pool: z.enum(['bank', 'imported', 'all']).optional(),
   domains: z.array(z.number().int().positive()).max(30).optional(),
@@ -14,6 +14,8 @@ export const startAttemptSchema = z.object({
   timed: z.boolean().optional(),
   instant: z.boolean().optional(),
   candidateName: z.string().max(80).optional(),
+  challengeId: z.string().max(20).optional(),
+  assignmentId: z.string().max(40).optional(),
 });
 
 export const progressPatchSchema = z.object({
@@ -21,6 +23,7 @@ export const progressPatchSchema = z.object({
   flags: z.record(z.string().max(80), z.boolean()).optional(),
   timeSpent: z.record(z.string().max(80), z.number().min(0)).optional(),
   current: z.number().int().min(0).optional(),
+  integrity: z.object({ blurs: z.number().int().min(0).max(10_000), fullscreenExits: z.number().int().min(0).max(10_000) }).optional(),
 });
 
 export const checkAnswerSchema = z.object({ questionId: id, response });
@@ -128,3 +131,16 @@ export const generateSchema = z.object({
   source: z.string().max(20_000).optional(),
   instructions: z.string().max(1000).optional(),
 });
+
+export const createChallengeSchema = z.object({ attemptId: z.string().uuid() });
+
+export const teamCreateSchema = z.object({ name: z.string().min(2).max(80) });
+export const teamJoinSchema = z.object({ code: z.string().min(4).max(20) });
+export const assignmentSchema = z.object({
+  examId: id,
+  title: z.string().max(120),
+  kind: z.enum(['full', 'quick', 'practice']),
+  difficulty: z.string().max(32),
+  dueAt: z.string().max(40).nullish(),
+});
+export const memberRoleSchema = z.object({ role: z.enum(['instructor', 'member']) });

@@ -5,7 +5,7 @@ import { attempt, bookmark, question } from '@/db/schema';
 import type { SessionUser } from '@/lib/auth';
 import { AppError, notFound } from '../errors';
 import { getExam, rowToQuestion } from '../exams';
-import { streamCompletion, useQuota } from './client';
+import { streamCompletion, consumeAiQuota } from './client';
 
 export interface TutorMessage { role: 'user' | 'assistant'; content: string }
 
@@ -35,7 +35,7 @@ export async function tutorStream(user: SessionUser, input: { questionId: string
     selected = [];
   }
 
-  await useQuota(user.id, user.role as string);
+  await consumeAiQuota(user.id, user.role as string);
   const q = rowToQuestion(row);
   const ex = await getExam(row.examId);
   const skill = ex?.config.skills.find((s) => s.id === q.skill)?.name ?? q.skill;

@@ -7,7 +7,7 @@ import { validateQuestion } from '@/lib/content/validate';
 import type { Question } from '@/lib/engine';
 import { AppError, notFound } from '../errors';
 import { getExam, getStudyNotes } from '../exams';
-import { jsonCompletion, useQuota } from './client';
+import { jsonCompletion, consumeAiQuota } from './client';
 
 export interface GenerateInput {
   examId: string;
@@ -72,7 +72,7 @@ export async function generateQuestions(userId: string, role: string, input: Gen
   if (!skill) throw new AppError('Choose a skill from this exam.', 400);
   const domain = cfg.domains.find((d) => d.id === skill.domain)!;
   const count = Math.max(1, Math.min(10, input.count));
-  await useQuota(userId, role, count);
+  await consumeAiQuota(userId, role, count);
 
   const notes = (await getStudyNotes(ex.id))[skill.id];
   const existing = await db.select({ stem: question.stem }).from(question)

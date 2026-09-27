@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowRight, Award, CheckCircle2, Clock, RotateCcw, Target, TimerOff, TrendingUp } from 'lucide-react';
+import { ArrowRight, Award, CheckCircle2, Clock, EyeOff, RotateCcw, Target, TimerOff, TrendingUp } from 'lucide-react';
 import { Reveal } from '@/components/common/reveal';
 import { ReviewList } from '@/components/results/review-list';
 import { ScoreRing } from '@/components/results/score-ring';
@@ -15,6 +15,9 @@ import { cn } from '@/lib/utils';
 import { getResult } from '@/server/attempts';
 import { AppError } from '@/server/errors';
 import { requireUser } from '@/server/session';
+import { NewBadges } from '@/components/achievements/achievements';
+import { ChallengeButton } from '@/components/challenges/challenge-button';
+import { recentBadges } from '@/server/gamification';
 
 export const metadata: Metadata = { title: 'Your results' };
 
@@ -31,6 +34,7 @@ export default async function ResultPage({ params }: { params: Promise<{ id: str
     throw err;
   });
   if ('active' in result) redirect(`/attempt/${id}`);
+  const fresh = await recentBadges(user.id);
 
   const { summary, scale } = result;
   const kind = KINDS[result.kind];
@@ -88,6 +92,15 @@ export default async function ResultPage({ params }: { params: Promise<{ id: str
           </div>
         </section>
       </Reveal>
+
+      <NewBadges badges={fresh} />
+
+      {result.integrity && result.integrity.blurs + result.integrity.fullscreenExits > 0 && (
+        <p className="flex items-start gap-2 rounded-2xl border border-warning/50 bg-warning/10 p-4 text-sm">
+          <EyeOff className="mt-0.5 size-4 shrink-0" />
+          <span>You left the exam tab {result.integrity.blurs} time{result.integrity.blurs === 1 ? '' : 's'}{result.integrity.fullscreenExits ? ` and exited full screen ${result.integrity.fullscreenExits} time${result.integrity.fullscreenExits === 1 ? '' : 's'}` : ''}. On a proctored exam, that can end your attempt, so practise staying in the exam window.</span>
+        </p>
+      )}
 
       {/* ---------------- one next step */}
       <Reveal delay={0.05}>
@@ -176,6 +189,7 @@ function NextStep({ result, weakest, wrong }: { result: ResultState; weakest: { 
       </div>
       <div className="flex shrink-0 flex-wrap gap-2">
         {action}
+        {scored && result.kind !== 'adaptive' && <ChallengeButton attemptId={result.id} examCode={result.examCode} />}
         <Button asChild variant="ghost" size="xl"><Link href={`/exams/${result.examId}`}>Back to exam</Link></Button>
       </div>
     </section>

@@ -36,13 +36,20 @@ export interface PlayerState {
   aiTutor: boolean;
   /** adaptive tests only */
   adaptive?: { target: number };
+  /** timed scored attempts track tab switches */
+  proctored: boolean;
+  integrity: IntegrityCounts;
 }
+
+export interface IntegrityCounts { blurs: number; fullscreenExits: number }
 
 export interface ProgressPatch {
   responses?: Record<string, string[]>;
   flags?: Record<string, boolean>;
   timeSpent?: Record<string, number>;
   current?: number;
+  /** absolute counts for proctored-style attempts */
+  integrity?: IntegrityCounts;
 }
 
 export interface ResultItem extends RevealedQuestion {
@@ -71,6 +78,7 @@ export interface ResultState {
   certificateId: string | null;
   certificateEligibleMode: boolean;
   aiTutor: boolean;
+  integrity: IntegrityCounts | null;
   items: ResultItem[];
 }
 

@@ -6,6 +6,7 @@ import { db } from '@/db';
 import { aiUsage } from '@/db/schema';
 import { dayKey } from '@/lib/streak';
 import { AppError } from '../errors';
+import { billingEnabled, getPlan } from '../billing';
 
 // One OpenAI-compatible client for every AI feature. Point OPENAI_BASE_URL
 // at a LiteLLM proxy to route to any provider; AI_MODEL picks the model
@@ -14,7 +15,7 @@ import { AppError } from '../errors';
 
 export const aiEnabled = () => Boolean(process.env.OPENAI_API_KEY);
 export const aiModel = () => process.env.AI_MODEL || 'gpt-4.1-mini';
-const dailyLimit = () => Number(process.env.AI_DAILY_LIMIT || 60);
+const dailyLimit = (plan: 'free' | 'pro') => (billingEnabled() && plan === 'free' ? Number(process.env.AI_DAILY_LIMIT_FREE || 10) : Number(process.env.AI_DAILY_LIMIT || 60));
 
 let client: OpenAI | null = null;
 function ai(): OpenAI {
@@ -24,15 +25,16 @@ function ai(): OpenAI {
 }
 
 /** Counts one AI request against the user's daily allowance (staff are unlimited). */
-export async function useQuota(userId: string, role: string, cost = 1) {
+export async function consumeAiQuota(userId: string, role: string, cost = 1) {
   if (role === 'admin' || role === 'author') return;
   const day = dayKey(new Date());
+  const limit = dailyLimit(billingEnabled() ? await getPlan(userId) : 'pro');
   const [row] = await db.insert(aiUsage).values({ userId, day, requests: cost })
     .onConflictDoUpdate({ target: [aiUsage.userId, aiUsage.day], set: { requests: sql`${aiUsage.requests} + ${cost}` } })
     .returning({ requests: aiUsage.requests });
-  if (row.requests > dailyLimit()) {
+  if (row.requests > limit) {
     await db.update(aiUsage).set({ requests: sql`${aiUsage.requests} - ${cost}` }).where(and(eq(aiUsage.userId, userId), eq(aiUsage.day, day)));
-    throw new AppError(`You've used today's ${dailyLimit()} AI requests. They reset at midnight UTC.`, 429, 'AI_QUOTA');
+    throw new AppError(`You've used today's ${limit} AI requests. They reset at midnight UTC.${billingEnabled() ? ' Pro raises the limit.' : ''}`, 429, 'AI_QUOTA');
   }
 }
 

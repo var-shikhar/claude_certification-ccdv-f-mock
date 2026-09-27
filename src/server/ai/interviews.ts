@@ -8,7 +8,8 @@ import {
   type InterviewFocusId,
 } from '@/lib/interview-presets';
 import { AppError, notFound } from '../errors';
-import { jsonCompletion, useQuota } from './client';
+import { evaluateBadges } from '../gamification';
+import { jsonCompletion, consumeAiQuota } from './client';
 
 type InterviewRow = typeof interview.$inferSelect;
 
@@ -89,7 +90,7 @@ export async function startInterview(userId: string, role: string, setup: Interv
   if (!INTERVIEW_ROLES.some((r) => r.id === setup.role) || !INTERVIEW_LEVELS.some((l) => l.id === setup.level) || !INTERVIEW_FOCUS.some((f) => f.id === setup.focus)) {
     throw new AppError('Pick a role, level and focus from the list.', 400);
   }
-  await useQuota(userId, role, 1);
+  await consumeAiQuota(userId, role, 1);
   const draft = { role: setup.role, level: setup.level, focus: setup.focus, questionTarget: Math.min(10, Math.max(2, setup.questionTarget)), turns: [] as InterviewTurn[] };
   const first = await interviewerTurn({ ...draft, id: '', userId, status: 'active', report: null, createdAt: new Date(), finishedAt: null });
   const [row] = await db.insert(interview).values({ userId, ...draft, turns: [first] }).returning({ id: interview.id });
@@ -108,7 +109,7 @@ export async function answerInterview(userId: string, role: string, id: string, 
   if (row.status !== 'active') throw new AppError('This interview has finished.', 409, 'ENDED');
   const text = answer.trim().slice(0, MAX_ANSWER);
   if (!text) throw new AppError('Type an answer first.', 400);
-  await useQuota(userId, role, 1);
+  await consumeAiQuota(userId, role, 1);
   const withAnswer: InterviewRow = { ...row, turns: [...row.turns, { role: 'candidate', content: text, at: new Date().toISOString() }] };
   const next = await interviewerTurn(withAnswer);
   const turns = [...withAnswer.turns, next];
@@ -158,7 +159,7 @@ export async function finishInterview(userId: string, role: string, id: string) 
     await db.update(interview).set({ status: 'abandoned', finishedAt: new Date() }).where(eq(interview.id, row.id));
     throw new AppError('Answer at least one question to get feedback.', 400, 'NO_ANSWERS');
   }
-  await useQuota(userId, role, 1);
+  await consumeAiQuota(userId, role, 1);
   const criteria = RUBRICS[row.focus as InterviewFocusId] ?? RUBRICS.mixed;
   const report: InterviewReport = await jsonCompletion({
     name: 'interview_report',
@@ -180,6 +181,7 @@ export async function finishInterview(userId: string, role: string, id: string) 
     ],
   });
   await db.update(interview).set({ status: 'completed', report, finishedAt: new Date() }).where(eq(interview.id, row.id));
+  await evaluateBadges(userId).catch((err) => console.error('[badges]', err));
   return { report };
 }
 

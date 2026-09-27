@@ -15,6 +15,10 @@ import { XP, recordActivity } from './activity';
 import { aiEnabled } from './ai/client';
 import { AppError, notFound } from './errors';
 import { getAssemblyPool, getCaseStudies, getExam, getQuestionsByIds } from './exams';
+import { assertCanStartFullMock } from './billing';
+import { getChallengeForm } from './challenges';
+import { evaluateBadges } from './gamification';
+import { getAssignmentForStart } from './teams';
 import { ensureEnrollment, getOrCreateProfile } from './profile';
 import { applyAnswersToCards } from './srs';
 
@@ -28,7 +32,7 @@ const MAX_TIME_PER_ITEM_MS = 4 * 60 * 60 * 1000;
 
 export interface StartInput {
   examId: string;
-  kind: Extract<AttemptKind, 'full' | 'quick' | 'practice' | 'mistakes' | 'review' | 'saved' | 'diagnostic' | 'adaptive'>;
+  kind: Extract<AttemptKind, 'full' | 'quick' | 'practice' | 'mistakes' | 'review' | 'saved' | 'diagnostic' | 'adaptive' | 'challenge' | 'assignment'>;
   difficulty?: string;
   pool?: 'bank' | 'imported' | 'all';
   domains?: number[];
@@ -37,6 +41,8 @@ export interface StartInput {
   timed?: boolean;
   instant?: boolean;
   candidateName?: string;
+  challengeId?: string;
+  assignmentId?: string;
 }
 
 const secondsPerItem = (cfg: ExamConfig) => (cfg.timeLimitMinutes * 60) / cfg.itemCount;
@@ -62,15 +68,41 @@ export async function startAttempt(userId: string, userName: string, input: Star
   let form: { itemIds: string[]; optionOrder: Record<string, string[]> };
   let minutes: number | null = null;
   let pool: 'bank' | 'imported' | 'all' = 'bank';
+  let challengeId: string | null = null;
+  let assignmentId: string | null = null;
 
   switch (input.kind) {
     case 'full':
     case 'quick': {
+      if (input.kind === 'full') await assertCanStartFullMock(userId, ex.id);
       const mode = cfg.modes[input.kind];
       if (!mode) throw new AppError('This exam has no such mock.', 400);
       form = assembleForm(cfg, await getAssemblyPool(ex.id, 'bank'), { seed, total: mode.items, difficulty });
       minutes = Math.ceil(mode.minutes * preset.timeFactor);
       settings.candidateName = (input.candidateName ?? userName).trim().slice(0, 80);
+      break;
+    }
+    case 'challenge': {
+      const c = await getChallengeForm(input.challengeId ?? '');
+      if (c.examId !== ex.id) throw new AppError('That challenge belongs to another exam.', 400);
+      form = { itemIds: c.itemIds, optionOrder: c.optionOrder };
+      minutes = c.minutes;
+      challengeId = c.id;
+      settings.candidateName = userName;
+      break;
+    }
+    case 'assignment': {
+      const asg = await getAssignmentForStart(userId, input.assignmentId ?? '');
+      if (asg.examId !== ex.id) throw new AppError('That assignment belongs to another exam.', 400);
+      assignmentId = asg.id;
+      if (asg.kind === 'practice') {
+        form = assembleForm(cfg, await getAssemblyPool(ex.id, 'bank'), { seed, total: 15, difficulty: asg.difficulty });
+      } else {
+        const mode = cfg.modes[asg.kind];
+        form = assembleForm(cfg, await getAssemblyPool(ex.id, 'bank'), { seed, total: mode?.items ?? cfg.itemCount, difficulty: asg.difficulty });
+        minutes = Math.ceil((mode?.minutes ?? cfg.timeLimitMinutes) * difficultyMode(cfg, asg.difficulty).timeFactor);
+      }
+      settings.candidateName = userName;
       break;
     }
     case 'adaptive': {
@@ -144,6 +176,8 @@ export async function startAttempt(userId: string, userName: string, input: Star
     minutes,
     startedAt: now,
     deadline: minutes ? new Date(now.getTime() + minutes * 60_000) : null,
+    challengeId,
+    assignmentId,
   }).returning({ id: attempt.id });
   await ensureEnrollment(userId, ex.id);
   return row;
@@ -235,6 +269,8 @@ export async function getPlayerState(userId: string, attemptId: string): Promise
     bookmarks: saved.map((s) => s.questionId),
     aiTutor: aiEnabled(),
     adaptive: a.settings.adaptive ? { target: a.settings.adaptive.target } : undefined,
+    proctored: Boolean(a.deadline) && ['full', 'quick', 'challenge', 'assignment'].includes(a.kind),
+    integrity: { blurs: a.integrity?.blurs ?? 0, fullscreenExits: a.integrity?.fullscreenExits ?? 0 },
   };
 }
 
@@ -261,6 +297,12 @@ export async function saveProgress(userId: string, attemptId: string, patch: Pro
   const flags = pick(patch.flags, (_id, v) => typeof v === 'boolean');
   const timeSpent = pick(patch.timeSpent, (_id, v) => Number.isFinite(v) && v >= 0 && v <= MAX_TIME_PER_ITEM_MS);
   const current = patch.current === undefined ? undefined : Math.max(0, Math.min(Math.trunc(patch.current), a.itemIds.length - 1));
+  // Counts only ever go up, so a stale request can't erase an earlier tab switch.
+  const integrity = patch.integrity ? {
+    blurs: Math.max(a.integrity?.blurs ?? 0, patch.integrity.blurs),
+    fullscreenExits: Math.max(a.integrity?.fullscreenExits ?? 0, patch.integrity.fullscreenExits),
+    events: a.integrity?.events ?? [],
+  } : undefined;
 
   // JSONB `||` merges atomically, so rapid saves never overwrite each other.
   await db.update(attempt).set({
@@ -268,6 +310,7 @@ export async function saveProgress(userId: string, attemptId: string, patch: Pro
     ...(Object.keys(flags).length ? { flags: sql`${attempt.flags} || ${JSON.stringify(flags)}::jsonb` } : {}),
     ...(Object.keys(timeSpent).length ? { timeSpent: sql`${attempt.timeSpent} || ${JSON.stringify(timeSpent)}::jsonb` } : {}),
     ...(current !== undefined ? { current } : {}),
+    ...(integrity ? { integrity } : {}),
   }).where(and(eq(attempt.id, a.id), eq(attempt.status, 'active')));
   return { ok: true as const, deadline: a.deadline?.toISOString() ?? null, serverNow: new Date().toISOString() };
 }
@@ -377,6 +420,7 @@ async function finalize(a: AttemptRow, { timedOut }: { timedOut: boolean }) {
       }).onConflictDoNothing();
     }
   });
+  await evaluateBadges(a.userId, profile.timezone).catch((err) => console.error('[badges]', err));
 }
 
 // ---------------------------------------------------------------- results & history
@@ -408,6 +452,7 @@ export async function getResult(userId: string, attemptId: string): Promise<Resu
     certificateId: cert?.id ?? null,
     certificateEligibleMode: a.kind === 'full' && difficultyMode(cfg, a.difficulty).certificate,
     aiTutor: aiEnabled(),
+    integrity: a.integrity ? { blurs: a.integrity.blurs, fullscreenExits: a.integrity.fullscreenExits } : null,
     items: questions.map((q: Question) => {
       const selected = a.responses[q.id] ?? [];
       return {
