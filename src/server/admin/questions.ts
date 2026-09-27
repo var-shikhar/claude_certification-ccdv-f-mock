@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { exam, question, questionReport, questionRevision, type QuestionPool, type QuestionStatus } from '@/db/schema';
 import { validateQuestion } from '@/lib/content/validate';
 import type { Question } from '@/lib/engine';
+import { invalidateCatalog } from '../cache';
 import { AppError, notFound } from '../errors';
 import { getExam, rowToQuestion } from '../exams';
 import { flagsFor, getItemStats, type ItemStat } from './analysis';
@@ -184,7 +185,7 @@ export async function saveQuestion(userId: string, examId: string, draft: Questi
       await tx.insert(question).values({ id, ...values, source: 'admin', createdBy: userId });
     }
     return { id, warnings };
-  });
+  }).finally(() => invalidateCatalog());
 }
 
 export async function setQuestionStatus(userId: string, ids: string[], status: QuestionStatus) {
@@ -201,6 +202,7 @@ export async function setQuestionStatus(userId: string, ids: string[], status: Q
     await db.update(question).set({ status, source: row.source === 'seed' ? 'admin' : row.source }).where(eq(question.id, row.id));
     updated += 1;
   }
+  invalidateCatalog();
   return { updated, blocked };
 }
 

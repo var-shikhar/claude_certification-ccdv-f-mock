@@ -29,12 +29,11 @@ const fmtDuration = (ms: number) => {
 export default async function ResultPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireUser(`/attempt/${id}/result`);
-  const result = await getResult(user.id, id).catch((err) => {
+  const [result, fresh] = await Promise.all([getResult(user.id, id).catch((err) => {
     if (err instanceof AppError && err.status === 404) notFound();
     throw err;
-  });
+  }), recentBadges(user.id)]);
   if ('active' in result) redirect(`/attempt/${id}`);
-  const fresh = await recentBadges(user.id);
 
   const { summary, scale } = result;
   const kind = KINDS[result.kind];

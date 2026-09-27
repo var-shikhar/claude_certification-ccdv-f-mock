@@ -12,8 +12,7 @@ import { UserMenu } from './user-menu';
 /** Signed-in people get the app navigation; visitors get the marketing links. */
 export async function SiteHeader() {
   const user = await getUser();
-  const profile = user ? await getOrCreateProfile(user.id) : null;
-  const streak = user && profile ? await getStreak(user.id, profile.timezone) : null;
+  const [profile, streak] = user ? await Promise.all([getOrCreateProfile(user.id), getStreak(user.id)]) : [null, null];
 
   return (
     <header className="sticky top-0 z-40 print:hidden border-b border-border/60 bg-background/75 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">

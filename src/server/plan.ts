@@ -22,8 +22,11 @@ export async function getStudyPlan(userId: string, examId: string): Promise<Plan
   const ex = await getExam(examId);
   if (!ex) return null;
   const cfg = ex.config;
-  const [profile, readiness, due, enrollment] = await Promise.all([
+  const [profile, readiness, due, enrollment, recent] = await Promise.all([
     getOrCreateProfile(userId), getReadiness(userId, examId), countDue(userId, examId), getEnrollment(userId, examId),
+    db.select({ kind: attempt.kind, settings: attempt.settings, status: attempt.status, startedAt: attempt.startedAt })
+      .from(attempt)
+      .where(and(eq(attempt.userId, userId), eq(attempt.examId, examId), gte(attempt.startedAt, new Date(Date.now() - 36 * 3_600_000)))),
   ]);
   if (!readiness) return null;
   const today = dayKey(new Date(), profile.timezone);
@@ -42,9 +45,6 @@ export async function getStudyPlan(userId: string, examId: string): Promise<Plan
   });
 
   // What was finished today (in the learner's time zone) ticks tasks off.
-  const recent = await db.select({ kind: attempt.kind, settings: attempt.settings, status: attempt.status, startedAt: attempt.startedAt })
-    .from(attempt)
-    .where(and(eq(attempt.userId, userId), eq(attempt.examId, examId), gte(attempt.startedAt, new Date(Date.now() - 36 * 3_600_000))));
   const finishedToday = recent.filter((a) => a.status === 'submitted' && dayKey(a.startedAt, profile.timezone) === today);
   const isDone = (t: PlanTask) => {
     switch (t.kind) {

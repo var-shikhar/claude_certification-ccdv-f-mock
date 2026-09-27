@@ -1,14 +1,14 @@
 import 'server-only';
-import { cache } from 'react';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { caseStudy, exam, question, studyNote } from '@/db/schema';
 import type { Question } from '@/lib/engine';
+import { cached } from './cache';
 
 export type ExamRow = typeof exam.$inferSelect;
 export type QuestionRow = typeof question.$inferSelect;
 
-export const getExam = cache(async (examId: string): Promise<ExamRow | null> => {
+export const getExam = (examId: string): Promise<ExamRow | null> => cached(`catalog:exam:${examId}`, async () => {
   const [row] = await db.select().from(exam).where(eq(exam.id, examId)).limit(1);
   return row ?? null;
 });
@@ -29,7 +29,7 @@ export interface ExamCard {
   isFree: boolean;
 }
 
-export const listExams = cache(async (): Promise<ExamCard[]> => {
+export const listExams = (): Promise<ExamCard[]> => cached('catalog:exams', async () => {
   const rows = await db
     .select({
       id: exam.id, code: exam.code, title: exam.title, vendor: exam.vendor, category: exam.category, meta: exam.meta,
@@ -69,13 +69,15 @@ export function rowToQuestion(r: QuestionRow): Question {
 }
 
 /** Published items for form assembly (bank, imported pool or both). */
-export async function getAssemblyPool(examId: string, pool: 'bank' | 'imported' | 'all' = 'bank') {
-  const where = [eq(question.examId, examId), eq(question.status, 'published')];
-  if (pool !== 'all') where.push(eq(question.pool, pool));
-  return db
-    .select({ id: question.id, domain: question.domain, skill: question.skill, difficulty: question.difficulty, type: question.type, options: question.options })
-    .from(question)
-    .where(and(...where));
+export function getAssemblyPool(examId: string, pool: 'bank' | 'imported' | 'all' = 'bank') {
+  return cached(`catalog:pool:${examId}:${pool}`, () => {
+    const where = [eq(question.examId, examId), eq(question.status, 'published')];
+    if (pool !== 'all') where.push(eq(question.pool, pool));
+    return db
+      .select({ id: question.id, domain: question.domain, skill: question.skill, difficulty: question.difficulty, type: question.type, options: question.options })
+      .from(question)
+      .where(and(...where));
+  });
 }
 
 /** Full questions for the given ids, returned in the same order. */
@@ -93,13 +95,13 @@ export async function getCaseStudies(ids: (string | null | undefined)[]) {
   return Object.fromEntries(rows.map((r) => [r.id, { title: r.title, scenario: r.scenario }]));
 }
 
-export const getStudyNotes = cache(async (examId: string) => {
+export const getStudyNotes = (examId: string) => cached(`catalog:notes:${examId}`, async () => {
   const rows = await db.select().from(studyNote).where(eq(studyNote.examId, examId));
   return Object.fromEntries(rows.map((r) => [r.skillId, r.content]));
 });
 
 /** Published bank counts per skill (for "n questions" labels in the syllabus). */
-export const getSkillCounts = cache(async (examId: string) => {
+export const getSkillCounts = (examId: string) => cached(`catalog:skills:${examId}`, async () => {
   const rows = await db
     .select({ skill: question.skill, n: sql<number>`count(*)::int` })
     .from(question)
@@ -109,7 +111,7 @@ export const getSkillCounts = cache(async (examId: string) => {
 });
 
 /** Published question counts per pool (the reviewed bank vs. imported practice sets). */
-export const getPoolCounts = cache(async (examId: string) => {
+export const getPoolCounts = (examId: string) => cached(`catalog:pools:${examId}`, async () => {
   const rows = await db
     .select({ pool: question.pool, n: sql<number>`count(*)::int` })
     .from(question)

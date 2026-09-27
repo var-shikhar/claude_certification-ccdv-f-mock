@@ -22,7 +22,9 @@ export const usingPglite = () => {
 function createDb(): DB {
   const url = process.env.DATABASE_URL;
   if (!usingPglite()) {
-    const pool = new Pool({ connectionString: url, max: 5 });
+    // Opening a connection costs several network round trips (WebSocket, TLS, auth), so keep
+    // idle connections for a few minutes instead of the driver's 10-second default.
+    const pool = new Pool({ connectionString: url, max: 10, idleTimeoutMillis: 5 * 60_000, connectionTimeoutMillis: 20_000 });
     return drizzleNeon({ client: pool, schema, casing: 'snake_case' });
   }
   const dir = url?.slice('pglite:'.length) || '.data/pglite';

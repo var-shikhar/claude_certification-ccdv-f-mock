@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Bricolage_Grotesque, Geist, Geist_Mono } from 'next/font/google';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Providers } from '@/components/providers/providers';
 import { cn } from '@/lib/utils';
 import './globals.css';
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning className={cn(sans.variable, display.variable, mono.variable)}>
       <body className="min-h-dvh">
         <Providers>{children}</Providers>
+        <SpeedInsights />
       </body>
     </html>
   );

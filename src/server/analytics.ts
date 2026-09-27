@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { and, count, desc, eq, lte, max, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { attempt, attemptItem, bookmark, certificate, enrollment, exam, reviewCard } from '@/db/schema';
@@ -8,7 +9,7 @@ import { getExam } from './exams';
 
 const HISTORY_LIMIT = 800;
 
-export async function getReadiness(userId: string, examId: string): Promise<Readiness | null> {
+export const getReadiness = cache(async (userId: string, examId: string): Promise<Readiness | null> => {
   const ex = await getExam(examId);
   if (!ex) return null;
   const history = await db
@@ -18,17 +19,17 @@ export async function getReadiness(userId: string, examId: string): Promise<Read
     .orderBy(desc(attemptItem.createdAt))
     .limit(HISTORY_LIMIT);
   return computeReadiness(ex.config, history);
-}
+});
 
-export async function countDue(userId: string, examId?: string) {
+export const countDue = cache(async (userId: string, examId?: string) => {
   const where = [eq(reviewCard.userId, userId), lte(reviewCard.due, new Date())];
   if (examId) where.push(eq(reviewCard.examId, examId));
   const [row] = await db.select({ n: count() }).from(reviewCard).where(and(...where));
   return row?.n ?? 0;
-}
+});
 
 /** Questions whose most recent answer was wrong. */
-export async function countMistakes(userId: string, examId: string) {
+export const countMistakes = cache(async (userId: string, examId: string) => {
   const res = await db.execute<{ n: number }>(sql`
     select count(*)::int as n from (
       select distinct on (question_id) correct
@@ -37,7 +38,7 @@ export async function countMistakes(userId: string, examId: string) {
       order by question_id, created_at desc
     ) latest where not correct`);
   return Number(res.rows[0]?.n ?? 0);
-}
+});
 
 export async function getEnrollment(userId: string, examId: string) {
   const [row] = await db.select().from(enrollment).where(and(eq(enrollment.userId, userId), eq(enrollment.examId, examId))).limit(1);
@@ -107,17 +108,20 @@ export async function getMyExams(userId: string, limit = 4): Promise<DashboardEx
     .orderBy(sql`last_activity desc nulls last`, desc(enrollment.createdAt))
     .limit(limit);
 
-  return Promise.all(rows.map(async (r) => ({
-    id: r.id,
-    code: r.code,
-    title: r.title,
-    accent: r.meta.accent ?? null,
-    targetDate: r.targetDate,
-    lastActivity: r.lastActivity ? new Date(r.lastActivity).toISOString() : null,
-    readiness: await getReadiness(userId, r.id),
-    due: await countDue(userId, r.id),
-    mistakes: await countMistakes(userId, r.id),
-  })));
+  return Promise.all(rows.map(async (r) => {
+    const [readiness, due, mistakes] = await Promise.all([getReadiness(userId, r.id), countDue(userId, r.id), countMistakes(userId, r.id)]);
+    return {
+      id: r.id,
+      code: r.code,
+      title: r.title,
+      accent: r.meta.accent ?? null,
+      targetDate: r.targetDate,
+      lastActivity: r.lastActivity ? new Date(r.lastActivity).toISOString() : null,
+      readiness,
+      due,
+      mistakes,
+    };
+  }));
 }
 
 export interface ProgressData {

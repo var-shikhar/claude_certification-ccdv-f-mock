@@ -28,11 +28,11 @@ function greeting(timeZone: string) {
 
 export default async function DashboardPage() {
   const user = await requireUser('/dashboard');
-  const profile = await getOrCreateProfile(user.id);
-  const [myExams, active, streak, heat, recent] = await Promise.all([
+  const [profile, myExams, active, streak, heat, recent] = await Promise.all([
+    getOrCreateProfile(user.id),
     getMyExams(user.id),
     getActiveAttempts(user.id),
-    getStreak(user.id, profile.timezone),
+    getStreak(user.id),
     getActivityHeatmap(user.id),
     listAttempts(user.id, { limit: 4 }),
   ]);
