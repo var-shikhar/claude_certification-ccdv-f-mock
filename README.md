@@ -144,7 +144,7 @@ npm run sync
 Imported sets appear as a "Question pool" choice in Practice Drills. They are
 kept apart from the reviewed bank and are never drawn into the scored mock
 exams, because they have no per-option rationale and were not reviewed here.
-`data/imported/` is git-ignored.
+A set listed in `exam.json` but missing from the deploy is skipped, not fatal.
 
 Treat third-party keys with care. A cross-check of one popular 650-question
 set against current docs found several answers that are now wrong: choosing a

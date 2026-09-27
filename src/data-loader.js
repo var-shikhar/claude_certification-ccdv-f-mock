@@ -7,7 +7,8 @@ export async function loadData(base = 'data/') {
   const [questionSets, studySets, importedSets] = await Promise.all([
     Promise.all(exam.questionFiles.map((f) => getJson(base + f))),
     Promise.all((exam.studyFiles ?? []).map((f) => getJson(base + f))),
-    Promise.all((exam.importedFiles ?? []).map((f) => getJson(base + f))),
+    // Imported sets are optional extras; a missing file must not break the app.
+    Promise.all((exam.importedFiles ?? []).map((f) => getJson(base + f).catch((err) => { console.warn(err.message); return []; }))),
   ]);
   return { exam, questions: questionSets.flat(), study: Object.assign({}, ...studySets), imported: importedSets.flat() };
 }
