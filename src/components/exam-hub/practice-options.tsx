@@ -18,12 +18,15 @@ import { KINDS } from '@/lib/attempt-kinds';
 import type { ExamConfig } from '@/lib/engine/types';
 import { cn } from '@/lib/utils';
 import { useHubUi, type SetupKind } from '@/stores/hub-ui';
+import { usePracticePrefs } from '@/stores/practice-prefs';
 import { DifficultyPicker } from './difficulty-picker';
 
 type Setup = SetupKind | null;
 
-export function PracticeOptions({ exam, signedIn, defaultName, hasImported, due, mistakes, autoOpen }: {
+export function PracticeOptions({ exam, signedIn, defaultName, hasImported, due, mistakes, autoOpen, skillCounts }: {
   exam: ExamConfig;
+  /** reviewed-bank question counts per skill */
+  skillCounts: Record<string, number>;
   signedIn: boolean;
   defaultName: string;
   hasImported: boolean;
@@ -38,6 +41,8 @@ export function PracticeOptions({ exam, signedIn, defaultName, hasImported, due,
   const closeSetup = useHubUi((s) => s.closeSetup);
   const start = useStartAttempt();
   useEffect(() => { if (autoOpen) openSetup(autoOpen); }, [autoOpen, openSetup]);
+  // Remembered drill and mock choices live in localStorage; load them once in the browser.
+  useEffect(() => { void usePracticePrefs.persist.rehydrate(); }, []);
   const open = (s: SetupKind) => (signedIn ? openSetup(s) : router.push(`/sign-up?next=/exams/${exam.id}`));
 
   const cards = [
@@ -107,33 +112,72 @@ export function PracticeOptions({ exam, signedIn, defaultName, hasImported, due,
         </div>
       )}
 
-      <SetupSheet exam={exam} setup={setup} onClose={closeSetup} defaultName={defaultName} hasImported={hasImported} />
+      <SetupSheet exam={exam} setup={setup} onClose={closeSetup} defaultName={defaultName} hasImported={hasImported} skillCounts={skillCounts} />
     </section>
   );
 }
 
-function SetupSheet({ exam, setup, onClose, defaultName, hasImported }: {
-  exam: ExamConfig; setup: Setup; onClose: () => void; defaultName: string; hasImported: boolean;
+function SetupSheet({ exam, setup, onClose, defaultName, hasImported, skillCounts }: {
+  exam: ExamConfig; setup: Setup; onClose: () => void; defaultName: string; hasImported: boolean; skillCounts: Record<string, number>;
 }) {
   const desktop = useMediaQuery('(min-width: 768px)', true);
   const start = useStartAttempt();
+  const prefs = usePracticePrefs();
+  const saved = prefs.drills[exam.id];
+  const valid = (d?: string) => (d && exam.difficultyModes[d] ? d : exam.defaultDifficultyMode);
   const [difficulty, setDifficulty] = useState(exam.defaultDifficultyMode);
   const [name, setName] = useState(defaultName);
   const [agree, setAgree] = useState(false);
   const [domains, setDomains] = useState<number[]>([]);
-  const [count, setCount] = useState('10');
+  const [skills, setSkills] = useState<string[]>([]);
+  const [count, setCount] = useState('15');
   const [instant, setInstant] = useState(true);
   const [timed, setTimed] = useState(false);
   const [pool, setPool] = useState<'bank' | 'imported' | 'all'>('bank');
   const [more, setMore] = useState(false);
+  const [narrow, setNarrow] = useState(false);
+
+  // Each time the sheet opens, start from this exam's last choices on this device.
+  const [openedFor, setOpenedFor] = useState<Setup>(null);
+  if (setup !== openedFor) {
+    setOpenedFor(setup);
+    if (setup === 'practice' && saved) {
+      setDomains(saved.domains.filter((d) => exam.domains.some((x) => x.id === d)));
+      setSkills(saved.skills.filter((sk) => exam.skills.some((x) => x.id === sk)));
+      setNarrow(saved.skills.length > 0);
+      setCount(saved.count);
+      setInstant(saved.instant);
+      setTimed(saved.timed);
+      setPool(hasImported ? saved.pool : 'bank');
+      setDifficulty(valid(saved.difficulty));
+    } else if (setup === 'full' || setup === 'quick') {
+      setDifficulty(valid(prefs.mockDifficulty[exam.id]));
+    }
+  }
+
+  const skillsInScope = exam.skills.filter((sk) => !domains.length || domains.includes(sk.domain));
+  const available = (skills.length ? skills : skillsInScope.map((sk) => sk.id)).reduce((a, id) => a + (skillCounts[id] ?? 0), 0);
+  const domainCount = (id: number) => exam.skills.filter((sk) => sk.domain === id).reduce((a, sk) => a + (skillCounts[sk.id] ?? 0), 0);
+  const counts = [...new Set(['10', '15', '20', '30', String(exam.itemCount)])].sort((a, b) => Number(a) - Number(b));
 
   const isMock = setup === 'full' || setup === 'quick';
   const mode = isMock ? exam.modes[setup!] : null;
 
   function begin() {
     if (!setup) return;
-    if (isMock) start.mutate({ examId: exam.id, kind: setup, difficulty, candidateName: name });
-    else start.mutate({ examId: exam.id, kind: 'practice', difficulty, domains: domains.length ? domains : undefined, count: Number(count), instant, timed, pool });
+    if (isMock) {
+      prefs.saveMockDifficulty(exam.id, difficulty);
+      start.mutate({ examId: exam.id, kind: setup, difficulty, candidateName: name });
+    }
+    else {
+      prefs.saveDrill(exam.id, { domains, skills, count, instant, timed, pool, difficulty });
+      start.mutate({
+        examId: exam.id, kind: 'practice', difficulty, instant, timed, pool,
+        domains: domains.length ? domains : undefined,
+        skills: skills.length ? skills : undefined,
+        count: count === 'all' ? 2000 : Number(count),
+      });
+    }
   }
 
   return (
@@ -172,25 +216,61 @@ function SetupSheet({ exam, setup, onClose, defaultName, hasImported }: {
           ) : (
             <>
               <div className="space-y-2">
-                <Label className="text-sm font-semibold">Topics</Label>
+                <div className="flex items-baseline justify-between gap-2">
+                  <Label className="text-sm font-semibold">Topics</Label>
+                  <span className="text-xs text-muted-foreground tabular-nums" aria-live="polite">{available.toLocaleString()} questions available</span>
+                </div>
                 <div className="flex flex-wrap gap-2">
-                  <Chip active={domains.length === 0} onClick={() => setDomains([])}>All topics</Chip>
+                  <Chip active={domains.length === 0} onClick={() => { setDomains([]); setSkills([]); }}>All topics</Chip>
                   {exam.domains.map((d) => (
                     <Chip
                       key={d.id}
                       active={domains.includes(d.id)}
-                      onClick={() => setDomains((cur) => (cur.includes(d.id) ? cur.filter((x) => x !== d.id) : [...cur, d.id]))}
+                      onClick={() => {
+                        setSkills([]);
+                        setDomains((cur) => (cur.includes(d.id) ? cur.filter((x) => x !== d.id) : [...cur, d.id]));
+                      }}
                     >
-                      {d.name}
+                      {d.name} <span className="ml-1 text-[0.7rem] opacity-70 tabular-nums">{domainCount(d.id)}</span>
                     </Chip>
                   ))}
                 </div>
+                <button type="button" onClick={() => { setNarrow((v) => !v); if (narrow) setSkills([]); }} className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                  {narrow ? 'Use whole topics' : 'Narrow to specific skills'} <ChevronDown className={cn('size-3.5 transition-transform', narrow && 'rotate-180')} />
+                </button>
+                {narrow && (
+                  <div className="flex flex-wrap gap-1.5 rounded-2xl border bg-secondary/30 p-3">
+                    {skillsInScope.map((sk) => (
+                      <Chip
+                        key={sk.id}
+                        active={skills.includes(sk.id)}
+                        onClick={() => setSkills((cur) => (cur.includes(sk.id) ? cur.filter((x) => x !== sk.id) : [...cur, sk.id]))}
+                      >
+                        {sk.name} <span className="ml-1 text-[0.7rem] opacity-70 tabular-nums">{skillCounts[sk.id] ?? 0}</span>
+                      </Chip>
+                    ))}
+                    {skills.length === 0 && <p className="w-full text-xs text-muted-foreground">No skill picked: every skill in the chosen topics is included.</p>}
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Difficulty</Label>
+                <ToggleGroup type="single" value={difficulty} onValueChange={(v) => v && setDifficulty(v)} variant="outline" className="grid w-full grid-cols-3 gap-1.5 sm:grid-cols-5">
+                  {Object.entries(exam.difficultyModes).map(([key, m]) => (
+                    <ToggleGroupItem key={key} value={key} className="h-auto rounded-lg px-2 py-1.5 text-xs">{m.label}</ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+                <p className="text-xs text-muted-foreground">{exam.difficultyModes[difficulty]?.blurb}</p>
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-semibold">Questions</Label>
                 <ToggleGroup type="single" value={count} onValueChange={(v) => v && setCount(v)} variant="outline" className="w-full">
-                  {['5', '10', '20', '30'].map((n) => <ToggleGroupItem key={n} value={n} className="flex-1">{n}</ToggleGroupItem>)}
+                  {counts.map((n) => <ToggleGroupItem key={n} value={n} className="flex-1">{n}</ToggleGroupItem>)}
+                  <ToggleGroupItem value="all" className="flex-1">All</ToggleGroupItem>
                 </ToggleGroup>
+                {count !== 'all' && Number(count) > available && available > 0 && (
+                  <p className="text-xs text-muted-foreground">Only {available} questions match, so you will get all of them.</p>
+                )}
               </div>
               <Label className="flex items-center justify-between gap-4 rounded-2xl border p-4 font-normal">
                 <span>
@@ -213,10 +293,6 @@ function SetupSheet({ exam, setup, onClose, defaultName, hasImported }: {
                       </span>
                       <Switch checked={timed} onCheckedChange={setTimed} />
                     </Label>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-semibold">Difficulty mix</Label>
-                      <DifficultyPicker exam={exam} value={difficulty} onChange={setDifficulty} />
-                    </div>
                     {hasImported && (
                       <div className="space-y-2">
                         <Label className="text-sm font-semibold">Question pool</Label>

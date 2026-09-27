@@ -10,7 +10,7 @@ export const startAttemptSchema = z.object({
   pool: z.enum(['bank', 'imported', 'all']).optional(),
   domains: z.array(z.number().int().positive()).max(30).optional(),
   skills: z.array(z.string().max(80)).max(80).optional(),
-  count: z.number().int().min(1).max(60).optional(),
+  count: z.number().int().min(1).max(2000).optional(),
   timed: z.boolean().optional(),
   instant: z.boolean().optional(),
   candidateName: z.string().max(80).optional(),

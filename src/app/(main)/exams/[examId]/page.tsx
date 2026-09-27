@@ -80,6 +80,7 @@ export default async function ExamHubPage({ params, searchParams }: { params: Pr
           signedIn={Boolean(user)}
           defaultName={user && !user.isAnonymous ? user.name : ''}
           hasImported={pools.imported > 0}
+          skillCounts={counts}
           due={hub?.due ?? 0}
           mistakes={hub?.mistakes ?? 0}
           autoOpen={user && (start === 'quick' || start === 'full' || start === 'practice') ? start : undefined}

@@ -119,7 +119,8 @@ export async function startAttempt(userId: string, userName: string, input: Star
     }
     case 'practice': {
       pool = input.pool ?? 'bank';
-      const count = Math.max(1, Math.min(input.count ?? 10, 60));
+      // "All available" arrives as a large count; the form is capped by what the pool holds.
+      const count = Math.max(1, Math.min(input.count ?? 10, 2000));
       form = assembleForm(cfg, await getAssemblyPool(ex.id, pool), {
         seed, total: count, difficulty, domains: input.domains ?? null, skills: input.skills ?? null,
       });
