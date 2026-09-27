@@ -54,21 +54,26 @@ function verificationCode(result) {
   return `CCDVF-MOCK-${(h >>> 0).toString(36).toUpperCase().padStart(7, '0')}`;
 }
 
+const NAV = [
+  ['#/', 'Home', 'Home'],
+  ['#/study', 'Study guide', 'Study'],
+  ['#/practice', 'Practice', 'Practice'],
+  ['#/history', 'History', 'History'],
+  ['#/about', 'How scoring works', 'Scoring'],
+];
+
 function shell(content, { nav = true } = {}) {
-  const route = location.hash || '#/';
-  const link = (href, label) => `<a href="${href}" class="${route === href ? 'active' : ''}">${label}</a>`;
+  const route = (location.hash || '#/').split('?')[0];
+  const link = ([href, label, short]) => {
+    const on = href === '#/' ? route === '#/' : route.startsWith(href);
+    return `<a href="${href}" class="${on ? 'active' : ''}" ${on ? 'aria-current="page"' : ''}><span class="nav-full">${label}</span><span class="nav-short">${short}</span></a>`;
+  };
   return `
     ${nav ? `
     <header class="topbar no-print">
       <div class="wrap">
-        <a class="brand" href="#/"><span class="brand-mark">CD</span><span>CCDV-F Mock Exam</span></a>
-        <nav class="nav" aria-label="Main">
-          ${link('#/', 'Home')}
-          ${link('#/study', 'Study guide')}
-          ${link('#/practice', 'Practice')}
-          ${link('#/history', 'History')}
-          ${link('#/about', 'How scoring works')}
-        </nav>
+        <a class="brand" href="#/" aria-label="${esc(EXAM.code)} Mock Exam home"><span class="brand-mark" aria-hidden="true">CD</span><span class="brand-name">${esc(EXAM.code)} Mock Exam</span></a>
+        <div class="nav-scroll"><nav class="nav" aria-label="Main">${NAV.map(link).join('')}</nav></div>
       </div>
     </header>` : ''}
     ${content}`;
@@ -77,13 +82,30 @@ function shell(content, { nav = true } = {}) {
 function render(html) {
   app.innerHTML = html;
   window.scrollTo(0, 0);
+  // Keep the active nav item in view on narrow screens, and drop the fade once fully scrolled.
+  const nav = app.querySelector('.nav');
+  if (nav) {
+    const on = nav.querySelector('a.active');
+    if (on) nav.scrollLeft = Math.max(0, on.offsetLeft - 12);
+    updateNavFade(nav);
+  }
 }
+
+function updateNavFade(nav) {
+  const box = nav.parentElement;
+  if (!box) return;
+  box.classList.toggle('at-end', nav.scrollWidth - nav.clientWidth - nav.scrollLeft < 4);
+  box.classList.toggle('scrolled', nav.scrollLeft > 4);
+}
+
+app.addEventListener('scroll', (e) => { if (e.target.classList?.contains('nav')) updateNavFade(e.target); }, true);
 
 // ---------------------------------------------------------------- routing
 
 function route() {
   stopTimer();
-  const [, view, arg] = (location.hash || '#/').split('/');
+  // Query strings (e.g. #/practice?domains=1,2) belong to the view, not the route.
+  const [, view, arg] = (location.hash || '#/').split('?')[0].split('/');
   active = store.getActive();
 
   if (active && view !== 'exam') {
@@ -103,8 +125,23 @@ function route() {
     case 'practice': return viewPracticeSetup();
     case 'history': return viewHistory();
     case 'about': return viewAbout();
-    default: location.hash = '#/';
+    default: return viewNotFound();
   }
+}
+
+function viewNotFound() {
+  render(shell(`
+    <main class="wrap narrow">
+      <section class="card empty">
+        <span class="pill">404</span>
+        <h2 class="mt-3">Page not found</h2>
+        <p>There's nothing at <code>${esc(location.hash)}</code>. It may be an old link.</p>
+        <div class="actions" style="justify-content:center">
+          <a class="btn primary" href="#/">Go to Home</a>
+          <a class="btn" href="#/history">Attempt history</a>
+        </div>
+      </section>
+    </main>`));
 }
 
 window.addEventListener('hashchange', () => { if (EXAM) route(); });
@@ -116,75 +153,84 @@ function viewHome() {
   const fulls = history.filter((r) => r.mode === 'full');
   const best = fulls.reduce((m, r) => Math.max(m, r.score.scaled), 0);
   const passedFull = fulls.find(certificateEligible);
+  const latest = history[0];
 
   render(shell(`
     <main class="wrap">
       ${active ? `
-        <div class="notice accent row" style="margin-bottom:20px">
-          <div><b>You have an attempt in progress</b> — ${esc(MODES[active.mode].label)}, question ${active.current + 1} of ${active.itemIds.length}${active.deadline ? `, ${fmtClock(active.deadline - Date.now())} left on the clock` : ''}.</div>
-          <span class="spacer"></span>
-          <a class="btn primary sm" href="#/exam">Resume</a>
-          <button class="btn sm danger" data-action="abandon">Abandon</button>
-        </div>` : ''}
+        <section class="resume" aria-label="Attempt in progress">
+          <div class="resume-title">Attempt in progress</div>
+          <p class="resume-meta">${esc(MODES[active.mode].label)} · question ${active.current + 1} of ${active.itemIds.length}${active.deadline ? ` · <b>${fmtClock(active.deadline - Date.now())}</b> left on the clock` : ' · untimed'}</p>
+          <div class="actions">
+            <a class="btn primary" href="#/exam">Resume exam</a>
+            <button class="btn ghost danger" data-action="abandon">Abandon attempt</button>
+          </div>
+        </section>` : ''}
 
       <section class="hero">
-        <span class="pill accent">Exam code ${EXAM.code} · Blueprint v1.0 (July 2026)</span>
-        <h1 style="margin-top:12px">${EXAM.title}<br><span class="muted" style="font-weight:500">Mock Exam &amp; Practice Platform</span></h1>
-        <p class="lead">A timed, proctored-style simulation of the real certification: ${EXAM.itemCount} scenario-based items drawn in blueprint proportions across all 8 domains, ${EXAM.timeLimitMinutes} minutes, multiple-choice and multiple-response items, and a scaled 100–1,000 score with a ${EXAM.scale.passing} cut. Every item comes with the correct answer and a reason why each option is right or wrong.</p>
+        <span class="pill accent">${EXAM.code} · Blueprint v1.0</span>
+        <h1>${EXAM.title}<span class="sub">Mock exam &amp; practice</span></h1>
+        <p class="lead">A timed simulation of the real certification: ${EXAM.itemCount} scenario items across all 8 domains in ${EXAM.timeLimitMinutes} minutes, scored ${EXAM.scale.min}–${EXAM.scale.max.toLocaleString()} with a ${EXAM.scale.passing} pass mark. Every item is explained.</p>
+        ${active ? '' : `
+        <div class="actions">
+          <a class="btn primary lg" href="#/start/full">Start full mock</a>
+          <a class="btn" href="#/practice">Practice a domain</a>
+        </div>`}
       </section>
 
-      <section class="grid grid-4" style="margin:8px 0 28px">
+      <section class="stat-strip" aria-label="Exam facts">
         <div class="stat"><b>${EXAM.itemCount}</b><span>items per form</span></div>
         <div class="stat"><b>${EXAM.timeLimitMinutes} min</b><span>time limit</span></div>
-        <div class="stat"><b>${EXAM.scale.passing}</b><span>passing scaled score</span></div>
+        <div class="stat"><b>${EXAM.scale.passing}</b><span>passing score</span></div>
         <div class="stat"><b>${QUESTIONS.length}</b><span>items in the bank</span></div>
       </section>
 
-      <section class="grid grid-3" style="margin-bottom:32px">
-        <div class="card">
-          <span class="pill ok">Certificate-eligible</span>
-          <h3 style="margin-top:10px">Full Mock Exam</h3>
-          <p class="muted">The complete ${EXAM.itemCount}-item, ${EXAM.timeLimitMinutes}-minute exam. No feedback until you submit. Pass it to unlock your readiness certificate and the path to the official exam.</p>
-          <a class="btn primary" href="#/start/full">Start full mock</a>
-        </div>
-        <div class="card">
-          <span class="pill">Warm-up</span>
-          <h3 style="margin-top:10px">Quick Mock</h3>
-          <p class="muted">${MODES.quick.items} blueprint-weighted items in ${MODES.quick.minutes} minutes. Same rules and scoring as the full exam, in a shorter sitting.</p>
-          <a class="btn" href="#/start/quick">Start quick mock</a>
-        </div>
-        <div class="card">
-          <span class="pill">Learn</span>
-          <h3 style="margin-top:10px">Practice Drills</h3>
-          <p class="muted">Pick the domains to work on and get instant feedback and explanations after every question. Untimed or timed.</p>
-          <a class="btn" href="#/practice">Set up a drill</a>
-        </div>
+      <section class="mode-cards" aria-label="Ways to practise">
+        <a class="mode-card" href="#/start/full">
+          <span class="mc-title">Full Mock Exam <span class="pill ok">Certificate</span></span>
+          <p class="mc-desc">${EXAM.itemCount} items · ${EXAM.timeLimitMinutes} min · no feedback until you submit.</p>
+          <span class="mc-cta">Start</span>
+        </a>
+        <a class="mode-card" href="#/start/quick">
+          <span class="mc-title">Quick Mock <span class="pill">Warm-up</span></span>
+          <p class="mc-desc">${MODES.quick.items} items · ${MODES.quick.minutes} min · same rules and scoring, shorter sitting.</p>
+          <span class="mc-cta">Start</span>
+        </a>
+        <a class="mode-card" href="#/practice">
+          <span class="mc-title">Practice Drill <span class="pill">Learn</span></span>
+          <p class="mc-desc">Pick domains, get the answer and explanation after every question.</p>
+          <span class="mc-cta">Set up</span>
+        </a>
       </section>
 
       ${passedFull ? `
-        <div class="notice row" style="margin-bottom:28px;background:var(--ok-soft)">
-          <div><b>You've passed the full mock</b> (best score ${best}). Your readiness certificate is available and you're ready to sit the official exam.</div>
-          <span class="spacer"></span>
-          <a class="btn sm" href="#/certificate/${encodeURIComponent(passedFull.id)}">View certificate</a>
-          <a class="btn sm primary" href="${OFFICIAL_URL}" target="_blank" rel="noopener">Official exam ↗</a>
-        </div>` : ''}
+        <section class="notice ok with-actions mb-5">
+          <p><b>You've passed the full mock</b> (best ${best}). Your readiness certificate is ready.</p>
+          <div class="actions">
+            <a class="btn sm" href="#/certificate/${encodeURIComponent(passedFull.id)}">View certificate</a>
+            <a class="btn sm primary" href="${OFFICIAL_URL}" target="_blank" rel="noopener">Official exam ↗</a>
+          </div>
+        </section>` : latest ? `
+        <section class="notice with-actions mb-5">
+          <p><b>Last attempt:</b> ${esc(MODES[latest.mode].label)} · ${latest.score.scaled} <span class="pill ${latest.score.passed ? 'ok' : 'bad'}">${latest.score.passed ? 'Pass' : 'Fail'}</span> <span class="muted small">${fmtDate(latest.finishedAt)}</span></p>
+          <div class="actions">
+            <a class="btn sm" href="#/results/${encodeURIComponent(latest.id)}">Score report</a>
+            <a class="btn sm" href="#/history">All attempts</a>
+          </div>
+        </section>` : ''}
 
       <section class="card">
-        <h2>Exam blueprint</h2>
-        <p class="muted small">Items are drawn per skill in these proportions (largest-remainder rounding to ${EXAM.itemCount} items), matching Section 6 of the official exam guide.</p>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Domain</th><th class="num">Weight</th><th class="num">Items / form</th><th class="num">In bank</th></tr></thead>
-            <tbody>
-              ${DOMAINS.map((d) => {
-                const skills = SKILLS.filter((s) => s.domain === d.id);
-                return `<tr><td><b>${d.id}. ${esc(d.name)}</b><div class="small muted">${skills.map((s) => `${esc(s.name)} (${s.weight}%)`).join(' · ')}</div></td>
-                  <td class="num">${d.weight}%</td>
-                  <td class="num">${formCountForDomain(d.id)}</td>
-                  <td class="num">${QUESTIONS.filter((q) => q.domain === d.id).length}</td></tr>`;
-              }).join('')}
-            </tbody>
-          </table>
+        <div class="section-title"><h2>Exam blueprint</h2><span class="small muted">Weight → items per ${EXAM.itemCount}-item form</span></div>
+        <p class="small muted">Items are drawn per skill in the official proportions (largest-remainder rounding), matching Section 6 of the exam guide.</p>
+        <div class="dom-list wide">
+          ${DOMAINS.map((d) => {
+            const skills = SKILLS.filter((s) => s.domain === d.id);
+            return `<div class="dom-row">
+              <span class="dom-name">${d.id}. ${esc(d.name)}</span>
+              <span class="dom-num"><b>${d.weight}%</b> · ${formCountForDomain(d.id)} items · ${QUESTIONS.filter((q) => q.domain === d.id).length} in bank</span>
+              <span class="dom-sub">${skills.map((s) => `${esc(s.name)} (${s.weight}%)`).join(' · ')}</span>
+            </div>`;
+          }).join('')}
         </div>
       </section>
     </main>`));
@@ -204,52 +250,61 @@ function viewStart(mode) {
   const prefs = store.getPrefs();
 
   render(shell(`
-    <main class="wrap" style="max-width:760px">
-      <h1>${esc(m.label)}</h1>
-      <p class="muted">${m.items} items · ${m.minutes} minutes at exam-realistic difficulty · scaled score 100–1,000 · pass at ${EXAM.scale.passing}</p>
+    <main class="wrap narrow">
+      <div class="page-head">
+        <h1>${esc(m.label)}</h1>
+        <p class="page-meta">${m.items} items · ${m.minutes} min · scaled ${EXAM.scale.min}–${EXAM.scale.max.toLocaleString()} · pass at ${EXAM.scale.passing}${mode === 'full' ? ' · certificate on a pass' : ''}</p>
+      </div>
 
       <form class="card" data-form="start" data-mode="${mode}">
-        <h3>Difficulty mode</h3>
-        <p class="small muted">Each mode sets the mix of item difficulties and the time limit. You get a full scored report at the end in every mode.</p>
-        ${difficultyPicker(prefs.difficulty ?? 'standard', m.minutes, mode === 'full')}
+        <fieldset class="plain">
+          <legend>Difficulty</legend>
+          <p class="small muted">Sets the mix of item difficulties and the time limit. You get a full score report in every mode.</p>
+          ${difficultyPicker(prefs.difficulty ?? 'standard', m.minutes, mode === 'full')}
+        </fieldset>
 
-        <label class="field"><span>Candidate name</span>
-          <input type="text" name="candidate" maxlength="80" autocomplete="name" value="${esc(prefs.candidate ?? '')}" placeholder="As you want it on your certificate">
+        <label class="field"><span>Candidate name <span class="hint">(optional — shown on your certificate)</span></span>
+          <input type="text" name="candidate" maxlength="80" autocomplete="name" value="${esc(prefs.candidate ?? '')}" placeholder="Your name">
         </label>
 
-        <h3>Exam rules</h3>
-        <ul class="muted">
-          <li>The timer starts when you begin and keeps running if you leave or refresh the page. When it reaches zero, the exam is submitted automatically.</li>
-          <li>Each item says how many responses to select. Multiple-response items score only when your selection exactly matches the key — there is no partial credit.</li>
-          <li>Unanswered items are scored as incorrect, so answer everything. You can flag items and return to them before you submit.</li>
-          <li>You will not see whether answers are right until you submit. Afterwards you get your scaled score, a domain breakdown, and a full explanation of every item.</li>
-          <li>Treat it like the real thing: closed book, no notes, no second screen, no talking to anyone.</li>
-        </ul>
+        <details class="rules" open>
+          <summary>Exam rules</summary>
+          <ul>
+            <li><b>Timer runs from Begin</b> — even if you leave or refresh. At zero the exam submits itself.</li>
+            <li><b>No partial credit.</b> Multiple-response items score only when your selection matches the key exactly.</li>
+            <li><b>Blank counts as wrong.</b> Answer everything; flag items to revisit before you submit.</li>
+            <li><b>No feedback until you submit.</b> Then: scaled score, domain breakdown, every item explained.</li>
+            <li><b>Exam conditions.</b> Closed book, no notes, no second screen.</li>
+          </ul>
+        </details>
 
-        <h3>Confidentiality</h3>
-        <label class="check" style="margin-bottom:18px">
+        <label class="check mb-4">
           <input type="checkbox" name="agree" required>
-          <span>I will take this exam under exam conditions, and I understand this is an independent practice exam — not the official ${EXAM.code} exam or an Anthropic credential.</span>
+          <span>I'll take this under exam conditions and understand it is an independent practice exam, not the official ${EXAM.code} exam or an Anthropic credential.</span>
         </label>
-        <div class="row">
-          <button class="btn primary" type="submit">Begin exam</button>
-          <a class="btn ghost" href="#/">Cancel</a>
+        <div class="sticky-cta actions">
+          <button class="btn primary lg" type="submit">Begin exam</button>
         </div>
       </form>
+      <p class="small muted mt-4" style="text-align:center"><a href="#/">Cancel and go back</a></p>
     </main>`));
+  // Rules are a collapsible on phones only; start them closed there to keep the form short.
+  if (window.matchMedia('(max-width: 600px)').matches) app.querySelector('.rules')?.removeAttribute('open');
 }
 
 function difficultyPicker(selected, baseMinutes, showCert) {
   const levels = Object.keys(DIFFICULTY);
-  return `<div class="mode-grid">
+  return `<div class="mode-grid" role="radiogroup" aria-label="Difficulty">
     ${Object.entries(DIFFICULTY_MODES).map(([key, d]) => `
       <label class="mode ${key === selected ? 'selected' : ''}" data-action="choose-difficulty">
         <input type="radio" name="difficulty" value="${key}" ${key === selected ? 'checked' : ''}>
         <span class="mode-body">
-          <span class="mode-title"><b>${esc(d.label)}</b>${showCert && d.certificate ? ' <span class="pill ok">Certificate</span>' : ''}</span>
-          <span class="small muted">${esc(d.blurb)}</span>
-          <span class="mix-bar" aria-hidden="true">${levels.map((k) => `<i class="lv${k}" style="flex:${Math.round((d.mix[k] ?? 0) * 100)}"></i>`).join('')}</span>
-          <span class="mix-legend small">${levels.filter((k) => d.mix[k]).map((k) => `<span><i class="lv${k}"></i>${esc(DIFFICULTY[k].label)} ${Math.round(d.mix[k] * 100)}%</span>`).join('')}<span class="mix-time">⏱ ${baseMinutes ? `${Math.ceil(baseMinutes * d.timeFactor)} min` : `${Math.round(d.timeFactor * 100)}% time`}</span></span>
+          <span class="mode-title"><b>${esc(d.label)}</b>${showCert && d.certificate ? ' <span class="pill ok">Certificate</span>' : ''}<span class="mode-time">${baseMinutes ? `${Math.ceil(baseMinutes * d.timeFactor)} min` : `${Math.round(d.timeFactor * 100)}% time`}</span></span>
+          <span class="mode-detail">
+            <span class="small muted">${esc(d.blurb)}</span>
+            <span class="mix-bar" aria-hidden="true">${levels.map((k) => `<i class="lv${k}" style="flex:${Math.round((d.mix[k] ?? 0) * 100)}"></i>`).join('')}</span>
+            <span class="mix-legend small">${levels.filter((k) => d.mix[k]).map((k) => `<span><i class="lv${k}"></i>${esc(DIFFICULTY[k].label)} ${Math.round(d.mix[k] * 100)}%</span>`).join('')}</span>
+          </span>
         </span>
       </label>`).join('')}
   </div>`;
@@ -567,76 +622,100 @@ function scaleBar(scaled, passed) {
 
 function viewResults(id) {
   const r = store.getResult(id);
-  if (!r) { render(shell(`<main class="wrap"><h1>Result not found</h1><a class="btn" href="#/">Home</a></main>`)); return; }
+  if (!r) {
+    render(shell(`<main class="wrap narrow"><section class="card empty"><h2>Result not found</h2><p>This attempt isn't stored in this browser.</p>
+      <div class="actions" style="justify-content:center"><a class="btn primary" href="#/history">Attempt history</a><a class="btn ghost" href="#/">Home</a></div></section></main>`));
+    return;
+  }
   const s = r.score;
   const mode = MODES[r.mode];
   const certEligible = certificateEligible(r);
   const weakest = [...s.bySkill].filter((x) => x.percent < 70).sort((a, b) => a.percent - b.percent).slice(0, 5);
+  const weakDomains = [...new Set(weakest.map((x) => skillById(x.id).domain))];
   const duration = r.finishedAt - r.startedAt;
+  const reviewHref = `#/review/${encodeURIComponent(r.id)}`;
 
   render(shell(`
     <main class="wrap">
-      ${r.timedOut ? '<div class="notice warn" style="margin-bottom:16px">Time expired — your exam was submitted automatically.</div>' : ''}
-      <p class="muted" style="margin-bottom:6px">${esc(mode.label)} · ${esc(diffOf(r).label)} difficulty · ${fmtDate(r.finishedAt)}${r.candidate ? ` · ${esc(r.candidate)}` : ''}</p>
+      ${r.timedOut ? '<div class="notice warn mb-4">Time expired — your exam was submitted automatically.</div>' : ''}
+      <div class="page-head">
+        <h1>Score report</h1>
+        <p class="page-meta">${esc(mode.label)} · ${esc(diffOf(r).label)} · ${fmtDate(r.finishedAt)}${r.candidate ? ` · ${esc(r.candidate)}` : ''}</p>
+      </div>
 
-      <section class="card score-hero" style="margin-bottom:20px">
-        <div>
+      <section class="card score-hero mb-4">
+        <div class="score-main">
           <div class="verdict ${s.passed ? 'pass' : 'fail'}">${s.passed ? 'PASS' : 'FAIL'}</div>
-          <div class="scaled">${s.scaled}<span class="muted" style="font-size:1.2rem;font-weight:500"> / ${EXAM.scale.max}</span></div>
-          <p class="muted" style="margin-top:8px">Scaled score. Passing score is ${EXAM.scale.passing}.</p>
+          <div class="scaled">${s.scaled}<span class="of"> / ${EXAM.scale.max}</span></div>
+          <p class="muted small" style="margin:6px 0 0">Scaled score · pass mark ${EXAM.scale.passing}</p>
         </div>
-        <div>
+        <div class="score-side">
           ${scaleBar(s.scaled, s.passed)}
-          <div class="grid grid-4">
-            <div class="stat"><b>${s.correctCount}/${s.itemCount}</b><span>items correct</span></div>
-            <div class="stat"><b>${s.answeredCount}</b><span>answered</span></div>
-            <div class="stat"><b>${fmtClock(duration)}</b><span>time used${r.minutes ? ` of ${r.minutes}m` : ''}</span></div>
+          <div class="score-stats">
+            <div class="stat"><b>${s.correctCount}/${s.itemCount}</b><span>correct</span></div>
+            <div class="stat"><b>${s.answeredCount}/${s.itemCount}</b><span>answered</span></div>
+            <div class="stat"><b>${fmtClock(duration)}</b><span>time${r.minutes ? ` of ${r.minutes} min` : ''}</span></div>
           </div>
+        </div>
+        <div class="score-cta actions">
+          <a class="btn primary lg" href="${reviewHref}">Review answers &amp; explanations</a>
+          ${certEligible ? `<a class="btn" href="#/certificate/${encodeURIComponent(r.id)}">Get certificate</a>` : ''}
         </div>
       </section>
 
       ${certEligible ? `
-        <section class="notice row" style="background:var(--ok-soft);margin-bottom:20px">
-          <div><b>Congratulations — you passed the full mock exam.</b> Your readiness certificate is ready, and you can now register for the official ${EXAM.code} exam with confidence.</div>
-          <span class="spacer"></span>
-          <a class="btn primary" href="#/certificate/${encodeURIComponent(r.id)}">Get certificate</a>
-          <a class="btn" href="${OFFICIAL_URL}" target="_blank" rel="noopener">Register for the official exam ↗</a>
+        <section class="notice ok with-actions mb-4">
+          <p><b>Congratulations — you passed the full mock.</b> You're ready to register for the official ${EXAM.code} exam.</p>
+          <div class="actions"><a class="btn sm" href="${OFFICIAL_URL}" target="_blank" rel="noopener">Register for the official exam ↗</a></div>
         </section>` : ''}
       ${!s.passed && r.mode === 'full' ? `
-        <section class="notice warn" style="margin-bottom:20px">
-          You need ${EXAM.scale.passing} to pass. Review every explanation below, drill your weakest domains, then retake the full mock — each attempt draws a fresh form from the bank.
+        <section class="notice warn mb-4">
+          You need ${EXAM.scale.passing} to pass. Review every explanation, drill your weakest domains, then retake — each attempt draws a fresh form.
         </section>` : ''}
       ${s.passed && r.mode === 'full' && !diffOf(r).certificate ? `
-        <section class="notice" style="margin-bottom:20px">Nice pass at ${esc(diffOf(r).label)} difficulty. The certificate needs a full-mock pass at Exam-realistic difficulty or harder — <a href="#/start/full">step up a level</a>.</section>` : ''}
+        <section class="notice mb-4">Nice pass at ${esc(diffOf(r).label)} difficulty. The certificate needs a full-mock pass at Exam-realistic difficulty or harder — <a href="#/start/full">step up a level</a>.</section>` : ''}
       ${s.passed && r.mode === 'quick' ? `
-        <section class="notice" style="margin-bottom:20px">Good result. The certificate is awarded for passing the <b>full</b> ${EXAM.itemCount}-item mock — <a href="#/start/full">take it next</a>.</section>` : ''}
+        <section class="notice mb-4">Good result. The certificate is awarded for passing the <b>full</b> ${EXAM.itemCount}-item mock — <a href="#/start/full">take it next</a>.</section>` : ''}
 
-      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));margin-bottom:20px">
+      <div class="grid grid-2 mb-4">
         <section class="card">
           <h2>Performance by domain</h2>
-          <p class="small muted">Percent correct per content domain, as on the official score report. These are for feedback only — pass/fail is decided by the total scaled score.</p>
-          <table>
-            <thead><tr><th>Domain</th><th class="num">Items</th><th class="num">Correct</th><th></th></tr></thead>
-            <tbody>
-              ${s.byDomain.map((d) => `
-                <tr><td>${d.id}. ${esc(d.name)}</td><td class="num">${d.total}</td><td class="num">${pct(d.percent)}</td>
-                <td style="width:30%"><div class="bar ${d.percent >= 70 ? 'ok' : 'bad'}"><i style="width:${d.percent}%"></i></div></td></tr>`).join('')}
-            </tbody>
-          </table>
+          <p class="small muted">Percent correct per domain, as on the official score report. Feedback only — pass/fail comes from the scaled score.</p>
+          <div class="dom-list">
+            ${s.byDomain.map((d) => `
+              <div class="dom-row ${d.percent != null && d.percent < 70 ? 'low' : ''}">
+                <span class="dom-name">${d.id}. ${esc(d.name)}</span>
+                <span class="dom-num"><b>${pct(d.percent)}</b> · ${d.correct}/${d.total}</span>
+                <div class="bar ${d.percent >= 70 ? 'ok' : 'bad'}" aria-hidden="true"><i style="width:${d.percent ?? 0}%"></i></div>
+              </div>`).join('')}
+          </div>
         </section>
         <section class="card">
           <h2>What to study next</h2>
           ${weakest.length ? `
-            <p class="small muted">Skills where you scored under 70% on this form:</p>
-            <ul>${weakest.map((x) => `<li><b>${esc(x.name)}</b> — ${x.correct}/${x.total} (${x.percent}%)<br><span class="small muted">Domain ${skillById(x.id).domain}: ${esc(domainById(skillById(x.id).domain).name)}</span></li>`).join('')}</ul>
-            <a class="btn sm" href="#/practice?domains=${[...new Set(weakest.map((x) => skillById(x.id).domain))].join(',')}">Drill these domains</a>
-          ` : '<p>No skill below 70% on this form. Keep your edge by reviewing the explanations for anything you guessed on.</p>'}
+            <p class="small muted">Skills under 70% on this form. Tap one to drill its domain.</p>
+            <div class="next-list">
+              ${weakest.map((x) => {
+                const dom = skillById(x.id).domain;
+                return `<a class="next-item" href="#/practice?domains=${dom}">
+                  <span class="ni-name">${esc(x.name)}</span>
+                  <span class="ni-sub">Domain ${dom} · ${esc(domainById(dom).name)}</span>
+                  <span class="ni-score">${x.correct}/${x.total}</span>
+                </a>`;
+              }).join('')}
+            </div>
+            <div class="actions">
+              <a class="btn" href="#/practice?domains=${weakDomains.join(',')}">Drill all weak domains</a>
+              <a class="btn ghost" href="#/study">Study guide</a>
+            </div>
+          ` : `<p>No skill below 70% on this form. Keep your edge by reviewing the explanations for anything you guessed on.</p>
+            <div class="actions"><a class="btn" href="#/study">Study guide</a></div>`}
         </section>
       </div>
 
-      <div class="row">
-        <a class="btn primary" href="#/review/${encodeURIComponent(r.id)}">Review answers &amp; explanations</a>
+      <div class="actions">
         <a class="btn" href="#/start/${r.mode === 'practice' ? 'full' : r.mode}">${r.mode === 'practice' ? 'Take the full mock' : 'Retake with a new form'}</a>
+        <a class="btn ghost" href="#/history">All attempts</a>
         <a class="btn ghost" href="#/">Home</a>
       </div>
     </main>`));
@@ -749,35 +828,43 @@ function reviewHeader(r, filter, count) {
 function viewCertificate(id) {
   const r = store.getResult(id);
   if (!r || !certificateEligible(r)) {
-    render(shell(`<main class="wrap" style="max-width:700px"><h1>Certificate not available</h1>
-      <p class="muted">The readiness certificate is awarded only for passing the full ${EXAM.itemCount}-item, ${EXAM.timeLimitMinutes}-minute mock exam at Exam-realistic difficulty or harder, with a scaled score of ${EXAM.scale.passing} or higher.</p>
-      <a class="btn primary" href="#/start/full">Take the full mock</a></main>`));
+    render(shell(`<main class="wrap narrow"><section class="card empty"><h2>Certificate not available</h2>
+      <p>The readiness certificate is awarded for passing the full ${EXAM.itemCount}-item, ${EXAM.timeLimitMinutes}-minute mock at Exam-realistic difficulty or harder, with a scaled score of ${EXAM.scale.passing} or higher.</p>
+      <div class="actions" style="justify-content:center"><a class="btn primary" href="#/start/full">Take the full mock</a><a class="btn ghost" href="#/history">Attempt history</a></div></section></main>`));
     return;
   }
   const name = r.candidate || 'Candidate';
   render(shell(`
     <main class="wrap">
-      <div class="row no-print" style="margin-bottom:16px">
-        <form class="row" data-form="rename" data-id="${esc(r.id)}" style="flex:1;min-width:260px">
-          <input type="text" name="candidate" maxlength="80" value="${esc(r.candidate)}" placeholder="Name on certificate" style="max-width:320px" aria-label="Name on certificate">
-          <button class="btn sm" type="submit">Update name</button>
+      <div class="page-head no-print">
+        <h1>Your certificate</h1>
+        <p class="page-meta">Full mock passed · ${r.score.scaled} / ${EXAM.scale.max} · ${fmtDate(r.finishedAt)}</p>
+      </div>
+      <div class="cert-tools no-print">
+        <form class="rename" data-form="rename" data-id="${esc(r.id)}">
+          <label class="field"><span>Name on certificate</span>
+            <input type="text" name="candidate" maxlength="80" value="${esc(r.candidate)}" placeholder="Your name" autocomplete="name">
+          </label>
+          <button class="btn" type="submit">Update</button>
         </form>
-        ${canPrint ? '<button class="btn primary" data-action="print">Print / Save as PDF</button>' : ''}
-        <a class="btn" href="${OFFICIAL_URL}" target="_blank" rel="noopener">Register for the official exam ↗</a>
+        <div class="actions">
+          ${canPrint ? '<button class="btn primary" data-action="print">Print / Save as PDF</button>' : ''}
+          <a class="btn ${canPrint ? '' : 'primary'}" href="${OFFICIAL_URL}" target="_blank" rel="noopener">Register for the official exam ↗</a>
+        </div>
       </div>
       <div class="cert">
         <div class="seal">MOCK<br>PASSED</div>
-        <div class="sub" style="letter-spacing:.2em;text-transform:uppercase;font-size:.8rem;font-family:var(--sans)">Certificate of Mock Exam Completion</div>
+        <div class="kicker">Certificate of Mock Exam Completion</div>
         <h1>${EXAM.title}</h1>
         <div class="sub">Practice Exam (${EXAM.code} blueprint) — this certifies that</div>
         <div class="who">${esc(name)}</div>
-        <div class="sub">passed a full, timed ${EXAM.itemCount}-item mock examination covering all eight ${EXAM.code} content domains,<br>meeting the ${EXAM.scale.passing} scaled-score passing standard.</div>
+        <div class="sub">passed a full, timed ${EXAM.itemCount}-item mock examination covering all eight ${EXAM.code} content domains, meeting the ${EXAM.scale.passing} scaled-score passing standard.</div>
         <div class="meta">
           <div><b>${r.score.scaled} / ${EXAM.scale.max}</b>Scaled score</div>
           <div><b>${r.score.correctCount} / ${r.score.itemCount}</b>Items correct</div>
           <div><b>${esc(diffOf(r).label)}</b>Difficulty</div>
           <div><b>${new Date(r.finishedAt).toLocaleDateString(undefined, { dateStyle: 'long' })}</b>Date</div>
-          <div><b style="font-family:var(--mono);font-size:.95rem">${verificationCode(r)}</b>Reference</div>
+          <div><b class="ref">${verificationCode(r)}</b>Reference</div>
         </div>
         <p class="disclaimer">This is a readiness certificate from an independent practice exam. It is not issued by Anthropic and is not the Claude Certified Developer – Foundations credential. The official credential is earned only by passing the proctored ${EXAM.code} exam delivered by Pearson VUE through the Anthropic Partner Academy.</p>
       </div>
@@ -790,20 +877,34 @@ function viewPracticeSetup() {
   if (active) { location.hash = '#/exam'; return; }
   const q = new URLSearchParams(location.hash.split('?')[1] ?? '');
   const pre = (q.get('domains') ?? '').split(',').map(Number).filter(Boolean);
+  const countOf = (d) => QUESTIONS.filter((x) => x.domain === d.id).length;
 
   render(shell(`
-    <main class="wrap" style="max-width:820px">
-      <h1>Practice drill</h1>
-      <p class="muted">Choose domains to focus on. Drills spread questions across every skill in the chosen domains and can show the answer and explanation straight after each question.</p>
+    <main class="wrap narrow">
+      <div class="page-head">
+        <h1>Practice drill</h1>
+        <p class="page-meta">Pick the domains to work on. Questions spread across every skill in them, with the answer and explanation after each one.</p>
+      </div>
       <form class="card" data-form="practice">
-        <h3>Domains</h3>
-        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px;margin-bottom:18px">
-          ${DOMAINS.map((d) => `
-            <label class="check"><input type="checkbox" name="domain" value="${d.id}" ${!pre.length || pre.includes(d.id) ? 'checked' : ''}>
-              <span>${d.id}. ${esc(d.name)} <span class="muted small">(${QUESTIONS.filter((x) => x.domain === d.id).length} items)</span></span></label>`).join('')}
-        </div>
-        <h3>Difficulty mode</h3>
-        ${difficultyPicker(store.getPrefs().difficulty ?? 'standard', null, false)}
+        <fieldset class="plain">
+          <div class="legend-row">
+            <legend>Domains</legend>
+            <button class="btn sm ghost" type="button" data-action="select-domains" data-value="all">Select all</button>
+            <button class="btn sm ghost" type="button" data-action="select-domains" data-value="none">None</button>
+            <span class="small muted" data-role="domain-count" aria-live="polite"></span>
+          </div>
+          <div class="chips domains">
+            ${DOMAINS.map((d) => `
+              <label class="chip"><input type="checkbox" name="domain" value="${d.id}" ${!pre.length || pre.includes(d.id) ? 'checked' : ''}>
+                <span class="tick" aria-hidden="true">✓</span><span>${d.id}. ${esc(d.name)}</span><span class="cnt">${countOf(d)}</span></label>`).join('')}
+          </div>
+        </fieldset>
+
+        <fieldset class="plain">
+          <legend>Difficulty</legend>
+          ${difficultyPicker(store.getPrefs().difficulty ?? 'standard', null, false)}
+        </fieldset>
+
         ${IMPORTED.length ? `
         <label class="field"><span>Question pool</span>
           <select name="pool" id="practice-pool">
@@ -811,10 +912,10 @@ function viewPracticeSetup() {
             <option value="imported">Imported sets only (${IMPORTED.length} items)</option>
             <option value="both">Both</option>
           </select>
-          <span class="small muted" style="font-weight:400">Imported sets are third-party question files you added under <code>data/imported/</code>. They are not reviewed, may contain answers that predate current model behaviour, and are never used in the scored mocks.</span>
+          <span class="hint">Imported sets are unreviewed third-party files from <code>data/imported/</code>; they're never used in scored mocks.</span>
         </label>` : ''}
-        <div class="grid grid-3">
-          <label class="field"><span>Number of questions</span>
+        <div class="grid grid-3" style="gap:0 16px">
+          <label class="field"><span>Questions</span>
             <select name="count">${[10, 15, 20, 30, 53].map((n) => `<option value="${n}" ${n === 15 ? 'selected' : ''}>${n}</option>`).join('')}<option value="999">All available</option></select>
           </label>
           <label class="field"><span>Feedback</span>
@@ -825,37 +926,54 @@ function viewPracticeSetup() {
           </label>
         </div>
         <p class="notice warn" data-role="form-error" role="alert" hidden></p>
-        <button class="btn primary" type="submit">Start drill</button>
+        <div class="sticky-cta actions">
+          <button class="btn primary lg" type="submit">Start drill</button>
+        </div>
       </form>
     </main>`));
+  updateDomainCount();
+}
+
+function updateDomainCount() {
+  const form = app.querySelector('[data-form="practice"]');
+  if (!form) return;
+  const picked = [...form.querySelectorAll('input[name="domain"]:checked')].map((i) => Number(i.value));
+  const items = QUESTIONS.filter((q) => picked.includes(q.domain)).length;
+  const out = form.querySelector('[data-role="domain-count"]');
+  if (out) out.textContent = picked.length ? `${picked.length} of ${DOMAINS.length} · ${items} items` : 'Pick at least one';
+  const err = form.querySelector('[data-role="form-error"]');
+  if (err && picked.length) err.hidden = true;
 }
 
 // ---------------------------------------------------------------- study guide
 
 function viewStudy() {
   render(shell(`
-    <main class="wrap" style="max-width:900px">
-      <h1>Study guide</h1>
-      <p class="muted">Key facts, rules of thumb and common traps for all 25 skills in the ${EXAM.code} blueprint, with links to the official documentation. Read a domain, then run a practice drill on it.</p>
-      <nav class="card" style="margin-bottom:20px" aria-label="Domains">
-        <div class="row">${DOMAINS.map((d) => `<a class="btn sm" href="#/study" data-action="jump" data-target="domain-${d.id}">${d.id}. ${esc(d.name)}</a>`).join('')}</div>
+    <main class="wrap mid">
+      <div class="page-head">
+        <h1>Study guide</h1>
+        <p class="page-meta">Key facts, rules of thumb and common traps for all ${SKILLS.length} skills in the ${EXAM.code} blueprint, with links to the official docs. Read a domain, then drill it.</p>
+      </div>
+      <nav class="jump-bar" aria-label="Jump to domain">
+        <div class="chips">${DOMAINS.map((d) => `<a class="chip" href="#/study" data-action="jump" data-target="domain-${d.id}">${d.id}. ${esc(d.name)}</a>`).join('')}</div>
       </nav>
       ${DOMAINS.map((d) => `
-        <section id="domain-${d.id}" style="margin-bottom:28px">
-          <div class="row" style="margin-bottom:10px">
-            <h2 style="margin:0">Domain ${d.id}: ${esc(d.name)} <span class="pill">${d.weight}% of exam</span></h2>
-            <span class="spacer"></span>
-            <a class="btn sm" href="#/practice?domains=${d.id}">Drill this domain</a>
+        <section aria-labelledby="domain-${d.id}-title">
+          <div class="domain-head" id="domain-${d.id}">
+            <h2 id="domain-${d.id}-title">Domain ${d.id}: ${esc(d.name)} <span class="pill">${d.weight}%</span></h2>
+            <a class="chip drill" href="#/practice?domains=${d.id}">Drill domain</a>
           </div>
           ${SKILLS.filter((s) => s.domain === d.id).map((s) => {
             const note = STUDY[s.id];
-            return `<details class="card" style="margin-bottom:10px" ${d.id === 1 && s === SKILLS[0] ? 'open' : ''}>
-              <summary style="cursor:pointer"><b>${esc(s.name)}</b> <span class="muted small">· ${s.weight}% of exam · ${QUESTIONS.filter((q) => q.skill === s.id).length} practice items</span></summary>
+            return `<details class="card skill" ${d.id === 1 && s === SKILLS[0] ? 'open' : ''}>
+              <summary><span class="sk-name">${esc(s.name)}</span><span class="sk-meta">${s.weight}% · ${QUESTIONS.filter((q) => q.skill === s.id).length} items</span><a class="chip drill" href="#/practice?domains=${d.id}" data-action="drill">Drill</a></summary>
+              <div class="skill-body">
               ${note ? `
-                <p style="margin-top:12px">${rich(note.summary)}</p>
-                <ul>${note.points.map((p) => `<li style="margin-bottom:6px">${rich(p)}</li>`).join('')}</ul>
+                <p>${rich(note.summary)}</p>
+                <ul>${note.points.map((p) => `<li>${rich(p)}</li>`).join('')}</ul>
                 ${note.docs?.length ? `<p class="small" style="margin:0"><b>Official docs:</b> ${note.docs.map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a>`).join(' · ')}</p>` : ''}`
-              : '<p class="muted" style="margin-top:12px">Notes coming soon.</p>'}
+              : '<p class="muted" style="margin:0">Notes coming soon.</p>'}
+              </div>
             </details>`;
           }).join('')}
         </section>`).join('')}
@@ -867,66 +985,80 @@ function viewStudy() {
 function viewHistory() {
   const list = store.getHistory();
   render(shell(`
-    <main class="wrap">
-      <div class="row"><h1 style="margin:0">Attempt history</h1><span class="spacer"></span>
-        ${list.length ? '<button class="btn sm danger" data-action="clear-history">Clear history</button>' : ''}</div>
-      <p class="muted">Stored only in this browser.</p>
+    <main class="wrap mid">
+      <div class="page-head">
+        <h1>Attempt history</h1>
+        ${list.length ? '<div class="page-side"><button class="btn sm ghost danger" data-action="clear-history">Clear history</button></div>' : ''}
+        <p class="page-meta">${list.length ? `${list.length} attempt${list.length > 1 ? 's' : ''}, stored only in this browser.` : 'Stored only in this browser.'}</p>
+      </div>
       ${list.length ? `
-      <div class="card table-wrap">
-        <table>
-          <thead><tr><th>Date</th><th>Mode</th><th class="num">Score</th><th>Result</th><th class="num">Correct</th><th></th></tr></thead>
-          <tbody>
-            ${list.map((r) => `
-              <tr>
-                <td>${fmtDate(r.finishedAt)}</td>
-                <td>${esc(MODES[r.mode].label)} <span class="pill">${esc(diffOf(r).label)}</span>${r.domains ? `<div class="small muted">Domains ${r.domains.join(', ')}</div>` : ''}</td>
-                <td class="num"><b>${r.score.scaled}</b></td>
-                <td><span class="pill ${r.score.passed ? 'ok' : 'bad'}">${r.score.passed ? 'Pass' : 'Fail'}</span></td>
-                <td class="num">${r.score.correctCount}/${r.score.itemCount}</td>
-                <td class="num"><a href="#/results/${encodeURIComponent(r.id)}">Report</a> · <a href="#/review/${encodeURIComponent(r.id)}">Review</a>${certificateEligible(r) ? ` · <a href="#/certificate/${encodeURIComponent(r.id)}">Certificate</a>` : ''}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>` : '<div class="card"><p style="margin:0">No attempts yet. <a href="#/start/full">Start the full mock</a> or <a href="#/practice">run a practice drill</a>.</p></div>'}
+      <div class="hist">
+        ${list.map((r) => `
+          <article class="card hist-row">
+            <div class="h-mode">${esc(MODES[r.mode].label)} <span class="pill">${esc(diffOf(r).label)}</span>${certificateEligible(r) ? '<span class="pill ok">Certificate</span>' : ''}</div>
+            <p class="h-meta">${fmtDate(r.finishedAt)} · ${r.score.correctCount}/${r.score.itemCount} correct${r.domains ? ` · domains ${r.domains.join(', ')}` : ''}</p>
+            <div class="h-score"><b>${r.score.scaled}</b><span class="pill ${r.score.passed ? 'ok' : 'bad'}">${r.score.passed ? 'Pass' : 'Fail'}</span></div>
+            <div class="h-actions">
+              <a class="btn sm" href="#/results/${encodeURIComponent(r.id)}">Report</a>
+              <a class="btn sm" href="#/review/${encodeURIComponent(r.id)}">Review</a>
+              ${certificateEligible(r) ? `<a class="btn sm" href="#/certificate/${encodeURIComponent(r.id)}">Certificate</a>` : ''}
+            </div>
+          </article>`).join('')}
+      </div>` : `
+      <section class="card empty">
+        <h2>No attempts yet</h2>
+        <p>Your score reports and answer reviews will appear here after your first mock or drill.</p>
+        <div class="actions" style="justify-content:center">
+          <a class="btn primary" href="#/start/full">Start the full mock</a>
+          <a class="btn" href="#/practice">Run a practice drill</a>
+        </div>
+      </section>`}
     </main>`));
 }
 
 // ---------------------------------------------------------------- about scoring
 
 function viewAbout() {
+  const levels = Object.values(DIFFICULTY);
   render(shell(`
-    <main class="wrap" style="max-width:820px">
-      <h1>How this mock is built and scored</h1>
-      <section class="card" style="margin-bottom:16px">
-        <h2>Exam format</h2>
-        <p>Each full mock mirrors the official ${EXAM.code} format: ${EXAM.itemCount} items, ${EXAM.timeLimitMinutes} minutes, multiple-choice and multiple-response items that state how many responses to select, and a scaled score from ${EXAM.scale.min} to ${EXAM.scale.max} with a passing score of ${EXAM.scale.passing}.</p>
-        <p style="margin:0">Items are drawn skill by skill in the proportions of the official blueprint (8 domains, 25 skills), then shuffled so domains are interleaved. Answer options are shuffled too, so every retake is a different form.</p>
-      </section>
-      <section class="card" style="margin-bottom:16px">
-        <h2>The judging system</h2>
-        <ul>
-          <li><b>Criterion-referenced.</b> You're measured against a fixed standard, not against other candidates.</li>
-          <li><b>All-or-nothing items.</b> A multiple-response item counts only if your selection exactly matches the key. Unanswered items score zero.</li>
-          <li><b>Harder items weigh more.</b> Each item is tagged ${Object.values(DIFFICULTY).map((d) => `${esc(d.label)} (weight ${d.weight})`).join(', ')}.</li>
-          <li><b>Scaled score.</b> Your difficulty-weighted percent correct is mapped onto ${EXAM.scale.min}–${EXAM.scale.max}. A weighted ${Math.round(EXAM.scale.cutRaw * 100)}% lands exactly on the ${EXAM.scale.passing} cut; below it the scale runs linearly down to ${EXAM.scale.min}, above it up to ${EXAM.scale.max}.</li>
-          <li><b>Domain report.</b> Like the official score report, you get percent-correct per domain. It's feedback only — pass or fail comes from the total scaled score.</li>
-        </ul>
-        <p class="small muted" style="margin:0">The official cut score comes from a confidential standard-setting study, so no mock can reproduce it exactly. This model is deliberately set at a demanding standard: if you pass here consistently, you are in good shape for the real exam.</p>
-      </section>
-      <section class="card" style="margin-bottom:16px">
-        <h2>Difficulty modes</h2>
-        <div class="table-wrap"><table>
-          <thead><tr><th>Mode</th>${Object.values(DIFFICULTY).map((d) => `<th class="num">${esc(d.label)}</th>`).join('')}<th class="num">Time</th><th>Certificate</th></tr></thead>
-          <tbody>${Object.values(DIFFICULTY_MODES).map((d) => `<tr><td><b>${esc(d.label)}</b><div class="small muted">${esc(d.blurb)}</div></td>
-            ${Object.keys(DIFFICULTY).map((k) => `<td class="num">${Math.round((d.mix[k] ?? 0) * 100)}%</td>`).join('')}
-            <td class="num">${Math.round(d.timeFactor * 100)}%</td><td>${d.certificate ? 'Eligible' : '—'}</td></tr>`).join('')}</tbody>
-        </table></div>
-        <p class="small muted" style="margin:8px 0 0">Mix is the target share of each difficulty per skill; if a skill runs short of a level, the nearest level fills in. Time is relative to the exam's ${EXAM.timeLimitMinutes} minutes.</p>
-      </section>
-      <section class="card">
-        <h2>Certificate</h2>
-        <p style="margin:0">Passing the <b>full</b> timed mock at Exam-realistic difficulty or harder unlocks a printable readiness certificate and a link to register for the official exam on the Anthropic Partner Academy. The mock certificate is not an Anthropic credential; only the proctored ${EXAM.code} exam grants that.</p>
-      </section>
+    <main class="wrap narrow">
+      <div class="page-head">
+        <h1>How scoring works</h1>
+        <p class="page-meta">How each mock form is built, judged and scaled, and what the certificate means.</p>
+      </div>
+      <div class="stack">
+        <section class="card">
+          <h2>Exam format</h2>
+          <p>Each full mock mirrors the official ${EXAM.code} format: ${EXAM.itemCount} items, ${EXAM.timeLimitMinutes} minutes, multiple-choice and multiple-response items that state how many responses to select, and a scaled score from ${EXAM.scale.min} to ${EXAM.scale.max} with a passing score of ${EXAM.scale.passing}.</p>
+          <p style="margin:0">Items are drawn skill by skill in the proportions of the official blueprint (8 domains, ${SKILLS.length} skills), then shuffled so domains are interleaved. Answer options are shuffled too, so every retake is a different form.</p>
+        </section>
+        <section class="card">
+          <h2>The judging system</h2>
+          <ul>
+            <li><b>Criterion-referenced.</b> You're measured against a fixed standard, not against other candidates.</li>
+            <li><b>All-or-nothing items.</b> A multiple-response item counts only if your selection exactly matches the key. Unanswered items score zero.</li>
+            <li><b>Harder items weigh more.</b> Each item is tagged ${levels.map((d) => `${esc(d.label)} (×${d.weight})`).join(', ')}.</li>
+            <li><b>Scaled score.</b> Your difficulty-weighted percent correct is mapped onto ${EXAM.scale.min}–${EXAM.scale.max}. A weighted ${Math.round(EXAM.scale.cutRaw * 100)}% lands exactly on the ${EXAM.scale.passing} cut; below it the scale runs linearly down to ${EXAM.scale.min}, above it up to ${EXAM.scale.max}.</li>
+            <li><b>Domain report.</b> Like the official score report, you get percent-correct per domain. It's feedback only — pass or fail comes from the total scaled score.</li>
+          </ul>
+          <p class="small muted" style="margin:0">The official cut score comes from a confidential standard-setting study, so no mock can reproduce it exactly. This model is deliberately demanding: if you pass here consistently, you are in good shape for the real exam.</p>
+        </section>
+        <section class="card">
+          <h2>Difficulty modes</h2>
+          <div class="table-wrap"><table class="stackable">
+            <thead><tr><th>Mode</th>${levels.map((d) => `<th class="num">${esc(d.label)}</th>`).join('')}<th class="num">Time</th><th>Certificate</th></tr></thead>
+            <tbody>${Object.values(DIFFICULTY_MODES).map((d) => `<tr><td><b>${esc(d.label)}</b><div class="small muted">${esc(d.blurb)}</div></td>
+              ${Object.entries(DIFFICULTY).map(([k, lv]) => `<td class="num" data-label="${esc(lv.label)}">${Math.round((d.mix[k] ?? 0) * 100)}%</td>`).join('')}
+              <td class="num" data-label="Time">${Math.round(d.timeFactor * 100)}%</td><td class="num" data-label="Certificate">${d.certificate ? 'Eligible' : '—'}</td></tr>`).join('')}</tbody>
+          </table></div>
+          <p class="small muted" style="margin:12px 0 0">Mix is the target share of each difficulty per skill; if a skill runs short of a level, the nearest level fills in. Time is relative to the exam's ${EXAM.timeLimitMinutes} minutes.</p>
+        </section>
+        <section class="card">
+          <h2>Certificate</h2>
+          <p>Passing the <b>full</b> timed mock at Exam-realistic difficulty or harder unlocks a printable readiness certificate and a link to register for the official exam on the Anthropic Partner Academy. The mock certificate is not an Anthropic credential; only the proctored ${EXAM.code} exam grants that.</p>
+          <div class="actions"><a class="btn primary" href="#/start/full">Start full mock</a><a class="btn ghost" href="${OFFICIAL_URL}" target="_blank" rel="noopener">Official exam page ↗</a></div>
+        </section>
+      </div>
     </main>`));
 }
 
@@ -988,15 +1120,32 @@ app.addEventListener('click', (e) => {
     case 'review-prev': reviewIndex -= 1; route(); break;
     case 'review-next': reviewIndex += 1; route(); break;
     case 'print': window.print(); break;
-    case 'jump':
+    case 'jump': {
       e.preventDefault();
-      document.getElementById(el.dataset.target)?.scrollIntoView({ behavior: 'smooth' });
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      document.getElementById(el.dataset.target)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
       break;
+    }
+    case 'drill':
+      // A link inside <summary>: follow it without toggling the accordion.
+      e.preventDefault();
+      location.hash = el.getAttribute('href');
+      break;
+    case 'select-domains': {
+      const on = el.dataset.value === 'all';
+      el.closest('form')?.querySelectorAll('input[name="domain"]').forEach((i) => { i.checked = on; });
+      updateDomainCount();
+      break;
+    }
     case 'clear-history':
       if (confirmTwice(el, 'Click again to delete all history')) { store.clearHistory(); route(); }
       break;
     default: break;
   }
+});
+
+app.addEventListener('change', (e) => {
+  if (e.target.matches('input[name="domain"]')) updateDomainCount();
 });
 
 app.addEventListener('submit', (e) => {
