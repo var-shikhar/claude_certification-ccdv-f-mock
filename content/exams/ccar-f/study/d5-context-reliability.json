@@ -1,0 +1,121 @@
+{
+  "conversation-context": {
+    "summary": "Preserve critical facts across long interactions by keeping transactional data in a persistent structured layer, trimming tool results before they accumulate, and structuring aggregated inputs so nothing important is lost in summaries or in the middle of long inputs.",
+    "points": [
+      "Progressive summarisation is lossy in a predictable direction: numbers, percentages, dates, order numbers and customer-stated expectations (\"refund of $84.50 by Friday\") become vague phrases (\"a refund soon\"). Every additional round of summarising compounds the loss.",
+      "Fix it structurally: extract transactional facts (amounts, dates, order numbers, statuses, stated expectations) into a persistent \"case facts\" block that is included in every prompt and sits outside the summarised history. Instructions such as \"be thorough when summarising\" are prompt pleading, not a control.",
+      "For multi-issue sessions, keep a structured issue ledger (one record per issue: order id, invoice id, amount, status) as a separate context layer that is updated as facts arrive, so amounts never get attached to the wrong order.",
+      "The case-facts block complements the conversation history; it does not replace it. The Messages API is stateless, so conversational coherence (what was already asked, answered and promised) depends on passing the complete or compacted history in each request. Prompt caching lowers the cost of resending a prefix but stores no state.",
+      "Tool results accumulate in context and consume tokens disproportionately to their relevance, for example 40+ fields per order lookup when five matter for a return. Trim to the relevant fields before the result enters context, in the tool handler or a `PostToolUse` hook; telling the model to \"ignore\" fields does not remove the tokens.",
+      "Lost-in-the-middle: models reliably process the beginning and end of long inputs and may omit findings from the middle. Put a key-findings summary first and organise detailed results under explicit section headers. Instructions to \"pay equal attention\" do not change where information sits.",
+      "When downstream agents have limited context budgets, modify upstream agents to return structured data (key facts, citations, relevance scores, dates, source locations, methodological context) instead of narrative and reasoning chains. Truncation and rolling summaries discard information unpredictably.",
+      "Require subagents to include metadata (dates, source locations, methodological context) in structured outputs so synthesis can interpret findings correctly later.",
+      "Larger context windows delay context problems and do not improve recall quality over long inputs; \"switch to a bigger model\" is the classic non-answer distractor.",
+      "In Claude Code, compaction keeps architectural decisions, unresolved issues and implementation details while discarding redundant tool output; the art is choosing what to keep. `/compact <instructions>` lets you say what to preserve."
+    ],
+    "docs": [
+      { "title": "Effective context engineering for AI agents", "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents" },
+      { "title": "How we built our multi-agent research system", "url": "https://www.anthropic.com/engineering/multi-agent-research-system" },
+      { "title": "Claude Code — Manage costs effectively (reduce token usage)", "url": "https://code.claude.com/docs/en/costs" },
+      { "title": "Prompt caching", "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching" }
+    ]
+  },
+  "escalation": {
+    "summary": "Escalate on explicit, observable triggers (customer asks for a human, policy gap or exception, no meaningful progress) and resolve ambiguity by asking for identifiers, instead of relying on sentiment, self-reported confidence or heuristic guesses.",
+    "points": [
+      "The three core escalation triggers: the customer explicitly requests a human; the policy is ambiguous or silent on the customer's specific request (policy exceptions and gaps, not just \"complex\" cases); and the agent cannot make meaningful progress.",
+      "An explicit request for a human is honoured immediately, without first attempting investigation. Making the customer ask twice is the failure mode the rule exists to prevent.",
+      "Frustration without an explicit request is different: acknowledge the frustration and offer to resolve the issue when it is within the agent's capability, escalating only if the customer reiterates a preference for a human. Angry customers with simple issues are exactly the cases the agent should keep.",
+      "Policy silence is a trigger even when the case is easy. Example: the policy covers own-site price adjustments within 14 days; a competitor price-match request is not covered, so the agent escalates rather than extrapolating in either direction (granting or refusing).",
+      "No-progress should be an explicit, checkable criterion: the same tool error repeated, or no change in case state across a set number of turns. Escalate with a summary of what was attempted so the human does not start from zero. Raising turn limits or widening a tool's authority (for example the refund limit) removes controls instead of fixing the decision.",
+      "Sentiment-based escalation is unreliable because sentiment does not correlate with case complexity; self-reported confidence scores are poorly calibrated (the agent is confidently wrong on the hard cases). Both are common distractors.",
+      "The proportionate first fix for miscalibrated escalation (escalating simple cases, handling policy exceptions alone) is explicit escalation criteria in the system prompt with few-shot examples of escalate versus resolve, before building classifiers or ML infrastructure.",
+      "When `get_customer` returns multiple matches, ask for additional identifiers (order number, email, phone on file) and re-run the lookup before any order operation. Do not select by heuristic (most recent order, most plausible match) and do not escalate a case the customer can disambiguate in one message.",
+      "Never remove `escalate_to_human` from a category of sessions to cut escalations; that blocks legitimate triggers such as an explicit request or a policy gap discovered mid-conversation."
+    ],
+    "docs": [
+      { "title": "Building effective agents", "url": "https://www.anthropic.com/engineering/building-effective-agents" },
+      { "title": "Claude Agent SDK overview", "url": "https://platform.claude.com/docs/en/agent-sdk/overview" }
+    ]
+  },
+  "error-propagation": {
+    "summary": "Return structured error context from subagents (failure type, what was attempted, partial results, alternatives), distinguish access failures from valid empty results, recover locally where possible, and carry known gaps through to synthesis.",
+    "points": [
+      "Structured error context has four parts: failure type, the attempted query or URL, any partial results gathered before the failure, and potential alternative approaches. This is what lets a coordinator choose between retrying with a modified query, switching source, or proceeding with partial results.",
+      "Generic error statuses (\"search unavailable\") hide the context the coordinator needs; there is nothing to protect by withholding details from another component of the same system.",
+      "Two anti-patterns: silently suppressing errors (returning an empty result marked as success) and terminating the entire workflow on a single failure. The first produces reports with invisible gaps; the second throws away every other subagent's completed work.",
+      "Distinguish an access failure (timeout, auth error, rate limit: a retry decision is needed) from a valid empty result (a successful query with zero matches: a finding, not an error). If both are reported as \"no results\", the coordinator either retries genuine gaps or gives up on transient failures.",
+      "Subagents should implement local recovery for transient failures (retry with backoff, alternative source) and propagate only errors they cannot resolve, including what was attempted and partial results. This keeps the coordinator informed without burdening it with every hiccup and prevents it from duplicating retries the subagent already made.",
+      "Logging a failure for humans to review later is not propagation; the coordinator needs the information at the moment it decides.",
+      "Automatically broadening a query until something returns changes the question asked and hides both failures and genuine gaps.",
+      "Synthesis output should carry coverage annotations: which findings are well supported and which topic areas have gaps because sources were unavailable, and why. A polished report that reads as complete when a key source was inaccessible is a propagation failure at the last step.",
+      "Do not let synthesis fill gaps from general model knowledge or silently drop a section; both make the gap harder to detect.",
+      "Anthropic's research system notes that agentic errors compound: one failed step can send agents down a different trajectory, so systems should resume from where the error occurred rather than restart, and surface failures rather than mask them."
+    ],
+    "docs": [
+      { "title": "How we built our multi-agent research system", "url": "https://www.anthropic.com/engineering/multi-agent-research-system" },
+      { "title": "Building effective agents", "url": "https://www.anthropic.com/engineering/building-effective-agents" },
+      { "title": "Claude Agent SDK — Subagents", "url": "https://platform.claude.com/docs/en/agent-sdk/subagents" }
+    ]
+  },
+  "codebase-context": {
+    "summary": "Counter context degradation in long codebase-exploration sessions with scratchpad files, subagent delegation of verbose work, phase summaries injected into the next phase, `/compact` with focus instructions, and structured state exports for crash recovery.",
+    "points": [
+      "Symptoms of context degradation in extended sessions: inconsistent answers to the same question, and references to \"typical patterns\" instead of the specific classes and flows discovered earlier. It is a context problem, not a temperature or model-size problem.",
+      "Scratchpad files (for example a notes or findings file) persist key findings across context boundaries. Have the agent record class names, flows and decisions as it discovers them and reference the file for subsequent questions.",
+      "Delegate verbose exploration (\"find all test files\", \"trace refund flow dependencies\", running a noisy test suite) to subagents. Each subagent runs in its own context window; only a condensed summary returns, so the main agent preserves high-level coordination.",
+      "Subagents start with a fresh, isolated context and do not see the parent conversation. Anything they need from earlier work must be passed explicitly in their task prompt or read from a file.",
+      "Between exploration phases, summarise the key findings of the finished phase and inject that summary into the initial context of the next phase's subagents. Passing raw transcripts instead is noisy and reintroduces lost-in-the-middle problems.",
+      "`/compact` reduces context by summarising the conversation, and accepts custom instructions (`/compact Preserve the module map and open questions; drop test output`) that tell Claude what to keep. Compact instructions can also be set in `CLAUDE.md`. `/clear` discards the conversation entirely and is for switching to unrelated work.",
+      "Auto-compaction happens when the window nears its limit, but without guidance it may not prioritise the specific findings you care about; persist them to a scratchpad before it fires.",
+      "`CLAUDE.md` is for stable project instructions loaded every session; do not paste transcripts or class lists into it. Keep it concise and move workflow-specific detail into skills that load on demand.",
+      "Crash recovery for long multi-agent jobs: each agent exports structured state (completed items, findings, open questions) to a known location, the coordinator maintains a manifest, and on resume it loads the manifest and injects each agent's saved state into its prompt. Replaying raw tool logs or relying on in-memory context does not achieve this.",
+      "Anthropic's research system saves the lead agent's plan to memory before the context is truncated and has subagents write outputs to external storage, passing lightweight references rather than copying large outputs through the conversation."
+    ],
+    "docs": [
+      { "title": "Claude Code — Subagents", "url": "https://code.claude.com/docs/en/sub-agents" },
+      { "title": "Claude Code — Manage costs effectively (manage context proactively)", "url": "https://code.claude.com/docs/en/costs" },
+      { "title": "Claude Code — How Claude remembers your project", "url": "https://code.claude.com/docs/en/memory" },
+      { "title": "Effective context engineering for AI agents", "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents" },
+      { "title": "How we built our multi-agent research system", "url": "https://www.anthropic.com/engineering/multi-agent-research-system" }
+    ]
+  },
+  "human-review": {
+    "summary": "Design review workflows that validate accuracy per document type and field, calibrate field-level confidence on labelled data, route low-confidence and ambiguous cases to limited reviewers, and keep sampling automated output to catch drift and novel errors.",
+    "points": [
+      "Aggregate accuracy (\"97% overall\") can mask poor performance on a specific document type or field (for example 80% on delivery notes, or on `total_amount`). Automation is applied per segment, so validate accuracy by document type and by field before reducing human review.",
+      "JSON schema validity is not accuracy: a wrong value in the right type passes validation every time. Schema checks belong in the pipeline but are not evidence of correctness.",
+      "Have the model output field-level confidence scores, then calibrate review thresholds against a labelled validation set: measure the actual error rate at each confidence level, per field, and choose thresholds that meet the target error rate. Thresholds picked because they \"sound reasonable\", or set from reviewer capacity, are uncalibrated.",
+      "Calibration is only valid for the segments in the validation set. A new supplier, layout or document type is a new segment: route it to human review until it has its own labelled data, then recalibrate per segment. Raising a global threshold floods review with correct extractions from well-calibrated segments.",
+      "Route to human review: extractions with low calibrated confidence on important fields, and documents whose source content is ambiguous or contradictory (two different totals, an illegible date), where no single correct extraction exists for the model to be confident about.",
+      "Prioritise limited reviewer capacity by error likelihood, not by document length, customer tier, queue position or the model's uncalibrated overall self-assessment.",
+      "Once high-confidence extractions are auto-accepted they are otherwise unobserved. Implement ongoing stratified random sampling of that stream across document types and sources, reviewed by humans, to measure the true high-confidence error rate and detect novel error patterns such as a changed invoice layout.",
+      "Low-confidence review cannot see high-confidence errors; downstream complaints are slow and incomplete; a second-model comparison is a supplement that does not measure the human-verified error rate and can share the same misreading.",
+      "Before cutting review from 100% to a fraction: per-segment accuracy analysis, calibrated field-level thresholds, and a stratified sampling programme for the auto-accepted output. Prompt tweaks such as \"be accurate\" or a bigger model are not gates."
+    ],
+    "docs": [
+      { "title": "Define your success criteria", "url": "https://platform.claude.com/docs/en/test-and-evaluate/define-success" },
+      { "title": "Create strong empirical evaluations", "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests" },
+      { "title": "Demystifying evals for AI agents", "url": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents" }
+    ]
+  },
+  "provenance": {
+    "summary": "Preserve claim-to-source mappings through every summarisation and synthesis step, annotate conflicting values with their sources and dates instead of picking one, and present findings in ways that keep certainty and content type visible.",
+    "points": [
+      "Source attribution is lost at the summarisation step whenever findings are compressed into prose without a claim-source mapping. It cannot be recovered afterwards by a \"cite your sources\" instruction, by appending raw outputs, or by searching the web for something that agrees with the claim.",
+      "Require subagents to output structured claim-source mappings: the claim, the source URL or document name, and the relevant excerpt. Downstream agents must preserve and merge these mappings through synthesis.",
+      "When a coordinator must condense subagent outputs to fit a budget, keep the full outputs in external storage and carry compact claim-source references (source id, excerpt locator) in the summary; run the citation pass against the stored originals. Anthropic's research system uses a dedicated citation agent that works from the source documents.",
+      "Conflicting statistics from credible sources: present both values, each attributed to its source with that source's definition and methodology, and flag the conflict. Do not average, pick by authority, or omit the figure.",
+      "Temporal data: require publication and data-collection dates in structured outputs so that a 2022 figure and a 2024 figure are read as change over time rather than a contradiction. \"Larger means newer\" is a guess, not a rule.",
+      "A document-analysis agent that finds conflicting values within its corpus should complete its analysis with both values included and explicitly annotated, and let the coordinator decide how to reconcile them before synthesis. Halting to ask blocks the pipeline; silently keeping the first value hides the conflict.",
+      "Structure reports with explicit sections that distinguish well-established findings from contested ones, preserving the original sources' characterisations (their hedging) and methodological context. A blanket disclaimer or a manufactured consensus does not tell the reader which claims are safe to act on.",
+      "Render content types appropriately in synthesis: financial data as tables, news as prose, technical findings as structured lists. Converting everything to one uniform format strips comparability from numbers and nuance from contested claims.",
+      "Provenance and error propagation meet in coverage annotations: a report should say which findings rest on strong sources and which areas are thin because sources were unavailable."
+    ],
+    "docs": [
+      { "title": "How we built our multi-agent research system", "url": "https://www.anthropic.com/engineering/multi-agent-research-system" },
+      { "title": "Citations", "url": "https://platform.claude.com/docs/en/build-with-claude/citations" },
+      { "title": "Effective context engineering for AI agents", "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents" }
+    ]
+  }
+}

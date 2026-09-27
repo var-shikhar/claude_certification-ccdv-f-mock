@@ -1,0 +1,1382 @@
+[
+  {
+    "id": "ARF-D4-T1-001",
+    "domain": 4,
+    "skill": "explicit-criteria",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A CI review prompt tells Claude Code to \"check that comments are accurate\". In the first week it flagged 41 comments, and developers dismissed 34 of them: most were slightly outdated wording, TODO notes, or comments that described intent rather than mechanics. Which rewrite of the instruction most directly reduces these false positives?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "\"Check that comments are accurate and up to date. Be conservative: report a comment only when you are highly confident that it is wrong, and prefer silence when in doubt.\"",
+        "why": "Adding \"be conservative\" or a confidence qualifier leaves the criterion just as vague; the model still has to guess what counts as inaccurate and its self-assessed confidence is not a reliable filter."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "\"Flag a comment only when the behaviour it claims contradicts what the code does. Skip outdated wording, TODOs and intent comments.\"",
+        "why": "A categorical criterion states exactly which condition to report and which cases to skip, so the model applies a consistent test instead of a subjective judgement about accuracy."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "\"Check that comments are accurate. This is IMPORTANT and you MUST NOT produce false positives.\"",
+        "why": "Emphasis and capital letters do not tell the model what a false positive is; the instruction remains undefined, so the behaviour will not change reliably."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Keep the instruction and switch the review job to a larger model tier so it judges accuracy more carefully.",
+        "why": "A more capable model given the same vague instruction will still make its own call about what \"accurate\" means; the root cause is the criterion, not model capability."
+      }
+    ],
+    "explanation": "Precision comes from explicit criteria: say what to report (claimed behaviour contradicts actual behaviour) and what to skip (wording, TODOs, intent comments). Vague adjectives such as \"accurate\", and hedges such as \"be conservative\", leave the decision to the model and do not move false-positive rates.",
+    "reference": "Claude API docs — Prompting best practices (be clear and direct); CCAR-F exam guide, Task 4.1"
+  },
+  {
+    "id": "ARF-D4-T1-002",
+    "domain": 4,
+    "skill": "explicit-criteria",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A platform team's automated PR reviewer has a 38% false-positive rate. Two sprints ago they added \"Only report findings you are highly confident about\" to the prompt; the rate is now 36%. They also tried asking the model to attach a confidence score and drop anything under 0.8, which mostly removed real bugs the model was unsure about while the noisy findings stayed. What should they change next?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Raise the confidence cut-off from 0.8 to 0.95, and ask the model to justify each score in a `rationale` field so that only near-certain, well-argued findings are posted to the pull request.",
+        "why": "The experiment already showed that self-reported confidence does not separate real findings from noise; a stricter cut-off will discard more genuine bugs while keeping confidently wrong ones."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Set `temperature` to 0 so the reviewer stops producing random findings.",
+        "why": "Low temperature makes the output more repeatable, but a deterministic reviewer with a vague brief will repeat the same false positives every time."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add a second sentence: \"Be conservative and think carefully before reporting anything.\"",
+        "why": "This is the same class of general instruction that already failed; it gives the model no new information about which findings are wanted."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Replace the confidence wording with explicit lists of categories to report (logic bugs, security, broken error handling) and to skip (naming, formatting, local patterns).",
+        "why": "Categorical report-versus-skip criteria change what the model looks for, which is what precision depends on; confidence-based filtering only changes how much of an unchanged, noisy output survives."
+      }
+    ],
+    "explanation": "General instructions such as \"only high-confidence findings\" or \"be conservative\" fail to improve precision because they do not define the target. Explicit categorical criteria that name the issue types to report and the ones to skip do. Confidence thresholds on top of a vague brief tend to remove real, uncertain findings rather than noise.",
+    "reference": "CCAR-F exam guide, Task 4.1; Claude API docs — Prompting best practices"
+  },
+  {
+    "id": "ARF-D4-T1-003",
+    "domain": 4,
+    "skill": "explicit-criteria",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "An automated reviewer posts findings in four categories. Two-week metrics: security 9% dismissed, logic bugs 14% dismissed, performance 61% dismissed, style 78% dismissed. Developers have started closing review threads without reading them, including the security ones. The team can rewrite one category prompt this sprint. Which two actions best restore trust while the prompts are improved? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Temporarily stop posting the performance and style categories, and keep security and logic-bug findings flowing.",
+        "why": "High false-positive categories poison trust in the accurate ones; switching them off immediately raises the overall precision developers experience while preserving the findings that are actually valued."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add \"be conservative in all categories\" to the shared system prompt so every category produces fewer findings.",
+        "why": "A blanket hedge lowers recall in the accurate categories too, and does nothing to define what a valid performance or style finding is."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Pause the whole reviewer until all four category prompts have been rewritten and re-measured.",
+        "why": "Turning off the categories developers trust removes real value and there is no need to: the accurate categories are not the problem."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Rewrite the style category with explicit report and skip rules (for example, report only violations of the linted conventions listed in CLAUDE.md; skip anything a formatter would change) and re-enable it once its dismissal rate on a sample is measured to be acceptable.",
+        "why": "Explicit categorical criteria are what lower a category's false-positive rate; measuring on a sample before re-enabling prevents re-poisoning trust."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Require developers to write a justification before dismissing any finding so the dismissal rate drops.",
+        "why": "Making dismissal harder hides the problem and adds friction; it does not make the findings more accurate and will further erode goodwill."
+      }
+    ],
+    "explanation": "False positives in one category undermine confidence in all of them. The recommended response is to temporarily disable the high false-positive categories, keep the trusted ones on, and rewrite the disabled categories with explicit criteria before re-enabling them based on measured results.",
+    "reference": "CCAR-F exam guide, Task 4.1"
+  },
+  {
+    "id": "ARF-D4-T1-004",
+    "domain": 4,
+    "skill": "explicit-criteria",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A CI reviewer assigns each finding a severity of critical, high, medium or low, and the pipeline blocks merges on critical. The prompt says \"critical means very serious, high means serious, medium means moderate, low means minor\". The same unchecked null dereference was rated critical in one PR and low in another, and a missing index on a rarely used admin table blocked a merge as critical. What most reliably fixes the inconsistency?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Ask the model to explain its severity reasoning in a `rationale` field so reviewers can see why it chose each level.",
+        "why": "Explanations make inconsistent ratings easier to audit but do not make them consistent; the model still lacks a shared definition of each level."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Replace the four labels with a 1-10 numeric score so the model has finer-grained control.",
+        "why": "A finer scale with the same undefined semantics produces the same drift, now with more values to be inconsistent across."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Define each severity with concrete criteria plus one code example per level, such as critical = data loss, security exposure or a production-path crash (unchecked null dereference in a request handler) and low = no runtime impact (unused variable).",
+        "why": "Severity criteria anchored by concrete code examples give the model a reference point for each level, which is what produces consistent classification of the same defect across different PRs."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Derive severity in application code from the file path rather than from the model: treat anything under `src/api/` or `src/payments/` as critical, anything under `src/admin/` as medium, and everything else, including shared libraries, as low.",
+        "why": "Path-based severity ignores what the defect actually is; a typo in an API log line would block merges while a data-loss bug in a shared library would not."
+      }
+    ],
+    "explanation": "Consistent classification requires explicit severity criteria, ideally with a code example per level, so that \"critical\" means the same thing in every review. Adjective-only definitions, finer scales, and rationale fields leave the underlying judgement unanchored.",
+    "reference": "CCAR-F exam guide, Task 4.1 (severity criteria with concrete code examples)"
+  },
+  {
+    "id": "ARF-D4-T1-005",
+    "domain": 4,
+    "skill": "explicit-criteria",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An invoice extraction pipeline asks Claude to set a `needs_review` flag on \"suspicious invoices\". 44% of invoices are flagged, and accounts payable stops looking at the flag. Analysis of a 300-invoice sample shows only 6% have a real problem: vendor tax ID not matching the vendor master, line items not summing to the stated total, or a duplicate invoice number. What should the architect change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Replace \"suspicious\" with the three explicit conditions, each with a threshold (for example, line-item sum differs from the stated total by more than 1%), and flag nothing else.",
+        "why": "Naming the exact conditions and thresholds turns a subjective judgement into a checklist, which is what brings the flag rate down toward the true 6% rate and makes the flag worth reading again."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep \"suspicious\" and add \"only flag when you are at least 90% sure something is wrong\".",
+        "why": "A confidence qualifier on an undefined criterion does not tell the model what \"wrong\" means, so the model keeps guessing and the flag rate stays unpredictable."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Lower `temperature` and increase `max_tokens` so the model reasons for longer before deciding.",
+        "why": "Sampling settings and output length do not define what a suspicious invoice is; the same vague criterion yields the same over-flagging, just more consistently."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add a `suspicion_score` from 0 to 100 with a short justification for each score, and let accounts payable pick whichever threshold produces a manageable weekly review volume for the team.",
+        "why": "Tuning a threshold on an ill-defined score trades volume for missed real problems; it does not align the flag with the conditions the business actually cares about."
+      }
+    ],
+    "explanation": "The same principle that applies to code review applies to extraction: explicit, categorical criteria (with thresholds where numbers are involved) beat vague adjectives and confidence qualifiers. Once the conditions are named, the model's output becomes checkable and the downstream team can trust it.",
+    "reference": "Claude API docs — Prompting best practices (be clear and direct); CCAR-F exam guide, Task 4.1"
+  },
+  {
+    "id": "ARF-D4-T1-006",
+    "domain": 4,
+    "skill": "explicit-criteria",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "After a criteria rewrite, a CI reviewer's overall dismissal rate fell from 40% to 18%, but its security category is still 45% dismissed. Almost every dismissed security finding is SQL built by string concatenation inside `tests/fixtures/` or in one-off scripts under `migrations/`, where the values are hard-coded constants. The security team insists the category stays enabled and that concatenated SQL on user-controlled input must always be reported. What is the best next step?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add \"only report security findings you are highly confident are exploitable, and take the surrounding file and directory context into account before deciding\" to the security section of the prompt.",
+        "why": "This is the confidence-based hedge the team already learned does not work; it also risks suppressing genuine injection findings the model is unsure about."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Refine the security criterion with explicit skip conditions (every interpolated value is a compile-time constant; file is under `tests/fixtures/` or `migrations/`) while keeping the rule that any query reached by user- or request-derived input is reported.",
+        "why": "This keeps the category on and preserves the hard requirement (user-controlled input is always reported) while removing the exact pattern that produces the false positives, which is what categorical skip criteria are for."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Temporarily disable the security category until its prompt can be rebuilt from scratch.",
+        "why": "Disabling high false-positive categories is a legitimate tactic in general, but the stem states the security team requires the category to stay enabled, so this violates a hard constraint."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Run the security review three times with different `temperature` settings and post a finding only when all three runs independently agree that the concatenated SQL is a genuine injection risk in that file.",
+        "why": "The false positives are systematic, not random: all three runs will agree that the fixture SQL is concatenated. Voting also adds cost and suppresses intermittently detected real issues."
+      }
+    ],
+    "explanation": "When a category is required and its false positives follow an identifiable pattern, the fix is to encode that pattern as an explicit skip rule while keeping the report rule for the cases that matter. Disabling the category would breach the constraint, and confidence hedges or majority voting do not address a systematic misclassification.",
+    "reference": "CCAR-F exam guide, Task 4.1"
+  },
+  {
+    "id": "ARF-D4-T2-001",
+    "domain": 4,
+    "skill": "few-shot",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A CI review prompt contains a 200-word description of the required comment format: file and line, the issue, a severity, and a suggested fix. In practice some findings come back as paragraphs, some as bullet lists and some omit the fix, so the bot that posts inline comments frequently fails to parse them. What is the most effective change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Capitalise the format rules and add \"You MUST follow this format exactly\".",
+        "why": "Emphasis does not show the model what a correctly formatted finding looks like; long instruction blocks are exactly what is already failing to produce consistency."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Raise `max_tokens` so the model has room to include every required part.",
+        "why": "The findings are not being truncated; they are inconsistently shaped. Output length has nothing to do with the format problem."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Add two or three example findings showing location, issue, severity and suggested fix exactly as the bot expects them.",
+        "why": "Few-shot examples are the most effective way to get consistently formatted output when detailed instructions alone are not enough; the model imitates the demonstrated shape."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Post-process the output with regular expressions that detect whichever pieces are present and reassemble them into the expected layout, defaulting any missing field to \"unknown\".",
+        "why": "Repairing inconsistent output downstream is fragile and cannot invent a missing severity or fix; it treats the symptom rather than getting a consistent output in the first place."
+      }
+    ],
+    "explanation": "When detailed format instructions still yield inconsistent output, a small number of well-chosen examples demonstrating the exact desired shape (location, issue, severity, suggested fix) reliably fixes it. Examples are also how the model learns what belongs in each field.",
+    "reference": "Claude API docs — Use examples (multishot prompting); CCAR-F exam guide, Task 4.2"
+  },
+  {
+    "id": "ARF-D4-T2-002",
+    "domain": 4,
+    "skill": "few-shot",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A support agent has `lookup_order` and `get_customer` tools with detailed, distinct descriptions. Selection is now correct for clear requests, but for messages such as \"my order arrived damaged and I think you charged me twice\" it picks `get_customer` about half the time and `lookup_order` the other half, with no consistent reasoning. Which change best fixes the remaining ambiguity?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Add two to four examples of ambiguous requests, each showing the tool called first and a sentence on why it was preferred over the plausible alternative.",
+        "why": "Ambiguous cases are where targeted examples with reasoning pay off: they show the model how to decide, so it generalises the judgement to new mixed requests rather than flipping a coin."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add twenty examples covering every combination of order, billing and account keywords the team can think of, so that any realistic phrasing has a matching demonstration in the prompt.",
+        "why": "A long list of literal cases invites pattern matching on keywords, bloats the prompt, and still leaves novel phrasings uncovered; a few examples that show the reasoning generalise better."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Set `tool_choice` to `{\"type\": \"any\"}` so the model always calls a tool for these requests.",
+        "why": "`any` guarantees that some tool is called, but the problem is which tool; forcing a call does not resolve the choice between the two."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Merge both tools into a single `lookup` tool with a `kind` parameter so there is no selection to make.",
+        "why": "This moves the same ambiguity into the `kind` argument and discards a reasonable tool split; the decision still has to be demonstrated."
+      }
+    ],
+    "explanation": "Once descriptions are clear, remaining inconsistency on ambiguous inputs is best addressed with a few targeted examples that show the reasoning for choosing one action over a plausible alternative. Example count matters less than choosing cases at the decision boundary.",
+    "reference": "CCAR-F exam guide, Task 4.2; Claude API docs — Use examples (multishot prompting)"
+  },
+  {
+    "id": "ARF-D4-T2-003",
+    "domain": 4,
+    "skill": "few-shot",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A research-paper extraction pipeline returns `null` for the required `methodology` field in 30% of papers even though reviewers confirm the information is present. The failures cluster in papers that have no \"Methods\" heading: the method is described inside the results section, or sample sizes are given informally in a figure caption. Which two changes most directly address the empty extractions? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Change the prompt to say \"the methodology field must never be null\".",
+        "why": "Forbidding null pushes the model to invent a methodology when it cannot find one; it does not teach it where to look in unconventional layouts."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Add few-shot examples drawn from differently structured papers, including one where the method is embedded in the results section, showing the correct extracted value.",
+        "why": "Examples of varied document structures show the model that the target information can live outside the expected section, which is exactly the failure the data shows."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add fifteen examples taken from the same journal template that currently extracts correctly.",
+        "why": "Examples that all share the structure the model already handles add tokens without demonstrating the cases that fail; diversity matters more than quantity."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Increase `temperature` so the model explores more of the document.",
+        "why": "Temperature affects sampling randomness, not where the model looks for information; it will make outputs less consistent, not more complete."
+      },
+      {
+        "id": "E",
+        "correct": true,
+        "text": "Include an example showing an informal measurement (a sample size stated in a caption) being extracted into the structured field, with a one-line note on why it counts.",
+        "why": "Informal or unusually placed measurements are a known source of empty or hallucinated extractions; demonstrating one with its reasoning lets the model generalise to similar cases."
+      }
+    ],
+    "explanation": "Empty required fields caused by varied document formats are addressed with few-shot examples that demonstrate correct extraction from those formats, including informal measurements and details embedded in the wrong section. Forbidding null invites fabrication, and homogeneous examples teach nothing new.",
+    "reference": "CCAR-F exam guide, Task 4.2 (varied document structures, informal measurements)"
+  },
+  {
+    "id": "ARF-D4-T2-004",
+    "domain": 4,
+    "skill": "few-shot",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A nightly Claude Code job proposes tests for changed functions. It reliably covers the happy path but misses branch-level gaps: an `else` on a permission check, an early return on an empty list, a `catch` that swallows one error type. The team tried adding \"be thorough and cover all branches\" and, separately, a bulleted list of twelve branch patterns to look for; neither made the model find gaps outside the listed patterns. What should they try next?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Extend the bulleted list to forty branch patterns so more cases are covered.",
+        "why": "A longer enumeration still only catches what it names; the goal is for the model to recognise an untested branch it has never seen listed."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Run the coverage tool first and paste its uncovered-line report into the prompt, with an instruction to write one test for each uncovered line in the order the report lists them.",
+        "why": "Coverage data helps identify lines without tests, but the missing behaviour here is judging which branches matter and how to test them; the data does not demonstrate that judgement."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Switch the job to a larger model with extended thinking enabled.",
+        "why": "More reasoning applied to an unclear target rarely fixes a specification problem; the model still has not been shown what a branch-level gap looks like in this codebase."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Add two or three worked examples: a function, its existing tests, the branch left unexercised, the reasoning that found it, and the test that closes the gap.",
+        "why": "Examples that show the reasoning process let the model generalise the judgement to branch patterns that were never enumerated, which is precisely what instruction lists failed to do."
+      }
+    ],
+    "explanation": "Few-shot examples that include the reasoning behind a judgement enable the model to generalise to novel patterns, whereas enumerated rules only match the cases they name. For branch-level coverage gaps, show how a gap was found, not just a list of gap types.",
+    "reference": "CCAR-F exam guide, Task 4.2 (generalising judgement to novel patterns)"
+  },
+  {
+    "id": "ARF-D4-T2-005",
+    "domain": 4,
+    "skill": "few-shot",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An automated reviewer keeps flagging the team's sanctioned patterns as bugs: the repository's `retry_with_backoff` wrapper is reported as \"swallowing exceptions\", and deliberate `# noqa` suppressions are reported as lint violations. The team added explicit skip rules for both, but each week a new sanctioned variant (a different wrapper, a different suppression comment) gets flagged. Which change best reduces false positives while still catching genuine issues?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Maintain a growing allowlist of file paths, function names and comment markers that the reviewer must never comment on, updated by the team each time a new sanctioned variant is flagged.",
+        "why": "An allowlist by name cannot keep up with new variants and also hides real bugs inside those files; it does not teach the model the distinction being drawn."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Add paired examples: a sanctioned pattern that looks like a bug, annotated as acceptable and why, beside a similar-looking genuine issue annotated as a real finding and why.",
+        "why": "Contrasting examples teach the model the boundary between an acceptable pattern and a genuine issue, so it generalises to variants that were never listed instead of matching literal exclusions."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Require two independent review runs to agree before a finding is posted.",
+        "why": "Both runs share the same misunderstanding of the team's conventions, so they will agree on the false positive; consensus also suppresses real findings that are only caught intermittently."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Remove the bug category entirely and let the reviewer comment only on security.",
+        "why": "Dropping a valuable category to avoid tuning it sacrifices real findings; the issue is a missing distinction, not an unfixable category."
+      }
+    ],
+    "explanation": "Explicit skip rules only cover the cases they name. When variants keep appearing, few-shot examples that contrast acceptable patterns with similar-looking genuine issues, each with its reasoning, let the model generalise the distinction and reduce false positives without losing recall.",
+    "reference": "CCAR-F exam guide, Task 4.2 (acceptable patterns versus genuine issues)"
+  },
+  {
+    "id": "ARF-D4-T2-006",
+    "domain": 4,
+    "skill": "few-shot",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A team has 40 labelled findings from past reviews and wants to add examples to a review prompt that must return findings in a fixed `{location, issue, severity, fix}` structure. The prompt runs on every PR, so token cost matters, and the main complaints are inconsistent severity and false positives on look-alike patterns. Which example set should they include?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "All 40 findings, so the model has seen the widest possible range of situations.",
+        "why": "Forty examples bloat every review call and mostly repeat the same easy cases; breadth without targeting adds cost, not judgement."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The three most obvious, unambiguous bugs, written as short prose descriptions.",
+        "why": "Easy cases teach nothing the model does not already get right, and prose examples fail to demonstrate the required structure, which risks making the format less consistent."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Three or four findings chosen at the decision boundaries (a borderline severity, a sanctioned pattern that resembles a bug, a real bug that resembles a sanctioned pattern), each in the exact output structure with a sentence of reasoning.",
+        "why": "A small number of targeted examples at the ambiguous edges, in the required format and with reasoning, addresses both complaints and keeps the per-PR token cost low."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Ten examples of things the reviewer should not flag, so it learns to be quiet.",
+        "why": "Only negative examples push the model toward under-reporting and never demonstrate what a correct, well-formatted finding looks like."
+      }
+    ],
+    "explanation": "Effective few-shot sets are small (2-4), targeted at ambiguous cases, presented in the exact desired output format, and include the reasoning for each decision. Dumping every labelled example or picking only the easiest ones wastes tokens and does not move the behaviours that are actually inconsistent.",
+    "reference": "Claude API docs — Use examples (multishot prompting); CCAR-F exam guide, Task 4.2"
+  },
+  {
+    "id": "ARF-D4-T3-001",
+    "domain": 4,
+    "skill": "structured-output",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "An extraction service asks Claude to \"respond only with JSON\" and then calls `JSON.parse` on the text. About 4% of responses fail: some start with \"Here is the extracted data:\", some are wrapped in a markdown code fence, and a few have a trailing comma. What is the most reliable fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Strip anything before the first `{` and after the last `}`, remove markdown fences and trailing commas, and fall back to a lenient JSON parser before giving up.",
+        "why": "String surgery handles today's failure modes and breaks on tomorrow's; it is a patch on top of an output that was never guaranteed to be JSON."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add \"Do not include any explanation or markdown, output raw JSON only\" in capitals to the prompt.",
+        "why": "Stronger wording lowers the failure rate but is still probabilistic; the pipeline remains one unusual response away from a parse error."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Retry the request until the response parses, up to five times.",
+        "why": "Retrying wastes calls and can still fail; it does not change the fact that free text is being used to carry structured data."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Define an extraction tool whose `input_schema` is the record schema, force it with `tool_choice`, and read the record from the `tool_use` block.",
+        "why": "Tool use with a JSON schema is the documented, most reliable way to get schema-compliant structured output: the data arrives as a parsed object in the tool call, so syntax errors and wrapper text disappear."
+      }
+    ],
+    "explanation": "Requesting JSON in prose is a hint; tool use with a JSON schema is a contract. Defining the target record as a tool's `input_schema` and forcing the call gives you the structure directly in `tool_use.input`, eliminating parse failures caused by preambles, code fences and malformed JSON.",
+    "reference": "Claude API docs — Structured outputs; Define tools (forcing tool use)"
+  },
+  {
+    "id": "ARF-D4-T3-002",
+    "domain": 4,
+    "skill": "structured-output",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A document pipeline defines three extraction tools, `extract_invoice`, `extract_receipt` and `extract_contract`, each with its own schema. Incoming files are not labelled, so Claude has to decide which schema applies, but every call must produce structured output because the next stage cannot handle free text. Which `tool_choice` setting fits?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`{\"type\": \"any\"}`",
+        "why": "`any` guarantees the model calls one of the provided tools while leaving it free to choose which, which is exactly the combination of guaranteed structure and model-driven schema selection required here."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`{\"type\": \"auto\"}`",
+        "why": "With `auto` the model may answer in plain text instead of calling a tool, so the guarantee the downstream stage needs is missing."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`{\"type\": \"tool\", \"name\": \"extract_invoice\"}`",
+        "why": "Forcing a specific tool would push receipts and contracts through the invoice schema; the document type is unknown, so the model must be allowed to choose."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`{\"type\": \"none\"}`",
+        "why": "`none` prevents any tool call, which removes structured output entirely."
+      }
+    ],
+    "explanation": "`tool_choice: auto` lets the model reply in text, `any` requires it to call some tool of its choosing, and `{\"type\": \"tool\", \"name\": ...}` forces one named tool. When several schemas exist and the document type is unknown, `any` is the setting that guarantees structured output without pre-deciding the schema.",
+    "reference": "Claude API docs — Define tools (tool_choice); CCAR-F exam guide, Task 4.3"
+  },
+  {
+    "id": "ARF-D4-T3-003",
+    "domain": 4,
+    "skill": "structured-output",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "An invoice extraction tool marks `po_number` as required and has an `expense_category` enum of six values. Audits show that when an invoice has no purchase order, Claude fills `po_number` with a plausible-looking number, and that invoices for unusual services get squeezed into whichever category is closest, losing what they were actually for. Which two schema changes best address both problems? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Make `po_number` nullable (a string or `null`) and describe it as \"null when no purchase order appears on the invoice\".",
+        "why": "A required field forces a value even when the source has none, which is where fabricated numbers come from; a nullable field gives the model a truthful way to say the information is absent."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep `po_number` required and add \"never guess a PO number\" to the system prompt.",
+        "why": "The schema still demands a value on every invoice, so the instruction and the schema conflict; the schema wins and the model must produce something."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Add `\"other\"` to the `expense_category` enum together with an `expense_category_detail` string that must be filled when `other` is chosen.",
+        "why": "An extensible enum with an \"other\" plus detail pattern captures cases outside the fixed list without either forcing a wrong category or losing the description."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Make every field in the schema optional so the model is never forced into anything.",
+        "why": "Blanket optionality throws away validation for fields that genuinely are always present and lets the model skip work; only fields that may be legitimately absent should be nullable."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Replace the enum with a free-text `expense_category` string so any category can be expressed.",
+        "why": "Free text destroys the consistency the downstream system relies on (\"Software\", \"software licences\", \"SaaS\" become three categories); the enum should be extended, not removed."
+      }
+    ],
+    "explanation": "Fields that may be absent from the source should be nullable so the model is not pushed to fabricate a value, and categorical fields should use an enum extended with \"other\" (and an \"unclear\" value where ambiguity is common) plus a detail string, so unusual cases are captured without breaking the controlled vocabulary.",
+    "reference": "CCAR-F exam guide, Task 4.3 (nullable fields, enum + other/detail); Claude API docs — Structured outputs"
+  },
+  {
+    "id": "ARF-D4-T3-004",
+    "domain": 4,
+    "skill": "structured-output",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "After moving invoice extraction to a strict tool schema, JSON parse failures dropped to zero. The ledger system still rejects 6% of records: in most, the line items do not add up to `total`, and in the rest the unit price has been placed in the `quantity` field. The team lead proposes tightening the schema further. What should the architect advise?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add `minimum` and `maximum` constraints to `quantity` and `total`, and a `description` on each numeric field explaining which value belongs there, so the schema rejects implausible or misplaced values.",
+        "why": "Numeric range constraints are not supported by strict structured output, and even where a validator allows them they cannot express \"line items must sum to total\" or \"this number belongs in the other field\"."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Keep the schema and add semantic validation in code after extraction: recompute the line-item sum against `total`, sanity-check quantity against unit price, and route or retry failures.",
+        "why": "Schema enforcement removes syntax and type errors but cannot judge whether values are correct or in the right field; those semantic checks have to be written in application code."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Switch from tool use to the `output_config` JSON format so the constrained decoder is applied to the whole response.",
+        "why": "Both mechanisms give the same guarantee, schema compliance; neither can check that numbers are consistent with each other."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add a required `is_valid: true` boolean to the schema so the model confirms the record is correct before returning it.",
+        "why": "A self-attestation field is filled by the same model that made the mistake and does nothing to detect it; it is not validation."
+      }
+    ],
+    "explanation": "Strict schemas eliminate syntax errors, not semantic ones. Values that do not sum, or that land in the wrong field, are only detectable by programmatic validation after extraction, which can then drive a retry with specific error feedback or a human review route.",
+    "reference": "Claude API docs — Structured outputs (does not guarantee semantic correctness); CCAR-F exam guide, Task 4.3"
+  },
+  {
+    "id": "ARF-D4-T3-005",
+    "domain": 4,
+    "skill": "structured-output",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A document pipeline gives Claude two tools: `extract_metadata` (title, authors, date) and `enrich_with_registry` (looks up the authors in an external registry). The enrichment step depends on metadata, but with the default settings Claude sometimes calls `enrich_with_registry` first with guessed author names, and occasionally responds with a text summary and no tool call at all. How should the first request be configured?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Keep `tool_choice: auto` and add \"always call extract_metadata before enrich_with_registry, and never answer in plain text\" to the system prompt.",
+        "why": "This makes the order more likely, but the text-only responses show the model can still skip the tool entirely; an ordering that must always hold should not rest on an instruction."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Set `tool_choice: {\"type\": \"any\"}` so the model must call one of the tools.",
+        "why": "`any` rules out the text-only response but still lets the model pick `enrich_with_registry` first, which is the other failure mode."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Set `tool_choice: {\"type\": \"tool\", \"name\": \"extract_metadata\"}` on the first call, then run enrichment as a second step.",
+        "why": "Forcing the named tool guarantees the metadata extraction happens first and that the response is structured; the dependent step is then sequenced by the application."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Remove `enrich_with_registry` from the tool list and merge its lookup into `extract_metadata`.",
+        "why": "The registry lookup needs the extracted names as input, so it cannot happen inside the same extraction call; merging the tools hides a real dependency instead of enforcing it."
+      }
+    ],
+    "explanation": "When a particular extraction must run before a dependent step, force that specific tool with `tool_choice: {\"type\": \"tool\", \"name\": ...}` on the first request and let the application sequence the follow-up. `any` only guarantees some tool is called, and `auto` allows a text reply.",
+    "reference": "Claude API docs — Define tools (forcing tool use); CCAR-F exam guide, Task 4.3"
+  },
+  {
+    "id": "ARF-D4-T3-006",
+    "domain": 4,
+    "skill": "structured-output",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A UK insurer extracts claim dates with a strict tool schema whose `incident_date` uses `format: date`. Every response is now a valid ISO date, yet 12% of the dates are wrong: source letters write dates as \"03/04/2024\", \"4 March 2024\" or \"4th of last month\", and the model sometimes reads 03/04 as 4 March and sometimes as 3 April; relative dates are silently resolved against the wrong reference. Which two changes should the architect make? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Rely on the strict `format: date` constraint, since it already guarantees the field is a correctly formatted date.",
+        "why": "The constraint guarantees the shape of the string, not that the model interpreted the source correctly; the 12% are syntactically perfect and semantically wrong."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Add explicit normalisation rules to the prompt alongside the schema: numeric dates in these documents are day/month/year, output ISO 8601, and resolve relative dates against the letter's own date, which is supplied in the request.",
+        "why": "Format normalisation rules give the model the interpretation the schema cannot express; pairing them with the strict schema fixes the semantic error while keeping the syntactic guarantee."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Change `incident_date` to a free-text string and parse it in code with a date library.",
+        "why": "This moves the same ambiguity into application code, which also cannot know whether 03/04 meant March or April, and gives up the schema guarantee for nothing."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Add a nullable `incident_date_source_text` field and a `date_ambiguous` boolean so records where the source was genuinely ambiguous can be routed to review instead of silently resolved.",
+        "why": "Carrying the original text and an explicit ambiguity flag lets downstream validation catch the cases the rules cannot settle, rather than accepting a confident but arbitrary reading."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Add a `pattern` regex for ISO dates to the schema in addition to `format: date`.",
+        "why": "A second syntactic check on an already syntactically valid field cannot detect a day/month swap; it addresses a problem the pipeline does not have."
+      }
+    ],
+    "explanation": "A strict schema fixes the output format but not the interpretation of inconsistent source formatting. The remedy is to state normalisation rules in the prompt (locale, output format, reference date for relative expressions) next to the schema, and to add fields (source text, ambiguity flag) that let genuinely ambiguous cases be flagged rather than silently guessed.",
+    "reference": "CCAR-F exam guide, Task 4.3 (format normalisation rules alongside strict schemas); Claude API docs — Structured outputs"
+  },
+  {
+    "id": "ARF-D4-T4-001",
+    "domain": 4,
+    "skill": "validation-retry",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "An invoice extraction pipeline validates each record in code. When validation fails with \"line items sum to 1,240.00 but total is 1,420.00\", the current retry simply resends the identical request, and the identical wrong record usually comes back. How should the retry be constructed?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Send a follow-up containing the original document, the failed extraction and the specific validation error, and ask for a corrected record.",
+        "why": "Retry-with-error-feedback gives the model what it needs to self-correct: the source to re-read, the output it produced, and the exact discrepancy to fix."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Resend the same request with a higher `temperature` and a different random seed so the model produces a different answer that may pass validation.",
+        "why": "Randomising the output is not correction; the model has no information about what was wrong and may produce a different but equally wrong record."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Resend the same request with \"please be more careful this time\" appended.",
+        "why": "A generic admonition does not say what the error was; the model will most likely repeat the same reading of the document."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Send only the failed JSON and the error message and ask the model to fix the JSON.",
+        "why": "Without the source document the model cannot re-check the line items against the invoice; it can only shuffle numbers to make them add up, which fabricates data."
+      }
+    ],
+    "explanation": "A useful retry includes the original document, the previous (failed) output and the specific validation error. That combination lets the model locate and fix the mistake; resending blindly, adding randomness, or omitting the source cannot.",
+    "reference": "CCAR-F exam guide, Task 4.4 (retry-with-error-feedback)"
+  },
+  {
+    "id": "ARF-D4-T4-002",
+    "domain": 4,
+    "skill": "validation-retry",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A contract extraction pipeline logs three recurring validation failures: (1) `effective_date` returned as \"March 3rd\" instead of ISO format, (2) `parties` returned as a single comma-joined string instead of an array of objects, and (3) `renewal_term` returned as null because the term is defined in a separate master services agreement that is not part of the input. The team plans to add retry-with-error-feedback for all three. Which failure will the retry not fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The `effective_date` format error, because date formats are too ambiguous to correct.",
+        "why": "A format mismatch is exactly the kind of error a retry with the specific message (\"use YYYY-MM-DD\") reliably corrects; the information is present in the document."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The `parties` structure error, because the model cannot restructure data it has already produced.",
+        "why": "Structural output errors are correctable on retry: the names are in the document and the error tells the model the expected shape."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The null `renewal_term`, because the required information is not in the document supplied.",
+        "why": "Retries cannot recover information that is absent from the source; the only fixes are to supply the master agreement as input or to accept null and route the record for manual completion."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "All three, because retries only help with JSON syntax errors.",
+        "why": "Tool use with a schema already removes syntax errors; retries with feedback are for format and structural mistakes, which the first two failures are."
+      }
+    ],
+    "explanation": "Retry-with-feedback works for format and structural errors, where the information exists and the output shape was wrong. It is ineffective when the required information is simply absent from the input; that case needs a different input or a nullable field plus review, not more retries.",
+    "reference": "CCAR-F exam guide, Task 4.4 (limits of retry)"
+  },
+  {
+    "id": "ARF-D4-T4-003",
+    "domain": 4,
+    "skill": "validation-retry",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Developers dismiss about 40% of an automated reviewer's findings, but the team cannot tell which kinds of code trigger the bad ones: findings are stored as free text and dismissals as a single click. They want to improve the prompt systematically rather than by anecdote. What should they add?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A mandatory free-text reason from the developer on every dismissal.",
+        "why": "Free-text reasons are inconsistent, hard to aggregate, and add friction; the pattern data should come from the reviewer's own structured output."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A `detected_pattern` field in each finding naming the code construct that triggered it, so dismissal rates can be grouped per pattern.",
+        "why": "Tagging each finding with the construct it fired on turns dismissals into a dataset: the team can see, for example, that \"string-built SQL in test fixtures\" is 90% dismissed and fix that criterion specifically."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A self-reported `confidence` score on each finding, then drop findings below the median so that developers only see the half the reviewer is surest about.",
+        "why": "Confidence filtering hides findings without explaining them; it does not reveal which constructs the reviewer misjudges."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Full prompt and response logging so an engineer can read the dismissed cases each week.",
+        "why": "Raw logs are necessary but not sufficient; without a structured pattern label, analysis stays manual and anecdotal."
+      }
+    ],
+    "explanation": "Feedback loops need structured signals. Adding a `detected_pattern` field to each finding lets the team correlate dismissals with the constructs that produced them and then rewrite the specific criteria responsible, instead of guessing from individual complaints.",
+    "reference": "CCAR-F exam guide, Task 4.4 (detected_pattern field)"
+  },
+  {
+    "id": "ARF-D4-T4-004",
+    "domain": 4,
+    "skill": "validation-retry",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A pipeline extracts quarterly financial statements. Sometimes the statement itself is internally inconsistent: the printed total does not equal the sum of the printed rows, or the same figure appears with two values on different pages. The current design retries whenever the extracted total does not match the sum, and some documents burn all five retries and are dropped. Which two design changes are most appropriate? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Raise the retry limit to fifteen so the model has more attempts to make the numbers agree.",
+        "why": "When the source is inconsistent no number of retries will make it consistent; more attempts only add cost before the document is dropped anyway."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Instruct the model to replace the stated total with the computed sum so validation always passes.",
+        "why": "Silently overwriting source figures destroys the evidence of a discrepancy and reports numbers the document never stated."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Extract `stated_total` and a model-computed `calculated_total` as separate fields, and have validation flag a discrepancy rather than treating it as an extraction failure to retry.",
+        "why": "Keeping both values lets code distinguish an extraction mistake (retryable) from a document that really disagrees with itself (not retryable), and preserves the source figure."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Remove the total field from the schema so the inconsistency can no longer trigger a failure.",
+        "why": "Dropping the field hides real problems in the source and removes information downstream consumers need."
+      },
+      {
+        "id": "E",
+        "correct": true,
+        "text": "Add a `conflict_detected` boolean (with a short `conflict_detail`) that the model sets when the source gives inconsistent values, and route those records to human review.",
+        "why": "An explicit conflict flag captures the case where the document contradicts itself, so the record is neither retried pointlessly nor dropped, but sent where a person can resolve it."
+      }
+    ],
+    "explanation": "Self-correction flows should separate extraction errors from source inconsistencies. Extracting `calculated_total` alongside `stated_total` and adding a `conflict_detected` flag lets validation identify documents that genuinely disagree with themselves and route them to review, instead of retrying until the retry budget is exhausted.",
+    "reference": "CCAR-F exam guide, Task 4.4 (calculated_total vs stated_total, conflict_detected)"
+  },
+  {
+    "id": "ARF-D4-T4-005",
+    "domain": 4,
+    "skill": "validation-retry",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A claims pipeline retries up to three times with error feedback. For 9% of claims every retry fails with the same error, \"`policy_number` is null but required\". A spot check shows these claim forms reference the policy number only as \"see attached schedule\", and the schedule PDF is never included in the request. The team is debating raising the retry limit. What should the architect recommend?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Raise the retry limit to six and strengthen the error message to say the field is mandatory.",
+        "why": "The number is not in the input; the model cannot produce it no matter how many times or how firmly it is asked, and pressing harder invites a fabricated value."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Move the claims to a model with a larger context window so it can read the form more thoroughly.",
+        "why": "Context size is irrelevant when the needed page is not in the request at all."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Have the retry prompt ask the model to infer the most likely policy number from the claimant's name, address and the policy type mentioned on the form, and mark the value as inferred.",
+        "why": "Inferring an identifier the source does not contain is fabrication and would create wrong policy links downstream."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Stop retrying this error class; supply the referenced schedule where it exists, otherwise make `policy_number` nullable and route the claim to a human queue.",
+        "why": "Retries cannot recover information absent from the source, so the fix is to change the input or to accept and route the absence explicitly; both avoid wasted calls and invented values."
+      }
+    ],
+    "explanation": "Identify whether a validation failure is a format or structure problem (retry will succeed) or missing information (retry will not). For missing information, supply the missing source, or allow null and escalate; do not increase the retry count or ask the model to guess.",
+    "reference": "CCAR-F exam guide, Task 4.4 (when retries are ineffective)"
+  },
+  {
+    "id": "ARF-D4-T4-006",
+    "domain": 4,
+    "skill": "validation-retry",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An architect is designing the validation loop for a purchase-order extraction service. Constraints: at most two retries per document, no fabricated values, and a code validator that returns a specific error (for example, \"line item 3 quantity is non-numeric\" or \"`delivery_date` earlier than `order_date`\"). The schema is already enforced through a strict tool. Which loop design satisfies all constraints?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "On a validation error, retry once with the original document, the previous output and the exact error; if the model reports the value is not present in the document, stop retrying and emit null with a `needs_review` flag; after the second failed retry, route to human review.",
+        "why": "This uses feedback retries where they can work, recognises the absent-information case where they cannot, honours the two-retry cap, and never forces a value the source does not contain."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "On a validation error, retry with the previous JSON and the error message only, asking the model to repair the record until the validator passes.",
+        "why": "Without the source document the model can only edit numbers until they satisfy the rule, which manufactures data and breaks the no-fabrication constraint."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "On a validation error, resend the original request unchanged up to two times and accept whichever output first validates.",
+        "why": "Blind resends give the model no information about what was wrong, so most retries reproduce the same error; the budget is spent without correction."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Skip the code validator, since the strict tool schema already guarantees the record is correct, and only retry on API errors.",
+        "why": "A strict schema guarantees syntax and types, not that a date is chronologically sensible or a quantity is meaningful; semantic validation is still required."
+      }
+    ],
+    "explanation": "A well-designed loop pairs schema enforcement (syntax) with code validation (semantics), retries with the document plus the specific error, distinguishes correctable errors from absent information, and hands unresolved cases to people within a fixed retry budget rather than forcing a value.",
+    "reference": "CCAR-F exam guide, Task 4.4; Claude API docs — Structured outputs"
+  },
+  {
+    "id": "ARF-D4-T5-001",
+    "domain": 4,
+    "skill": "batch-processing",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A compliance team needs every support transcript from the week, about 12,000 of them, classified against a policy checklist. The job runs after close of business on Friday and the report is reviewed on Monday morning. Which approach fits best?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Synchronous Messages API calls from a pool of parallel workers, with retries and rate-limit backoff, so the job finishes as fast as possible on Friday night.",
+        "why": "Speed is not required here, and synchronous calls forgo the batch discount on a large, latency-tolerant workload."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Submit the transcripts as Message Batches on Friday evening and collect the results by `custom_id` before Monday.",
+        "why": "A large volume of independent requests with no one waiting on them is the textbook batch case: 50% lower cost, and a processing window of up to 24 hours fits comfortably inside the weekend."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "An Agent SDK agent that reads the transcripts one at a time over the weekend and appends to a report file.",
+        "why": "An agentic loop adds orchestration overhead and cost for a task that is a flat set of independent classifications."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Streaming responses so partial results can be written to the report as they arrive.",
+        "why": "Streaming reduces perceived latency for a human watching a response; nobody is watching, and it is not supported inside batches anyway."
+      }
+    ],
+    "explanation": "The Message Batches API suits non-blocking, latency-tolerant workloads such as weekly audits and overnight reports: it costs 50% less and may take up to 24 hours. Match the API to the latency requirement, and correlate results with `custom_id`.",
+    "reference": "Claude API docs — Batch processing"
+  },
+  {
+    "id": "ARF-D4-T5-002",
+    "domain": 4,
+    "skill": "batch-processing",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A regulator requires that each filing be classified within 30 hours of arrival. The team uses the Message Batches API, which may take up to 24 hours to process a batch, and wants to leave a 2-hour margin for collecting results and resubmitting the odd failure synchronously. Filings arrive continuously. What is the longest interval at which they can submit a batch and still meet the deadline for every filing?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Every 12 hours.",
+        "why": "A filing that arrives just after a submission waits 12 hours, then up to 24 hours of processing: 36 hours before the margin, already past the deadline."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Every 6 hours.",
+        "why": "Worst case is 6 + 24 = 30 hours with no time left for the 2-hour margin the team requires."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Every 4 hours.",
+        "why": "The worst-case filing waits 4 hours for the next submission plus up to 24 hours processing, leaving exactly the 2-hour margin inside the 30-hour deadline."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Once a day, right after the previous batch completes.",
+        "why": "Daily submission means a filing can wait almost 24 hours before it is even submitted, then up to 24 hours more; that can be 48 hours."
+      }
+    ],
+    "explanation": "Batch cadence is derived from the SLA: deadline minus the maximum batch processing time minus any margin gives the longest acceptable wait before submission. With a 30-hour deadline, 24-hour batches and a 2-hour margin, submissions must be at least every 4 hours.",
+    "reference": "CCAR-F exam guide, Task 4.5 (calculating submission frequency from SLA); Claude API docs — Batch processing"
+  },
+  {
+    "id": "ARF-D4-T5-003",
+    "domain": 4,
+    "skill": "batch-processing",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "An 8,000-document batch has finished. Results show 7,850 `succeeded`, 120 `errored` with an invalid-request error because the document exceeded the model's context limit, and 30 `expired` because the batch hit its 24-hour window under heavy load. Which two actions should the pipeline take? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Resubmit the full 8,000-document batch so the results come back as one consistent set.",
+        "why": "Re-running 7,850 successful requests doubles the cost for nothing; results are keyed by `custom_id`, so partial resubmission is straightforward."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Resubmit only the 30 expired requests, identified by their `custom_id`, unchanged.",
+        "why": "Expired requests never reached the model and were not billed; their `custom_id` values identify exactly which documents to resend without touching the successful ones."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Treat the 30 expired requests as complete, since expired requests are not billed.",
+        "why": "Not being billed is not the same as being processed; those documents still have no result and must be resubmitted."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Chunk the 120 oversized documents into context-sized pieces (or summarise them per section) and resubmit the pieces with new `custom_id` values that encode the parent document.",
+        "why": "Resending an oversized request unchanged will fail identically; the failed documents need a modification (chunking) before resubmission, and encoding the parent in `custom_id` lets the pieces be reassembled."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Switch the remaining 150 documents, and all future batches, to the synchronous API to avoid failures.",
+        "why": "Synchronous calls would fail on the oversized documents for the same reason, and abandoning batching for the whole workload gives up the 50% saving over 150 edge cases."
+      }
+    ],
+    "explanation": "Handle batch failures selectively: use `custom_id` to identify exactly which requests failed, resubmit expired ones as they were, and modify the ones that errored for a reason that would recur (for example, chunking documents that exceeded the context limit) before resubmitting them.",
+    "reference": "Claude API docs — Batch processing (result types, custom_id); CCAR-F exam guide, Task 4.5"
+  },
+  {
+    "id": "ARF-D4-T5-004",
+    "domain": 4,
+    "skill": "batch-processing",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An overnight invoice pipeline currently runs a synchronous agentic loop per invoice: Claude calls `extract_fields`, the application executes a `lookup_vendor` MCP tool, the result is returned, and Claude produces the final record. The team wants the 50% batch saving and proposes submitting the same loop as a batch. What is the correct assessment?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It will work as long as the MCP server URL is included in each batch request so the batch can call the tool.",
+        "why": "Batch requests do not call back into your MCP server mid-request; the loop of executing a tool and returning its result cannot happen inside a single batch request."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It will work if `tool_choice` is set to `any` and the `lookup_vendor` result schema is embedded in the request, so the model is forced to complete the whole tool sequence in one response.",
+        "why": "`tool_choice` controls whether a tool is called, not whether its result can be executed and returned within the request; the batch still cannot run the tool."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It cannot work, because tool definitions are not permitted in batch requests at all.",
+        "why": "Batch requests may include tools and may return a `tool_use` block; what they cannot do is execute the tool and continue the same request."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Split it into stages: batch `extract_fields`, run `lookup_vendor` in application code, then batch a second stage that takes the lookup results as input.",
+        "why": "Each batch request is processed independently and cannot execute tools mid-request, so multi-step tool loops must be split into batches separated by application-side tool execution."
+      }
+    ],
+    "explanation": "The Message Batches API processes each request independently and does not support multi-turn tool calling within a request: a tool call cannot be executed and its result returned mid-request. Workflows with tool loops can still use batches by splitting them into stages with tool execution in between.",
+    "reference": "Claude API docs — Batch processing; CCAR-F exam guide, Task 4.5"
+  },
+  {
+    "id": "ARF-D4-T5-005",
+    "domain": 4,
+    "skill": "batch-processing",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A team is about to batch-process 50,000 scanned lease agreements with a new extraction prompt. A trial batch of 5,000 came back with 22% semantic validation failures, mostly the same two field-confusion mistakes. Resubmitting failed documents costs money and each round adds up to a day. How should they proceed?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Iterate on the prompt synchronously against a stratified sample of a few hundred leases until the failure rate is acceptable, then batch the remaining 45,000.",
+        "why": "Refining the prompt on a small sample is fast and cheap, and it maximises first-pass success on the large batch, which is where most of the cost and delay lives."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Submit the remaining 45,000 now with three prompt variants and keep whichever variant scores best.",
+        "why": "Tripling the cost of the full run to discover which prompt works is what a sample is for; it also delays results by a day per iteration."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Submit the remaining 45,000 with the current prompt now and rely on retry-with-feedback inside the batch to correct the 22% before the results are returned.",
+        "why": "A batch request cannot run a validate-and-retry loop inside itself; the failures will come back as failures and need another submission round."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Split the remaining documents into batches of 500 so each failure round is smaller.",
+        "why": "Smaller batches do not change the 22% failure rate; they only multiply the number of rounds."
+      }
+    ],
+    "explanation": "Before committing a large volume to batch processing, refine the prompt on a representative sample using fast synchronous calls. Each batch round can take up to a day and resubmissions cost money, so first-pass success rate is the lever that matters.",
+    "reference": "CCAR-F exam guide, Task 4.5 (prompt refinement on a sample set); Claude API docs — Batch processing"
+  },
+  {
+    "id": "ARF-D4-T5-006",
+    "domain": 4,
+    "skill": "batch-processing",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A compliance pipeline submits filings in a batch every 4 hours to meet a 30-hour classification deadline, assuming up to 24 hours of batch processing. During a period of heavy load, a batch ends with 2% of requests `expired`. Those filings now have between 2 and 6 hours left before their deadline. The team wants a rule for handling expired requests that never breaches the deadline and keeps cost low. Which rule is correct?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add the expired `custom_id` values to the next 4-hourly batch.",
+        "why": "The next batch may itself take up to 24 hours, so filings with only a few hours left would breach the deadline; the batch API offers no latency guarantee."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Resubmit the entire original batch immediately so no filing is missed.",
+        "why": "Re-running the 98% that succeeded wastes money, and the resubmission is still a batch with no completion guarantee for the urgent 2%."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Resubmit only the expired `custom_id` values through the synchronous Messages API now, and keep everything else on the batch schedule.",
+        "why": "Only the expired items are urgent and there are few of them; synchronous calls give a bounded completion time that a new batch cannot, while the bulk of the work keeps the 50% saving."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Move the whole pipeline to the synchronous API with a worker pool, since the batch API has proven it cannot be relied on under load and the deadline is regulatory.",
+        "why": "Expiry of a small fraction under load is expected behaviour and is exactly what the SLA margin is for; abandoning batching doubles the cost of the entire workload."
+      }
+    ],
+    "explanation": "Batch cadence handles the normal case, but expired requests near a deadline need a path with bounded latency. Identify them by `custom_id`, resubmit only those synchronously, and leave the rest on the batch schedule. Neither a fresh batch nor a full resubmission provides the required guarantee.",
+    "reference": "CCAR-F exam guide, Task 4.5; Claude API docs — Batch processing (expired results, no latency guarantee)"
+  },
+  {
+    "id": "ARF-D4-T6-001",
+    "domain": 4,
+    "skill": "multi-pass-review",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A team has Claude Code generate a payment-reconciliation module and then, in the same session, asks \"Review the code you just wrote for bugs.\" The review almost always says the code looks correct, yet human reviewers keep finding off-by-one and null-handling errors. What is the most effective change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Ask the same session to \"be extremely critical, assume there are at least three bugs, and list them\" before it reviews the module it just wrote.",
+        "why": "The session still carries the reasoning that produced the code, which biases it toward confirming its own decisions; a sterner instruction does not remove that context."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Enable extended thinking for the review turn so the model reasons longer about its own code.",
+        "why": "More thinking inside the same context reasons from the same assumptions; it does not provide an independent perspective."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Run the self-review three times in the same session and merge the findings.",
+        "why": "Repeating a biased review produces correlated results; the generator's context is present in every run."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Send the generated code to a separate Claude instance with none of the generation conversation and ask it to review.",
+        "why": "An independent reviewer without the generator's reasoning context evaluates the code on its own merits and is far more likely to catch subtle mistakes the author instance rationalised."
+      }
+    ],
+    "explanation": "A model reviewing its own output in the same session retains the reasoning that produced it and tends not to question its own decisions. An independent review instance, started without that context, is more effective than self-review instructions or extended thinking.",
+    "reference": "CCAR-F exam guide, Task 4.6 (self-review limitations)"
+  },
+  {
+    "id": "ARF-D4-T6-002",
+    "domain": 4,
+    "skill": "multi-pass-review",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "After reading about attention dilution, a team rebuilt its CI review to analyse each changed file in its own pass. Local findings improved, but a PR that changed a function's return type in `pricing.py` and left three callers in other files unchanged passed review with no comment. What should they add?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A separate integration pass over the full diff plus call sites that looks specifically for cross-file issues: signature changes, data-flow mismatches, inconsistent handling.",
+        "why": "Per-file passes cannot see relationships between files by design; a dedicated cross-file pass is the complementary half of a multi-pass review."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Return to a single pass over all files, but with a larger-context model so the relationships are visible.",
+        "why": "This reintroduces the attention dilution the split was meant to fix; a larger window does not give each file consistent attention."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Tell each per-file pass to \"consider how this file interacts with the rest of the PR\".",
+        "why": "The per-file pass does not have the other files in context, so the instruction asks for analysis the pass cannot perform."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Require authors to list every caller they changed in the PR description, and have the per-file pass check that each file in the list has a matching finding or an explicit approval.",
+        "why": "Relying on authors to enumerate impacts is exactly what the automated review is meant to catch when they forget."
+      }
+    ],
+    "explanation": "Multi-pass review means focused per-file passes for local issues plus a separate integration pass for cross-file data flow. Either half alone leaves a gap: one pass over everything dilutes attention, while per-file passes are blind to interactions.",
+    "reference": "CCAR-F exam guide, Task 4.6 (per-file passes plus integration pass)"
+  },
+  {
+    "id": "ARF-D4-T6-003",
+    "domain": 4,
+    "skill": "multi-pass-review",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A CI review runs a first pass that produces findings, then a verification pass in a fresh instance that re-examines each finding against the code and reports a confidence value with it. The team is deciding how to use the confidence values. Which two uses are appropriate? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Route findings by confidence: post high-confidence findings as inline PR comments, and send low-confidence ones to a summary block or a human triage queue instead of discarding them.",
+        "why": "Calibrated routing is the purpose of a verification pass with confidence: it lets certain findings act immediately while uncertain ones still reach a person rather than being silently dropped."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Delete every finding below 0.9 without recording it, so developers only ever see confident findings.",
+        "why": "Silently discarding uncertain findings loses real bugs the verifier was unsure about and removes the data needed to learn which uncertainties were justified."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Skip the verification pass when the first pass reports high confidence in its own findings.",
+        "why": "The first pass's self-assessment is made with the reasoning context that produced the finding; it is exactly the judgement the independent verifier exists to check."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Compare reported confidence with developer accept/dismiss outcomes on a labelled sample to check calibration before trusting thresholds.",
+        "why": "Self-reported confidence is only useful for routing if it tracks real accuracy; measuring it against outcomes shows whether the thresholds mean what the team thinks they mean."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Treat the confidence value as the finding's severity so critical bugs are those with the highest confidence.",
+        "why": "Confidence describes how sure the verifier is that the finding is real; severity describes how bad it is. A certain typo is not a critical bug."
+      }
+    ],
+    "explanation": "A verification pass that reports confidence per finding enables calibrated review routing: confident findings can be posted directly, uncertain ones sent to human triage, and the confidence values themselves checked against real outcomes. Confidence is not severity, and it should never replace the independent verification step.",
+    "reference": "CCAR-F exam guide, Task 4.6 (verification passes with self-reported confidence)"
+  },
+  {
+    "id": "ARF-D4-T6-004",
+    "domain": 4,
+    "skill": "multi-pass-review",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "In a multi-agent research system, the synthesis subagent is instructed to finish by \"checking every claim in your report against the sources and removing any that are unsupported\". It consistently reports that all claims are supported, but a sample audit found 15% of citations do not support the sentence they are attached to. Which change most reliably catches these?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Enable extended thinking on the synthesis subagent so it checks more carefully.",
+        "why": "Additional reasoning within the same context reuses the assumptions that produced the claims; the subagent is still grading its own work."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Add a separate verification subagent that receives only the draft report and the sources, with no synthesis history, and returns a per-claim supported/unsupported verdict.",
+        "why": "An independent instance without the synthesis reasoning evaluates each claim against the evidence on its merits and is much more likely to notice a citation that does not say what the sentence claims."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Rewrite the instruction as \"You MUST remove any unsupported claim. This is critical.\"",
+        "why": "The subagent already believes its claims are supported; stronger wording does not give it an outside perspective."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Have the coordinator send the report back to the synthesis subagent twice more with the message \"re-check every citation\" and accept it only when two consecutive checks report no changes.",
+        "why": "Repeating a self-check in the same context produces the same answer; three self-approvals are not more independent than one."
+      }
+    ],
+    "explanation": "Self-review is weak because the reviewer shares the context and reasoning that produced the output. For claim verification, route the report and sources to an independent instance that has no synthesis history; this is more effective than instructions, repetition or extended thinking applied to the author.",
+    "reference": "CCAR-F exam guide, Task 4.6 (independent review instances)"
+  },
+  {
+    "id": "ARF-D4-T6-005",
+    "domain": 4,
+    "skill": "multi-pass-review",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team uses Claude Code to generate a 40-file service scaffold and wants an automated review before a human looks at it. Past attempts had two problems: the review rarely found anything wrong with code produced in the same session, and a single review over all 40 files gave detailed comments on the first few files and superficial ones on the rest. Which two elements should the review architecture include? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A single review pass over all 40 files using the model tier with the largest context window.",
+        "why": "Fitting everything in context does not give each file consistent attention; the uneven depth problem is attention dilution, not context size."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A reviewer instance started fresh with only the generated code, separate from the session that generated it.",
+        "why": "Removing the generator's reasoning context is what makes the reviewer willing to question the design decisions the generator rationalised."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A self-review turn in the generating session with extended thinking enabled and an instruction to be adversarial.",
+        "why": "Self-review in the same session retains the generation context regardless of thinking budget or tone, which is why it found so little before."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Three full-scaffold review runs with a finding reported only when at least two runs agree.",
+        "why": "Majority voting over diluted passes suppresses real issues that are caught intermittently and triples the cost without fixing the depth problem."
+      },
+      {
+        "id": "E",
+        "correct": true,
+        "text": "Per-file review passes for local issues, followed by a separate integration pass over the cross-file data flow.",
+        "why": "Splitting the review into focused local passes plus an integration pass keeps depth consistent across all 40 files while still catching interactions between them."
+      }
+    ],
+    "explanation": "The two structural fixes for automated review are independence and decomposition: review in a fresh instance without the generator's context, and split large reviews into per-file passes plus a cross-file integration pass. Bigger context, more thinking, or consensus voting do not address either root cause.",
+    "reference": "CCAR-F exam guide, Task 4.6"
+  },
+  {
+    "id": "ARF-D4-T6-006",
+    "domain": 4,
+    "skill": "multi-pass-review",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A CI reviewer produces findings, then the same conversation is asked: \"Now verify each of your findings and give a confidence from 0 to 1.\" Nearly every finding comes back at 0.9 or above and almost none are retracted, so the team's plan to auto-post only high-confidence findings would post everything, including a 35% false-positive tail. Which redesign fixes the root cause?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Raise the auto-post threshold to 0.98 so fewer findings qualify.",
+        "why": "The confidence values are not calibrated because they come from the author of the findings; moving the threshold on an uninformative signal does not separate true from false findings."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Ask for \"honest, well-calibrated confidence\" and enable extended thinking for the verification turn.",
+        "why": "The verification still runs inside the context that produced the findings, so it inherits the same reasoning and the same bias toward confirming them."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Run verification in a separate instance that receives only the code and the list of findings, has it judge each finding independently with a confidence value, and route by that value after checking it against a labelled sample.",
+        "why": "This combines the two facts that matter: independence removes the self-review bias that inflated the scores, and calibration against outcomes makes the confidence values safe to route on."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Drop the verification step and post only findings whose `detected_pattern` has a historically low dismissal rate.",
+        "why": "Pattern-level history is useful for prompt improvement but is not a substitute for verifying the specific finding; new patterns and edge cases would be posted unverified or suppressed wholesale."
+      }
+    ],
+    "explanation": "Confidence reported by the instance that produced the findings is inflated by the same self-review bias that makes it reluctant to retract them. Verification must run in an independent instance without the first-pass reasoning, and its confidence values should be validated against real outcomes before they drive routing.",
+    "reference": "CCAR-F exam guide, Task 4.6 (independent instances; verification passes with self-reported confidence)"
+  }
+]

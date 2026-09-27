@@ -1,0 +1,102 @@
+{
+  "rag-pipeline": {
+    "summary": "Design a retrieval-augmented generation pipeline whose chunking, indexing, metadata and refresh process fit the documents and the questions, and diagnose retrieval regressions before blaming the model.",
+    "points": [
+      "Chunk along document structure (sections, clauses, headings, table rows) and at the granularity of the questions being asked, not at a fixed token count. Fixed-size chunks that cut through a clause lose meaning at the boundary; add a small overlap and carry the section heading into each chunk.",
+      "Contextual Retrieval (Anthropic, 2024): before embedding and before building the BM25 index, prepend a short Claude-generated context (50–100 tokens) that situates the chunk within its document. Contextual embeddings alone cut top-20 retrieval failures by 35% (5.7% to 3.7%); adding contextual BM25 cut them by 49% (to 2.9%); adding reranking cut them by 67% (to 1.9%). Prompt caching makes generating the context cheap.",
+      "Index with both dense embeddings (semantic recall) and a lexical BM25 index (exact terms, codes, names), then fuse the results. Hybrid search is the default recommendation, not an optimization for later.",
+      "Store structured metadata with every chunk (document id, version, effective date, jurisdiction, product, tenant, permissions) so retrieval can filter before ranking. Similarity cannot express constraints such as \"in force last March\" or \"only documents this user may see\".",
+      "Match chunk size to query granularity: small chunks for precise factual matching, larger structural units for broad questions. When one corpus serves both, index small chunks but return the parent section (small-to-big retrieval) instead of doubling retrieval calls or compromising on one size.",
+      "If the whole knowledge base is under roughly 200,000 tokens (about 500 pages), skip RAG: put it all in the prompt as a cached prefix. RAG exists for corpora that do not fit.",
+      "Refresh and index hygiene: re-index by upserting chunks keyed by document id and version, delete superseded chunks, and pin the embedding model version. Appending new chunks while old ones remain, or re-embedding the corpus with a different model than the query encoder, are the classic post-refresh regressions.",
+      "Exam heuristic (official sample 3): confident-but-wrong answers immediately after a document refresh, with model and latency unchanged, point at the retrieval or indexing step returning stale or irrelevant chunks. Model weights, temperature and context-window size are not triggered by a refresh.",
+      "Diagnose retrieval by isolating branches: run BM25-only and dense-only test queries. Lexical healthy plus dense broken after a re-index means embedding mismatch; both broken with new documents missing means the index job failed; both fine but answers wrong means the problem is in the prompt or model.",
+      "Gate every refresh with an automated retrieval regression suite (known questions with expected source chunks, measuring recall@k) so a broken re-index is caught before users see it.",
+      "Return retrieved passages to Claude as `search_result` content blocks (from a tool result or as top-level content) with `citations` enabled so answers cite the source and title you supplied; for custom control of citation granularity use custom-content documents, since plain-text and PDF documents are chunked into sentences automatically.",
+      "Use the Files API to upload large PDFs or text once and reference them by `file_id` across requests; file ids are workspace-scoped, so never accept a `file_id` from an end user and give each tenant its own workspace when isolation matters.",
+      "Distractors the exam likes: increasing top-k to compensate for weak retrieval, switching to a bigger model or longer context window to fix a retrieval fault, telling Claude in the prompt to prefer newer or matching chunks, and embedding whole documents as one vector."
+    ],
+    "docs": [
+      { "title": "Introducing Contextual Retrieval", "url": "https://www.anthropic.com/news/contextual-retrieval" },
+      { "title": "Search results", "url": "https://platform.claude.com/docs/en/build-with-claude/search-results" },
+      { "title": "Citations", "url": "https://platform.claude.com/docs/en/build-with-claude/citations" },
+      { "title": "Files API", "url": "https://platform.claude.com/docs/en/build-with-claude/files" },
+      { "title": "Prompt caching", "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching" }
+    ]
+  },
+  "retrieval-strategies": {
+    "summary": "Choose the retrieval mechanism from the shape of the data and the pattern of the queries: semantic search for prose, lexical search for identifiers, tool or SQL calls for structured records, and plain in-context text for small corpora.",
+    "points": [
+      "Data shape decides the mechanism. Prose and FAQs: semantic (embedding) retrieval. Codes, SKUs, error numbers, names and exact phrases: lexical (BM25 or exact match). Tables and live systems with filter-and-aggregate questions: a parameterized SQL or API tool call. Small, stable corpora (under about 200k tokens): include everything in a cached prompt.",
+      "Embedding the rows of a database table and answering counts or sums by similarity search is an anti-pattern; aggregation is a query, not a retrieval. Give Claude a tool that runs a parameterized query and returns the computed result.",
+      "Exact-identifier queries fail on dense embeddings because vectors capture meaning, not character-level identity (E-4471 and E-4417 look alike). Add a lexical index and fuse results, and extract identifiers into filterable metadata at index time.",
+      "Hybrid search (semantic plus BM25, fused with rank fusion) is the default for mixed corpora; Anthropic's contextual BM25 results show the lexical signal materially reduces retrieval failures even for natural-language questions.",
+      "Reranking: retrieve a broad candidate set (Anthropic used top-150), score each candidate against the query with a reranker, and pass the top 20 to the model. It adds a small amount of latency and compute and is the targeted fix when the right chunk is retrievable but ranked outside the window sent to the model.",
+      "Pass around 20 chunks to the model rather than 5 or 10 when latency allows; Anthropic found top-20 most effective in its evaluation. Passing 100+ chunks is a sign of retrieval that cannot discriminate and degrades answers through noise.",
+      "Live or fast-changing records (orders, tickets, balances) should be fetched through an authorized tool call at query time, keyed by the exact identifier, never from a nightly embedded snapshot. A missing record should be reported as not found, not inferred from similar records.",
+      "Route by query pattern when one product has several data shapes: a lightweight classifier or the model's own tool choice sends policy questions to retrieval, id lookups to a tool, and glossary or reference questions to in-context text.",
+      "When answers must show their sources, return retrieved passages as `search_result` blocks with citations enabled so Claude cites the source and title; full-text database search or plain string concatenation gives no passage-level attribution.",
+      "Authorization is part of retrieval: filter by the user's permissions before content enters the context, and call live systems with the user's delegated identity. Prompt-level instructions are not access control.",
+      "Cost and latency levers: cache the static prefix, keep top-k modest, rerank a wide candidate set instead of sending it all, and avoid multiple retrieval calls per question unless the budget allows.",
+      "Distractors the exam likes: one embedding index for every data type, larger embedding dimensions to fix exact-match failures, instructing Claude to double-check codes instead of fixing retrieval, and building a full RAG stack for a handbook that fits in the prompt."
+    ],
+    "docs": [
+      { "title": "Introducing Contextual Retrieval", "url": "https://www.anthropic.com/news/contextual-retrieval" },
+      { "title": "Search results", "url": "https://platform.claude.com/docs/en/build-with-claude/search-results" },
+      { "title": "Tool use overview", "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview" },
+      { "title": "Building effective agents", "url": "https://www.anthropic.com/engineering/building-effective-agents" }
+    ]
+  },
+  "connection-protocols": {
+    "summary": "Select the right integration mechanism for a capability: MCP for reusable tool and resource exposure across clients, direct API or CLI calls for a single tight integration, and agent-to-agent delegation for expertise owned behind another boundary.",
+    "points": [
+      "Decision rule: MCP when the same tools, resources or prompts must be consumed by several Claude clients (Claude Code, Agent SDK apps, the Claude apps, the MCP connector); direct API or CLI calls in code when one application has one tightly scoped integration and deterministic side effects; agent-to-agent delegation when the capability is a specialized agent that another team maintains with its own data access, guardrails and evals.",
+      "MCP architecture: a host application (Claude Code, Claude Desktop, an SDK app) creates one MCP client per server; the server exposes primitives over JSON-RPC. Write the integration once, reuse it from every host.",
+      "Server primitives and who controls them: tools are model-controlled executable actions (`tools/list`, `tools/call`); resources are application-controlled context data (files, schemas, records); prompts are user-controlled reusable templates. Map each capability to the primitive that matches its control model rather than making everything a tool.",
+      "Transports: stdio for a local process serving a single client on the same machine; Streamable HTTP for remote servers serving many clients, with OAuth bearer tokens for authentication. The older SSE transport is deprecated in favour of Streamable HTTP.",
+      "Claude Code scopes: local (private to you and one project), project (`.mcp.json` committed with the repository and shared with the team, approved before first use), and user (all your projects, not shared). Version-controlled team configuration means project scope.",
+      "The MCP connector lets a Messages API application call tools on a remote MCP server without writing an MCP client: `mcp_servers` names the server (URL plus optional `authorization_token`), and an `mcp_toolset` entry in `tools` enables, allowlists or denylists individual tools. The server must be reachable over HTTP; local stdio servers cannot be connected this way.",
+      "In the Agent SDK, MCP servers are configured in `mcpServers` (stdio command, `http`/`sse` URL, or an in-process SDK MCP server for tools defined in your own code); MCP tools are named `mcp__<server>__<tool>` and need explicit `allowedTools` entries. Large tool results (over 25,000 tokens by default) are spilled to a file rather than the context.",
+      "A plain API call is not worse than MCP; it is the right choice when there is one consumer, the steps are fixed, and side effects such as database writes should be deterministic application code rather than model decisions. Adding an MCP server to a batch pipeline adds a process, a protocol and model-driven writes for no reuse benefit.",
+      "Agent-to-agent delegation (subagents, or a separately deployed agent behind a request/response contract) keeps the other team's privileged data, prompts and guardrails inside their boundary and returns only the outcome. Exposing their tools through MCP or copying their prompts leaks capability across the boundary and bypasses their evals.",
+      "Subagents in the Agent SDK run with their own fresh context, can be restricted to specific tools, and return only their final message to the parent, which is what makes them suitable for cross-boundary or high-volume work without polluting the orchestrator's context.",
+      "Security across all three: least privilege on exposed tools (allowlist, read-only where possible), per-user OAuth identity rather than shared long-lived keys, treat tool results as untrusted input, and never let the model supply an identifier that the application should derive from the authenticated session.",
+      "Distractors the exam likes: pasting API documentation into the prompt as if it were an integration, writing the same tool three times in three apps, wrapping a single-consumer pipeline in MCP \"for standardization\", using a deprecated transport for a new deployment, and exposing another team's privileged tools instead of delegating to their agent."
+    ],
+    "docs": [
+      { "title": "Model Context Protocol — Architecture overview", "url": "https://modelcontextprotocol.io/docs/learn/architecture" },
+      { "title": "Model Context Protocol — Server concepts", "url": "https://modelcontextprotocol.io/docs/learn/server-concepts" },
+      { "title": "MCP connector", "url": "https://platform.claude.com/docs/en/agents-and-tools/mcp-connector" },
+      { "title": "Claude Code — Connect to tools with MCP", "url": "https://code.claude.com/docs/en/mcp" },
+      { "title": "Agent SDK — MCP", "url": "https://code.claude.com/docs/en/agent-sdk/mcp" },
+      { "title": "Agent SDK — Subagents", "url": "https://code.claude.com/docs/en/agent-sdk/subagents" },
+      { "title": "Building effective agents", "url": "https://www.anthropic.com/engineering/building-effective-agents" }
+    ]
+  },
+  "progressive-discovery": {
+    "summary": "Decide when to load tool definitions, skills and documents on demand (progressive discovery) versus up front (monolithic context), trading context cost and attention against latency and simplicity.",
+    "points": [
+      "Context is a finite attention budget: as tokens grow, precision for retrieval and long-range reasoning degrades (\"context rot\"). Every tool definition, skill body and document loaded up front competes with the task for attention, even when the window has room.",
+      "Progressive discovery means loading definitions, instructions or documents only when they become relevant, using lightweight identifiers (names, descriptions, file paths, search) to find them just in time. Monolithic context means everything is present from the first token.",
+      "Tool search / deferred loading on the Claude API: include a tool search tool in `tools`, mark rarely used tools `defer_loading: true`, and Claude searches the catalog (regex or BM25 variant) and loads only the 3–5 tools it needs. A five-server MCP setup can cost around 55k tokens of definitions; tool search typically cuts this by over 85% and restores selection accuracy, which degrades beyond roughly 30–50 tools.",
+      "Use tool search when there are 10 or more tools, definitions exceed about 10k tokens, tool selection accuracy is dropping, or several MCP servers are aggregated. Standard loading is better with fewer than 10 tools that are used on most requests. For MCP servers via the connector, set `defer_loading` on the `mcp_toolset` default config.",
+      "Hybrid is the recommended balance: keep the 3–5 most frequently used tools non-deferred so common requests need no search round trip, and defer the long tail. Fully on-demand designs pay a discovery latency on every conversation for the same hot tools.",
+      "Agent Skills implement progressive disclosure in three levels: name and description (about 100 tokens per skill) always in the system prompt; the SKILL.md body (under about 5k tokens) when the skill is triggered; bundled reference files only when read, and scripts run through bash with only their output entering context. Many skills can be installed without a context penalty.",
+      "Content that must always apply (coding standards, compliance rules) belongs in always-loaded context such as `CLAUDE.md` or the system prompt, because a skill or a retrieval step is triggered probabilistically. Large, occasionally needed procedures belong in Skills or on-demand documents.",
+      "Just-in-time retrieval by the agent (grep, glob, file paths, search tools) avoids stale pre-computed indexes but is slower than pre-retrieved data; the Claude Code pattern is hybrid: `CLAUDE.md` up front plus tools to explore at runtime.",
+      "Monolithic wins when the material is small, stable and needed on nearly every request: it can be placed as a cached prefix, costs one discovery round trip fewer, and is simpler to reason about. Progressive discovery wins when the candidate set is large and only a request-dependent subset is relevant.",
+      "Respect prompt caching: tool definitions are part of the cached prefix, so rewriting, re-sorting or trimming the `tools` array mid-conversation invalidates the cache and can cost more than the definitions saved. `defer_loading` keeps the prefix untouched and expands discovered tools inline as `tool_reference` blocks; a custom discovery layer must keep the array stable or append after the cache breakpoint.",
+      "Related context-control patterns: programmatic tool calling (Claude writes code that orchestrates tools in a sandbox so intermediate results never enter context), subagents that return condensed summaries, and compaction or tool-result clearing for long sessions.",
+      "MCP client guidance: switch from loading every tool to progressive discovery once definitions consume a meaningful share of the window (a 1–5% threshold is suggested), cache fetched definitions host-side, re-index on `tools/list_changed`, and connect or disconnect whole servers on demand for general-purpose agents.",
+      "Distractors the exam likes: switching to a larger context window instead of reducing what is loaded, shortening every description to one line (destroys selection quality), splitting servers into separate agents to hide the problem, and going fully on-demand for a small hot set that every request needs."
+    ],
+    "docs": [
+      { "title": "Tool search tool", "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool" },
+      { "title": "Agent Skills overview", "url": "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview" },
+      { "title": "Effective context engineering for AI agents", "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents" },
+      { "title": "Advanced tool use", "url": "https://www.anthropic.com/engineering/advanced-tool-use" },
+      { "title": "MCP — Client best practices (progressive tool discovery)", "url": "https://modelcontextprotocol.io/docs/develop/clients/client-best-practices" },
+      { "title": "Context windows", "url": "https://platform.claude.com/docs/en/build-with-claude/context-windows" }
+    ]
+  }
+}

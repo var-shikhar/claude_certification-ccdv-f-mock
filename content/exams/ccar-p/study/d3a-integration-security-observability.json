@@ -1,0 +1,109 @@
+{
+  "capability-bloat": {
+    "summary": "Recognize when an agent carries more tools or capabilities than its role needs, explain why that degrades tool selection and widens the blast radius, and fix it by removing, consolidating or scoping tools rather than logging, confirming or prompting around them.",
+    "points": [
+      "Capability bloat has two costs: the model chooses among overlapping tools less accurately, and every tool definition (name, description, schema) is sent as input tokens on every request, so a bloated toolset adds latency and cost even when unused.",
+      "Anthropic's guidance is to build a few thoughtful tools targeting high-impact workflows rather than wrapping every API endpoint. Too many or overlapping tools distract agents from efficient strategies.",
+      "Consolidate fixed multi-step workflows into one tool (for example `schedule_event` instead of `list_users` + `list_events` + `create_event`), and namespace tools by service (`crm_contacts_search`, `tickets_contacts_search`) so similar tools are distinguishable.",
+      "Least privilege (official sample 1): if a role only reads tickets and drafts replies, remove refund and delete tools from that role's configuration. Logging is detective and a confirmation prompt is compensating; neither removes unnecessary privilege. Model size is unrelated to authorization scope.",
+      "When one agent serves several roles, build the `tools` array per request from the authenticated caller's role instead of sending the union of every role's tools.",
+      "MCP connector: an `mcp_toolset` enables every server tool by default. Prefer an allowlist (`default_config: { enabled: false }` plus explicit `configs`) for read-only or narrow assistants; a denylist leaves tools the vendor adds later enabled until someone notices.",
+      "Pair tool-list scoping with credential scoping: connect MCP servers with tokens scoped to the access the role needs, so a tool that becomes visible unexpectedly still cannot act beyond the credential.",
+      "Agent SDK: `allowedTools` pre-approves listed tools but does not remove others; unlisted tools fall through to the permission mode, and `bypassPermissions` approves them. To take a capability away, put its bare name in `disallowedTools`, which strips the definition from the request and holds in every mode.",
+      "Claude Code: a bare-name `deny` rule (for example `Bash`) removes the tool from Claude's context; scoped rules such as `Bash(rm *)` keep the tool but block matching calls.",
+      "When a large tool catalogue must remain reachable, load core tools eagerly and mark rarely used tools `defer_loading: true` behind the tool search tool, rather than putting every definition in every request.",
+      "Prompt-level fixes (\"never use tool X\", \"you are talking to an applicant\") are probabilistic and are the classic distractor; a capability that should not exist for a role must be removed from the configuration.",
+      "Audit toolsets periodically: tools never called in production, near-duplicate descriptions and write tools in read-only assistants are the signs of bloat."
+    ],
+    "docs": [
+      { "title": "Writing tools for agents", "url": "https://www.anthropic.com/engineering/writing-tools-for-agents" },
+      { "title": "Building effective agents", "url": "https://www.anthropic.com/engineering/building-effective-agents" },
+      { "title": "MCP connector", "url": "https://platform.claude.com/docs/en/agents-and-tools/mcp-connector" },
+      { "title": "Tool search tool", "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool" },
+      { "title": "Agent SDK — Configure permissions", "url": "https://code.claude.com/docs/en/agent-sdk/permissions" },
+      { "title": "Claude Code — Configure permissions", "url": "https://code.claude.com/docs/en/permissions" }
+    ]
+  },
+  "authn-authz": {
+    "summary": "Separate authentication (who the caller is) from authorization (what they may do), spot where an agent or tool chain trusts the wrong party, and close the gap with identity propagation, scoped tokens, OAuth-compliant MCP servers, secrets kept out of prompts and deterministic enforcement.",
+    "points": [
+      "Authentication establishes identity (SSO, OAuth login); authorization decides which records and actions that identity may touch. A system can have strong login and no authorization at all, which is the most common gap in the exam's scenarios.",
+      "Authorization belongs in deterministic code: tool handlers derive identity from the authenticated session and check ownership or role there. Never trust a user ID, role or claim that arrives through the model, a tool parameter or the conversation.",
+      "Avoid shared service accounts with broad rights. Have tools act on behalf of the user with delegated or on-behalf-of tokens so the downstream system enforces the user's own permissions; the agent should gain no authority the user lacks.",
+      "Scope tokens to the minimum access a role needs and prefer short-lived access tokens with refresh-token rotation; broad omnibus scopes widen the blast radius of any leak and muddy audit trails.",
+      "MCP over HTTP uses OAuth 2.1: the MCP server is a resource server, the client acts for the resource owner, discovery runs through Protected Resource Metadata and Authorization Server Metadata, PKCE is mandatory, and tokens go in the `Authorization: Bearer` header, never in query strings.",
+      "MCP servers must validate that inbound tokens were issued for them (audience binding via the `resource` parameter) and must not pass a client's token through to upstream APIs; they obtain their own upstream token instead. Token passthrough breaks security controls, audit trails and trust boundaries.",
+      "Confused deputy: an MCP proxy that uses a static client ID with a third-party authorization server and allows dynamic client registration must obtain per-client user consent before forwarding, otherwise a consent cookie lets an attacker's client obtain authorization codes silently.",
+      "Sessions are not authentication: MCP servers must verify every inbound request, use non-deterministic session IDs and bind sessions to the user identity.",
+      "Secrets never belong in prompts or committed config. Keep API keys and passwords behind tool handlers, and in Claude Code's `.mcp.json` reference them as `${VAR}` from the environment; base64 encoding and \"never reveal\" instructions are not controls, and rotation alone leaves the secret in history.",
+      "Claude Code and the MCP connector: remote servers authenticate with OAuth (`/mcp` login, per-user stored tokens; `authorization_token` on the connector), and the application is responsible for obtaining and refreshing tokens.",
+      "Enterprise enforcement: managed settings (`managed-settings.json`, MDM or server-managed) sit at the top of Claude Code's precedence order and cannot be overridden by user, project, local or `--settings`; deny rules beat allow rules from any file. A `CLAUDE.md` instruction is guidance, not enforcement.",
+      "Agent SDK evaluation order is hooks, deny rules, ask rules, permission mode, allow rules, then `canUseTool`. Calls auto-approved by `acceptEdits`, `bypassPermissions` or an allow rule never reach `canUseTool`, so authorization that must apply to every call belongs in a `PreToolUse` hook, whose deny holds in every mode.",
+      "Everything the model outputs after reading untrusted content is untrusted: escape it before rendering, validate proposed actions against schemas and allowlists, and apply them with least-privilege credentials.",
+      "Distractors the exam likes: role banners in the system prompt, model-filled `user_id` parameters, audit logging as a substitute for access control, longer-lived tokens for convenience, and a bigger model as an authorization mechanism."
+    ],
+    "docs": [
+      { "title": "MCP specification — Authorization", "url": "https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization" },
+      { "title": "MCP specification — Security best practices", "url": "https://modelcontextprotocol.io/specification/2025-06-18/basic/security_best_practices" },
+      { "title": "MCP connector (authentication)", "url": "https://platform.claude.com/docs/en/agents-and-tools/mcp-connector" },
+      { "title": "Claude Code — Connect to tools via MCP", "url": "https://code.claude.com/docs/en/mcp" },
+      { "title": "Claude Code — Settings files and precedence", "url": "https://code.claude.com/docs/en/settings" },
+      { "title": "Agent SDK — Configure permissions", "url": "https://code.claude.com/docs/en/agent-sdk/permissions" },
+      { "title": "Agent SDK — Control execution with hooks", "url": "https://code.claude.com/docs/en/agent-sdk/hooks" },
+      { "title": "Mitigate jailbreaks and prompt injections", "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks" },
+      { "title": "Reduce prompt leak", "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-prompt-leak" }
+    ]
+  },
+  "accuracy-latency": {
+    "summary": "Know which configuration levers buy accuracy with latency and which buy latency without changing answers, and justify each choice with measured evals against the path's SLA.",
+    "points": [
+      "Levers that raise accuracy at a latency and cost price: a more capable model, extended or adaptive thinking at higher `effort`, deeper retrieval with reranking, more context, and agentic loops that take more turns. Anthropic's guidance: agentic systems trade latency and cost for better task performance, so decide when that trade makes sense.",
+      "Levers that cut latency or cost without changing what the model concludes: streaming (perceived latency), prompt caching (repeated prefixes, lower time-to-first-token and cost), parallel tool calls, batch processing for asynchronous work, and routing simple inputs to a smaller or lower-effort configuration.",
+      "Streaming does not shorten total generation time; it delivers tokens as they are produced so time-to-first-token becomes the wait the user feels. It helps chat and long outputs, not a single classification label, and the SDKs require it for very large `max_tokens`.",
+      "`effort` (`low`, `medium`, `high`, `xhigh`, `max`) is the primary control for reasoning depth on adaptive-thinking models; lower effort means fewer thinking tokens, fewer and terser tool calls, and lower latency, with some capability reduction. Set it per workload and confirm on evals.",
+      "Changing the top-level effort or thinking configuration between requests invalidates prompt-cache breakpoints, so hold it constant within a cached conversation; only models with per-message effort can change it mid-conversation cache-safely.",
+      "Route rather than configure globally: when evals show reasoning helps only a subset of inputs (for example multi-order messages), send the majority through the fast configuration and only that subset through the slow one.",
+      "Parallel tool use collapses independent lookups into one turn: the model emits several `tool_use` blocks, your code runs them concurrently, and all `tool_result` blocks return in one user message. `disable_parallel_tool_use` forces serial calls and is the opposite lever.",
+      "Match configuration to each path's SLA: interactive paths take the most accurate configuration that fits the latency budget; asynchronous or audited paths with no latency limit can take the slowest, most accurate configuration, often through the Batch API at lower cost.",
+      "Justify with numbers: state the measured accuracy and p95 latency of each candidate configuration against the SLA, and record the accepted accuracy gap. A decision that changes the SLA instead of designing to it is not a justification.",
+      "Truncating output (`max_tokens`), truncating policy documents, or \"be concise\" instructions reduce latency by sacrificing correctness and are common distractors; so is \"switch to a bigger model\" without evidence of the latency or accuracy effect.",
+      "Thinking with very large budgets produces long-running requests; for the heaviest reasoning use batch processing rather than an interactive request that may hit timeouts.",
+      "Prompt caching addresses input-side latency and cost (place stable content first, dynamic content after the breakpoint); it does nothing for output-generation time or accuracy."
+    ],
+    "docs": [
+      { "title": "Effort", "url": "https://platform.claude.com/docs/en/build-with-claude/effort" },
+      { "title": "Thinking", "url": "https://platform.claude.com/docs/en/build-with-claude/thinking" },
+      { "title": "Streaming Messages", "url": "https://platform.claude.com/docs/en/build-with-claude/streaming" },
+      { "title": "Parallel tool use", "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/parallel-tool-use" },
+      { "title": "Batch processing", "url": "https://platform.claude.com/docs/en/build-with-claude/batch-processing" },
+      { "title": "Prompt caching", "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching" },
+      { "title": "Building effective agents", "url": "https://www.anthropic.com/engineering/building-effective-agents" }
+    ]
+  },
+  "observability": {
+    "summary": "Design monitoring for LLM systems at scale: correlate every hop with a trace id, record structured metadata for every request, sample and grade transcripts, alert on quality drift as well as errors, and keep PII out of shared logs.",
+    "points": [
+      "Mint a trace or correlation id at the top-level request and propagate it through every model call, subagent, tool call and MCP server, so any final answer can be walked back to the exact hop and tool result that produced it. More verbose logging on one component does not substitute for correlation across hops.",
+      "Log structured metadata per request: prompt or system-prompt version, model, `effort`/thinking configuration, input, output and cache-read tokens, latency, tool calls with outcomes, retrieved document or chunk ids, and stop reason. This is what lets a regression be tied to a release, index refresh or configuration change.",
+      "Infrastructure health is not product health: an LLM system can be error-free and fast while its answers degrade. Track quality metrics (grader scores on sampled transcripts, tool-call success rate, escalation or hand-off rate, task completion) and alert on drift from a baseline, not only on 5xx and latency.",
+      "Sample transcripts for human and model-graded review, stratified by intent, region and outcome, and oversample failures, escalations and low-confidence cases. A uniform random sample under-represents rare failure classes; making it larger does not fix that.",
+      "Slice quality metrics along the dimensions where regressions occur (region, tenant, intent, prompt version); a single global average hides a failure confined to one slice.",
+      "At scale, keep lightweight PII-redacted metadata for 100% of traffic and reserve full transcripts for the stratified sample; storing every raw transcript is usually unaffordable and a privacy liability.",
+      "PII-aware logging: redact or tokenize sensitive fields before data enters shared observability tooling, keep any raw copies in a segregated access-controlled store with audit trails and short retention, and remember that encryption at rest and base64 do not stop authorized readers from seeing PII.",
+      "Claude Code exports OpenTelemetry metrics (session count, lines of code, commits, PRs, cost, token usage, code-edit permission decisions, active time) and events (user prompt, tool result, API request, API error, tool decision) with user, session and organization attributes.",
+      "Enable and route Claude Code telemetry fleet-wide through managed settings (`CLAUDE_CODE_ENABLE_TELEMETRY`, `OTEL_METRICS_EXPORTER`, `OTEL_LOGS_EXPORTER`, `OTEL_EXPORTER_OTLP_ENDPOINT`); a repository's `.claude/settings.json` cannot turn telemetry on or redirect it.",
+      "Prompt text, tool inputs, tool content and assistant responses are redacted from Claude Code telemetry by default; `OTEL_LOG_USER_PROMPTS`, `OTEL_LOG_TOOL_DETAILS`, `OTEL_LOG_TOOL_CONTENT` and `OTEL_LOG_ASSISTANT_RESPONSES` opt in. Cardinality flags (`OTEL_METRICS_INCLUDE_SESSION_ID` and similar) trade granularity for storage cost.",
+      "Agent SDK hooks are an audit surface: a `PreToolUse` or `PostToolUse` hook without a matcher fires on every tool call and can write structured audit records; hook inputs carry the tool-use id to correlate the pre and post events and `agent_id` for subagents.",
+      "Monitor the usage fields the API returns (`input_tokens`, `output_tokens`, `cache_read_input_tokens`, thinking token details) to verify caching is working and to attribute cost; a zero cache read across repeated requests is a silent-invalidation signal.",
+      "Distractors the exam likes: alert only on errors, log everything including PHI to a shared cluster, rely solely on thumbs-down feedback, export logs weekly for analysts, or switch models instead of measuring."
+    ],
+    "docs": [
+      { "title": "Claude Code — Monitoring (OpenTelemetry)", "url": "https://code.claude.com/docs/en/monitoring-usage" },
+      { "title": "Agent SDK — Control execution with hooks", "url": "https://code.claude.com/docs/en/agent-sdk/hooks" },
+      { "title": "Demystifying evals for AI agents", "url": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents" },
+      { "title": "How we built our multi-agent research system", "url": "https://www.anthropic.com/engineering/built-multi-agent-research-system" },
+      { "title": "Define your success criteria", "url": "https://platform.claude.com/docs/en/test-and-evaluate/define-success" },
+      { "title": "Prompt caching (usage fields)", "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching" }
+    ]
+  }
+}

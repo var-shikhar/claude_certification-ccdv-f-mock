@@ -1,0 +1,133 @@
+{
+  "eval-metrics": {
+    "summary": "Define success criteria for a Claude solution as specific, measurable, achievable and relevant metrics across accuracy, latency, cost, safety and security, each with a pass threshold that can gate a release.",
+    "points": [
+      "Good criteria are specific (\"accurate sentiment classification\", not \"good performance\"), measurable (a number on a defined dataset or a consistently applied qualitative scale), achievable (grounded in benchmarks, prior experiments or expert knowledge) and relevant (aligned with the application's purpose and users).",
+      "Most use cases need multidimensional evaluation. The docs' example: on a held-out set of 10,000 posts, F1 at least 0.85, 99.5% of outputs non-toxic, 90% of errors merely inconvenient, and 95% of responses under 200 ms. Common criteria: task fidelity, consistency, relevance and coherence, tone and style, privacy preservation, context utilization, latency, price.",
+      "Express latency as percentiles with thresholds (p50 for the typical request, p95/p99 for the tail) measured under realistic load. A mean or median can meet its target while a minority of requests are unusably slow.",
+      "Define cost per unit of business outcome (cost per successfully completed task), including every call, retry, verification step and tool invocation. Cost per API call or per attempt can improve while total spend and true efficiency get worse.",
+      "Safety and security are quantified like everything else: a defined test set, a countable event and a threshold. Examples: share of responses leaking another customer's data (target 0), fraction of injected documents whose embedded instructions the agent follows, toxicity-flag rate, policy-violation rate on a red-team set.",
+      "Raw refusal counts, self-reported model confidence, reviewer impressions and \"control is enabled\" flags are not metrics of outcomes; they are common distractors.",
+      "For RAG and document tasks add a groundedness or citation-support metric (every claim traces to a retrieved passage), separate from answer accuracy: an answer can match the reference and still add an unsupported condition.",
+      "Gate releases on each metric independently with its own threshold. Use composite scores only to rank candidates that already pass every gate; a weighted average lets a gain on one axis hide an SLA breach on another.",
+      "Write the criteria before building the eval set; they determine what the dataset must contain and which grader fits each criterion.",
+      "Set thresholds from the business context: what error rate is acceptable, what latency the user experience tolerates, what the SLA promises, what the budget per task is.",
+      "Report metrics by slice (language, customer segment, document type, severity) as well as in aggregate, so a subgroup regression is visible."
+    ],
+    "docs": [
+      { "title": "Define success criteria and build evaluations", "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests" },
+      { "title": "Reduce hallucinations", "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations" },
+      { "title": "Demystifying evals for AI agents", "url": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents" }
+    ]
+  },
+  "eval-datasets": {
+    "summary": "Build and maintain evaluation datasets and test frameworks that mirror real traffic, cover edge and adversarial cases, and mix code-based, LLM-based and human grading appropriately.",
+    "points": [
+      "Eval design principles from the docs: be task-specific (mirror the real-world task distribution, including edge cases), automate when possible (structure tasks so they can be graded by code, string match or an LLM), and prioritize volume over quality (more automatically graded cases beat a handful of hand-graded ones).",
+      "Start early and small: 20 to 50 tasks drawn from real failures, bug reports and support tickets is a strong first eval. Grow it from production traffic and add synthetic edge cases and adversarial inputs over time.",
+      "A good task is one where two domain experts would independently reach the same pass/fail verdict. Ambiguous cases produce noisy scores.",
+      "Vocabulary from the evals post: a task (input plus success criteria), a trial (one attempt), a grader (the scoring logic, possibly several assertions), a transcript (the full record of the trial) and the outcome (the final state of the environment).",
+      "Grader trade-offs: code-based grading (exact match, regex, unit tests, state checks) is fastest, cheapest and most reliable but brittle to valid variation and lacks nuance; LLM-based grading (rubric scores, natural-language assertions, pairwise comparison) is fast, flexible and scalable but non-deterministic and must be tested for reliability; human grading is the most flexible and highest quality but slow and expensive, so use it for calibration and spot checks rather than the whole suite.",
+      "Tips for LLM-based grading: give the judge a detailed, clear rubric; ask for empirical or specific outputs (\"correct\"/\"incorrect\", a defined 1 to 5 scale) rather than free-form opinions; encourage the judge to reason before deciding; use a different model from the one being evaluated; and calibrate against human labels on a sample.",
+      "Mix methods by output: deterministic checks for fixed answers and schema validity, rubric-based LLM grading for free-text quality, human review of a stratified sample for calibration.",
+      "Balance the set: include cases where the behaviour should occur and where it should not (refusals, escalations, out-of-scope questions), avoid class imbalance that hides rare high-consequence failures, and report pass rate per slice with slice-level thresholds.",
+      "Eval hygiene: hold out a test split that is never used while iterating on the prompt, version the dataset alongside the prompt so scores are comparable across time, keep passing cases as the regression suite, and read transcripts regularly to check the graders are fair.",
+      "Capability evals target hard tasks and start with low pass rates; regression evals should sit near 100% and catch backsliding. Both are needed.",
+      "Non-determinism: run multiple trials per task. pass@k (at least one of k succeeds) suits \"shots on goal\"; pass^k (all k succeed) measures the consistency customer-facing agents need. Isolate trials in clean environments so shared state does not contaminate results.",
+      "For agents, grade the outcome (did the reservation get created, does the test pass) and only the transcript assertions that matter (no destructive action without confirmation); rigid step-sequence checks penalize valid alternative paths.",
+      "Watch for saturation (the agent passes nearly everything solvable, so the eval gives no signal) and overfitting (scores rise while users see no improvement, or graders reward loopholes rather than the task).",
+      "Tooling: the Console Evaluation tool lets you add test cases by hand, generate them with Claude, import a CSV, run a prompt with `{{variables}}` across the set, and compare prompt versions side by side; it is a convenient place to start before building a code-based harness."
+    ],
+    "docs": [
+      { "title": "Define success criteria and build evaluations", "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests" },
+      { "title": "Demystifying evals for AI agents", "url": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents" },
+      { "title": "Using the Evaluation Tool", "url": "https://platform.claude.com/docs/en/test-and-evaluate/eval-tool" }
+    ]
+  },
+  "ab-testing": {
+    "summary": "Compare prompts, models and configurations rigorously, offline on a shared eval set and online on a controlled traffic split, and run a disciplined iterate-measure loop with guardrails.",
+    "points": [
+      "Offline first: run the candidate and the control on the same versioned eval set, with the same model and the same metrics, so only the change under test differs. Scores from different datasets or different dates are not comparable.",
+      "The Console Evaluation tool's side-by-side comparison is designed for this kind of prompt-versus-prompt check; re-run the suite after each prompt edit.",
+      "Online A/B tests: assign randomly and keep the assignment stable per user or session (never per message), fix the sample size, duration and stop rule before starting, name one primary metric, and define guardrail metrics (p95 latency, cost per task, escalation or error rate, safety rate) with limits.",
+      "Common invalid designs: time-of-day or day-of-week splits (confounded by traffic mix), stopping as soon as one arm pulls ahead (inflates false positives), tiny samples that cannot distinguish a small lift from noise, week-over-week comparisons after a full rollout.",
+      "A breached guardrail is a failed test even if the primary metric won. Do not raise the threshold after seeing the result; diagnose the cause and re-test a revised candidate.",
+      "Analyse by slice (language, customer segment, document type). A pre-registered slice guardrail stops an aggregate win from shipping harm to a subgroup; when routing by slice is reliable and permitted, ship where the gain was validated and keep the control elsewhere.",
+      "Never ship an untested fix on the strength of a hypothesis; every revision goes through the same offline eval and, where needed, the same traffic test.",
+      "Iterative improvement discipline: run the full regression suite on every change, gate on no net regression, and diagnose why a fix broke other cases rather than stacking more rules onto the prompt.",
+      "Keep capability evals (what to improve next) separate from regression evals (what must not break); a change is finished only when both are satisfied.",
+      "Evals shape how fast you can adopt new models: with a suite in place a model swap can be validated in days, without one it takes weeks of manual testing.",
+      "Production monitoring, user feedback, A/B testing, transcript review and human evaluation are complementary layers; no single layer catches every issue."
+    ],
+    "docs": [
+      { "title": "Demystifying evals for AI agents", "url": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents" },
+      { "title": "Using the Evaluation Tool", "url": "https://platform.claude.com/docs/en/test-and-evaluate/eval-tool" },
+      { "title": "Define success criteria and build evaluations", "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests" }
+    ]
+  },
+  "diagnosis": {
+    "summary": "Diagnose failures in a Claude system by isolating the layer at fault (retrieval, prompt and output contract, model, tools, inputs) from the symptom and from what changed, before choosing a fix.",
+    "points": [
+      "Start from what changed and what the symptom is. A failure that begins right after a document refresh points at retrieval or indexing; after a prompt edit, at the prompt or output contract; after a model swap, at model mismatch with the prompt's assumptions; with no change at all, at drifting inputs.",
+      "Confident but wrong answers after a document refresh, with model and latency unchanged, mean retrieval is feeding poor context (broken re-index, mismatched embeddings, stale or irrelevant chunks). This is the exam guide's own sample question.",
+      "To separate retrieval from generation, replay the failing request from its trace and check whether the correct passage was among the retrieved chunks. Missing passage: retrieval fault. Passage present but ignored or contradicted: prompt or model fault.",
+      "Retrieval evidence: gold passage absent from top-k, failures clustered on documents ingested after a chunking or embedding change, tables or clauses split across chunk boundaries.",
+      "Format failures (unparseable JSON, wrong types, prose around the payload) are prompt and output-contract problems. Fix them deterministically with structured outputs or an explicit schema and examples, not with temperature changes or a bigger model.",
+      "Hallucination remedies from the docs: allow \"I don't know\", ground long-document tasks in direct quotes extracted first, require citations and retract unsupported claims, restrict the model to provided documents, verify with chain-of-thought, compare best-of-N outputs, and refine iteratively. None eliminates hallucination entirely; validate critical outputs.",
+      "Model mismatch shows as systematic reasoning errors on a task that exceeds the model tier, once retrieval and prompt are verified sound. Move only the hard step to a stronger model or enable extended thinking, confirm on the eval, and keep the cheaper model for simpler steps.",
+      "After a model migration, behaviour that was never stated explicitly (length, tone, format) can change while accuracy holds. Make the requirements explicit, add checks to the eval, and validate the migration instead of rolling back or truncating output.",
+      "Input drift: when nothing in the system changed but quality dropped, the inputs changed. New topics not covered by the index cause retrieval misses that the model papers over; a static eval set built before the change cannot see it. Fix coverage, add a \"not in my sources\" behaviour, and refresh the eval set from recent traffic.",
+      "Non-answers to recognize as distractors: switch to a bigger model before isolating the layer, add \"be accurate\" or \"MUST\" to the prompt, set temperature to 0 (a repeatable wrong answer is still wrong), increase top-k when the right chunk is already present.",
+      "Pin model versions, log prompt versions and index versions with every request, and keep traces with retrieved chunks and tool results; diagnosis is a lookup when the evidence exists and guesswork when it does not."
+    ],
+    "docs": [
+      { "title": "Reduce hallucinations", "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations" },
+      { "title": "Increase output consistency", "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/increase-consistency" },
+      { "title": "Structured outputs", "url": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs" },
+      { "title": "Model migration guide", "url": "https://platform.claude.com/docs/en/about-claude/models/migration-guide" }
+    ]
+  },
+  "cost-performance": {
+    "summary": "Reduce token usage, latency and cost with caching, batching, routing, right-sized thinking budgets and context trimming, and measure the quality impact of every optimization on the eval.",
+    "points": [
+      "Prompt caching reuses an exact prefix. The prefix is built in the order tools, then system, then messages; a change anywhere invalidates that level and everything after it. Put static content (tool definitions, system instructions, documents, examples) first and dynamic content (user message, timestamps) after the breakpoint.",
+      "Cache invalidators to remember: changed or reordered tool definitions, edited system prompt, added or removed images, changed thinking parameters (including `budget_tokens`), changed effort setting, changed `tool_choice`, and any per-request value placed inside the prefix.",
+      "Cache economics: writes cost more than base input, reads cost a small fraction of it; the default lifetime is 5 minutes with a 1-hour option for longer reuse windows. Prompts shorter than the model's minimum cacheable length are not cached even if marked.",
+      "Verify caching with the usage fields: `cache_creation_input_tokens` (written), `cache_read_input_tokens` (read) and `input_tokens` (uncached). High creation with near-zero reads means the prefix is changing between requests.",
+      "The Message Batches API processes large volumes asynchronously at a substantial discount; most batches finish within an hour and may take up to 24 hours. Use it for evaluations, bulk classification, moderation and nightly jobs, never for interactive traffic. Caching also works inside batches.",
+      "Extended thinking: `budget_tokens` is a target, not a hard cap, must be at least 1,024 and less than `max_tokens`; larger budgets improve hard tasks with diminishing returns and higher latency. Start near the minimum for simple tasks (larger for complex ones) and tune incrementally against the eval; keep the budget stable within a cached conversation; use batch processing for budgets above 32k.",
+      "Routing: classify requests and send simple ones to a smaller, faster model, keeping the capable model for hard steps; validate on the eval slice for each route before rolling out.",
+      "Context trimming: send only what the task needs, summarize or compact long histories, use retrieval instead of whole corpora when questions are local, and limit output length by instruction. Blanket `max_tokens` caps truncate mid-answer; removing grounding context saves tokens by sacrificing correctness.",
+      "Latency levers: streaming for perceived responsiveness, caching for time-to-first-token on long prefixes, smaller models or lower thinking budgets for simple work, parallel tool calls, and avoiding unnecessary turns.",
+      "Every optimization is a hypothesis about quality: measure accuracy, groundedness and safety on the eval before and after, and keep cost per successful task and p95 latency on the dashboard.",
+      "Exam-style anti-patterns: truncating required documents, switching everything to the smallest model regardless of task fit, batching interactive traffic, extending cache TTL to fix a changing prefix, moving the breakpoint onto per-request content."
+    ],
+    "docs": [
+      { "title": "Prompt caching", "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching" },
+      { "title": "Batch processing", "url": "https://platform.claude.com/docs/en/build-with-claude/batch-processing" },
+      { "title": "Extended thinking", "url": "https://platform.claude.com/docs/en/build-with-claude/extended-thinking" },
+      { "title": "Choosing a model", "url": "https://platform.claude.com/docs/en/about-claude/models/choosing-a-model" }
+    ]
+  },
+  "monitoring": {
+    "summary": "Monitor a Claude system in production with structured logs, traces, token and latency dashboards, sampled quality grading and drift alerts, while keeping sensitive content inside the trust boundary.",
+    "points": [
+      "Log a structured record per request: request and conversation ids, prompt and model version, index version, input/output/cache token counts, latency, `stop_reason`, tool calls with inputs and outputs, and an error code. Structured fields feed dashboards and alerts; free text and billing totals do not.",
+      "Agents need traces, not just logs: a span per model call and tool call correlated by a run id, with the retrieved data and its source identifiers at each step, so a failing run can be reconstructed and replayed.",
+      "Dashboards: tokens and cost per task by model and feature, cache hit rate, p50/p95/p99 latency, error and retry rates, `stop_reason` distribution (truncation), tool-call and escalation rates, all sliced by version so regressions can be attributed to a deployment.",
+      "Quality in production has no labels, so sample: grade a fixed percentage of traffic daily with a rubric-based LLM judge, review a stratified subset with humans weekly to keep the judge calibrated, and track the judged failure and groundedness rates over time.",
+      "Alert on rates over rolling windows compared with a baseline, with minimum sample sizes, and annotate with change events (deployments, model updates, index refreshes). Per-event alerts on a probabilistic system are noise; monthly reviews are too slow.",
+      "Watch for input drift (new topics, new languages, new document types) as well as system drift; refresh the eval set from recent production traffic so offline and online views stay aligned.",
+      "Claude Code exports OpenTelemetry metrics and events: `claude_code.session.count`, `claude_code.token.usage` (by type: input, output, cacheRead, cacheCreation; and by model), `claude_code.cost.usage`, `claude_code.lines_of_code.count`, `claude_code.commit.count`, `claude_code.pull_request.count`, `claude_code.code_edit_tool.decision` (accept/reject by tool and language) and `claude_code.active_time.total`, plus events for prompts, tool results, API requests and errors.",
+      "Enable it with `CLAUDE_CODE_ENABLE_TELEMETRY=1` and `OTEL_METRICS_EXPORTER` / `OTEL_LOGS_EXPORTER` (otlp, prometheus, console) and the OTLP endpoint. Administrators set these centrally in managed settings; Claude Code ignores telemetry variables placed in a repository's `.claude/settings.json` or `.claude/settings.local.json`.",
+      "Content is off by default: user prompt text, assistant responses and tool details are exported only if `OTEL_LOG_USER_PROMPTS`, `OTEL_LOG_ASSISTANT_RESPONSES` or `OTEL_LOG_TOOL_DETAILS` are enabled. Cardinality flags (session id, account uuid, repository) control attribute volume.",
+      "In regulated settings, export metrics, traces and metadata to the observability vendor and keep raw prompts and responses in an in-house, encrypted, access-audited store linked by request id. Model-performed redaction is not a compliance control, and vendor role permissions do not undo an export.",
+      "Correlate everything: a request id in the application, `prompt.id` and `request_id` in Claude Code telemetry, and version tags on prompts, models and indexes make the difference between diagnosis and guesswork."
+    ],
+    "docs": [
+      { "title": "Claude Code — Monitoring (OpenTelemetry)", "url": "https://code.claude.com/docs/en/monitoring-usage" },
+      { "title": "Demystifying evals for AI agents", "url": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents" },
+      { "title": "Define success criteria and build evaluations", "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests" }
+    ]
+  }
+}

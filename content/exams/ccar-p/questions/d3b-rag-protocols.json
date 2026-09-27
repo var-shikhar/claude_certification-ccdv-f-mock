@@ -1,0 +1,418 @@
+[
+  {
+    "id": "ARP-D3-T5-001",
+    "domain": 3,
+    "skill": "rag-pipeline",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "An insurance company indexes 3,000 policy documents for a claims assistant. The pipeline splits every document into fixed 512-token chunks regardless of content. In evaluation, 22% of questions about coverage exclusions are answered incompletely because an exclusion clause is split across two chunks and only one of them is retrieved. Which change addresses the root cause?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Raise the number of retrieved chunks from 5 to 20 so that both halves of a split clause are much more likely to be returned together in the same context.", "why": "More chunks raise the odds of pulling in the second half, but the boundary problem remains and the extra, mostly irrelevant chunks dilute the context." },
+      { "id": "B", "correct": false, "text": "Switch to a larger model so it can infer the missing half of the clause from the half it received.", "why": "No model can recover text that never reached the context; the failure is in retrieval, not reasoning." },
+      { "id": "C", "correct": true, "text": "Chunk along the documents' structure (sections and clauses) with a small overlap, and carry the section heading into each chunk.", "why": "Chunk boundaries that follow the document's own structure keep a clause intact, and a heading plus overlap preserves the context a clause needs to be found and understood." },
+      { "id": "D", "correct": false, "text": "Lower the temperature so the answers stop omitting exclusions that were retrieved.", "why": "Temperature affects sampling randomness; it cannot supply an exclusion that was never retrieved." }
+    ],
+    "explanation": "Chunking strategy should follow document structure and the granularity of the questions being asked. Fixed-size chunks that cut through clauses lose meaning at the boundary; structure-aware chunking with overlap and contextual headers is the standard fix, and neither model size nor sampling settings can compensate for missing context.",
+    "reference": "Anthropic — Introducing Contextual Retrieval (chunk size, boundaries and overlap)"
+  },
+  {
+    "id": "ARP-D3-T5-002",
+    "domain": 3,
+    "skill": "rag-pipeline",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A hospital network's RAG assistant answers questions over 900 clinical protocols. Many chunks read like \"Repeat the dose after 6 hours if symptoms persist\" with no indication of which drug or protocol they belong to, so retrieval frequently returns the right sentence from the wrong protocol. Chunks are currently embedded as-is and also indexed with BM25. Which change most directly fixes this failure?",
+    "options": [
+      { "id": "A", "correct": true, "text": "Have Claude write a short context that situates each chunk within its source document, and prepend it to the chunk before embedding and BM25 indexing.", "why": "This is contextual retrieval: the prepended context restores the protocol, drug and section that the raw chunk lost, so both the embedding and the lexical index can distinguish similar sentences from different documents." },
+      { "id": "B", "correct": false, "text": "Double the chunk size to 1,500 tokens so that more of the surrounding protocol text, including the drug name and section, is usually included in each chunk.", "why": "Larger chunks add surrounding text but still lose document-level context at every boundary, and they dilute the embedding with unrelated content." },
+      { "id": "C", "correct": false, "text": "Store the protocol name as a metadata field on each chunk without changing the indexed text.", "why": "Metadata helps filtering when the user names the protocol, but it does not change the embedding or BM25 representation, so similar-looking chunks still collide." },
+      { "id": "D", "correct": false, "text": "Embed each complete protocol as a single vector instead of chunking it.", "why": "Whole-document embeddings blur the specific passage the question needs and cannot point the model at the relevant instruction." }
+    ],
+    "explanation": "Contextual Retrieval prepends a Claude-generated, chunk-specific explanatory context (typically 50–100 tokens) to every chunk before embedding and before building the BM25 index. Anthropic measured a 35% reduction in retrieval failures with contextual embeddings alone and 49% when combined with contextual BM25; metadata alone or larger chunks do not repair the lost context inside the representation.",
+    "reference": "Anthropic — Introducing Contextual Retrieval"
+  },
+  {
+    "id": "ARP-D3-T5-003",
+    "domain": 3,
+    "skill": "rag-pipeline",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A state government is indexing 40,000 regulatory documents for a Claude-based advisor. Users routinely ask for rules \"in force in County X as of last March\", and some queries quote exact statute numbers such as \"Rule 14-207(b)\". Which two indexing decisions best support these query patterns? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "Store structured metadata (jurisdiction, effective date, version, document id) with every chunk so retrieval can be pre-filtered before similarity scoring.", "why": "Jurisdiction and date are constraints, not similarity; filtering on metadata guarantees the candidates are the right jurisdiction and time period before ranking." },
+      { "id": "B", "correct": false, "text": "Rely on a single dense-embedding index and let Claude discard chunks from the wrong jurisdiction after retrieval.", "why": "Embeddings do not encode jurisdiction or effective dates reliably; the wrong documents crowd out the right ones before the model ever sees them." },
+      { "id": "C", "correct": true, "text": "Maintain a lexical (BM25) index alongside the embedding index and fuse the results.", "why": "Exact identifiers such as statute numbers are matched far more reliably by lexical search; hybrid search combines that precision with semantic recall." },
+      { "id": "D", "correct": false, "text": "Re-embed the whole corpus every night without change detection so the index is never stale.", "why": "Blind full re-embedding is costly and does nothing for jurisdiction or exact-match queries; incremental upserts keyed by document id keep the index fresh at a fraction of the cost." },
+      { "id": "E", "correct": false, "text": "Retrieve the top 100 chunks for every query and let Claude sort out what is relevant.", "why": "Flooding the context with 100 chunks adds cost and latency and degrades answer quality; it is a symptom of retrieval that cannot discriminate." }
+    ],
+    "explanation": "Match the index to the query patterns: attribute filters (jurisdiction, date, version) belong in chunk metadata that is applied before ranking, and exact codes need a lexical index fused with semantic search. Larger top-k and blind re-indexing paper over weak retrieval instead of fixing it.",
+    "reference": "Anthropic — Introducing Contextual Retrieval; Claude Docs — Search results"
+  },
+  {
+    "id": "ARP-D3-T5-004",
+    "domain": 3,
+    "skill": "rag-pipeline",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A SaaS vendor's support assistant answers from a knowledge base that was refreshed last night with new pricing pages. Since then the assistant confidently quotes the old tiers alongside the new ones. The model, prompt and latency are unchanged. Investigation shows the nightly job embeds and appends the new pages while the previous versions' chunks remain in the index. Which change resolves the incident and prevents it from recurring?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Add a system-prompt instruction telling Claude to prefer the most recent information and to flag any conflict whenever two retrieved chunks disagree about a price or tier.", "why": "The model has no reliable way to know which chunk is newer, and asking it to arbitrate is a probabilistic patch over an index that still contains stale data." },
+      { "id": "B", "correct": true, "text": "Key chunks by document id and version, replace a document's chunks atomically on refresh, and run a retrieval regression suite after every re-index.", "why": "Index hygiene is the root cause: superseded chunks must be removed when a document changes, and a post-refresh retrieval eval catches the next regression before users do." },
+      { "id": "C", "correct": false, "text": "Increase the number of retrieved chunks so the current pricing page is always among them.", "why": "More chunks make it more likely that both versions are retrieved together, which is exactly the conflict the users are seeing." },
+      { "id": "D", "correct": false, "text": "Move to a model with a larger context window so every version of the page can be considered at once.", "why": "A bigger window does not tell the model which version is authoritative and adds cost for no diagnostic benefit." }
+    ],
+    "explanation": "Confident-but-wrong answers immediately after a document refresh point at the retrieval and indexing layer, and stale or duplicate chunks are the first suspect. The durable fix is deterministic: idempotent upserts keyed by document identity, deletion of superseded chunks, version metadata, and an automated retrieval eval that gates every refresh.",
+    "reference": "CCAR-P Exam Guide — Sample question 3; Anthropic — Introducing Contextual Retrieval"
+  },
+  {
+    "id": "ARP-D3-T5-005",
+    "domain": 3,
+    "skill": "rag-pipeline",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A retailer's product assistant handles two kinds of questions over 12,000 product manuals: short factual lookups (\"What is the return window for headphones?\") and broad requests (\"Walk me through the full warranty terms for model X\"). With 300-token chunks the broad answers are fragmentary; with 2,000-token chunks the factual lookups retrieve noisy, off-target passages. Latency and cost budgets allow only one retrieval call per question. Which pipeline design satisfies both query types?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Standardize on 2,000-token chunks and instruct Claude to extract the single fact when the question is narrow.", "why": "Large chunks push off-topic text into the context for narrow questions and lower precision at the retrieval stage, which the model cannot repair." },
+      { "id": "B", "correct": false, "text": "Standardize on 300-token chunks and retrieve the top 40 so that broad questions get enough coverage.", "why": "Forty small chunks are unordered fragments of possibly several documents, and the extra context costs more than a single structured section would." },
+      { "id": "C", "correct": false, "text": "Keep two separate vector databases at different chunk sizes and run both retrievals for every question, then merge and deduplicate the combined results before passing them to Claude.", "why": "Two retrievals per question breaks the one-call budget and still leaves the merged results at two inconsistent granularities." },
+      { "id": "D", "correct": true, "text": "Index small chunks for precise matching but store each chunk's parent section, and return the whole parent section for chunks that are retrieved.", "why": "Small-to-big (parent-document) retrieval keeps matching precise while handing the model the coherent section a broad question needs, in a single retrieval call." }
+    ],
+    "explanation": "Chunk granularity should match the query granularity. When one corpus must serve both narrow and broad questions, index at fine granularity for matching and expand to the structural parent (section or document) on return, rather than compromising on a single size or doubling retrieval calls.",
+    "reference": "Anthropic — Introducing Contextual Retrieval (chunking considerations)"
+  },
+  {
+    "id": "ARP-D3-T5-006",
+    "domain": 3,
+    "skill": "rag-pipeline",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An asset manager's research assistant uses hybrid retrieval (dense embeddings plus BM25) with reranking over 1.2M chunks. During last weekend's maintenance the corpus was re-indexed with the embedding provider's new model version. Since Monday: BM25-only test queries still return the right passages, but dense-only test queries return passages that are semantically unrelated, and the reranker's fused output has degraded. No application code, prompt or Claude model changed, and the query service was not redeployed. What is the most likely cause, and what is the correct fix?",
+    "options": [
+      { "id": "A", "correct": false, "text": "The reranker was trained against the previous embedding space and no longer scores candidates correctly; retrain or replace the reranker.", "why": "Rerankers score query-passage text pairs and do not depend on the embedding model; the dense-only failures show the problem is upstream of reranking." },
+      { "id": "B", "correct": false, "text": "The new embedding model needs larger chunks to work well; re-chunk the corpus at 1,024 tokens and re-index everything.", "why": "Chunk size would affect BM25 and dense retrieval alike, yet BM25 is unaffected; the failure is specific to the vector space." },
+      { "id": "C", "correct": true, "text": "Query vectors are still produced by the old embedding model while the corpus was embedded with the new one, so the two spaces are incompatible; pin one embedding model version for both indexing and querying and re-embed accordingly.", "why": "The query service was not redeployed, so it still calls the old model; vectors from two different models are not comparable, which explains unrelated dense results while lexical retrieval is untouched." },
+      { "id": "D", "correct": false, "text": "The re-index dropped the chunk metadata used for filtering; restore the metadata fields and rebuild the filters before re-running the queries.", "why": "Missing filters would return out-of-scope but still topically similar passages for both retrieval paths, not semantically unrelated dense hits alongside a healthy BM25 path." }
+    ],
+    "explanation": "Diagnose by isolating the branches: lexical retrieval healthy plus dense retrieval broken immediately after a re-index with a new embedding model points to a query/document embedding mismatch. Embeddings from different models or versions are not comparable, so the model must be pinned and applied consistently to both sides, and a post-refresh retrieval regression test would have caught it.",
+    "reference": "CCAR-P Exam Guide — Sample question 3; Anthropic — Introducing Contextual Retrieval"
+  },
+  {
+    "id": "ARP-D3-T6-001",
+    "domain": 3,
+    "skill": "retrieval-strategies",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A telecom operator wants a Claude assistant to answer questions such as \"How many open tickets in the North region were older than 7 days last week?\" from a 40-million-row ticketing table. A prototype embedded each row as text and used semantic search; the counts are wrong almost every time. Which retrieval approach fits this data shape?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Embed the rows with a stronger embedding model and increase the number of retrieved rows.", "why": "Aggregation over millions of rows is not a similarity problem; no number of retrieved rows lets the model count reliably." },
+      { "id": "B", "correct": false, "text": "Chunk the table export into pages and use hybrid semantic-plus-lexical search over the pages so that both the region name and the date range are matched.", "why": "Hybrid search improves finding passages of text, but the question requires filtering and counting structured records, which text retrieval cannot do." },
+      { "id": "C", "correct": false, "text": "Use a model with a 1M-token context window and include the table in the prompt.", "why": "Forty million rows do not fit in any context window, and even a subset would be counted unreliably by the model." },
+      { "id": "D", "correct": true, "text": "Give Claude a tool that runs a parameterized query against the ticketing database and returns the aggregated result.", "why": "Tabular data with filters and aggregates should be queried, not retrieved; a query tool returns an exact answer in one call." }
+    ],
+    "explanation": "Match retrieval to the data shape: structured, tabular data with filter-and-aggregate questions belongs behind a SQL or API tool call, semantic search suits prose and FAQs, and lexical search suits exact identifiers. Embedding rows of a table is a common anti-pattern.",
+    "reference": "Claude Docs — Tool use overview; Anthropic — Building effective agents"
+  },
+  {
+    "id": "ARP-D3-T6-002",
+    "domain": 3,
+    "skill": "retrieval-strategies",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A pharmaceutical manufacturer's maintenance assistant retrieves from 25,000 equipment manuals. Technicians mostly search by exact identifiers, for example error code \"E-4471\" or part \"PN-88213-C\". The current pipeline uses dense embeddings only and returns manuals for similar-looking but wrong codes about 30% of the time. Which two changes best fix this? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "Add a lexical (BM25 or exact-match) index and fuse its results with the dense results.", "why": "Exact identifiers are matched reliably by lexical search; embeddings treat E-4471 and E-4417 as near-identical strings." },
+      { "id": "B", "correct": true, "text": "Extract identifiers such as error codes and part numbers into metadata fields at index time so retrieval can filter on them exactly.", "why": "A structured field turns an exact-code query into a precise filter, so the embedding step only ranks passages that already match the code." },
+      { "id": "C", "correct": false, "text": "Increase the embedding dimensionality so the model can separate codes that differ by one digit.", "why": "Dense embeddings capture meaning, not character-level identity; higher dimensionality does not make them behave like exact match." },
+      { "id": "D", "correct": false, "text": "Add a system-prompt instruction telling Claude to double-check that the code in the retrieved manual matches the query.", "why": "The model can flag a mismatch but cannot retrieve the correct manual it never received; the fix belongs in retrieval." },
+      { "id": "E", "correct": false, "text": "Increase the number of retrieved chunks to 50 so the correct manual is usually somewhere in the set.", "why": "Fifty chunks of near-miss codes bury the right one in noise and raise cost; recall by brute force is not precision." }
+    ],
+    "explanation": "Exact codes, IDs and SKUs are a lexical problem: use BM25 or exact matching (often through hybrid search) and index identifiers as filterable metadata. Embeddings alone cannot distinguish near-identical strings, and prompt instructions or larger top-k do not repair retrieval.",
+    "reference": "Anthropic — Introducing Contextual Retrieval (BM25 and hybrid search)"
+  },
+  {
+    "id": "ARP-D3-T6-003",
+    "domain": 3,
+    "skill": "retrieval-strategies",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An HR team wants an assistant over its 90,000-token employee handbook, which changes about once a week. The assistant will handle roughly 2,000 questions a day. The engineering team is about to build a vector database, chunking pipeline and reranker. Which approach should the architect recommend?",
+    "options": [
+      { "id": "A", "correct": true, "text": "Place the entire handbook in the prompt as a static prefix with prompt caching enabled, and refresh the cached prefix when the handbook changes.", "why": "The corpus is well under the size at which retrieval becomes necessary; including it whole avoids retrieval misses entirely, and caching makes the repeated prefix fast and inexpensive." },
+      { "id": "B", "correct": false, "text": "Build the RAG pipeline as planned so that only the handful of relevant chunks is sent on each request, keeping per-request token usage minimal as the handbook grows.", "why": "RAG introduces chunking and retrieval failure modes and operational cost that are unnecessary for a corpus that fits comfortably in context." },
+      { "id": "C", "correct": false, "text": "Have Claude summarize the handbook to 5,000 tokens once and answer from the summary.", "why": "A summary drops the specific policy details that HR questions depend on; the answers will be plausible but unreliable." },
+      { "id": "D", "correct": false, "text": "Split the handbook across three specialist agents (benefits, leave, conduct) and route questions between them.", "why": "A multi-agent split adds orchestration, latency and cost to solve a problem that a single cached prompt already solves." }
+    ],
+    "explanation": "Anthropic's guidance is that if the knowledge base is smaller than roughly 200,000 tokens (about 500 pages), the simplest and most reliable option is to include it all in the prompt and rely on prompt caching, which cuts latency and cost on the repeated prefix. RAG is for corpora that do not fit.",
+    "reference": "Anthropic — Introducing Contextual Retrieval (when to just use long context); Claude Docs — Prompt caching"
+  },
+  {
+    "id": "ARP-D3-T6-004",
+    "domain": 3,
+    "skill": "retrieval-strategies",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "A retailer is designing retrieval for a customer-support agent. Traffic breaks down as: policy questions (\"Can I return an opened item?\"), order lookups (\"Where is order 48213?\"), and product questions that often quote SKU codes. Policy documents total 4M tokens and the order system holds 60M orders. Which three retrieval choices correctly match each query pattern to its data? (Choose three.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "Answer policy questions with semantic (embedding) retrieval over the chunked policy corpus.", "why": "Natural-language questions against a large prose corpus are what dense retrieval is for; the corpus is far too large to put in context." },
+      { "id": "B", "correct": false, "text": "Embed the order database nightly so order lookups can be answered by similarity search.", "why": "Order records are structured, change constantly and are looked up by exact id; embedding them produces stale, imprecise answers." },
+      { "id": "C", "correct": true, "text": "Route order-number questions to a tool that queries the order system for that order id under the customer's authorization.", "why": "An exact-id lookup against a live system is a tool call, which returns current, authoritative data and enforces access control." },
+      { "id": "D", "correct": false, "text": "Use one embedding index over policy documents, order records and product data so a single retrieval serves every request.", "why": "One index for three data shapes forces structured lookups and exact codes through similarity search, where they perform worst." },
+      { "id": "E", "correct": true, "text": "Include a lexical (BM25) component when retrieving product content so SKU codes match exactly.", "why": "SKU codes are identifiers; hybrid retrieval with a lexical index keeps them from being confused with similar-looking codes." },
+      { "id": "F", "correct": false, "text": "When an order cannot be found, let the agent infer the likely status from similar past orders.", "why": "Inferring a specific customer's order status from other orders fabricates an answer; a missing record should be reported as not found." }
+    ],
+    "explanation": "A single product rarely has a single data shape. Prose policies suit semantic retrieval, live structured records suit an authorized tool call keyed by exact id, and identifier-heavy content needs a lexical component. Forcing everything through one embedding index or guessing from similar records are the classic mistakes.",
+    "reference": "Anthropic — Introducing Contextual Retrieval; Claude Docs — Tool use overview"
+  },
+  {
+    "id": "ARP-D3-T6-005",
+    "domain": 3,
+    "skill": "retrieval-strategies",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A law firm's e-discovery assistant uses hybrid retrieval over 8M chunks and passes the top 20 to Claude. In review, 15% of answers cite a related but wrong document even though the correct chunk is usually present within the top 150 candidates. The query latency budget has about 300 ms of headroom. Which change gives the largest accuracy improvement within budget?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Pass the top 150 candidates to Claude instead of the top 20 so the correct chunk is always somewhere in the context.", "why": "Seven times more context per request raises cost and latency far beyond 300 ms and degrades answer quality through noise." },
+      { "id": "B", "correct": false, "text": "Switch to BM25-only retrieval, since legal documents contain many exact terms and citations.", "why": "Dropping the semantic component reduces recall for paraphrased questions; the problem is ranking, not the mix of signals." },
+      { "id": "C", "correct": true, "text": "Retrieve the top 150 candidates, apply a reranking model, and pass the reranked top 20 to Claude.", "why": "A reranker scores each candidate against the query more precisely than first-stage retrieval, promoting the correct chunk into the top 20 for a small latency cost." },
+      { "id": "D", "correct": false, "text": "Reduce chunk size to 100 tokens so that more distinct documents fit in the top 20.", "why": "Tiny chunks fragment legal reasoning and do not change which document is ranked first." }
+    ],
+    "explanation": "When the correct passage is retrievable but ranked outside the window sent to the model, reranking is the targeted fix: retrieve a broad candidate set (Anthropic's example used 150), rerank, and send the top 20. In Anthropic's evaluation this reduced retrieval failures by 67% in combination with contextual retrieval, at a small latency cost.",
+    "reference": "Anthropic — Introducing Contextual Retrieval (reranking)"
+  },
+  {
+    "id": "ARP-D3-T6-006",
+    "domain": 3,
+    "skill": "retrieval-strategies",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A bank is designing an analyst assistant with three knowledge sources: 2,000 pages of internal policy PDFs, a transactions data warehouse, and a 50-line glossary of regulatory codes. Requirements: answers about policy must show the exact passage they rely on; transaction questions need exact, current figures; p95 latency must stay under 3 seconds; the warehouse changes continuously. Which architecture satisfies every requirement?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Build one vector index over policy chunks, nightly warehouse exports and the glossary, and answer everything by retrieval.", "why": "Nightly exports are stale by the time they are queried, aggregate figures cannot be computed by similarity search, and the tiny glossary gains nothing from being indexed." },
+      { "id": "B", "correct": true, "text": "Retrieve policy passages with hybrid search and return them as `search_result` blocks with citations enabled; expose the warehouse through a parameterized query tool; place the glossary directly in the cached system prompt.", "why": "Each source is matched to its shape: cited retrieval for prose, a live query tool for exact figures, and in-context text for a source small enough to include outright." },
+      { "id": "C", "correct": false, "text": "Load all three sources into a 1M-token context with prompt caching, including a nightly warehouse snapshot.", "why": "The warehouse cannot be a static snapshot when figures must be current, and loading 2,000 pages per request stretches latency and cost with no citation of specific passages." },
+      { "id": "D", "correct": false, "text": "Route every question to the warehouse's full-text search, including policy text loaded into a table.", "why": "Full-text search over policy text loses the semantic recall of hybrid retrieval and gives no passage-level citations; it also mismatches the glossary and prose to a relational tool." }
+    ],
+    "explanation": "Architects match retrieval to data shape per source: prose that must be cited goes through retrieval returned as search-result content blocks so Claude can cite the source, live structured data is queried through a tool, and small static references are simply included in a cached prompt. One mechanism for all three fails at least one requirement.",
+    "reference": "Claude Docs — Search results; Claude Docs — Citations; Anthropic — Introducing Contextual Retrieval"
+  },
+  {
+    "id": "ARP-D3-T7-001",
+    "domain": 3,
+    "skill": "connection-protocols",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "An engineering organization wants its Jira instance available to Claude Code on developer laptops, to a support agent built on the Agent SDK, and to analysts using the Claude desktop app. Each surface should see the same set of Jira actions. Which integration mechanism fits?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Write custom tool implementations for Jira inside each of the three applications.", "why": "Three separate implementations drift apart, triple the maintenance and cannot be reused by the desktop app at all." },
+      { "id": "B", "correct": false, "text": "Paste Jira's REST API documentation into each system prompt and let Claude construct the HTTP calls.", "why": "Claude cannot make HTTP calls without a tool, and documentation in the prompt is not an executable integration." },
+      { "id": "C", "correct": true, "text": "Build one Jira MCP server and connect each client to it.", "why": "MCP is designed for exactly this: a single server exposing tools and resources that any MCP-capable host can consume, so the integration is written once and reused." },
+      { "id": "D", "correct": false, "text": "Deploy a dedicated Jira agent and have the other three surfaces delegate to it over agent-to-agent messaging.", "why": "Delegation to another agent fits cross-boundary expertise, not simple reusable access to an external system; it adds a hop and an owner without need." }
+    ],
+    "explanation": "Choose MCP when a capability must be exposed to several Claude clients in a consistent way; the protocol's client-server model lets one server serve Claude Code, SDK applications and the Claude apps. Direct API code suits a single tight integration, and agent-to-agent delegation suits handing off to specialized agents.",
+    "reference": "Model Context Protocol — Architecture overview; Claude Code docs — MCP"
+  },
+  {
+    "id": "ARP-D3-T7-002",
+    "domain": 3,
+    "skill": "connection-protocols",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A logistics company runs a nightly batch job in Python that sends 200,000 delivery-exception notes to Claude for classification and writes the labels to Postgres. There is no interactive use and no other application needs this capability. A developer proposes building a Postgres MCP server and having Claude call it to store each result. What should the architect recommend?",
+    "options": [
+      { "id": "A", "correct": true, "text": "Call the Claude API directly from the batch code (for example through the Batches API) and write results to Postgres with the application's own database client.", "why": "A single, tightly scoped integration in one codebase is best served by direct API calls in a workflow; the writes are deterministic application logic, not decisions for the model to make." },
+      { "id": "B", "correct": false, "text": "Build the Postgres MCP server so the integration follows the standard protocol and can be reused without changes if other teams later need the same classification capability.", "why": "MCP earns its cost when tools must be reused across clients or discovered dynamically; here it adds a process, a protocol and model-driven writes to a job that needs neither." },
+      { "id": "C", "correct": false, "text": "Expose the classification as an agent and have a second orchestrator agent delegate each note to it.", "why": "Agent-to-agent delegation adds coordination overhead and nondeterminism to a fixed, non-interactive pipeline." },
+      { "id": "D", "correct": false, "text": "Use the MCP connector in the Messages API so Claude can reach Postgres without the team writing an MCP client.", "why": "The MCP connector still requires a remote MCP server and hands database writes to the model; it does not remove the unnecessary indirection." }
+    ],
+    "explanation": "Match the mechanism to the integration's scope. A single non-interactive pipeline with one consumer is a workflow: call the API directly and keep side effects in application code. MCP pays off for reusable, multi-client tool exposure; agent-to-agent delegation is for handing work to specialized agents across boundaries.",
+    "reference": "Anthropic — Building effective agents; Claude Docs — Batch processing"
+  },
+  {
+    "id": "ARP-D3-T7-003",
+    "domain": 3,
+    "skill": "connection-protocols",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A data platform team is building an MCP server for its analytics warehouse. They want to offer: an action that executes a SQL query, the warehouse schema as read-only context that the host application can attach to a conversation, and a standardized \"weekly KPI report\" interaction that analysts can invoke by name. How should these map to MCP server primitives?",
+    "options": [
+      { "id": "A", "correct": false, "text": "All three as tools, since tools are the primitive that every host supports and the model can decide when to use each.", "why": "Modelling read-only context and user-invoked templates as tools forces the model to decide when to call them and hides the intended control model from the host." },
+      { "id": "B", "correct": true, "text": "The query as a tool, the schema as a resource, and the report as a prompt.", "why": "Tools are model-controlled actions, resources are application-controlled context data, and prompts are user-controlled reusable templates, which is exactly this split." },
+      { "id": "C", "correct": false, "text": "The query as a resource, the schema as a prompt, and the report as a tool.", "why": "A resource cannot execute an action, and a schema is data, not an interaction template." },
+      { "id": "D", "correct": false, "text": "The query and the schema as tools, and the report as a resource.", "why": "A report interaction is a template the user invokes, which is a prompt; exposing the schema as a tool makes the model fetch context the application could attach directly." }
+    ],
+    "explanation": "MCP servers expose three primitives with different control models: tools (executable actions the model invokes), resources (data the host application provides as context), and prompts (reusable templates the user selects). Mapping each capability to the right primitive keeps the control model explicit for hosts and users.",
+    "reference": "Model Context Protocol — Server concepts (tools, resources, prompts)"
+  },
+  {
+    "id": "ARP-D3-T7-004",
+    "domain": 3,
+    "skill": "connection-protocols",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A procurement agent at a manufacturer must obtain a compliance verdict on each supplier contract. Compliance review is owned by the Legal team, which maintains its own reviewing agent with privileged access to regulatory filings, its own guardrails and its own evaluation suite. Legal will not grant other teams access to those filings. The procurement agent still needs a verdict inside its workflow. Which integration is most appropriate?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Expose Legal's regulatory filings and review tools to the procurement agent through an MCP server so that it can run the compliance review itself inside its own workflow.", "why": "This crosses the access boundary Legal has explicitly refused, expands the procurement agent's privileges, and duplicates Legal's reviewing logic outside Legal's control." },
+      { "id": "B", "correct": false, "text": "Copy Legal's system prompt and guardrails into the procurement agent so it can perform the review itself.", "why": "Copies drift from the source, bypass Legal's evals and still lack the privileged data the review depends on." },
+      { "id": "C", "correct": false, "text": "Require a human in Legal to run the review manually and paste the verdict into the procurement workflow.", "why": "Manual hand-offs remove the automation the workflow was meant to provide and do not scale with contract volume." },
+      { "id": "D", "correct": true, "text": "Have the procurement agent delegate the contract to Legal's reviewing agent through a defined request-and-verdict interface and consume only the returned verdict.", "why": "Agent-to-agent delegation keeps the expertise, data access and guardrails inside Legal's boundary while giving procurement the outcome it needs through a narrow contract." }
+    ],
+    "explanation": "Delegation to another agent is the right mechanism when the capability lives behind an organizational or trust boundary and comes with its own data, guardrails and ownership. MCP exposes tools and resources for reuse; it is not a way to import another team's privileged expertise wholesale.",
+    "reference": "Anthropic — Building effective agents (orchestrator-workers); Claude Agent SDK docs — Subagents"
+  },
+  {
+    "id": "ARP-D3-T7-005",
+    "domain": 3,
+    "skill": "connection-protocols",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "An enterprise wants a single Salesforce integration used by 300 engineers in Claude Code and by a server-side Agent SDK service. Requirements: users authenticate with the company's OAuth identity provider, credentials are never stored on laptops, and the server configuration is version-controlled with the repository. Which two decisions satisfy these requirements? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "Run the MCP server as a remote service over Streamable HTTP with OAuth authorization.", "why": "Streamable HTTP is the transport for remote servers serving many clients, and OAuth lets each user authenticate to the identity provider without a stored secret." },
+      { "id": "B", "correct": false, "text": "Run the MCP server locally on each laptop over stdio with a shared Salesforce API key in the environment.", "why": "A shared long-lived key on 300 laptops violates the no-credentials-on-laptops requirement and removes per-user identity." },
+      { "id": "C", "correct": true, "text": "Declare the server in the project's `.mcp.json` so the configuration is committed and shared with the team.", "why": "Project scope stores the server definition in the repository, giving every engineer the same, reviewed configuration." },
+      { "id": "D", "correct": false, "text": "Configure the server with the SSE transport because older clients support it.", "why": "SSE is deprecated in favour of Streamable HTTP; choosing it for a new deployment builds on a transport being phased out." },
+      { "id": "E", "correct": false, "text": "Have each engineer add the server at user scope so it follows them across all their projects.", "why": "User scope keeps the definition in each engineer's home configuration, which is neither version-controlled nor consistent across the team." }
+    ],
+    "explanation": "Remote, shared MCP servers use Streamable HTTP with OAuth so many clients authenticate as themselves; stdio is for local, single-client processes. In Claude Code, project-scoped `.mcp.json` is the mechanism for committing a shared server configuration.",
+    "reference": "Model Context Protocol — Architecture overview (transports); Claude Code docs — MCP installation scopes"
+  },
+  {
+    "id": "ARP-D3-T7-006",
+    "domain": 3,
+    "skill": "connection-protocols",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A healthcare SaaS architect must integrate three capabilities: (1) an appointment-reminder workflow in which one backend service calls Claude to draft messages and posts them to the scheduling system's stable REST API; (2) patient-record lookup that must be available identically to an Agent SDK support agent, to Claude Code used by internal tooling teams, and to clinicians in the Claude desktop app; (3) clinical coding, performed by a specialist agent that the coding team maintains with its own guardrails and evaluation suite. Which assignment of mechanisms is correct?",
+    "options": [
+      { "id": "A", "correct": false, "text": "(1) an MCP server wrapping the scheduling API, (2) direct API calls implemented separately in each application, (3) an MCP server exposing the coding team's tools.", "why": "This reverses the first two: a single backend workflow gains nothing from MCP, while three heterogeneous clients are precisely where MCP avoids three separate implementations." },
+      { "id": "B", "correct": false, "text": "(1) direct API calls in the workflow, (2) direct API calls in each application, (3) agent-to-agent delegation to the coding agent.", "why": "Implementing record lookup three times in three surfaces duplicates logic and access control; the desktop app cannot host custom code at all." },
+      { "id": "C", "correct": false, "text": "(1) agent-to-agent delegation to a reminders agent, (2) an MCP server for record lookup, (3) an MCP server exposing the coding tools.", "why": "A fixed reminder workflow does not need delegation to an agent, and exposing the coding team's tools through MCP bypasses their agent's guardrails and evaluation." },
+      { "id": "D", "correct": true, "text": "(1) direct API calls in the workflow code, (2) an MCP server for record lookup, (3) agent-to-agent delegation to the coding team's agent.", "why": "Each mechanism matches its scope: direct calls for a single tight integration, MCP for one capability reused across several clients, and delegation for expertise owned by another team behind its own guardrails." }
+    ],
+    "explanation": "The decision rule: direct API or CLI calls for a single, tightly coupled integration; MCP when the same tools or resources must be exposed to multiple clients; agent-to-agent delegation when the capability is a specialized agent maintained, guarded and evaluated by its owners. Mixing these up either duplicates work or leaks capabilities across boundaries.",
+    "reference": "Model Context Protocol — Architecture overview; Anthropic — Building effective agents"
+  },
+  {
+    "id": "ARP-D3-T8-001",
+    "domain": 3,
+    "skill": "progressive-discovery",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A platform team installs 40 custom Agent Skills in a shared Claude Code configuration and worries that every session will start with all 40 skills' instructions in context. How does Skills' progressive disclosure actually behave?",
+    "options": [
+      { "id": "A", "correct": false, "text": "The full SKILL.md instructions of every installed skill are loaded into the system prompt at startup so that Claude can follow any of them without any further file reads during the session.", "why": "Loading every skill body up front is the monolithic pattern that progressive disclosure is designed to avoid." },
+      { "id": "B", "correct": false, "text": "Nothing about a skill enters context until the user explicitly invokes it by name.", "why": "Claude needs something to match requests against; the skill's name and description are always present so it can trigger automatically." },
+      { "id": "C", "correct": false, "text": "Every bundled reference file and script is loaded into context as soon as any skill is triggered.", "why": "Bundled files load only when referenced, and scripts are executed with only their output entering context." },
+      { "id": "D", "correct": true, "text": "Only each skill's name and description are loaded at startup; a skill's SKILL.md body loads when it is triggered, and bundled files or scripts only when they are needed.", "why": "This three-level loading keeps forty skills to roughly a hundred tokens each until one is relevant, so many skills can be installed without a context penalty." }
+    ],
+    "explanation": "Agent Skills implement progressive disclosure in three levels: metadata (name and description) always in context, the SKILL.md instructions when the skill is triggered, and additional resources or scripts as needed, with scripts contributing only their output. That is what lets a large skill library coexist with a small context footprint.",
+    "reference": "Claude Docs — Agent Skills overview (How Skills work)"
+  },
+  {
+    "id": "ARP-D3-T8-002",
+    "domain": 3,
+    "skill": "progressive-discovery",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "An Agent SDK application aggregates six MCP servers, about 210 tools whose definitions cost roughly 60,000 tokens per request. Tool-selection accuracy has dropped as servers were added, yet a typical request uses only three or four tools, nearly always the same ones. Which two changes best address this? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "Enable tool search and mark the long tail of tools with `defer_loading` so definitions load only when Claude discovers them.", "why": "Deferred loading removes most of the 60,000 tokens from every request and restores selection accuracy by showing Claude only a focused set of tools." },
+      { "id": "B", "correct": false, "text": "Split the six servers across six separate agents and route every request to one of them.", "why": "Requests that need tools from two servers now require orchestration, and each agent still carries its own definitions up front." },
+      { "id": "C", "correct": true, "text": "Keep the three to five most frequently used tools non-deferred so common requests need no search round trip.", "why": "Always-loaded hot tools avoid a discovery step on the majority of requests, which is the recommended hybrid configuration." },
+      { "id": "D", "correct": false, "text": "Cut every tool description to a single line to shrink the definitions.", "why": "Terse descriptions reduce tokens slightly but remove the information Claude uses to pick the right tool, worsening the accuracy problem." },
+      { "id": "E", "correct": false, "text": "Move to a model with a larger context window so all definitions fit comfortably.", "why": "The definitions already fit; the problem is attention and selection accuracy across a crowded tool list, which a larger window does not improve." },
+      { "id": "F", "correct": false, "text": "Disable all but one MCP server until the accuracy recovers.", "why": "Removing capabilities the application needs is not a scaling strategy; deferred loading keeps the full library available." }
+    ],
+    "explanation": "Loading hundreds of tool definitions up front consumes context and degrades tool selection. Tool search with deferred loading lets Claude discover tools on demand, while keeping a handful of frequently used tools always loaded avoids unnecessary search latency: progressive discovery for the long tail, monolithic loading for the hot set.",
+    "reference": "Claude Docs — Tool search tool; Anthropic — Advanced tool use"
+  },
+  {
+    "id": "ARP-D3-T8-003",
+    "domain": 3,
+    "skill": "progressive-discovery",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "An architect is deciding, per workload, whether to load everything into context up front (monolithic context) or let the agent discover tools, skills and documents on demand (progressive discovery). In which two situations is the monolithic approach the better choice? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "A workflow with seven small tools, each used in almost every request, where an extra discovery round trip would hurt a tight latency budget.", "why": "When the tool set is small and always needed, loading it all costs little context and avoids a discovery step on every call." },
+      { "id": "B", "correct": false, "text": "A general-purpose assistant with access to 400 tools from a dozen MCP servers.", "why": "Hundreds of definitions consume the context window and degrade selection accuracy; this is the textbook case for on-demand discovery." },
+      { "id": "C", "correct": true, "text": "A 30,000-token reference document that every request needs in full and that changes rarely, placed as a cached prefix.", "why": "Content that is always required and stable is best loaded once as a cacheable prefix; retrieving fragments of it on demand only adds misses." },
+      { "id": "D", "correct": false, "text": "A knowledge base of 50,000 support articles where any given request needs one or two.", "why": "Only a sliver is relevant per request, so retrieving on demand is far cheaper and more accurate than pre-loading." },
+      { "id": "E", "correct": false, "text": "A skill library of 60 team runbooks of which one or two apply in any session.", "why": "Rarely used procedural content is exactly what progressive disclosure keeps out of context until it is triggered." }
+    ],
+    "explanation": "Monolithic context wins when the material is small, stable and needed on nearly every request, because it can be cached and avoids discovery latency. Progressive discovery wins when the candidate set is large and only a small, request-dependent subset is relevant. The trade is context cost and attention against latency and simplicity.",
+    "reference": "Anthropic — Effective context engineering for AI agents; Claude Docs — Tool search tool"
+  },
+  {
+    "id": "ARP-D3-T8-004",
+    "domain": 3,
+    "skill": "progressive-discovery",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A customer-support agent was moved from loading all 80 tool definitions up front to a fully on-demand design: every tool is deferred and Claude must search before each call. Context per request fell by 70%, but p95 latency rose 40%, and traces show the same four tools being discovered again at the start of nearly every conversation. The team wants to keep the context savings. What should they change?",
+    "options": [
+      { "id": "A", "correct": true, "text": "Keep the four frequently used tools always loaded and leave the remaining tools deferred.", "why": "A hybrid keeps the hot path free of discovery round trips while the long tail still stays out of context, preserving most of the savings." },
+      { "id": "B", "correct": false, "text": "Return to loading all 80 tool definitions up front to eliminate the search latency.", "why": "Reverting gives back the 70% context reduction and the selection-accuracy gains for a problem that only affects four tools." },
+      { "id": "C", "correct": false, "text": "Increase the search result limit so each search returns more tools and fewer searches are needed.", "why": "The searches are for the same four tools each time; returning more tools per search loads extra definitions without removing the round trip." },
+      { "id": "D", "correct": false, "text": "Begin each conversation with a system-prompt instruction listing the four tool names so Claude knows to search for them together.", "why": "Claude would still have to run a search to load the definitions; naming them in the prompt does not put them in context." }
+    ],
+    "explanation": "Progressive discovery trades context cost for latency and complexity. The recommended balance is hybrid: keep the small set of tools used in most requests non-deferred and defer the rest, so the common path pays no discovery cost while rarely used definitions stay out of context.",
+    "reference": "Claude Docs — Tool search tool (optimization tips); Anthropic — Effective context engineering for AI agents"
+  },
+  {
+    "id": "ARP-D3-T8-005",
+    "domain": 3,
+    "skill": "progressive-discovery",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A team built its own progressive-discovery layer for a Messages API agent: after each turn, their code rewrites the `tools` array so only tools used recently remain, adding definitions back when a search finds them. Since the change, tokens billed per request have increased and the prompt-cache hit rate has dropped from 85% to under 10%, even though far fewer tool definitions are sent. What is the cause and the correct fix?",
+    "options": [
+      { "id": "A", "correct": false, "text": "The searches themselves are consuming the tokens; reduce search frequency by raising the per-search result limit.", "why": "Search calls are cheap compared with a cache miss over the whole prefix; the token increase matches a caching failure, not search volume." },
+      { "id": "B", "correct": false, "text": "Deferred tools should not be described in the system prompt; remove the tool-category overview from the prompt.", "why": "A short overview of tool categories is recommended and is a stable part of the prefix; it does not invalidate the cache." },
+      { "id": "C", "correct": true, "text": "Rewriting the `tools` array changes the cached prefix on every turn, invalidating the cache; use the API's `defer_loading` mechanism (or keep the array stable and append discovered tools after the breakpoint) so the prefix is untouched.", "why": "Tool definitions are part of the cached prefix, so any change to the array is a cache miss; deferred tools are expanded inline as `tool_reference` blocks without altering the prefix." },
+      { "id": "D", "correct": false, "text": "The model is re-reading all tool definitions each turn because they were re-ordered; sort the tools alphabetically before every request.", "why": "Sorting still changes the array whenever a tool is added or removed, so the prefix keeps changing and the cache keeps missing." }
+    ],
+    "explanation": "Progressive discovery must respect prompt caching. Tool definitions are in the cached prefix, so adding, removing or reordering them mid-conversation invalidates the cache and can cost more than the definitions saved. The tool search tool's `defer_loading` keeps the prefix stable and appends discovered tools inline; a custom implementation must do the same.",
+    "reference": "Claude Docs — Tool search tool (prompt caching); Model Context Protocol — Client best practices (interaction with prompt caching)"
+  },
+  {
+    "id": "ARP-D3-T8-006",
+    "domain": 3,
+    "skill": "progressive-discovery",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A bank's platform team is configuring Claude Code for 120 engineers. They have a 600-token coding-standards block that compliance requires to apply in every session, and 14 operational procedures (deploy runbooks, migration checklists, incident playbooks) of 3,000–8,000 tokens each, most with helper scripts; a typical session uses one procedure or none. The team wants minimal context overhead per session without any chance that the standards are skipped. Which design meets both constraints?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Put the standards and all 14 procedures in the project `CLAUDE.md` so everything is always available.", "why": "Roughly 80,000 tokens of mostly irrelevant procedures would load into every session, wasting context and attention." },
+      { "id": "B", "correct": true, "text": "Keep the standards in the project `CLAUDE.md`, and package each procedure as an Agent Skill with its scripts bundled so only its name and description load until it is triggered.", "why": "The standards are guaranteed by always-loaded memory, while procedures cost about 100 tokens each until needed and their scripts run without entering context." },
+      { "id": "C", "correct": false, "text": "Package the standards and every procedure as Agent Skills so nothing loads until it is relevant.", "why": "A skill triggers only when Claude judges it relevant, so standards that must apply in every session could be skipped, which violates the compliance constraint." },
+      { "id": "D", "correct": false, "text": "Store the standards and all procedures in a vector database and retrieve the relevant chunks at the start of each session based on the user's first request.", "why": "Retrieval makes the standards' inclusion probabilistic and returns runbook fragments rather than complete procedures with runnable scripts." }
+    ],
+    "explanation": "Always-required, small content belongs in monolithic, always-loaded context (CLAUDE.md or the system prompt) where its presence is deterministic. Large, occasionally needed procedural content belongs in progressive-disclosure mechanisms such as Skills, which cost only metadata until triggered and can execute bundled scripts. The discriminator is the compliance requirement: anything that must never be skipped cannot rely on on-demand triggering.",
+    "reference": "Claude Docs — Agent Skills overview; Claude Code docs — Memory (CLAUDE.md)"
+  }
+]

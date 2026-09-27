@@ -1,162 +1,155 @@
-# CCDV-F Mock Exam
+# certMonkey
 
-A timed mock exam for the **Claude Certified Developer – Foundations (CCDV-F)**
-certification. It mirrors the official exam format from the
-[Exam Guide v1.0](https://anthropic-partners.skilljar.com/claude-certified-developer-foundations-certification):
+Mock exams, quizzes and interview practice in one calm place. certMonkey runs
+timed certification mocks that follow each exam's official blueprint, drills
+that explain every option, a readiness score that tells you when you're ready,
+and AI mock interviews with rubric feedback.
 
-| | Official exam | This mock |
-|---|---|---|
-| Items | 53 | 53, drawn in blueprint proportions (8 domains, 25 skills) |
-| Time | 120 minutes | 120-minute timer, auto-submits at zero |
-| Item types | Multiple choice + multiple response ("choose two") | Same; no partial credit |
-| Score | Scaled 100–1,000, pass at 720 | Same scale and cut |
-| Score report | Pass/fail, scaled score, % correct per domain | Same, plus a full answer review |
+It started as a static mock exam for the Claude Certified Developer
+(CCDV-F) and now serves any number of exams from one Next.js app.
 
-It is an independent practice tool. It is not affiliated with Anthropic, and
-its readiness certificate is not the official credential.
+## What's inside
 
-## Run it
+| For learners | For authors and admins |
+|---|---|
+| Exam catalog with blueprint-accurate full and quick mocks, server-timed | Question bank with live item statistics and bulk actions |
+| Practice drills with instant explanations; retry mistakes; saved questions with notes | Question editor for 6 item types with live validation, preview and revision history |
+| Diagnostic, adaptive test and spaced-repetition daily review | Draft → review → published workflow; learner reports queue |
+| Readiness score, predicted score and a 7-day study plan | Item analysis: difficulty, discrimination, dead distractors, suspect keys |
+| Results with domain breakdown, one recommended next step and full answer review | CSV and JSON import (validated per item) and JSON export |
+| AI tutor on any revealed question; AI mock interviews with rubric reports | AI question drafts grounded in study notes and pasted sources |
+| Streaks, XP, badges, weekly leaderboard, verifiable certificates | Role management (learner, author, admin) |
+| Challenge links, teams with assignments, light integrity checks | Pricing and Stripe billing, switched on by environment keys |
 
-It is a static site: plain HTML, CSS and JavaScript, with the questions in
-JSON. Any static web server works:
+The navigation has just four destinations (Home, Explore, Interviews,
+Progress), and every page leads with a single recommended action. Advanced
+options stay folded away until you need them.
+
+## Stack
+
+Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · shadcn/ui ·
+motion · a few Aceternity UI pieces · TanStack Query (optimistic updates) ·
+Zustand · Drizzle ORM on Neon Postgres · Better Auth · OpenAI-compatible AI
+(OpenAI or LiteLLM) · Stripe (optional) · Vitest.
+
+## Quick start
+
+Requirements: Node 20 or newer.
 
 ```bash
-npm start                  # zero-dependency Node server → http://localhost:5173
-# or
-python3 -m http.server     # → http://localhost:8000
+npm install
+cp .env.example .env          # then fill in DATABASE_URL and BETTER_AUTH_SECRET
+npm run db:setup              # apply migrations and load every exam in content/
+npm run dev                   # http://localhost:3000
 ```
 
-Opening `index.html` straight from disk won't work, because browsers block
-loading the JSON files from `file://`.
+With no `DATABASE_URL` the app uses an embedded Postgres (PGlite) in
+`.data/pglite`, which is handy for a quick look or offline work.
 
-## What you can do
+To make yourself an admin, put your email in `ADMIN_EMAILS` before you sign
+up. The account menu then shows **Admin**.
 
-- **Full Mock Exam**: 53 items in 120 minutes, run like the real exam. There
-  is no feedback until you submit, and you can flag items and review them
-  before you end the exam. Passing at Exam-realistic difficulty or harder
-  unlocks the readiness certificate and a link to register for the official
-  exam.
-- **Quick Mock**: 20 items in 45 minutes, with the same rules and scoring.
-- **Practice Drills**: pick the domains you want, then get the answer and
-  explanation after each question. Drills can be untimed or run at exam pace.
-- **Difficulty modes**: each preset sets the mix of item difficulties and the
-  time limit.
+## Configuration
 
-  | Mode | Foundational / Intermediate / Advanced / Expert | Time |
-  |---|---|---|
-  | Foundational | 55 / 40 / 5 / 0 % | 100 % |
-  | Exam-realistic | 20 / 55 / 20 / 5 % | 100 % |
-  | Challenging | 5 / 35 / 40 / 20 % | 100 % |
-  | Expert | 0 / 20 / 40 / 40 % | 100 % |
-  | Max | 0 / 5 / 35 / 60 % | 80 % |
+Every setting is documented in [`.env.example`](.env.example).
 
-- **Answer review**: every item shows your answer, the correct answer, why
-  each option is right or wrong, the overall explanation and a documentation
-  reference. You can filter to incorrect, flagged or unanswered items.
-- **Study guide**: key facts and common traps for all 25 skills, with links
-  to the official docs.
-- **History**: past attempts are kept in your browser's localStorage.
+| Setting | Needed for |
+|---|---|
+| `DATABASE_URL` | Neon pooled connection string (or omit for local PGlite) |
+| `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` | Sessions; the URL is also used for links in the sitemap |
+| `ADMIN_EMAILS` | Accounts that start as admins |
+| `GOOGLE_*`, `GITHUB_*` | Optional social sign-in (buttons appear when both values are set) |
+| `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `AI_MODEL` | AI tutor, mock interviews and question drafts. Point the base URL at a LiteLLM proxy's `/v1` to use any provider |
+| `AI_DAILY_LIMIT`, `AI_DAILY_LIMIT_FREE` | AI requests per learner per day (authors and admins are unlimited) |
+| `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET` | Pro subscriptions. Until these are set, everything is free and unlimited |
+| `FREE_FULL_MOCKS_PER_MONTH` | Free-plan full mocks per exam every 30 days (only when billing is on) |
+
+AI features show a clear "not switched on yet" state when no key is set;
+nothing else depends on them.
+
+## Scripts
+
+| Command | What it does |
+|---|---|
+| `npm run dev` / `build` / `start` | Next.js |
+| `npm test` | Unit tests: engine, scoring, readiness, spaced review, study plan, adaptive selection, billing signatures, and validation of every exam in `content/` |
+| `npm run typecheck` · `npm run lint` | TypeScript and ESLint |
+| `npm run db:generate` | New migration from `src/db/schema.ts` |
+| `npm run db:migrate` · `npm run db:seed` · `npm run db:setup` | Apply migrations, load content, or both |
+| `npm run validate [-- <exam-id>]` | Lint question banks and report blueprint coverage |
+| `npm run import:exam -- <source-root> <exam-id>…` | Validate and copy exam folders (classic `data/<id>/` layout) into `content/exams/` |
+| `npm run import:csv -- <exam-id> <set-name> <file.csv>…` | Convert Udemy practice-test CSVs into an imported practice pool |
+
+## Content
+
+Each exam is a folder under `content/exams/<id>/`:
+
+```
+exam.json            blueprint (domains, skills, weights), timing, scale, difficulty modes, catalog metadata
+questions/*.json     the reviewed bank: arrays of questions
+imported/*.json      optional third-party practice pools (never used in scored mocks)
+study/*.json         study notes keyed by skill id
+```
+
+Every JSON file in those folders is loaded, so there is no manifest to keep in
+sync. The seed is idempotent and never overwrites a question after it has been
+edited in the admin editor.
+
+Question types: `single`, `multi` (choose N, no partial credit), `truefalse`,
+`order` (`answerOrder`), `match` (`prompts` paired to options) and `fill`
+(`accepted` answers, compared ignoring case and spacing). Options are shuffled
+at delivery, so explanations should describe options rather than cite letters.
+`content/question.schema.json` documents the format; `npm run validate`
+enforces it along with item-writing checks.
+
+The catalog currently holds CCDV-F, CCAO-F, CCAR-F and CCAR-P (Anthropic
+certification mocks) and a JavaScript Essentials quiz that exercises every
+question type and a case study.
 
 ## How scoring works
 
-Scoring lives in `src/engine/scoring.js`.
-
-- Each item is all-or-nothing. A multiple-response item counts only when your
-  selection exactly matches the key, and an unanswered item scores zero.
-- Harder items weigh more: Foundational items count 1.0, Intermediate 1.5,
-  Advanced 2.0 and Expert 2.5.
-- Your difficulty-weighted percent correct maps linearly onto 100–1,000. A
-  weighted 70% lands exactly on the 720 cut.
-- The official cut comes from a confidential standard-setting study, so this
-  mapping is an approximation. It is deliberately demanding.
+Items are all-or-nothing and weighted by difficulty (1.0 to 2.5). The weighted
+percent correct maps linearly onto each exam's scale, anchored so that the
+configured `cutRaw` lands exactly on the pass mark. Readiness blends recent,
+difficulty-weighted accuracy per skill (starting from a cautious prior),
+combines skills by blueprint weight into a predicted score, and reports the
+chance of clearing the pass mark. The in-app page `/about/scoring` explains it
+for learners.
 
 ## Project layout
 
 ```
-index.html               page shell
-src/app.js               UI: views, timer, navigation, results, certificate
-src/styles.css
-src/data-loader.js       loads data/exam.json and the files it lists
-src/engine/              blueprint allocation, form assembly, scoring, storage
-data/exam.json           exam definition: blueprint, timing, scale, modes, file list
-data/questions/*.json    question bank
-data/study/*.json        study notes per skill
-schema/question.schema.json   the question template
-scripts/validate-bank.js      bank validator and coverage report
-test/                    engine tests (node --test)
+src/app/(main)/        learner pages: landing, dashboard, explore, exam hub, results, progress, interviews, teams…
+src/app/(focus)/       distraction-free pages: exam player, onboarding
+src/app/(auth)/        sign in and sign up
+src/app/admin/         authoring and moderation
+src/app/api/           JSON API (attempts, bookmarks, AI, teams, billing, admin…)
+src/components/        UI by feature; ui/ holds shadcn and Aceternity primitives
+src/server/            server-only services (attempts, analytics, AI, billing, teams…)
+src/lib/engine/        pure exam engine: blueprint allocation, form assembly, scoring, adaptive selection
+src/lib/               shared pure logic (readiness, spaced review, study plan, validators…)
+src/db/                Drizzle schema and client
+content/exams/         exam content
+scripts/               migrate, seed, validate, import tools
 ```
 
-## Question template
+Answer keys never reach the browser during an attempt: the server sends
+sanitised questions and reveals keys per item (drills) or after submission.
+Deadlines are enforced on the server, autosave merges atomically, and guest
+progress moves to the account when a guest signs up.
 
-Every question file is a JSON array of items like this one
-(`schema/question.schema.json` is the formal definition):
+## Deploying (Vercel + Neon)
 
-```json
-{
-  "id": "D2-API-001",
-  "domain": 2,
-  "skill": "api-mechanics",
-  "difficulty": 2,
-  "type": "single",
-  "select": 1,
-  "stem": "A developer must process 10,000 documents overnight ... Which approach best fits?",
-  "options": [
-    { "id": "A", "correct": false, "text": "…", "why": "Why this option is wrong." },
-    { "id": "B", "correct": true,  "text": "…", "why": "Why this option is right." },
-    { "id": "C", "correct": false, "text": "…", "why": "…" },
-    { "id": "D", "correct": false, "text": "…", "why": "…" }
-  ],
-  "explanation": "The overall teaching point.",
-  "reference": "Claude API docs — Batch processing"
-}
-```
+1. Create a Neon project and copy the pooled connection string.
+2. Import the repository into Vercel and add the environment variables from
+   `.env.example`. Set `BETTER_AUTH_URL` to your production URL.
+3. Run `npm run db:setup` once against the production database (locally with
+   the production `DATABASE_URL`, or from CI). Run `npm run db:migrate` again
+   whenever the schema changes, and `npm run db:seed` whenever content changes.
+4. For billing, add a Stripe webhook pointing at `/api/billing/webhook` for the
+   `checkout.session.completed` and `customer.subscription.*` events.
 
-- `type` is `single` (4 options, 1 correct) or `multi` (5–6 options, 2–3
-  correct). For `multi`, `select` equals the number of correct options and the
-  stem ends with "(Choose two.)" or "(Choose three.)".
-- `difficulty` is 1 (Foundational: one concept applied in a scenario), 2
-  (Intermediate: an applied scenario), 3 (Advanced: a multi-constraint
-  tradeoff or a diagnosis) or 4 (Expert: several defensible options, only one
-  satisfies every stated constraint).
-- `skill` must be one of the skill ids in `data/exam.json`, and `domain` must
-  be that skill's domain.
-- Options are shuffled when the exam is delivered, so a `why` or
-  `explanation` must never say "option B". Describe the option instead.
+## Disclaimer
 
-### Adding questions
-
-1. Add items to an existing file in `data/questions/`, or create a new file
-   and list it under `questionFiles` in `data/exam.json`.
-2. Run `npm run validate`. It checks the template, the blueprint tags and
-   common item-writing smells, and prints per-skill coverage.
-3. Run `npm test`.
-
-### Importing third-party question sets
-
-Question CSVs in Udemy's practice-test import format can be loaded as a
-separate pool for personal practice:
-
-```bash
-npm run import -- my-set path/to/*.csv   # writes data/imported/my-set.json
-npm run sync
-```
-
-Imported sets appear as a "Question pool" choice in Practice Drills. They are
-kept apart from the reviewed bank and are never drawn into the scored mock
-exams, because they have no per-option rationale and were not reviewed here.
-A set listed in `exam.json` but missing from the deploy is skipped, not fatal.
-
-Treat third-party keys with care. A cross-check of one popular 650-question
-set against current docs found several answers that are now wrong: choosing a
-low `temperature` for determinism (newer models reject non-default sampling
-values), prefilling the assistant turn to force JSON (returns 400 on newer
-models), and `tool_choice: any`/forced tools to guarantee a call (also 400 on
-the newest models; use `auto` plus `strict: true`). The reviewed bank follows
-the current docs on all of these.
-
-## Tests
-
-```bash
-npm test          # blueprint math, form assembly, difficulty modes, scoring, bank validity
-npm run validate  # question bank lint and coverage report
-```
+certMonkey is an independent practice platform. It is not affiliated with any
+exam vendor, and readiness certificates are not official credentials.

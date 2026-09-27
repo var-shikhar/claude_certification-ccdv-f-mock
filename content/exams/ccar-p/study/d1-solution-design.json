@@ -1,0 +1,124 @@
+{
+  "business-to-solution": {
+    "summary": "Turn a vague business request into a scoped Claude solution with a named bottleneck, a measured baseline, a target outcome metric and explicit boundaries for what the model does versus what humans decide.",
+    "points": [
+      "Start with the problem, not the technology. Before any prototype, model choice or vector store, agree which step in the process hurts, what the current numbers are (minutes per case, return rate, cost per contact) and what target counts as success.",
+      "Sponsors describe symptoms in their own words (\"faster claims\", \"catch more fraud\", \"reduce rework\"). Discovery often shows the real bottleneck is somewhere else, for example analyst time per alert rather than detection recall. Translate to the evidenced cause.",
+      "Success criteria should be specific, measurable, achievable and relevant to the business goal: an outcome metric with a baseline (time-to-triage from 40 to 15 minutes; first-time-complete rate), not an activity metric (summaries produced, chats per month, tokens used).",
+      "Where you can, compare against a control cohort or a pre-rollout baseline so the effect can be attributed to the solution.",
+      "State scope boundaries in the definition: what Claude drafts, extracts or checks; who reviews and signs; which systems the output may write to and through what gate. Regulated decisions (eligibility, coverage, fraud disposition, clinical sign-off) stay with the accountable human.",
+      "Prefer the narrowest solution that attacks the root cause over a broad general assistant. A tight scope is faster to build, easier to evaluate and gives a clean business case; breadth can come in later phases.",
+      "Do not put an LLM call on a path whose latency budget it cannot meet (for example sub-50 ms real-time scoring). Keep existing deterministic or ML components that already work and put Claude where language, evidence gathering or drafting is the bottleneck.",
+      "Absolute requirements such as \"100% accuracy before pilot\" are not measurable and are unnecessary when the design includes a human review step; set a target accuracy plus a review mechanism instead.",
+      "Common traps in exam distractors: prototyping before defining the problem; choosing the biggest model first; automating a decision that regulation reserves for humans; measuring activity instead of outcomes; extending discovery indefinitely when the cause is already evidenced; giving a first solution write access to customer environments.",
+      "Model choice, architecture pattern and infrastructure are downstream decisions validated against the defined problem; they should not appear in the problem definition itself."
+    ],
+    "docs": [
+      { "title": "Define success criteria and build evaluations", "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests" },
+      { "title": "Building effective agents", "url": "https://www.anthropic.com/engineering/building-effective-agents" }
+    ]
+  },
+  "end-to-end-architecture": {
+    "summary": "Design the full flow, input → processing → output → feedback, choosing the processing mode per workload constraint, gating output deterministically, and closing the loop so human corrections and evaluation results drive iteration.",
+    "points": [
+      "Input stage: normalise every channel (email, web form, scans, API) into a canonical record at ingestion so downstream prompts see one shape and every request is reproducible.",
+      "Processing stage: match the mode to the constraint. Interactive paths use streaming and a compact context to protect time-to-first-token; bulk, non-urgent work (nightly catalogues, transcript review within 24 hours) goes through the Message Batches API at lower cost; urgent slices get their own real-time path.",
+      "Output stage: validate model output in code before it reaches a downstream system. Use structured outputs or a JSON schema, deterministic cross-field checks (line items summing to totals), and write through a validated, parameterised path rather than letting the model write directly.",
+      "Feedback stage: capture the accountable human's corrections (reviewer edits, nurse overrides, merchandiser rejections, accept/edit/discard) as labelled pairs and feed them into an evaluation set that runs before any prompt, model or retrieval change.",
+      "Add stratified sampled review on top of overrides to catch silent errors the humans did not notice; disagreements from sampling go into the same evaluation set.",
+      "Self-reported confidence, model racing, temperature changes and untested prompt patches are not feedback mechanisms; the model does not learn from its own production outputs.",
+      "Provenance: return citations or source locations with extracted values so verifiers can check quickly and regulators get evidence per figure. Citations plus deterministic checks plus sampled verification beat universal manual re-keying.",
+      "Reproducibility is architectural: version prompts, pin model IDs, persist the exact context and response per case. A database transaction log or prompt history alone cannot explain a specific output months later.",
+      "Do not put a full review call inline on a latency-critical path when the requirement is asynchronous review; lightweight inline guardrails and heavy asynchronous review are different components.",
+      "Cost dashboards and token metrics are operational telemetry, not a feedback loop; a bigger model is not a substitute for measuring what reviewers fix."
+    ],
+    "docs": [
+      { "title": "Batch processing", "url": "https://platform.claude.com/docs/en/build-with-claude/batch-processing" },
+      { "title": "Streaming Messages", "url": "https://platform.claude.com/docs/en/build-with-claude/streaming" },
+      { "title": "Structured outputs", "url": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs" },
+      { "title": "Citations", "url": "https://platform.claude.com/docs/en/build-with-claude/citations" },
+      { "title": "Define success criteria and build evaluations", "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests" }
+    ]
+  },
+  "architectural-patterns": {
+    "summary": "Choose between an augmented single call, a predefined workflow (chaining, routing, parallelization, orchestrator-workers, evaluator-optimizer) and an autonomous agent based on how predictable the path is, and justify the choice by cost, latency and auditability.",
+    "points": [
+      "Anthropic's guidance: find the simplest solution possible and only add complexity when it measurably improves outcomes. Many applications need only a single augmented LLM call (retrieval, tools, memory) with a structured output.",
+      "Workflows orchestrate LLM calls through predefined code paths; agents let the model dynamically direct its own process and tool use. Workflows give predictability, reproducibility and bounded cost; agents give flexibility at higher cost and latency.",
+      "Prompt chaining: fixed sequential steps with programmatic gates between them; use when a task decomposes into known subtasks and a check between steps catches errors.",
+      "Routing: classify the input and send it to a specialised prompt and tool set; use when inputs fall into distinct, known categories handled differently (six email types, four resolution procedures).",
+      "Parallelization: sectioning splits independent subtasks and runs them at once; voting runs the same task several times for confidence. Use when subtasks are independent or multiple perspectives are needed.",
+      "Orchestrator-workers: a central LLM decomposes the task dynamically, delegates to workers and synthesises; use when the subtasks cannot be predicted in advance.",
+      "Evaluator-optimizer: a generator and an evaluator loop against explicit criteria; use when clear evaluation criteria exist and iterative refinement measurably helps (brand-rule compliance). Bound the loop with a round limit.",
+      "Agents fit open-ended problems where the number and order of steps depend on tool results and the environment gives verifiable feedback (tests, checks). Bound them with turn limits, budgets and human checkpoints.",
+      "A predictable exception (a clarifying question in 15% of cases) is a branch in a workflow, not a reason to switch to an agent. Hybrid designs are normal: route by predictability, workflows for the known 80%, a bounded agent for the open-ended 20%.",
+      "Justify pattern choice in terms stakeholders care about: workflows are auditable and cheap per run; agents cost more tokens and vary per run; evaluator loops and parallel workers add latency.",
+      "Distractor patterns: \"make it an agent for flexibility\" when the path is known; orchestrator-workers for a handful of dependent steps; evaluator loops on an interactive button that must feel instant; a single agent for everything when audit needs reproducible paths."
+    ],
+    "docs": [
+      { "title": "Building effective agents", "url": "https://www.anthropic.com/engineering/building-effective-agents" },
+      { "title": "Claude Agent SDK overview", "url": "https://platform.claude.com/docs/en/agent-sdk/overview" }
+    ]
+  },
+  "multi-agent-design": {
+    "summary": "Use multi-agent orchestration only when work parallelises or exceeds one context window, with a coordinator that owns decomposition, synthesis and side effects, scoped briefs for subagents, and effort scaled to query complexity.",
+    "points": [
+      "Multi-agent systems excel at tasks with heavy parallelization, information that exceeds a single context window, and many complex tools. They are not a way to make a small sequential pipeline more robust.",
+      "Anthropic measured multi-agent research runs at roughly 15x the tokens of a chat; the economics only work when the task's value justifies that spend.",
+      "A coordinator (lead agent, orchestrator) plans the decomposition, gives each subagent a distinct objective, scope, tool guidance and output format, and owns the final synthesis. Peer agents messaging freely produce loops and ownerless answers.",
+      "Subagents run in their own context windows and return condensed findings, not raw pages; this is what keeps the coordinator's context from overflowing and lets the system scale past one window.",
+      "Vague delegation causes duplicated and off-target work; the fix is a better brief, not more workers.",
+      "Scale effort to query complexity: simple fact-finding needs one agent with a few tool calls, direct comparisons a few subagents, and only complex research more than ten subagents with clearly divided responsibilities. Put these heuristics in the lead agent's prompt to stop over-spawning.",
+      "Side effects belong with the coordinator (or a single writer): workers returning structured results that the coordinator deduplicates, merges and writes as validated transactions avoids conflicting writes and half-written records. Prompt instructions to \"check first\" are racy.",
+      "Long-running multi-agent runs need durable state: persist subagent results outside the context and checkpoint so an intermittent failure retries from where it stopped rather than restarting the whole run.",
+      "Citations are best added as a dedicated final pass that maps each claim in the synthesised report to its collected source.",
+      "Signals against multi-agent: cost minimisation, tight latency for simple lookups, tightly coupled edits to shared state in strict order, and stylistic reasons such as personas.",
+      "When declining multi-agent, the reason is the task's shape (sequential, small context, no parallelism), not its industry."
+    ],
+    "docs": [
+      { "title": "How we built our multi-agent research system", "url": "https://www.anthropic.com/engineering/built-multi-agent-research-system" },
+      { "title": "Building effective agents", "url": "https://www.anthropic.com/engineering/building-effective-agents" },
+      { "title": "Claude Agent SDK — Subagents", "url": "https://platform.claude.com/docs/en/agent-sdk/subagents" }
+    ]
+  },
+  "decomposition": {
+    "summary": "Break complex problems into units by data boundary, by step or by expertise so each call is focused, fits in context and can be validated, and aggregate results deterministically in code.",
+    "points": [
+      "Decompose by data boundary when the input is too large or consists of independent units: chapters of a rulebook, patient records, accounts, source systems. Process each unit independently (often in parallel), then merge.",
+      "Decompose by step (prompt chaining) when one call is juggling several judgements and errors between them compound: extract as structured data, then classify, then draft, with programmatic checks between steps.",
+      "Decompose by expertise when a problem needs independent specialist perspectives (medical, financial, legal): run specialist prompts in isolation with only the evidence each needs, then reconcile in a synthesis step. Sequential hand-offs anchor later assessments on earlier ones.",
+      "Keep aggregation, counting and arithmetic in code. Model-side aggregation over thousands of units is unreliable and unauditable; per-unit structured extraction plus deterministic aggregation is exact and cheap.",
+      "Do not mix many independent units (patients, customers) into one prompt to \"spot trends\"; it degrades per-unit accuracy and blurs boundaries, including privacy boundaries.",
+      "Very large evidence sets (hundreds of thousands of tokens) are summarised per source into structured findings with references, then synthesised in one step for a consistent narrative, then verified so every claim maps to evidence.",
+      "Over-decomposition is a real failure mode: 14 micro-steps add latency, cost, compounding error and maintenance. Merge steps that share an input and need no validation between them; keep a gate only where a programmatic check adds value.",
+      "Lossy shortcuts are traps: a one-paragraph summary of a 400-page rulebook discards the obligations a gap analysis needs.",
+      "Letting an agent choose which sections to read is not decomposition; when the input has a natural structure, partition it deterministically so coverage is complete and auditable.",
+      "Chain-of-thought inside one call, more few-shot examples or majority voting reduce some errors but do not fix inter-step consistency failures; explicit intermediate outputs with checks do."
+    ],
+    "docs": [
+      { "title": "Building effective agents", "url": "https://www.anthropic.com/engineering/building-effective-agents" },
+      { "title": "Chain complex prompts for stronger performance", "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/chain-prompts" },
+      { "title": "Long context prompting tips", "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/long-context-tips" }
+    ]
+  },
+  "business-value": {
+    "summary": "Map a design to the value pillar the accountable sponsor owns (efficiency, transformation, productivity, cost, performance SLAs), quantify it in the sponsor's units with a baseline, and present the other pillars as tracked constraints or trade-offs.",
+    "points": [
+      "The five pillars: efficiency (doing existing work with less effort or rework), transformation (new capabilities, products or revenue), productivity (more output per unit of human time), cost (lower spend per unit of work) and performance SLAs (meeting committed latency, availability or turnaround targets).",
+      "Identify which pillar the accountable sponsor is measured on and lead with it. A COO accountable for cost per contact, a director measured on a statutory response deadline, and a product sponsor holding a p95 SLA each need a different headline metric.",
+      "Express value in the sponsor's units with a baseline and target: cost per contact, cases answered within 20 days, minutes from discharge order to signed summary, attach rate and incremental revenue.",
+      "Engineering metrics (tokens per conversation, cache hit rate, benchmark scores, template counts, internal accuracy) are inputs and supporting evidence, not the business outcome. Tokens can fall while cost per contact rises.",
+      "Pair productivity or speed metrics with a quality guard (edit rate, sign-off rate) so gains are not achieved by shipping worse output.",
+      "When two designs both meet the quality bar, the sponsor's pillar is the tie-breaker; present the other pillar's impact (for example a 30% cost delta) as a quantified, bounded trade-off rather than letting it silently override the commitment.",
+      "Cost alignment means using the cheapest processing mode the SLA allows: the Message Batches API for bulk work with a deadline hours away, a real-time path only for the urgent slice, prompt caching for repeated prefixes. Uniform real-time or uniform batch each break one side of a mixed requirement.",
+      "Do not reopen a contractual SLA to accommodate a design preference, and do not run an experiment that knowingly breaches the SLA for part of the customer base.",
+      "When funding was approved on a specific basis (\"new revenue from AI features\"), the first phase must deliver against that pillar; other executives' pillars become secondary metrics or constraints. Splitting a fixed budget across every pillar underfunds all of them and demonstrates none.",
+      "Traps: presenting all five pillars with equal weight, reframing a concrete SLA problem as \"transformation\" to win budget, picking the fastest-to-deliver pillar instead of the funded one, or choosing the cheapest design when the sponsor's problem is a missed SLA."
+    ],
+    "docs": [
+      { "title": "Define success criteria and build evaluations", "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests" },
+      { "title": "Batch processing", "url": "https://platform.claude.com/docs/en/build-with-claude/batch-processing" },
+      { "title": "Prompt caching", "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching" }
+    ]
+  }
+}

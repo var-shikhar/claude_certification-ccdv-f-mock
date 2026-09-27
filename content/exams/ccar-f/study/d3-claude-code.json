@@ -1,0 +1,118 @@
+{
+  "claude-md": {
+    "summary": "Place instructions at the right level of the CLAUDE.md hierarchy, keep files modular with @imports and .claude/rules/, and diagnose why a teammate or CI run is not receiving the instructions you expect.",
+    "points": [
+      "Three levels: user (`~/.claude/CLAUDE.md`, one person, every project), project (`CLAUDE.md` at the repo root or `.claude/CLAUDE.md`, shared through version control) and directory-level `CLAUDE.md` files in subdirectories. `CLAUDE.local.md` is a personal, gitignored project file.",
+      "User-level instructions are never shared via the repository. The classic exam diagnosis: a new teammate does not get the conventions because the lead put them in `~/.claude/CLAUDE.md`. Fix by moving them to project level and committing.",
+      "Files in the working directory and every directory above it load at launch, concatenated from the filesystem root downward. Subdirectory `CLAUDE.md` files are discovered lazily and load when Claude reads files in those directories.",
+      "Nothing overrides anything: all loaded memory is concatenated. If two files contradict each other Claude may follow either, so remove conflicts in the committed files rather than adding emphasis or using per-machine mechanisms (`CLAUDE.local.md`, `settings.local.json`) that teammates and CI never see.",
+      "`@path/to/file` imports another file into the CLAUDE.md that references it (relative to the importing file; recursive to a small depth; paths inside backticks or code blocks are not imported). Use it so each package's CLAUDE.md pulls in only the standards its maintainers know apply.",
+      "Imports keep files modular but do not reduce context: imported files are expanded and loaded at launch. To cut what loads, use path-scoped rules instead.",
+      "`.claude/rules/` holds topic-specific rule files (`testing.md`, `api-conventions.md`, `deployment.md`) as the alternative to a monolithic CLAUDE.md. Files without `paths` frontmatter load unconditionally; with `paths` they load only when Claude works on matching files. `~/.claude/rules/` holds personal rules for every project.",
+      "Keep CLAUDE.md short (the docs suggest under roughly 200 lines per file). Include commands Claude cannot guess, style rules that differ from defaults, testing instructions, repository etiquette, gotchas; exclude anything derivable from the code, standard language idioms, long tutorials and file-by-file tours. Bloated files cause Claude to ignore the real rules.",
+      "Emphasis such as IMPORTANT works only when used on one or two lines. If Claude keeps skipping a rule, the file is probably too long; prune it or convert the rule to a hook for guaranteed enforcement.",
+      "`/memory` lists the CLAUDE.md, CLAUDE.local.md and rules locations across user and project scope and opens them for editing; `/context` shows what actually loaded this session. Use them to diagnose inconsistent behaviour between developers or sessions. `/init` generates or improves a starter CLAUDE.md.",
+      "CLAUDE.md is advisory context, not enforced configuration. When an action must be blocked or must always happen, use a hook; use CLAUDE.md to describe standards, commands and conventions.",
+      "For CI runs, the repository's CLAUDE.md is how project context (testing standards, fixture conventions, review criteria) reaches the non-interactive Claude Code invocation; `--bare` skips it, so do not use bare mode when that context is needed."
+    ],
+    "docs": [
+      { "title": "How Claude remembers your project (CLAUDE.md, rules, /memory)", "url": "https://code.claude.com/docs/en/memory" },
+      { "title": "Best practices for Claude Code", "url": "https://code.claude.com/docs/en/best-practices" }
+    ]
+  },
+  "commands-skills": {
+    "summary": "Create project- or user-scoped slash commands and skills, configure SKILL.md frontmatter (context: fork, allowed-tools, argument-hint, disable-model-invocation) and decide what belongs in a skill versus CLAUDE.md.",
+    "points": [
+      "Project-scoped commands live in `.claude/commands/<name>.md` and project skills in `.claude/skills/<name>/SKILL.md`; both are committed and available to everyone who clones or pulls. User-scoped equivalents live in `~/.claude/commands/` and `~/.claude/skills/` and are personal across all projects.",
+      "`.claude/commands/` is the older single-file format; skills are the current mechanism and support supporting files and richer frontmatter. Both create a `/name` slash command. There is no `commands` array in settings files and CLAUDE.md does not define invocable commands.",
+      "Skills can be invoked by a person (`/name args`) or loaded automatically by Claude when the `description` matches the conversation. `$ARGUMENTS`, `$0`/`$1` and `${CLAUDE_SESSION_ID}` are substituted into the skill body.",
+      "`context: fork` runs the skill in an isolated subagent context; the subagent does not see the conversation history and only its result returns. Use it for skills with verbose output (codebase analysis, dependency graphs) or exploratory content (brainstorming alternatives) so they do not pollute the main session.",
+      "`allowed-tools` in skill frontmatter configures the tools available to the skill during execution; the exam guide treats it as the way to restrict a skill to, for example, file operations so it cannot run destructive shell commands. Current docs also provide `disallowed-tools`; for an absolute guarantee, add a PreToolUse hook or a deny rule.",
+      "`argument-hint` (for example `[issue-number]` or `[version-tag]`) shows in autocomplete and tells developers what parameter the skill expects when they invoke it without arguments.",
+      "`disable-model-invocation: true` stops Claude from auto-invoking a skill; only a human typing `/name` runs it. Use it for side-effecting workflows such as deploy, commit or release. `user-invocable: false` is the opposite: hidden from the menu, only Claude can load it.",
+      "Skills vs CLAUDE.md: CLAUDE.md is always loaded, so it holds universal standards, project facts and short workflow rules. Skills load on demand, so they hold multi-step procedures, occasional workflows, side-effecting actions and anything long enough to bloat every session.",
+      "Personal customisation: create a variant in `~/.claude/skills/` with a different name (for example `review-a11y`) so teammates are unaffected and the team's original stays available. A personal skill with the same name shadows the project skill for that user (priority is enterprise, then personal, then project).",
+      "Skill content enters the conversation when invoked and stays across turns, so write it as standing guidance and keep SKILL.md focused, moving detail into supporting files."
+    ],
+    "docs": [
+      { "title": "Extend Claude with skills", "url": "https://code.claude.com/docs/en/skills" },
+      { "title": "Best practices: Create skills", "url": "https://code.claude.com/docs/en/best-practices" }
+    ]
+  },
+  "path-rules": {
+    "summary": "Use .claude/rules/ files with YAML `paths` frontmatter so conventions load only when Claude works on matching files, and choose glob rules over directory CLAUDE.md files when a convention spans directories.",
+    "points": [
+      "A rule is any `.md` file under `.claude/rules/` (discovered recursively). Scope it with YAML frontmatter between `---` markers: `paths:` followed by a list of globs such as `[\"terraform/**/*\"]` or `[\"**/*.test.tsx\"]`. `paths` is the only frontmatter field a rule reads.",
+      "Rules without a `paths` field load unconditionally in every session. A scope written as a heading or prose inside the rule does nothing; only the frontmatter counts. Malformed YAML is ignored and the rule loads as unconditional.",
+      "Path-scoped rules load when Claude reads files matching the pattern, which reduces irrelevant context and token usage in sessions that never touch that area. Splitting into `@` imports does not have this effect because imports load at launch.",
+      "Glob cheat sheet: `**/*.ts` matches every TypeScript file anywhere; `src/**/*` everything under `src/`; `*.md` only root-level Markdown; `src/components/*.tsx` one directory. Brace expansion (`**/*.{test,spec}.ts`) covers several extensions in one pattern; a rule may list several patterns.",
+      "Choose a glob rule over subdirectory CLAUDE.md files when the convention follows a file type spread across the codebase (colocated `*.test.tsx` files, `*.sql` migrations in many folders). Directory CLAUDE.md files are directory-bound and cannot follow a naming pattern.",
+      "Choose a subdirectory CLAUDE.md when the convention is confined to one directory, especially when that directory's maintainers should own the file without editing the shared `.claude/` folder.",
+      "Over-broad globs are a common diagnosis: `**/api/**` also matches `docs/api/` and fixtures. Tighten to the real roots and extension (`src/api/**/*.ts`, `services/*/api/**/*.ts`) rather than adding prose caveats.",
+      "Personal rules go in `~/.claude/rules/` and apply to every project on that machine; they load before project rules but do not override them, so keep the two consistent.",
+      "Distractors the exam uses: consolidating every convention in the root CLAUDE.md and relying on inference, a CLAUDE.md in every folder, skills that must be invoked, and permission settings, none of which give deterministic path-based loading."
+    ],
+    "docs": [
+      { "title": "Path-specific rules in .claude/rules/", "url": "https://code.claude.com/docs/en/memory#path-specific-rules" },
+      { "title": "Monorepos and large repos", "url": "https://code.claude.com/docs/en/large-codebases" }
+    ]
+  },
+  "plan-mode": {
+    "summary": "Choose plan mode for large, multi-file, architectural or ambiguous work and direct execution for small well-scoped changes, and use the Explore subagent to keep verbose discovery out of the main context.",
+    "points": [
+      "Plan mode has Claude research and propose changes without making them: it reads files and explores but edits stay blocked until you approve the plan. Enter with `Shift+Tab` until the status bar shows plan mode, prefix a prompt with `/plan`, or start with `claude --permission-mode plan`; `defaultMode: \"plan\"` in settings makes it the default.",
+      "Approving the plan exits plan mode and switches to an execution mode so Claude starts editing; `Ctrl+G` opens the proposed plan in your editor before Claude proceeds. This is the natural way to combine planning for investigation with direct execution for implementation.",
+      "Use plan mode for large-scale changes, multiple valid approaches, architectural decisions and multi-file modifications: monolith-to-microservices restructuring, a library migration across 45+ files, choosing between integration approaches with different infrastructure requirements, or unfamiliar code.",
+      "Use direct execution for simple, well-scoped changes: a single-file bug fix with a clear stack trace, adding a date-validation conditional, a rename, a log line, a typo. If you could describe the diff in one sentence, skip the plan.",
+      "Plan mode adds a full exploration-and-proposal turn, so applying it to everything hurts throughput; the exam's distractor is starting direct and \"switching to plan mode only if complexity appears\" when the complexity is already stated in the requirements.",
+      "Plan mode enables safe exploration and design before committing to changes, preventing costly rework when dependencies are discovered late. Detailed upfront instructions in direct execution assume you already know the right structure.",
+      "The Explore subagent is a built-in read-only subagent for discovery. It reads files in its own context window and returns a summary, so verbose discovery phases do not exhaust the main conversation during multi-phase tasks. Prompt it with \"use a subagent to investigate ...\".",
+      "Context is the constraint: performance degrades as the window fills with file contents. `/compact` and larger models treat the symptom; delegating discovery to a subagent or scoping investigations narrowly treats the cause.",
+      "Best multi-phase pattern: plan mode plus Explore subagent for discovery, human review of the plan, then direct execution for implementation in the same session, followed by verification (tests, build) before commit."
+    ],
+    "docs": [
+      { "title": "Permission modes: Analyze before you edit with plan mode", "url": "https://code.claude.com/docs/en/permission-modes" },
+      { "title": "Best practices: Explore first, then plan, then code", "url": "https://code.claude.com/docs/en/best-practices" },
+      { "title": "Subagents (built-in Explore agent)", "url": "https://code.claude.com/docs/en/sub-agents" }
+    ]
+  },
+  "iterative-refinement": {
+    "summary": "Refine Claude Code output progressively with concrete input/output examples, test-first iteration, the interview pattern, and the right batching of feedback for interacting versus independent issues.",
+    "points": [
+      "When a prose description is interpreted inconsistently (three runs, three formats), give 2-3 concrete input/output examples. Examples pin down the exact transformation and edge cases far better than adjectives such as \"consistent\" or words such as MUST.",
+      "Test-driven iteration: have Claude write the test suite first, covering expected behaviour, edge cases and performance requirements, then implement and iterate by sharing the failing tests. Tests written after implementation tend to confirm its assumptions instead of the requirements.",
+      "Give Claude a check it can run (tests, build, linter, a fixture diff, a screenshot comparison) and ask for evidence; otherwise you become the verification loop and \"looks done\" is the only signal.",
+      "The interview pattern: for larger features or unfamiliar domains, start with a minimal prompt and ask Claude to interview you (for example with the AskUserQuestion tool) about implementation, edge cases, failure modes and trade-offs, then write a spec. It surfaces considerations the developer did not know to ask about, such as cache invalidation, stampedes or idempotency windows.",
+      "Ordering matters in an unfamiliar domain: interview and spec first, tests from the spec second, implementation and test-failure feedback last. Implementing or writing tests from vague requirements builds rework in.",
+      "Fixing edge cases: provide the specific failing inputs as test cases with the exact expected output (a row with a null field, a value stored as the wrong type). Repeating \"handle edge cases better\", wrapping loops in blanket exception handling that skips rows, or switching models does not supply the missing specification.",
+      "Batch interacting issues in one detailed message so Claude designs a single coherent fix (for example a query, its pagination cursor and the sort order that all touch the same path). Address independent issues sequentially, verifying each, so changes stay small and reviewable.",
+      "Course-correct early: stop Claude with Escape, use `/rewind` or checkpoints, and after two failed corrections on the same issue `/clear` and restart with a better prompt that incorporates what you learned, instead of piling corrections into a cluttered context.",
+      "Be specific: name files, scenarios and constraints, reference existing patterns in the codebase, describe symptoms with the likely location and what \"fixed\" looks like."
+    ],
+    "docs": [
+      { "title": "Best practices: verification, specificity, interviewing, course-correcting", "url": "https://code.claude.com/docs/en/best-practices" },
+      { "title": "Common workflows", "url": "https://code.claude.com/docs/en/common-workflows" }
+    ]
+  },
+  "ci-cd": {
+    "summary": "Run Claude Code non-interactively in pipelines with -p, produce structured findings with --output-format json and --json-schema, keep re-runs free of duplicate comments, isolate review from generation, and feed CI project context through CLAUDE.md.",
+    "points": [
+      "`-p` (`--print`) runs Claude Code non-interactively: it processes the prompt, writes the result to stdout and exits. Without it the process waits for interactive input and the CI job hangs. There is no `--batch` flag or `CLAUDE_HEADLESS` variable.",
+      "`--output-format json` returns a JSON object with `result`, `session_id` and usage metadata; `stream-json` emits newline-delimited events. Pair `--output-format json` with `--json-schema '<schema>'` to get output that conforms to the schema in the `structured_output` field, which a script can post as inline PR comments. Asking for JSON in the prompt is not enforcement.",
+      "Piping works like any Unix tool: `gh pr diff 123 | claude -p \"...\" --output-format json`. Use `--append-system-prompt` to add reviewer instructions while keeping the default behaviour; `--max-turns` and `--max-budget-usd` cap runaway jobs.",
+      "`--allowedTools` pre-approves tools using permission-rule syntax (`Bash(git diff *)`); in a `-p` run a tool call that would otherwise prompt is denied, so listing only read-only tools makes a review job unable to modify the repository. `--dangerously-skip-permissions` or `yes |` removes the guardrail, not just the prompt.",
+      "`--bare` skips hooks, skills, MCP servers and CLAUDE.md for reproducible scripts, but do not use it when the job needs project context from CLAUDE.md.",
+      "CLAUDE.md is the mechanism for giving CI-invoked Claude Code project context: testing standards, valuable-test criteria, fixture conventions and review criteria, versioned with the code so every repository applies the same standard.",
+      "Re-runs after new commits: fetch the findings already posted on the PR, include them in the prompt, and instruct Claude to report only new or still-unaddressed issues. `--continue` does not help on ephemeral runners (sessions live on the machine that ran them) and exact-text deduplication cannot tell that a flagged line was fixed.",
+      "Test generation: provide the existing test files in context so Claude does not propose scenarios already covered, and document testing standards and available fixtures in CLAUDE.md to reduce low-value tests. \"More thorough\" adjectives and extra turns do not close these gaps.",
+      "Session context isolation: the session that generated code is worse at reviewing its own changes because it carries the assumptions behind them. Run the review as a separate instance with fresh context that sees only the diff and the criteria (a second `claude -p`, a reviewer subagent, or the Writer/Reviewer pattern).",
+      "Claude Code GitHub Actions (`anthropics/claude-code-action`) supports `@claude` mentions and prompt-driven automation; pass CLI flags through `claude_args`, keep API keys in secrets, grant only the permissions the workflow needs, and define standards in CLAUDE.md.",
+      "Batch versus real time (from the official samples): the Message Batches API suits overnight reports, not blocking pre-merge checks that developers wait on; results are correlated with `custom_id`."
+    ],
+    "docs": [
+      { "title": "Run Claude Code programmatically (non-interactive / headless)", "url": "https://code.claude.com/docs/en/headless" },
+      { "title": "CLI reference", "url": "https://code.claude.com/docs/en/cli-reference" },
+      { "title": "Claude Code GitHub Actions", "url": "https://code.claude.com/docs/en/github-actions" }
+    ]
+  }
+}
