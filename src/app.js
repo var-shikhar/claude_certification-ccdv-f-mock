@@ -96,7 +96,7 @@ function route() {
     case 'start': return viewStart(arg);
     case 'exam': return active ? viewExam() : (location.hash = '#/');
     case 'submit': return active ? viewSubmitReview() : (location.hash = '#/');
-    case 'results': return viewResults(decodeURIComponent(arg ?? ''));
+    case 'results': reviewIndex = 0; return viewResults(decodeURIComponent(arg ?? ''));
     case 'review': return viewAnswerReview(decodeURIComponent(arg ?? ''));
     case 'certificate': return viewCertificate(decodeURIComponent(arg ?? ''));
     case 'study': return viewStudy();
@@ -210,7 +210,7 @@ function viewStart(mode) {
 
       <form class="card" data-form="start" data-mode="${mode}">
         <h3>Difficulty mode</h3>
-        <p class="small muted">Each mode sets the mix of Foundational / Intermediate / Advanced items and the time limit. You get a full scored report at the end in every mode.</p>
+        <p class="small muted">Each mode sets the mix of item difficulties and the time limit. You get a full scored report at the end in every mode.</p>
         ${difficultyPicker(prefs.difficulty ?? 'standard', m.minutes, mode === 'full')}
 
         <label class="field"><span>Candidate name</span>
@@ -240,13 +240,16 @@ function viewStart(mode) {
 }
 
 function difficultyPicker(selected, baseMinutes, showCert) {
-  return `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:18px">
+  const levels = Object.keys(DIFFICULTY);
+  return `<div class="mode-grid">
     ${Object.entries(DIFFICULTY_MODES).map(([key, d]) => `
-      <label class="opt ${key === selected ? 'selected' : ''}" style="grid-template-columns:22px minmax(0,1fr)" data-action="choose-difficulty">
-        <input type="radio" name="difficulty" value="${key}" ${key === selected ? 'checked' : ''} style="position:static;opacity:1;pointer-events:auto;accent-color:var(--accent);margin-top:4px">
-        <span><b>${esc(d.label)}</b>${showCert && d.certificate ? ' <span class="pill ok">Certificate</span>' : ''}
-          <span class="small muted" style="display:block">${esc(d.blurb)}</span>
-          <span class="small" style="display:block;margin-top:4px">${Object.keys(DIFFICULTY).filter((k) => d.mix[k]).map((k) => `${esc(DIFFICULTY[k].label.slice(0, 3))} ${Math.round(d.mix[k] * 100)}%`).join(' · ')}${baseMinutes ? ` · ${Math.ceil(baseMinutes * d.timeFactor)} min` : d.timeFactor !== 1 ? ` · ${Math.round(d.timeFactor * 100)}% time` : ''}</span>
+      <label class="mode ${key === selected ? 'selected' : ''}" data-action="choose-difficulty">
+        <input type="radio" name="difficulty" value="${key}" ${key === selected ? 'checked' : ''}>
+        <span class="mode-body">
+          <span class="mode-title"><b>${esc(d.label)}</b>${showCert && d.certificate ? ' <span class="pill ok">Certificate</span>' : ''}</span>
+          <span class="small muted">${esc(d.blurb)}</span>
+          <span class="mix-bar" aria-hidden="true">${levels.map((k) => `<i class="lv${k}" style="flex:${Math.round((d.mix[k] ?? 0) * 100)}"></i>`).join('')}</span>
+          <span class="mix-legend small">${levels.filter((k) => d.mix[k]).map((k) => `<span><i class="lv${k}"></i>${esc(DIFFICULTY[k].label)} ${Math.round(d.mix[k] * 100)}%</span>`).join('')}<span class="mix-time">⏱ ${baseMinutes ? `${Math.ceil(baseMinutes * d.timeFactor)} min` : `${Math.round(d.timeFactor * 100)}% time`}</span></span>
         </span>
       </label>`).join('')}
   </div>`;
@@ -305,6 +308,7 @@ function viewExam() {
   const answeredCount = Object.values(active.responses).filter((r) => r.length).length;
   const multi = q.type === 'multi';
   const words = ['zero', 'one', 'two', 'three', 'four'];
+  const last = idx === n - 1;
 
   const optionsHtml = active.optionOrder[q.id].map((optId, i) => {
     const o = q.options.find((x) => x.id === optId);
@@ -314,65 +318,79 @@ function viewExam() {
     return `
       <label class="${cls}">
         <input type="${multi ? 'checkbox' : 'radio'}" name="opt" value="${o.id}" ${isSel ? 'checked' : ''} ${revealed ? 'disabled' : ''} data-action="pick">
-        <span class="letter">${LETTERS[i]}</span>
-        <span>${rich(o.text)}</span>
+        <span class="letter" aria-hidden="true">${LETTERS[i]}</span>
+        <span class="opt-text">${rich(o.text)}</span>
         ${revealed ? `<span class="why"><b>${o.correct ? 'Correct' : 'Incorrect'}.</b> ${rich(o.why)}</span>` : ''}
       </label>`;
   }).join('');
 
   const verdict = revealed ? isCorrect(q, selected) : null;
+  const title = active.mode === 'practice' ? 'Practice Drill' : `${EXAM.code} · ${MODES[active.mode].label}`;
 
-  render(shell(`
-    <div class="exam-bar">
-      <div class="wrap">
-        <b>${esc(MODES[active.mode].label)}</b>
-        <span class="pill">${esc(diffOf(active).label)}</span>
-        <span class="muted small">Item ${idx + 1} of ${n} · ${answeredCount} answered</span>
-        <span class="spacer"></span>
-        ${active.deadline ? `<span class="timer" id="timer" aria-label="Time remaining">${fmtClock(active.deadline - Date.now())}</span>` : ''}
-        <a class="btn sm" href="#/submit">Review &amp; submit</a>
-      </div>
-      <div class="progress"><i style="width:${(answeredCount / n) * 100}%"></i></div>
-    </div>
+  render(`
+    <div class="exam-shell">
+      <header class="exam-head">
+        <div class="exam-head-row">
+          <div class="exam-id">
+            <span class="exam-title">${esc(title)}</span>
+            <span class="exam-cand">${esc(active.candidate || diffOf(active).label)}</span>
+          </div>
+          <div class="exam-count" aria-live="polite"><b>${idx + 1}</b><span>/ ${n}</span></div>
+          ${active.deadline
+            ? `<div class="exam-clock"><span class="clock-label">Time remaining</span><span class="timer" id="timer" role="timer" aria-live="off">${fmtClock(active.deadline - Date.now())}</span></div>`
+            : '<div class="exam-clock"><span class="clock-label">Untimed</span><span class="timer">--:--</span></div>'}
+        </div>
+        <div class="progress" aria-hidden="true"><i style="width:${(answeredCount / n) * 100}%"></i></div>
+      </header>
 
-    <main class="wrap">
-      <div class="exam-layout">
-        <section class="card">
-          <div class="q-meta">
-            <span class="pill">Question ${idx + 1}</span>
-            ${active.mode === 'practice' ? `<span class="pill">Domain ${q.domain} · ${esc(skillById(q.skill).name)}</span>` : ''}
-            ${flagged ? '<span class="pill warn">Flagged for review</span>' : ''}
+      <div class="exam-body">
+        <main class="exam-main" id="exam-main">
+          <div class="q-head">
+            <span class="q-num">Question ${idx + 1}</span>
+            ${active.mode === 'practice' ? `<span class="pill">D${q.domain} · ${esc(skillById(q.skill).name)}</span>` : ''}
+            ${flagged ? '<span class="pill warn">⚑ Flagged</span>' : ''}
           </div>
           <div class="q-stem">${rich(q.stem)}</div>
           <p class="q-select">${multi ? `Select ${words[q.select] ?? q.select}.` : 'Select one.'}</p>
           <fieldset class="options" aria-label="Answer options">${optionsHtml}</fieldset>
 
           ${revealed ? `
-            <div class="notice explain" style="background:${verdict ? 'var(--ok-soft)' : 'var(--bad-soft)'}">
+            <div class="notice explain ${verdict ? 'good' : 'bad'}">
               <h3>${verdict ? '✓ Correct' : '✗ Incorrect'}</h3>
               <p style="margin:0">${rich(q.explanation)}</p>
               ${q.reference ? `<p class="small muted" style="margin:8px 0 0">Reference: ${esc(q.reference)}</p>` : ''}
             </div>` : ''}
+          ${active.instant && !revealed ? `<div class="q-check"><button class="btn primary" data-action="check" ${selected.length ? '' : 'disabled'}>Check answer</button></div>` : ''}
+          <p class="small muted key-hint">Keys: A–F select · ← → move · F flag · N navigator${active.instant ? ' · Enter check' : ''}</p>
+        </main>
 
-          <div class="q-actions">
-            <button class="btn" data-action="prev" ${idx === 0 ? 'disabled' : ''}>← Previous</button>
-            <button class="btn ${flagged ? 'primary' : ''}" data-action="flag" aria-pressed="${flagged}">⚑ ${flagged ? 'Unflag' : 'Flag'}</button>
-            ${active.instant && !revealed ? `<button class="btn primary" data-action="check" ${selected.length ? '' : 'disabled'}>Check answer</button>` : ''}
-            <span class="spacer"></span>
-            ${idx < n - 1
-              ? `<button class="btn ${active.instant && !revealed ? '' : 'primary'}" data-action="next">Next →</button>`
-              : `<a class="btn primary" href="#/submit">Finish →</a>`}
+        <aside class="exam-nav ${navOpen ? 'open' : ''}" id="exam-nav" aria-label="Question navigator">
+          <div class="exam-nav-head">
+            <b>Questions</b>
+            <span class="muted small">${answeredCount} answered · ${Object.values(active.flags).filter(Boolean).length} flagged</span>
+            <button class="btn sm ghost nav-close" data-action="toggle-nav" aria-label="Close navigator">✕</button>
           </div>
-          <p class="small muted" style="margin:14px 0 0">Keys: A–F select · ← / → move · F flag${active.instant ? ' · Enter check' : ''}</p>
-        </section>
-
-        <aside class="card navigator" aria-label="Question navigator">
-          <h3>Questions</h3>
           ${navigatorGrid()}
+          <div class="exam-nav-foot">
+            <a class="btn sm" href="#/submit">Review all &amp; end exam</a>
+          </div>
         </aside>
+        <div class="exam-backdrop ${navOpen ? 'open' : ''}" data-action="toggle-nav"></div>
       </div>
-    </main>`, { nav: false }));
 
+      <footer class="exam-foot">
+        <button class="btn" data-action="prev" ${idx === 0 ? 'disabled' : ''} aria-label="Previous question">‹ <span class="lbl">Previous</span></button>
+        <button class="btn ${flagged ? 'flag-on' : ''}" data-action="flag" aria-pressed="${flagged}">⚑ <span class="lbl">${flagged ? 'Flagged' : 'Flag'}</span></button>
+        <button class="btn nav-toggle" data-action="toggle-nav" aria-controls="exam-nav" aria-expanded="${navOpen}">▦ <span class="lbl">${answeredCount}/${n}</span></button>
+        <span class="spacer"></span>
+        ${last
+          ? `<a class="btn primary" href="#/submit">End exam</a>`
+          : `<button class="btn primary" data-action="next">Next ›</button>`}
+      </footer>
+      <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    </div>`);
+
+  document.documentElement.classList.add('in-exam');
   startTimer();
 }
 
@@ -385,10 +403,22 @@ function navigatorGrid() {
     else if (ans) cls += ' answered';
     if (active.flags[id]) cls += ' flagged';
     if (i === active.current) cls += ' current';
-    return `<button class="${cls}" data-action="goto" data-index="${i}" aria-label="Question ${i + 1}${ans ? ', answered' : ''}${active.flags[id] ? ', flagged' : ''}">${i + 1}</button>`;
+    return `<button class="${cls}" data-action="goto" data-index="${i}" aria-label="Question ${i + 1}${ans ? ', answered' : ', unanswered'}${active.flags[id] ? ', flagged' : ''}" ${i === active.current ? 'aria-current="true"' : ''}>${i + 1}</button>`;
   }).join('');
   return `<div class="nav-grid">${cells}</div>
-    <div class="legend"><span><i style="background:var(--surface-2);border-color:var(--muted)"></i>Answered</span><span><i></i>Unanswered</span><span><i style="background:var(--warn);border-color:var(--warn);border-radius:50%"></i>Flagged</span></div>`;
+    <div class="legend"><span><i class="lg-ans"></i>Answered</span><span><i></i>Unanswered</span><span><i class="lg-flag"></i>Flagged</span><span><i class="lg-cur"></i>Current</span></div>`;
+}
+
+let navOpen = false;
+const TIME_WARNINGS = [30, 15, 5, 1];
+
+function showToast(message, ms = 6000) {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = message;
+  t.hidden = false;
+  clearTimeout(showToast.h);
+  showToast.h = setTimeout(() => { t.hidden = true; }, ms);
 }
 
 function pick(optId) {
@@ -427,6 +457,15 @@ function startTimer() {
       el.classList.toggle('low', left <= 15 * 60_000 && left > 5 * 60_000);
       el.classList.toggle('critical', left <= 5 * 60_000);
     }
+    const minutesLeft = Math.ceil(left / 60_000);
+    active.warned ??= {};
+    for (const m of TIME_WARNINGS) {
+      if (minutesLeft <= m && !active.warned[m]) {
+        active.warned[m] = true;
+        store.setActive(active);
+        showToast(m === 1 ? 'Less than 1 minute remaining. The exam will submit automatically.' : `${m} minutes remaining.`);
+      }
+    }
     if (left <= 0) finishAttempt(true);
   };
   tick();
@@ -436,6 +475,7 @@ function startTimer() {
 function stopTimer() {
   if (timerHandle) clearInterval(timerHandle);
   timerHandle = null;
+  document.documentElement.classList.remove('in-exam');
 }
 
 // ---------------------------------------------------------------- review before submit
@@ -445,16 +485,16 @@ function viewSubmitReview() {
   const unanswered = ids.filter((id) => !(active.responses[id] ?? []).length);
   const flagged = ids.filter((id) => active.flags[id]);
 
-  render(shell(`
-    <div class="exam-bar">
-      <div class="wrap">
-        <b>${esc(MODES[active.mode].label)} — Review</b>
-        <span class="spacer"></span>
-        ${active.deadline ? `<span class="timer" id="timer">${fmtClock(active.deadline - Date.now())}</span>` : ''}
+  render(`
+    <header class="exam-head">
+      <div class="exam-head-row">
+        <div class="exam-id"><span class="exam-title">${esc(MODES[active.mode].label)} · Review</span><span class="exam-cand">${esc(active.candidate || diffOf(active).label)}</span></div>
+        <div class="exam-count"><b>${ids.length - unanswered.length}</b><span>/ ${ids.length} answered</span></div>
+        ${active.deadline ? `<div class="exam-clock"><span class="clock-label">Time remaining</span><span class="timer" id="timer">${fmtClock(active.deadline - Date.now())}</span></div>` : '<div class="exam-clock"><span class="clock-label">Untimed</span><span class="timer">--:--</span></div>'}
       </div>
-    </div>
+    </header>
     <main class="wrap" style="max-width:820px">
-      <h1>Review before you submit</h1>
+      <h1>Review before you end the exam</h1>
       <div class="grid grid-4" style="margin-bottom:20px">
         <div class="stat"><b>${ids.length - unanswered.length}</b><span>answered</span></div>
         <div class="stat"><b>${unanswered.length}</b><span>unanswered</span></div>
@@ -470,11 +510,13 @@ function viewSubmitReview() {
           <a class="btn sm" href="#/exam">Back to exam</a>
         </div>
       </div>
-      <div class="row">
+      <div class="card end-box">
+        <h3>End exam</h3>
+        <p class="muted">Once you end the exam you can't change answers. Your score report and full explanations appear immediately.</p>
         <button class="btn primary" data-action="submit">End exam and see results</button>
-        <span class="muted small">You can't change answers after this.</span>
       </div>
-    </main>`, { nav: false }));
+    </main>
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>`);
   startTimer();
 }
 
@@ -602,6 +644,8 @@ function viewResults(id) {
 
 // ---------------------------------------------------------------- answer review
 
+let reviewIndex = 0;
+
 function viewAnswerReview(id) {
   const r = store.getResult(id);
   if (!r) { location.hash = '#/history'; return; }
@@ -615,55 +659,89 @@ function viewAnswerReview(id) {
   };
   const filter = filters[reviewFilter] ? reviewFilter : 'all';
   const count = (k) => rows.filter(filters[k]).length;
+  const list = rows.map((row, i) => ({ row, i })).filter(({ row }) => filters[filter](row));
 
-  const items = rows.map((row, i) => ({ row, i })).filter(({ row }) => filters[filter](row)).map(({ row, i }) => {
-    const q = QUESTION_MAP.get(row.id);
-    if (!q) return '';
-    const order = r.optionOrder[q.id] ?? q.options.map((o) => o.id);
-    const keyLetters = order.map((oid, k) => (q.options.find((o) => o.id === oid).correct ? LETTERS[k] : null)).filter(Boolean);
-    const yourLetters = order.map((oid, k) => (row.selected.includes(oid) ? LETTERS[k] : null)).filter(Boolean);
-    return `
-      <article class="review-item" id="item-${i + 1}">
-        <div class="q-meta">
-          <span class="pill">Question ${i + 1}</span>
-          <span class="pill ${row.correct ? 'ok' : 'bad'}">${row.correct ? 'Correct' : row.answered ? 'Incorrect' : 'Unanswered'}</span>
-          <span class="pill">D${q.domain} · ${esc(skillById(q.skill).name)}</span>
-          <span class="pill">${DIFFICULTY[q.difficulty].label}</span>
-          ${r.flags[q.id] ? '<span class="pill warn">Flagged</span>' : ''}
-          ${q.source?.startsWith('Imported') ? '<span class="pill">Imported set</span>' : ''}
-        </div>
-        <div class="q-stem">${rich(q.stem)}</div>
-        <p class="small"><b>Your answer:</b> ${yourLetters.join(', ') || '—'} &nbsp; <b>Correct answer:</b> ${keyLetters.join(', ')}</p>
-        <div class="options">
-          ${order.map((oid, k) => {
-            const o = q.options.find((x) => x.id === oid);
-            const mine = row.selected.includes(oid);
-            const cls = 'opt locked' + (q.type === 'multi' ? ' multi' : '') + (o.correct ? ' key' : mine ? ' wrong' : '');
-            return `<div class="${cls}"><span class="letter">${LETTERS[k]}</span><span>${rich(o.text)}${mine ? ' <span class="pill">your choice</span>' : ''}</span>
-              <span class="why"><b>${o.correct ? 'Why it’s right:' : 'Why it’s wrong:'}</b> ${rich(o.why)}</span></div>`;
-          }).join('')}
-        </div>
-        <div class="notice explain">
-          <h3>Explanation</h3>
-          <p style="margin:0">${rich(q.explanation)}</p>
-          ${q.reference ? `<p class="small muted" style="margin:8px 0 0">Reference: ${esc(q.reference)}</p>` : ''}
-        </div>
-      </article>`;
+  if (!list.length) {
+    render(shell(`<main class="wrap" style="max-width:900px">
+      ${reviewHeader(r, filter, count)}
+      <section class="card"><p class="muted" style="margin:0">Nothing in this view.</p></section></main>`));
+    return;
+  }
+
+  reviewIndex = Math.max(0, Math.min(list.length - 1, reviewIndex));
+  const { row, i } = list[reviewIndex];
+  const q = QUESTION_MAP.get(row.id);
+  const order = r.optionOrder[q.id] ?? q.options.map((o) => o.id);
+  const keyLetters = order.map((oid, k) => (q.options.find((o) => o.id === oid).correct ? LETTERS[k] : null)).filter(Boolean);
+  const yourLetters = order.map((oid, k) => (row.selected.includes(oid) ? LETTERS[k] : null)).filter(Boolean);
+
+  const navCells = list.map(({ row: x, i: qi }, li) => {
+    let cls = 'nav-cell ' + (x.correct ? 'is-ok' : x.answered ? 'is-bad' : 'is-blank');
+    if (r.flags[x.id]) cls += ' flagged';
+    if (li === reviewIndex) cls += ' current';
+    return `<button class="${cls}" data-action="review-goto" data-index="${li}" aria-label="Question ${qi + 1}, ${x.correct ? 'correct' : x.answered ? 'incorrect' : 'unanswered'}">${qi + 1}</button>`;
   }).join('');
 
   render(shell(`
-    <main class="wrap" style="max-width:900px">
-      <div class="row" style="margin-bottom:8px">
-        <h1 style="margin:0">Answer review</h1>
-        <span class="spacer"></span>
-        <a class="btn sm" href="#/results/${encodeURIComponent(r.id)}">← Score report</a>
+    <main class="wrap" style="max-width:1100px">
+      ${reviewHeader(r, filter, count)}
+      <div class="review-layout">
+        <section class="card review-card">
+          <div class="q-head">
+            <span class="q-num">Question ${i + 1} of ${rows.length}</span>
+            <span class="pill ${row.correct ? 'ok' : 'bad'}">${row.correct ? '✓ Correct' : row.answered ? '✗ Incorrect' : '— Unanswered'}</span>
+            <span class="pill">D${q.domain} · ${esc(skillById(q.skill).name)}</span>
+            <span class="pill">${esc(DIFFICULTY[q.difficulty].label)}</span>
+            ${r.flags[q.id] ? '<span class="pill warn">⚑ Flagged</span>' : ''}
+            ${q.source?.startsWith('Imported') ? '<span class="pill">Imported set</span>' : ''}
+          </div>
+          <div class="q-stem">${rich(q.stem)}</div>
+          <p class="answer-line"><span>Your answer: <b>${yourLetters.join(', ') || '—'}</b></span><span>Correct answer: <b>${keyLetters.join(', ')}</b></span></p>
+          <div class="options">
+            ${order.map((oid, k) => {
+              const o = q.options.find((x) => x.id === oid);
+              const mine = row.selected.includes(oid);
+              const cls = 'opt locked' + (q.type === 'multi' ? ' multi' : '') + (o.correct ? ' key' : mine ? ' wrong' : '');
+              return `<div class="${cls}"><span class="letter" aria-hidden="true">${LETTERS[k]}</span><span class="opt-text">${rich(o.text)}${mine ? ' <span class="pill">your choice</span>' : ''}</span>
+                <span class="why"><b>${o.correct ? 'Why it’s right:' : 'Why it’s wrong:'}</b> ${rich(o.why)}</span></div>`;
+            }).join('')}
+          </div>
+          <div class="notice explain ${row.correct ? 'good' : 'bad'}">
+            <h3>Explanation</h3>
+            <p style="margin:0">${rich(q.explanation)}</p>
+            ${q.reference ? `<p class="small muted" style="margin:8px 0 0">Reference: ${esc(q.reference)}</p>` : ''}
+          </div>
+          <div class="review-actions">
+            <button class="btn" data-action="review-prev" ${reviewIndex === 0 ? 'disabled' : ''}>‹ Previous</button>
+            <span class="muted small">${reviewIndex + 1} of ${list.length} in this view</span>
+            <span class="spacer"></span>
+            ${reviewIndex < list.length - 1
+              ? '<button class="btn primary" data-action="review-next">Next ›</button>'
+              : `<a class="btn primary" href="#/results/${encodeURIComponent(r.id)}">Back to score report</a>`}
+          </div>
+          <p class="small muted key-hint" style="margin-top:12px">Keys: ← → move between questions</p>
+        </section>
+        <aside class="card review-nav" aria-label="Question navigator">
+          <h3 style="margin-bottom:8px">Questions</h3>
+          <div class="nav-grid">${navCells}</div>
+          <div class="legend"><span><i class="lg-ok"></i>Correct</span><span><i class="lg-bad"></i>Incorrect</span><span><i></i>Unanswered</span><span><i class="lg-flag"></i>Flagged</span></div>
+        </aside>
       </div>
-      <p class="muted">${esc(MODES[r.mode].label)} · ${r.score.scaled} / ${EXAM.scale.max} · ${r.score.passed ? 'Pass' : 'Fail'}</p>
-      <div class="tabs" role="tablist" style="margin-bottom:12px">
-        ${Object.keys(filters).map((k) => `<button role="tab" aria-selected="${k === filter}" class="${k === filter ? 'active' : ''}" data-action="filter" data-filter="${k}">${k[0].toUpperCase() + k.slice(1)} (${count(k)})</button>`).join('')}
-      </div>
-      <section class="card">${items || '<p class="muted" style="margin:0">Nothing in this view.</p>'}</section>
     </main>`));
+}
+
+function reviewHeader(r, filter, count) {
+  const filters = ['all', 'incorrect', 'correct', 'flagged', 'unanswered'];
+  return `
+    <div class="row" style="margin-bottom:6px">
+      <h1 style="margin:0">Answer review</h1>
+      <span class="spacer"></span>
+      <a class="btn sm" href="#/results/${encodeURIComponent(r.id)}">← Score report</a>
+    </div>
+    <p class="muted">${esc(MODES[r.mode].label)} · ${r.score.scaled} / ${EXAM.scale.max} · ${r.score.passed ? 'Pass' : 'Fail'}</p>
+    <div class="tabs" role="tablist" style="margin-bottom:14px">
+      ${filters.map((k) => `<button role="tab" aria-selected="${k === filter}" class="${k === filter ? 'active' : ''}" data-action="filter" data-filter="${k}">${k[0].toUpperCase() + k.slice(1)} (${count(k)})</button>`).join('')}
+    </div>`;
 }
 
 // ---------------------------------------------------------------- certificate
@@ -861,7 +939,7 @@ app.addEventListener('click', (e) => {
 
   switch (action) {
     case 'choose-difficulty':
-      el.closest('.grid').querySelectorAll('.opt').forEach((x) => x.classList.toggle('selected', x === el));
+      el.closest('.mode-grid').querySelectorAll('.mode').forEach((x) => x.classList.toggle('selected', x === el));
       break;
     case 'pick':
       e.preventDefault();
@@ -869,7 +947,13 @@ app.addEventListener('click', (e) => {
       break;
     case 'prev': go(active.current - 1); break;
     case 'next': go(active.current + 1); break;
-    case 'goto': go(Number(el.dataset.index)); break;
+    case 'goto': navOpen = false; go(Number(el.dataset.index)); break;
+    case 'toggle-nav':
+      navOpen = !navOpen;
+      document.getElementById('exam-nav')?.classList.toggle('open', navOpen);
+      document.querySelector('.exam-backdrop')?.classList.toggle('open', navOpen);
+      document.querySelector('.nav-toggle')?.setAttribute('aria-expanded', String(navOpen));
+      break;
     case 'flag': {
       const id = active.itemIds[active.current];
       active.flags[id] = !active.flags[id];
@@ -897,8 +981,12 @@ app.addEventListener('click', (e) => {
       break;
     case 'filter':
       reviewFilter = el.dataset.filter;
+      reviewIndex = 0;
       route();
       break;
+    case 'review-goto': reviewIndex = Number(el.dataset.index); route(); break;
+    case 'review-prev': reviewIndex -= 1; route(); break;
+    case 'review-next': reviewIndex += 1; route(); break;
     case 'print': window.print(); break;
     case 'jump':
       e.preventDefault();
@@ -955,6 +1043,11 @@ app.addEventListener('submit', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
+  if (location.hash.startsWith('#/review/') && !e.metaKey && !e.ctrlKey && !e.altKey && !e.target.closest('input, textarea, select')) {
+    if (e.key === 'ArrowRight') { e.preventDefault(); el('[data-action="review-next"]')?.click(); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); el('[data-action="review-prev"]')?.click(); }
+    return;
+  }
   if (!active || location.hash !== '#/exam') return;
   if (e.target.closest('input[type="text"], textarea, select') || e.metaKey || e.ctrlKey || e.altKey) return;
   const key = e.key.toUpperCase();
@@ -965,6 +1058,8 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight') { e.preventDefault(); go(active.current + 1); }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); go(active.current - 1); }
   else if (key === 'F') { e.preventDefault(); el('[data-action="flag"]')?.click(); }
+  else if (key === 'N') { e.preventDefault(); el('.nav-toggle')?.click(); }
+  else if (e.key === 'Escape' && navOpen) { el('.nav-toggle')?.click(); }
   else if (e.key === 'Enter' && active.instant) { el('[data-action="check"]')?.click(); }
 });
 
@@ -981,7 +1076,11 @@ function confirmTwice(button, prompt) {
   return false;
 }
 
-window.addEventListener('beforeunload', () => { if (active) store.setActive(active); });
+window.addEventListener('beforeunload', (e) => {
+  if (!active) return;
+  store.setActive(active);
+  if (active.deadline) { e.preventDefault(); e.returnValue = ''; }
+});
 
 async function boot() {
   try {
