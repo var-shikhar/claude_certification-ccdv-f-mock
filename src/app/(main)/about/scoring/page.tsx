@@ -7,7 +7,7 @@ export default function ScoringPage() {
     <article className="mx-auto max-w-3xl space-y-8 px-4 py-10 sm:px-6">
       <header className="space-y-2">
         <h1 className="text-3xl font-bold sm:text-4xl">How scoring works</h1>
-        <p className="text-muted-foreground">certMonkey scores mocks the way certification exams report results, so a pass here means something.</p>
+        <p className="text-muted-foreground">quizMonkey scores mocks the way certification exams report results, so a pass here means something.</p>
       </header>
       <Section title="Criterion-referenced">
         You&apos;re measured against a fixed standard, not against other candidates. Everyone who clears the bar passes.

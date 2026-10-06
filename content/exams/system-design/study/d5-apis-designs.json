@@ -1,0 +1,44 @@
+{
+  "api-design": {
+    "summary": "Good APIs make retries safe, keep pages stable while data changes, stop clients overwriting each other, and pick a delivery mechanism that matches how data really flows.",
+    "points": [
+      "GET, HEAD, OPTIONS, PUT and DELETE are idempotent; POST and PATCH are not. Make POST safe to retry with an `Idempotency-Key` that the server claims atomically before doing the work and replays afterwards.",
+      "Use keyset (cursor) pagination for feeds and exports: sort by a unique key such as `(created_at, id)` and ask for rows after the last one seen. Offset pagination duplicates or skips rows when data changes, and it slows down on deep pages.",
+      "Prevent lost updates with ETags: `If-Match` on writes, `412 Precondition Failed` when the version is stale, and `428 Precondition Required` when the header is missing.",
+      "Long jobs return `202 Accepted` plus a status resource the client polls (or a webhook when done), rather than holding a connection open for minutes.",
+      "SSE for one-way server pushes over HTTP, WebSockets for chatty two-way traffic, webhooks for server-to-server notification, and long polling as the proxy-friendly fallback.",
+      "In GraphQL, fix N+1 resolvers with a per-request DataLoader that batches keys within one tick and memoises results for that request only."
+    ],
+    "traps": [
+      "Storing an idempotency key only after the side effect leaves a race: concurrent retries both miss the key and both charge.",
+      "A retried conditional PUT can get 412 because of its own first attempt. Re-read the resource before reporting a conflict.",
+      "Webhook signatures cover the raw bytes. Verifying against re-serialised JSON fails or covers the wrong content."
+    ],
+    "docs": [
+      { "title": "RFC 9110: HTTP Semantics", "url": "https://www.rfc-editor.org/rfc/rfc9110" },
+      { "title": "Stripe API: Idempotent requests", "url": "https://docs.stripe.com/api/idempotent_requests" },
+      { "title": "Use The Index, Luke: Paging Through Results", "url": "https://use-the-index-luke.com/sql/partial-results/fetch-next-page" }
+    ]
+  },
+  "case-designs": {
+    "summary": "End-to-end designs come down to a few recurring moves: make the critical write atomic, give each ordering domain a single owner, choose fan-out on write or on read deliberately, and split hot keys when one entity outgrows a shard.",
+    "points": [
+      "Check-then-act across separate statements is a race. Use a conditional `UPDATE ... WHERE <expected state>` and check the affected row count, or lock the row in the same transaction.",
+      "Model timeouts as data (`expires_at`) so that correctness doesn't depend on a sweeper job running on time.",
+      "Order per entity, not globally: route each room, account or order to one owner that assigns increasing sequence numbers, and let clients sync with \"everything after N\".",
+      "Fan-out on write is cheap to read but expensive for huge audiences; fan-out on read stores once and costs more at read time. Hybrid designs treat celebrities and big rooms specially.",
+      "One hot key caps throughput at one partition and one consumer. Salt the key into sub-keys and add a second stage that merges mergeable partial aggregates.",
+      "Exactly-once effects across services need an idempotency key created by whoever retries, and passed through to every system that performs the side effect."
+    ],
+    "traps": [
+      "Adding partitions doesn't help a single hot key: hashing still sends it to one partition.",
+      "Averages of averages and averages of percentiles are wrong. Merge (sum, count) pairs or quantile sketches instead.",
+      "Client or server wall clocks can't give a shared message order. Use sequence numbers from a single owner."
+    ],
+    "docs": [
+      { "title": "Designing Data-Intensive Applications (Kleppmann)", "url": "https://dataintensive.net/" },
+      { "title": "Apache Kafka Documentation", "url": "https://kafka.apache.org/documentation/" },
+      { "title": "Stripe Engineering: Designing robust and predictable APIs with idempotency", "url": "https://stripe.com/blog/idempotency" }
+    ]
+  }
+}

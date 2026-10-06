@@ -1,0 +1,44 @@
+{
+  "estimation": {
+    "summary": "Turn vague requirements into numbers you can design against: request rates, storage, bandwidth, concurrency and availability. Getting within a factor of two is the goal; a dropped zero is the real risk.",
+    "points": [
+      "A day has 86,400 seconds (about 10^5), so 1M requests/day is about 12 QPS on average. Multiply by a peak factor (often 2-5×) and leave headroom on top.",
+      "Storage = items/day × bytes/item × retention × replication factor. Write out the units at every step.",
+      "Bandwidth is quoted in bits and storage in bytes. 1 MB/s = 8 Mbps, so mixing them is an 8× error.",
+      "Little's Law: in-flight requests = arrival rate × average time in the system (L = λW). Use it to size thread pools, connection pools and worker counts.",
+      "Know the latency ladder: RAM about 100 ns, same-datacenter round trip about 0.5 ms, disk seek about 10 ms, intercontinental round trip about 150 ms.",
+      "Availability: serial dependencies multiply their availabilities, while redundant replicas multiply their unavailabilities. Fan-out turns a leaf's rare p99 into the common case: 1 − 0.99^100 ≈ 63%."
+    ],
+    "traps": [
+      "Sizing for the daily average instead of the peak hour.",
+      "Assuming redundant replicas fail independently, when shared deploys, configs and zones make them fail together.",
+      "Averaging latencies by hit ratio the wrong way round: at an 80% hit ratio, the database still dominates the mean."
+    ],
+    "docs": [
+      { "title": "Latency numbers every programmer should know", "url": "https://gist.github.com/jboner/2841832" },
+      { "title": "The Tail at Scale (Dean & Barroso)", "url": "https://research.google/pubs/the-tail-at-scale/" },
+      { "title": "Google SRE book: Availability table", "url": "https://sre.google/sre-book/availability-table/" }
+    ]
+  },
+  "scaling-basics": {
+    "summary": "Scale out by making instances interchangeable, routing work to them with the right balancing policy, and watching the real saturation signal. Know where adding machines stops helping.",
+    "points": [
+      "Vertical scaling (a bigger box) is simple but has a ceiling and leaves a single point of failure. Horizontal scaling (more boxes) needs stateless instances or partitioned state.",
+      "Keep request-handling tiers stateless: put sessions in a shared store or in signed client tokens so any instance can serve any request.",
+      "A layer-4 balancer works per TCP connection. A layer-7 balancer works per request, can route by path or header, and must terminate TLS to do so.",
+      "Round robin assumes equal-cost requests. Least-outstanding-requests or power-of-two-choices handle variable costs, and power of two is robust to stale load information.",
+      "Modulo hashing remaps about N/(N+1) of keys when a node is added. Consistent hashing remaps only about 1/(N+1).",
+      "Scale on the resource that actually saturates. An I/O-bound tier needs concurrency or latency signals, not CPU, and scaling it out can overload the database behind it."
+    ],
+    "traps": [
+      "Treating sticky sessions as a scaling strategy: state still dies with the instance.",
+      "Expecting more nodes to always add throughput. Cross-node coordination (the coherency cost) can make throughput fall.",
+      "Terminating instances without draining them first, which drops in-flight requests on every deploy."
+    ],
+    "docs": [
+      { "title": "Google SRE book: Load Balancing in the Datacenter", "url": "https://sre.google/sre-book/load-balancing-datacenter/" },
+      { "title": "NGINX: HTTP load balancing (methods, slow start)", "url": "https://docs.nginx.com/nginx/admin-guide/load-balancer/http-load-balancer/" },
+      { "title": "AWS ALB target groups: Deregistration delay", "url": "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#deregistration-delay" }
+    ]
+  }
+}

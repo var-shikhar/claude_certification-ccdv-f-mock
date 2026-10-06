@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og';
 
-export const alt = 'certMonkey: mock exams, quizzes and interview practice';
+export const alt = 'quizMonkey: mock exams, quizzes and interview practice';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -16,7 +16,7 @@ export default function OpengraphImage() {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 18, fontSize: 40, fontWeight: 700 }}>
           <div style={{ width: 64, height: 64, borderRadius: 32, background: '#6b3a1a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 34 }}>🐒</div>
-          <span>cert<span style={{ color: '#e86500' }}>Monkey</span></span>
+          <span>quiz<span style={{ color: '#e86500' }}>Monkey</span></span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <div style={{ fontSize: 76, fontWeight: 800, lineHeight: 1.05, letterSpacing: -2 }}>Practise like it&apos;s exam day.</div>

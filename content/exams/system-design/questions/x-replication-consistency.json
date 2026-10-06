@@ -1,0 +1,1296 @@
+[
+  {
+    "id": "SD-REP-011",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "An interviewer asks you to state the CAP theorem precisely. Which statement is the accurate one?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A distributed database can offer at most two of consistency, availability and partition tolerance, so you pick two at design time",
+        "why": "The \"pick two\" slogan misleads: partitions are not optional, so the real choice only arises while a partition is happening."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "While a network partition separates replicas, each request must either be refused or risk returning stale data",
+        "why": "That is the theorem: during a partition, you trade linearizable consistency against availability for the affected requests."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A system that replicates data can never be both consistent and highly available, even when the network is healthy",
+        "why": "With no partition, a system can be both linearizable and available. CAP says nothing about the no-partition case."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Consistency in CAP means the database enforces its constraints, such as foreign keys and unique indexes, on every write",
+        "why": "That is the C of ACID. The C in CAP means linearizability: every read sees the latest completed write."
+      }
+    ],
+    "explanation": "Network partitions happen whether you like it or not, so CAP is really a statement about behaviour during one: a node cut off from the others must either reject requests (staying consistent) or serve them with possibly stale data (staying available). CAP's consistency is linearizability, and its availability means every non-failed node answers every request. Outside partitions, CAP is silent; PACELC covers the latency-versus-consistency trade-off that applies the rest of the time.",
+    "reference": "Kleppmann, DDIA ch. 9; Gilbert & Lynch (2002)"
+  },
+  {
+    "id": "SD-REP-012",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A PostgreSQL primary replicates asynchronously to one standby. The primary's disk fails permanently, and the team promotes the standby. What can happen to writes that clients saw as successfully committed just before the failure?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing is lost, because a commit is only acknowledged once the write-ahead log record has reached the standby",
+        "why": "That describes synchronous replication. Asynchronous replication acknowledges after the local flush only."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "They are replayed automatically on the promoted standby from the failed primary's write-ahead log during promotion",
+        "why": "The failed primary's log is on the dead disk. Promotion can only use the log the standby already received."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The most recent acknowledged commits can be lost, because the standby had not received them yet",
+        "why": "With asynchronous replication, commits acknowledged during the replication lag window exist only on the primary."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "They are kept, but the promoted standby rejects all new writes until an administrator reconciles the two copies",
+        "why": "Promotion makes the standby a normal writable primary. Nothing reconciles the missing commits; they are simply gone."
+      }
+    ],
+    "explanation": "Asynchronous replication acknowledges a commit as soon as the primary has made it durable locally. Anything committed in the replication lag window, often milliseconds but sometimes seconds or more under load, exists only on the primary. If that machine is lost and a standby is promoted, those acknowledged writes disappear. The RPO of asynchronous replication is therefore \"up to the replication lag\", not zero.",
+    "reference": "PostgreSQL docs: High Availability, Load Balancing, and Replication"
+  },
+  {
+    "id": "SD-REP-013",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "A database with two up-to-date read replicas in other availability zones does not also need backups, because the replicas already hold full copies of the data.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Replicas faithfully copy mistakes too: a bad migration, a `DELETE` without a `WHERE`, or corrupted data reaches every replica within seconds."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: replicas protect against losing a machine, not against bad writes. Only point-in-time backups let you go back to before the mistake."
+      }
+    ],
+    "explanation": "Replication and backup solve different problems. Replication gives high availability when hardware fails. Backups, ideally base backups plus archived write-ahead log for point-in-time recovery, let you restore the state from before an accidental deletion, a buggy deploy or ransomware. Every replica applies the bad change too, so you need both.",
+    "reference": "Google SRE book, ch. 26: Data Integrity"
+  },
+  {
+    "id": "SD-REP-014",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "To speed up writes, a database is configured to acknowledge a commit as soon as the change reaches the operating system's page cache, without waiting for `fsync` to disk. What is the risk?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Readers may see uncommitted data from other transactions until the next checkpoint runs",
+        "why": "Visibility is governed by isolation and MVCC, not by when pages are flushed."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A power loss or kernel crash can lose transactions the client was told had committed",
+        "why": "The page cache lives in RAM, so acknowledged changes vanish if the machine goes down before the flush."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The database becomes unable to replicate to followers until the data has been flushed",
+        "why": "Replication streams the log independently; skipping fsync weakens local durability, not replication."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Nothing, because a database process crash alone never loses data that the OS already holds",
+        "why": "True for a process crash only. A power failure or OS crash still wipes the page cache."
+      }
+    ],
+    "explanation": "Durability, the D in ACID, means a committed transaction survives a crash. That requires the log record to reach stable storage (fsync) before the commit is acknowledged. Settings like PostgreSQL `synchronous_commit = off` or MySQL `innodb_flush_log_at_trx_commit = 2` trade a small window of possible loss for speed. Group commit is the usual way to keep durability while amortising fsync cost across many transactions.",
+    "reference": "PostgreSQL docs: WAL reliability"
+  },
+  {
+    "id": "SD-REP-015",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Transaction T1 updates an account balance from 100 to 0 but has not committed yet. Transaction T2 reads the balance and sees 0. T1 then rolls back. Which anomaly did T2 experience, and what is the weakest standard isolation level that prevents it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A dirty read, prevented by READ COMMITTED",
+        "why": "T2 saw data from a transaction that never committed. READ COMMITTED only ever shows committed data."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A non-repeatable read, which only REPEATABLE READ or a stronger isolation level is able to prevent",
+        "why": "A non-repeatable read involves two reads of committed values that differ. Here the value was never committed."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A phantom read, because a value appeared and then vanished, which only SERIALIZABLE isolation prevents",
+        "why": "Phantoms are about rows matching a search condition appearing or disappearing, not one row's uncommitted value."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A lost update, which happens whenever one transaction's change is rolled back after another has already read it",
+        "why": "A lost update is two committed writes where one silently overwrites the other. Nothing was overwritten here."
+      }
+    ],
+    "explanation": "Reading another transaction's uncommitted change is a dirty read. If that transaction aborts, the reader has acted on a value that never existed. READ COMMITTED, the default in PostgreSQL, Oracle and SQL Server, prevents it; PostgreSQL never allows dirty reads even if you ask for READ UNCOMMITTED.",
+    "reference": "Berenson et al., A Critique of ANSI SQL Isolation Levels (1995)"
+  },
+  {
+    "id": "SD-REP-016",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A multi-leader database resolves conflicting writes with last-write-wins (LWW): the version with the highest timestamp is kept. Two users in different regions edit the same profile field at almost the same moment. What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both edits are kept as sibling versions, and the next read returns both of them so that the app can merge",
+        "why": "Keeping siblings is what version vectors do. LWW deliberately picks one version and throws the other away."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The second region rejects its write with a conflict error, so the user can retry it against the latest value",
+        "why": "Multi-leader systems accept writes locally and find conflicts later, during replication, when the user is gone."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The two edits are merged character by character into a combined value, in the order their timestamps imply",
+        "why": "Merging text needs an application-specific algorithm or a CRDT. LWW never merges anything."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "One edit silently replaces the other, and the losing user is never told",
+        "why": "LWW converges by discarding every concurrent write except the one with the highest timestamp."
+      }
+    ],
+    "explanation": "Last-write-wins is popular because it always converges with no extra metadata, but it does so by silently dropping data: of concurrent writes, only one survives. It is acceptable for values where losing a concurrent update doesn't matter (a cache, a \"last seen\" time) and dangerous for anything users expect to keep, such as cart contents or document edits.",
+    "reference": "Kleppmann, DDIA ch. 5: Handling Write Conflicts"
+  },
+  {
+    "id": "SD-REP-017",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each replication approach with how it handles writes.",
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Single-leader (primary/replica)",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Multi-leader",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Leaderless (Dynamo-style)",
+        "answer": "C"
+      }
+    ],
+    "options": [
+      {
+        "id": "A",
+        "text": "One node accepts all writes and streams them to the others, which serve reads"
+      },
+      {
+        "id": "B",
+        "text": "Several nodes, often one per region, accept writes and replicate to each other, so concurrent conflicting writes must be resolved"
+      },
+      {
+        "id": "C",
+        "text": "The client or a coordinator sends each write to several replicas and treats it as done once a quorum acknowledges"
+      },
+      {
+        "id": "D",
+        "text": "Each node holds a different subset of the keys, and no data is copied between nodes"
+      }
+    ],
+    "explanation": "Single-leader replication (PostgreSQL, MySQL, MongoDB replica sets) is simplest and avoids write conflicts. Multi-leader (for example multi-region setups with bidirectional replication) gives local write latency in every region but needs conflict resolution. Leaderless (Cassandra, Riak, DynamoDB's ancestor Dynamo) uses quorums, read repair and anti-entropy. The unused option describes partitioning, which is separate from replication.",
+    "reference": "Kleppmann, DDIA ch. 5"
+  },
+  {
+    "id": "SD-REP-018",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "Two transactions each read a counter as 10, add 1 in application code, and write back 11. One increment has vanished. This anomaly is called a ____ update. Type the missing word.",
+    "options": [],
+    "accepted": [
+      "lost",
+      "lost update"
+    ],
+    "explanation": "A lost update happens in any read-modify-write cycle where two transactions read the same value and the second write overwrites the first. Fixes: an atomic update (`UPDATE ... SET n = n + 1`), an explicit lock (`SELECT ... FOR UPDATE`), compare-and-set on a version column, or an isolation level that detects the conflict.",
+    "reference": "Kleppmann, DDIA ch. 7: Preventing Lost Updates"
+  },
+  {
+    "id": "SD-REP-019",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A product page reads from an eventually consistent store. What does eventual consistency actually promise?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Every read returns a value that is at most a few seconds old, as long as the network between replicas is healthy",
+        "why": "Eventual consistency gives no time bound. Bounded staleness is a separate, stronger guarantee."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Reads may be stale, but a single client never sees a value older than one it has already read",
+        "why": "That is monotonic reads, a session guarantee that plain eventual consistency does not include."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "If writes to an item stop, all replicas eventually return the same value, with no bound on when",
+        "why": "That is the whole promise: convergence eventually, with no guarantee about how long or what you see before."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Writes are applied to replicas in the same order everywhere, so stale reads always show an earlier committed state",
+        "why": "Agreeing on order is consistent prefix or stronger. Eventual consistency alone doesn't promise it."
+      }
+    ],
+    "explanation": "Eventual consistency is a liveness guarantee only: stop writing and the replicas converge. It says nothing about how stale a read can be, whether you will see your own writes, or whether time appears to go backwards between reads. Real systems usually add session guarantees (read-your-writes, monotonic reads, consistent prefix) on top when users would notice.",
+    "reference": "Vogels, Eventually Consistent (CACM 2009)"
+  },
+  {
+    "id": "SD-REP-020",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A PostgreSQL primary has `synchronous_standby_names = 'standby1'` and `synchronous_commit = on`. It has no other standbys. The standby1 server crashes. What happens to new write transactions on the primary?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "They commit normally, because PostgreSQL automatically falls back to asynchronous mode after a short timeout",
+        "why": "That is MySQL semi-sync behaviour (rpl_semi_sync_master_timeout). PostgreSQL has no automatic fallback."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "They fail immediately with an error, so that applications know durability on a second server is unavailable",
+        "why": "PostgreSQL doesn't reject them. The commit is written locally and then waits for confirmation."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Their commits hang, waiting for a standby to confirm, until one reconnects or an operator changes the setting",
+        "why": "Synchronous replication in PostgreSQL waits indefinitely, which is why one synchronous standby is usually paired with others."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "They are committed on the primary and queued, then replayed to standby1 and acknowledged when it comes back",
+        "why": "Clients don't get an acknowledgement until a synchronous standby confirms. Nothing is acknowledged in the meantime."
+      }
+    ],
+    "explanation": "With a single named synchronous standby, the standby is a single point of failure for writes: commits wait for it, without limit. Production setups therefore list several candidates, such as `synchronous_standby_names = 'ANY 1 (s1, s2)'`, so any one of them can confirm, or use a failover manager that rewrites the setting. MySQL semi-sync takes the other side of the trade-off and silently degrades to asynchronous replication after a timeout, risking data loss to stay available.",
+    "reference": "PostgreSQL docs: Synchronous Replication"
+  },
+  {
+    "id": "SD-REP-021",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A flash-sale service reads `stock` with `SELECT stock FROM items WHERE id = 7`, checks in application code that it is above 0, and writes `UPDATE items SET stock = <value - 1> WHERE id = 7`. Under load, more units are sold than exist. The database uses READ COMMITTED. What is the simplest correct fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Cache the stock value in Redis and decrement it there first, writing the result back to the database every second",
+        "why": "This moves the same read-then-write race to Redis and adds a window where the two stores disagree."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Run `UPDATE items SET stock = stock - 1 WHERE id = 7 AND stock > 0` and treat 0 updated rows as sold out",
+        "why": "The database does the check and the decrement atomically on the latest row version, so no two sales can use the same unit."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Wrap the existing SELECT and UPDATE in an explicit transaction, so that both statements run as a single unit",
+        "why": "Under READ COMMITTED a transaction alone doesn't stop two buyers reading the same stock before either writes."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Retry the whole purchase whenever the database reports a deadlock, and add a short random delay between retries",
+        "why": "No deadlock occurs here: both updates succeed, one silently overwriting the other. Retrying on deadlock never triggers."
+      }
+    ],
+    "explanation": "The bug is a lost update caused by read-modify-write in the application. A conditional atomic update fixes it: the row lock taken by `UPDATE` serialises concurrent buyers, and each re-checks `stock > 0` against the latest committed version. Alternatives are `SELECT ... FOR UPDATE` inside a transaction, or optimistic concurrency with a version column, but the single statement is simplest and fastest.",
+    "reference": "PostgreSQL docs: Transaction Isolation (Read Committed)"
+  },
+  {
+    "id": "SD-REP-022",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "An admin screen loads a product with its `version` column, the user edits it for a few minutes, and the save runs `UPDATE products SET ..., version = version + 1 WHERE id = $1 AND version = $2`. Which statements about this optimistic concurrency scheme are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "If the update affects 0 rows, someone else saved first, so the app should reload and show the conflict",
+        "why": "A version mismatch is how the scheme detects that the row changed since it was read."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "No database lock is held while the user is editing, so a slow user never blocks anyone else",
+        "why": "The check happens only at save time, which is why optimistic locking suits long user think time."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It only works when every transaction runs at SERIALIZABLE isolation, which makes the version comparison safe",
+        "why": "The conditional update is atomic at READ COMMITTED; the `WHERE version = $2` check runs against the latest row version."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It also prevents write skew between two different products, since every product row carries its own version",
+        "why": "Each update only checks its own row. A rule spanning rows, such as a total across products, can still be broken."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "It keeps the row locked from the moment the product is first loaded until the user finally clicks save",
+        "why": "That would be pessimistic locking, such as `SELECT ... FOR UPDATE` held across user think time."
+      }
+    ],
+    "explanation": "Optimistic concurrency control turns a lost update into a detected conflict: the second save matches 0 rows and the app can show a merge or retry. It holds no locks across user think time, which makes it the standard choice for edit forms and for HTTP `If-Match` APIs. It protects one row at a time, so invariants across rows still need a transaction with locks, constraints or SERIALIZABLE isolation.",
+    "reference": "Fowler, Patterns of Enterprise Application Architecture: Optimistic Offline Lock"
+  },
+  {
+    "id": "SD-REP-023",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A Q&A site stores posts in a store that is partitioned by post id, with each partition replicated asynchronously. Alice asks a question; Bob reads it and posts an answer. Carol, reading from replicas, sees Bob's answer but not Alice's question, which shows up a few seconds later. Which guarantee was violated?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Read-your-writes, because Carol's view of the thread did not reflect the writes that had already been committed",
+        "why": "Read-your-writes is about a user seeing their own writes. Carol wrote nothing."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Monotonic reads, because Carol's view moved backwards in time between two of her successive page reloads",
+        "why": "Carol never saw something and then lost it. She saw an effect before its cause."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Consistent prefix reads (causality): she saw an answer before the question it depends on",
+        "why": "The answer causally depends on the question, but the two writes landed in different partitions with different lag."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Linearizability of each partition, because every partition must return its latest write to every reader",
+        "why": "Even linearizable partitions can show this, since the problem is ordering across partitions."
+      }
+    ],
+    "explanation": "Consistent prefix reads means that if writes happen in a certain order, anyone reading them sees them in that order. Partitioned stores break this when causally related writes land in different partitions that replicate independently. Fixes: put causally related data in the same partition (thread id as partition key), or track causal dependencies so a read waits for them, as in causally consistent stores like COPS or MongoDB causal sessions.",
+    "reference": "Kleppmann, DDIA ch. 5: Consistent Prefix Reads"
+  },
+  {
+    "id": "SD-REP-024",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In PostgreSQL at the default READ COMMITTED level, running the same `SELECT balance FROM accounts WHERE id = 1` twice inside one transaction can return two different values.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: each statement at READ COMMITTED gets a fresh snapshot, so a commit by another transaction between the two reads is visible to the second."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "One snapshot per transaction is REPEATABLE READ. At READ COMMITTED the snapshot is taken per statement."
+      }
+    ],
+    "explanation": "This is a non-repeatable read, and READ COMMITTED allows it. It matters for reports and multi-step logic that assume a stable view: a report summing balances across several queries can see money \"in flight\". Use REPEATABLE READ (a transaction-wide snapshot in PostgreSQL) for consistent read-only reports and backups.",
+    "reference": "PostgreSQL docs: Transaction Isolation"
+  },
+  {
+    "id": "SD-REP-025",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "You are doing a planned switchover from a PostgreSQL primary to its asynchronous standby, for maintenance, with zero data loss. Put the steps in the right order.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Stop writes to the old primary (make it read-only or block application writes)"
+      },
+      {
+        "id": "B",
+        "text": "Wait until the standby has received and replayed all write-ahead log, so lag is zero"
+      },
+      {
+        "id": "C",
+        "text": "Promote the standby to be the new primary"
+      },
+      {
+        "id": "D",
+        "text": "Point applications at the new primary (update the proxy, DNS or service discovery)"
+      },
+      {
+        "id": "E",
+        "text": "Rebuild or rewind the old primary and attach it as a standby of the new primary"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "Writes must stop first, otherwise commits can land on the old primary after the standby has caught up and be lost. Only once lag is zero is promotion lossless. Clients move after promotion, and the old primary rejoins last, typically with `pg_rewind` to discard any divergent history. Failover managers such as Patroni automate exactly this sequence.",
+    "reference": "Patroni docs: switchover; PostgreSQL docs: Failover"
+  },
+  {
+    "id": "SD-REP-026",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "In a Cassandra cluster with replication factor 3, one replica was down for six hours and missed writes to some keys. Hints are only kept for the default 3-hour window, so they have expired. Some of those keys are cold and will not be read for months. Which mechanism brings that replica up to date for the cold keys?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Read repair, which compares replicas during each read and writes the newer value back to any replica that is stale",
+        "why": "Read repair only runs when a key is read, so keys nobody reads stay stale."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Anti-entropy repair, which compares Merkle trees of replicas' data and streams only the differing ranges",
+        "why": "Repair scans all data in the background, so it fixes keys whether or not they are read."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Hinted handoff, since the coordinator kept every missed write and resends all of them once the replica is back",
+        "why": "Hints are kept only for a limited window (3 hours by default) and the scenario says they expired."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Raising the read consistency level to ALL, which makes every replica reconcile its entire key range immediately",
+        "why": "Consistency levels affect individual requests, not a bulk sync of keys nobody requests."
+      }
+    ],
+    "explanation": "Leaderless stores use three complementary repair paths: hinted handoff for short outages, read repair for keys that are read, and anti-entropy for everything else. Anti-entropy builds Merkle trees (hash trees) over token ranges, so two replicas can find the differing ranges by exchanging a few hashes instead of all data. In Cassandra you must run `nodetool repair` regularly, within `gc_grace_seconds`, or deleted data can come back.",
+    "reference": "Apache Cassandra docs: Repair; DeCandia et al., Dynamo (2007)"
+  },
+  {
+    "id": "SD-REP-027",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 2,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each anomaly with the weakest ANSI SQL isolation level that rules it out, as the standard defines them.",
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Dirty read: seeing another transaction's uncommitted change",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Non-repeatable read: re-reading a row and getting a different committed value",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Phantom read: re-running a range query and getting new rows",
+        "answer": "C"
+      }
+    ],
+    "options": [
+      {
+        "id": "A",
+        "text": "READ COMMITTED"
+      },
+      {
+        "id": "B",
+        "text": "REPEATABLE READ"
+      },
+      {
+        "id": "C",
+        "text": "SERIALIZABLE"
+      },
+      {
+        "id": "D",
+        "text": "READ UNCOMMITTED"
+      }
+    ],
+    "explanation": "The ANSI levels are defined by which of these three phenomena they forbid. Real engines differ: PostgreSQL's REPEATABLE READ is snapshot isolation and also prevents phantoms but allows write skew, while MySQL InnoDB's REPEATABLE READ uses next-key locks for locking reads. Berenson et al. showed the ANSI definitions miss anomalies such as lost update and write skew, so always check what your engine actually implements.",
+    "reference": "Berenson et al., A Critique of ANSI SQL Isolation Levels (1995)"
+  },
+  {
+    "id": "SD-REP-028",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "In a design review, colleagues make claims about CAP and PACELC. Which two claims are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "PACELC adds that even with no partition, replicated systems trade latency against consistency",
+        "why": "The \"else\" half: synchronous coordination across replicas costs round trips on every operation."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A system labelled \"CP\" may refuse some requests during a partition, so it is not highly available then",
+        "why": "CP means choosing consistency during the partition, so cut-off nodes or minorities stop serving."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A relational database on one server is a \"CA\" system, which is why it scales to many regions safely",
+        "why": "One server can't be partitioned from itself, and it can't span regions. \"CA\" isn't a meaningful choice for a distributed system."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Availability in CAP means the system meets an uptime target such as 99.99% each month",
+        "why": "CAP availability is binary: every request to a non-failed node gets a response, no matter what SLA you have."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "An AP system cannot offer any consistency guarantees, so reads are effectively random",
+        "why": "AP systems commonly offer eventual, causal and session guarantees; they just give up linearizability during partitions."
+      }
+    ],
+    "explanation": "CAP is narrow: linearizability versus total availability, only during partitions. PACELC (Abadi) adds the everyday trade-off: else, latency versus consistency. A CP system such as etcd or ZooKeeper stops serving on the minority side; an AP system such as Cassandra keeps serving with weaker, but not absent, guarantees. Uptime SLAs are a different notion of availability entirely.",
+    "reference": "Abadi, Consistency Tradeoffs in Modern Distributed Database System Design (2012)"
+  },
+  {
+    "id": "SD-REP-029",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A shopping cart is replicated across two regions with multi-leader writes. Concurrently, the user adds a charger in region 1 while, in region 2, a different tab removes the phone case that had been in the cart before. Users complain that removed items come back, or that added items vanish. Which merge strategy gives the behaviour users expect: both changes kept, and removed items staying removed?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Last-write-wins on the whole cart, using the timestamp of each region's most recent write to the cart",
+        "why": "LWW keeps one region's whole cart and drops the other's change, which is why added items vanish."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Take the union of both versions of the cart whenever they conflict, keeping any item present in either one",
+        "why": "That is how Amazon's Dynamo cart behaved: no add is lost, but the removed item reappears from the other version."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A grow-only set CRDT, which merges replicas by union so that concurrent additions are never lost",
+        "why": "A G-Set never supports removal at all, so the phone case can't be removed."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "An observed-remove set CRDT: each add gets a unique tag, and a remove deletes only the tags it has seen",
+        "why": "The concurrent add has a tag the remove never saw, so it survives, while the observed phone-case tag is removed everywhere."
+      }
+    ],
+    "explanation": "An OR-Set (add-wins set) tags every insertion uniquely, and a removal records the tags it observed. On merge, an element is present if it has any tag not covered by a removal. That keeps concurrent adds, makes removals stick, and converges without coordination. Union merges, as in the original Dynamo cart, resurrect deleted items; LWW loses updates. Libraries such as Automerge and Riak data types provide these CRDTs.",
+    "reference": "Shapiro et al., A comprehensive study of CRDTs (2011)"
+  },
+  {
+    "id": "SD-REP-030",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A MySQL primary with auto-increment ids fails. Its asynchronous replica, a few seconds behind, is promoted, so the last 10 issued ids (1001 to 1010) were never replicated. The new primary issues ids 1001 to 1010 again for new rows. A Redis cache keyed by row id still holds data for the old rows. What is the most serious consequence?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Inserts on the new primary fail with duplicate-key errors until an operator resets its auto-increment counter",
+        "why": "The new primary never saw ids 1001 to 1010, so for it they are free and inserts succeed."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Cached data for the lost rows is served for new, unrelated rows that reuse those ids, possibly to other users",
+        "why": "Systems outside the database still reference the discarded ids, so reuse links them to someone else's data."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Only the 10 lost writes are affected, and they can be replayed from the failed primary once it is repaired",
+        "why": "Replaying them now collides with the reused ids, and meanwhile other systems already acted on the wrong mapping."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Nothing visible happens, because Redis entries are invalidated automatically when the database primary changes",
+        "why": "Redis knows nothing about database failovers. Its entries stay until they expire or are deleted."
+      }
+    ],
+    "explanation": "This happened at GitHub in 2012: a lagging MySQL replica was promoted, reused primary keys that the old leader had issued, and a Redis cache keyed by those ids then exposed private data to the wrong users. Discarding unreplicated writes is not just data loss when other systems (caches, search indexes, emails, URLs) already saw them. Defences: lossless failover (synchronous or semi-sync replication), ids that can't be reused (UUIDs or a separate id service), and flushing derived stores after an unclean failover.",
+    "reference": "Kleppmann, DDIA ch. 5: Handling Node Outages"
+  },
+  {
+    "id": "SD-REP-031",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A two-node database cluster (primary and standby) uses a heartbeat over a single network link. If the standby misses heartbeats for 5 seconds, it promotes itself. The link fails while both servers stay healthy and reachable by clients. Which change most reliably prevents both nodes accepting writes at once?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Shorten the heartbeat timeout to 500 ms so that the standby detects the failure and takes over much more quickly",
+        "why": "Faster detection makes false failovers more likely; it does nothing to stop the old primary taking writes."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "After the link recovers, keep the node with the higher node id as primary and copy its data over the other one",
+        "why": "By then both sides have accepted different writes, and overwriting one side destroys committed data."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Add a third voter (a witness) so promotion needs a majority, and fence the old primary before the standby takes over",
+        "why": "With quorum, only one side can be the majority, and fencing makes sure the old primary really stops."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Let clients send each write to both nodes and keep whichever one answers first, so writes always succeed",
+        "why": "That deliberately creates two writable copies that diverge, which is the problem itself."
+      }
+    ],
+    "explanation": "With two nodes there is no way to tell \"the other node died\" from \"the link between us died\", so each side can decide it should lead: split brain. A third vote (a witness, an arbiter, or a consensus store such as etcd used by Patroni) means promotion needs a majority, which only one side of a partition can have. Fencing (STONITH, revoking storage or network access, or the old primary demoting itself when it loses quorum) makes sure the deposed primary can no longer accept writes.",
+    "reference": "Kleppmann, DDIA ch. 8: The Truth Is Defined by the Majority"
+  },
+  {
+    "id": "SD-REP-032",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Two transactions run at REPEATABLE READ. Both read `balance = 100` for account 1. T1 computes 100 + 50 in the application and runs `UPDATE accounts SET balance = 150 WHERE id = 1`, then commits. T2 computes 100 − 20 and runs `UPDATE accounts SET balance = 80 WHERE id = 1` (it was waiting on T1's row lock), then tries to commit. What happens in PostgreSQL and in MySQL InnoDB?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both engines abort T2 with a serialization error, because REPEATABLE READ is defined to prevent lost updates",
+        "why": "ANSI REPEATABLE READ doesn't define lost-update protection, and InnoDB doesn't provide it for this pattern."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Both engines let T2 overwrite T1, leaving 80, because both use snapshot isolation at REPEATABLE READ",
+        "why": "PostgreSQL detects that the row changed after T2's snapshot and refuses the update."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "PostgreSQL leaves 80, while InnoDB aborts T2 because its gap and next-key locks detect the concurrent change",
+        "why": "That is backwards. Next-key locks stop phantoms in locking reads; they don't detect stale reads."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "PostgreSQL aborts T2 with a serialization failure; InnoDB applies it and leaves 80, losing T1's update",
+        "why": "PostgreSQL applies first-updater-wins; InnoDB's UPDATE reads the latest row and simply overwrites it."
+      }
+    ],
+    "explanation": "In PostgreSQL REPEATABLE READ, once T1 commits, T2's update of the same row fails with \"could not serialize access due to concurrent update\" and the app must retry. InnoDB's REPEATABLE READ uses a snapshot for plain SELECTs, but UPDATE performs a current read of the latest version and doesn't check whether it changed since T2's snapshot, so the lost update goes through. The portable fixes are atomic updates (`balance = balance + 50`), `SELECT ... FOR UPDATE`, or a version check.",
+    "reference": "PostgreSQL docs: Repeatable Read; MySQL docs: InnoDB Consistent Nonlocking Reads"
+  },
+  {
+    "id": "SD-REP-033",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "A booking service runs this in PostgreSQL at REPEATABLE READ: count existing bookings that overlap the requested time for room 4; if the count is 0, insert the booking. Two requests for overlapping slots in the same room both commit, double-booking it. Which changes reliably prevent this? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Run the transaction at SERIALIZABLE and retry it whenever it fails with a serialization error",
+        "why": "Serializable snapshot isolation detects that each transaction's read was invalidated by the other's insert and aborts one."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Add an exclusion constraint on `(room_id WITH =, during WITH &&)` using a GiST index over a time range",
+        "why": "The database itself then rejects any insert that overlaps an existing booking, whatever the isolation level."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Pre-create one row per room and time slot, and lock the slot rows with `SELECT ... FOR UPDATE` before inserting",
+        "why": "Materialising the conflict gives the transactions real rows to lock, so they serialise on them."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add `FOR UPDATE` to the overlap-counting query, so that it locks every booking it reads before the insert",
+        "why": "When no overlapping booking exists yet, the query reads no rows, so it locks nothing. This is a phantom."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Switch to READ COMMITTED, so that each statement sees the most recently committed bookings from others",
+        "why": "Both transactions can still count 0 before either inserts; weakening isolation makes nothing safer."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Add a B-tree index on `(room_id, start_time)` so that the overlap check is faster and the race window shrinks",
+        "why": "A faster check narrows the window but doesn't close it; under load the double booking still happens."
+      }
+    ],
+    "explanation": "This is write skew through a phantom: each transaction checks a condition over rows that don't exist yet, then inserts a row that invalidates the other's check. Snapshot isolation (PostgreSQL REPEATABLE READ) can't see it, and `FOR UPDATE` has nothing to lock. The fixes are to let SSI detect the conflict, let a constraint enforce the invariant, or materialise the conflict as lockable rows. A constraint is usually best when the invariant can be expressed as one.",
+    "reference": "Kleppmann, DDIA ch. 7: Write Skew and Phantoms; PostgreSQL docs: Exclusion Constraints"
+  },
+  {
+    "id": "SD-REP-034",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A service updates a product in PostgreSQL and then, in the same request handler, writes the new document to Elasticsearch. Occasionally the search index shows an older price than the database, and it stays wrong until the product is edited again. Retries on Elasticsearch failures are already in place. What causes the permanent mismatch, and what is the robust fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Two concurrent updates reach the stores in different orders; feed the index from the database's change log (CDC) per key",
+        "why": "The commit log has one order, so a CDC pipeline such as Debezium applies updates to the index in the order the database committed them."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Elasticsearch's refresh interval delays visibility; call the refresh API after every write so the index is never behind",
+        "why": "Refresh delay heals itself within about a second. The mismatch here is permanent, so it isn't a visibility delay."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The retries create duplicate documents; give each document a random id so that every write creates a new version",
+        "why": "Random ids make duplicates worse. Elasticsearch writes by product id already replace the old document."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "PostgreSQL's isolation level allows dirty reads; raise it to SERIALIZABLE so that the handler reads committed data",
+        "why": "PostgreSQL never allows dirty reads, and isolation doesn't order writes to a second, separate system."
+      }
+    ],
+    "explanation": "Dual writes from application code have race conditions: request 1 writes the database and then the index, request 2 does the same, and the index writes can interleave the other way round, leaving the old value as the final state. A crash between the two writes adds permanent divergence too. Deriving the index from the database's write-ahead log (change data capture), keyed per product, gives one ordered source of truth. Writing a version with each document and using external versioning in Elasticsearch adds a safety net.",
+    "reference": "Kleppmann, DDIA ch. 11: Change Data Capture; Debezium docs"
+  },
+  {
+    "id": "SD-REP-035",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A leaderless store uses N = 3, W = 2, R = 2 with strict quorums (no sloppy quorum). A client writes `x = 2`, but only one replica accepts it before the others time out, so the client is told the write failed. What can later reads of `x` return?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Always the old value, because the store rolls back a write on every replica that accepted it when W is not met",
+        "why": "Dynamo-style stores have no rollback. The one replica keeps the value it accepted."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Either value: a read quorum including that replica returns `x = 2`, and read repair can then spread the \"failed\" write",
+        "why": "A failed quorum write isn't undone, so it may surface in some reads and even become the converged value."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Always `x = 2`, because R + W > N guarantees that every read quorum overlaps the replica that holds the newest write",
+        "why": "The overlap guarantee only covers writes that reached W replicas. This one reached 1."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An error until an administrator resolves the conflict, because the replicas disagree about the value of `x`",
+        "why": "Reads return whatever versions the quorum has (with versions or timestamps to pick one); they don't block on disagreement."
+      }
+    ],
+    "explanation": "\"Failed\" in a leaderless quorum system only means the coordinator couldn't confirm W acknowledgements. The replicas that did accept the write keep it, and reads that happen to include one of them may return it and repair it onto others. So a client can be told the write failed and still see it later. This is one of several reasons quorums alone don't give linearizability, and why clients should treat a failed write's outcome as unknown and retry idempotently.",
+    "reference": "Kleppmann, DDIA ch. 5: Limitations of Quorum Consistency"
+  },
+  {
+    "id": "SD-REP-036",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "A primary in region A replicates asynchronously to a replica in region B; replica lag peaks at 45 seconds during busy periods. Separately, write-ahead log segments are archived to object storage in region B, with a forced segment switch every 60 seconds (`archive_timeout = 60`). Region A is lost entirely at the worst possible moment. Choosing the best recovery source, what is the worst-case data loss in seconds? Type a number.",
+    "options": [],
+    "accepted": [
+      "45",
+      "45s",
+      "45 s",
+      "45 seconds"
+    ],
+    "explanation": "The replica can be up to 45 s behind, so promoting it loses at most 45 s of writes. The WAL archive can be up to 60 s behind (plus upload time), so restoring from it loses up to about 60 s. The best choice is to promote the replica, so the worst-case RPO is 45 s, the smaller of the two. To lower it, reduce lag (capacity, compression) or add synchronous replication to a nearby zone, accepting higher commit latency.",
+    "reference": "PostgreSQL docs: Continuous Archiving and Point-in-Time Recovery"
+  },
+  {
+    "id": "SD-REP-037",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A Riak-style store tracks versions with version vectors. A client reads key `cart` and gets two concurrent siblings, `{A:2, B:1}` and `{A:1, B:2}`, plus a causal context. Which statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Writing a merged cart with the context from that read produces a version that supersedes both siblings",
+        "why": "The new version vector dominates both siblings, so the store can discard them."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Neither sibling dominates the other, because each one has a higher counter for a different replica",
+        "why": "A:2 > A:1 but B:1 < B:2, so the writes were concurrent rather than one following the other."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The store can order the siblings by summing each vector's counters and keeping the version with the larger total",
+        "why": "Both sum to 3, and in any case sums don't capture causality; that would be a disguised last-write-wins."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Writing a new cart without sending any context replaces both siblings, since it is the newest write the store sees",
+        "why": "A write without context isn't known to follow either sibling, so it becomes a third sibling."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Siblings mean that one replica's data is corrupt, so the store should run a repair before the key is used again",
+        "why": "Siblings are the normal, intended result of concurrent writes when the store refuses to silently drop one."
+      }
+    ],
+    "explanation": "Version vectors let the store tell \"happened after\" from \"concurrent\". One version dominates another only if every counter is at least as large. When neither dominates, the store keeps both as siblings, and the application merges them and writes back with the causal context it read, which tells the store that the new value incorporates both. Forgetting the context is a classic bug that makes siblings pile up.",
+    "reference": "Riak docs: Causal Context; Kleppmann, DDIA ch. 5: Version Vectors"
+  },
+  {
+    "id": "SD-REP-038",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Users write on their phone and then open the same page on their laptop, which reads from asynchronous replicas. The current read-your-writes fix stores the last-written WAL position (LSN) in a cookie and routes reads to a replica that has replayed past it, or to the primary. Laptop reads still show stale data right after phone writes. What is the most robust fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Shorten the cookie lifetime so the laptop is forced to fetch a fresh LSN from the server more often",
+        "why": "The laptop's cookie never had the phone's LSN, so a fresher laptop cookie still doesn't know about the phone's write."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Store each user's last-write LSN on the server, read it on every request, and wait for or skip replicas behind it",
+        "why": "Keying the token by user rather than device covers every device the user signs in from."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Make the replicas synchronous so that every replica has applied each commit before the phone gets its reply",
+        "why": "It would work, but waiting on every replica makes each write as slow as the slowest replica and stalls writes when one fails."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Pin each device to one replica with sticky sessions, so that every device always reads from the same replica",
+        "why": "Sticky routing gives monotonic reads per device, but the laptop's replica can still be behind the phone's write."
+      }
+    ],
+    "explanation": "Read-your-writes per device is easy; across devices it needs the consistency token to live where every device can see it, usually on the server keyed by user id. On each read, look up the user's last-write position and use only replicas that have replayed past it (`pg_last_wal_replay_lsn()` in PostgreSQL), waiting briefly or falling back to the primary. This keeps reads on replicas in the common case and pays extra only for recently active writers.",
+    "reference": "Kleppmann, DDIA ch. 5: Reading Your Own Writes (cross-device)"
+  },
+  {
+    "id": "SD-REP-039",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A hotel booking saga runs: reserve a room (inventory service), charge the card (payments), confirm (bookings). Between the reserve step and a failed charge, the room count shows 0 available. Other customers see \"sold out\" and leave, and a revenue report counts the booking. The compensation later releases the room. Which countermeasure addresses the root cause while keeping the saga?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Replace the saga with two-phase commit across the three services so that the intermediate state is never visible",
+        "why": "That removes the saga and brings back blocking, tight coupling and availability loss across services."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Run the compensating transaction faster, within a few milliseconds of the charge failing, so the window is tiny",
+        "why": "A shorter window reduces how often it happens, but the intermediate state is still visible and still miscounted."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Use a semantic lock: mark the room PENDING, and have availability and reports treat pending holds explicitly",
+        "why": "Others can see that the hold is tentative, so they can show \"possibly available\" and exclude it from revenue."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Have each service read at SERIALIZABLE isolation, so that no other transaction can see a saga's uncommitted data",
+        "why": "Each saga step commits locally, so the data is committed as far as each database knows; isolation levels can't hide it."
+      }
+    ],
+    "explanation": "Sagas give up isolation: each local step commits, so other transactions see intermediate states (the \"dirty read\" problem between sagas). Standard countermeasures, from Garcia-Molina and Chris Richardson's catalogue, include semantic locks (a status field such as PENDING that others must respect), commutative updates, pessimistic ordering of steps (put the risky step first), re-reading values before acting, and version files. A semantic lock fixes this case: tentative holds are explicit instead of looking like real sales.",
+    "reference": "Richardson, Microservices Patterns ch. 4: Countermeasures for Saga Isolation"
+  },
+  {
+    "id": "SD-REP-040",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A two-region store resolves conflicts with last-write-wins using each region's wall clock. Region B's clock is 3 seconds behind real time; region A's is accurate. At real time t, a client writes `x = 1` in region A. At real time t + 1 s, after reading `x = 1`, the same client writes `x = 2` in region B. After replication, what value of `x` survives, and why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`x = 2`, because LWW orders writes by when they really happened, and the second write was one second later",
+        "why": "LWW orders by the timestamps the nodes assigned, not by real time, and region B's timestamp is too low."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`x = 1`: region B stamps `x = 2` with about t − 2 s, which loses to t, so the causally later write is discarded",
+        "why": "(t + 1) − 3 = t − 2 < t, so LWW keeps the earlier write. The loss is silent."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Both values survive as siblings, because a 3-second skew makes the two writes concurrent under the clock rules",
+        "why": "LWW never keeps siblings. It always picks one value by timestamp."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`x = 2`, because NTP corrects region B's clock before replication, so its timestamp is fixed in the process",
+        "why": "Correcting the clock later doesn't change the timestamp already stamped on the write."
+      }
+    ],
+    "explanation": "With wall-clock LWW, a write that clearly happened after another (the client even read `x = 1` first) can be discarded because a skewed clock gave it a lower timestamp. To avoid that, carry causality: version vectors, or hybrid logical clocks where the client passes the last timestamp it saw so the next write gets a larger one. Bounding skew with TrueTime-style commit wait is another option. Monitoring clock offset and rejecting nodes with large skew reduces the risk but doesn't remove it.",
+    "reference": "Kleppmann, DDIA ch. 8: Timestamps for Ordering Events"
+  },
+  {
+    "id": "SD-REP-041",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A MySQL primary uses semi-synchronous replication with `rpl_semi_sync_master_wait_point = AFTER_COMMIT`. A transaction commits in InnoDB on the primary, and before the replica acknowledges, client B reads the new row. The primary then crashes; the replica never received the transaction and is promoted. Client B has already acted on a row that no longer exists. Which setting prevents this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Raise `rpl_semi_sync_master_timeout` so that the primary waits longer for acknowledgements before it gives up",
+        "why": "The timeout controls fallback to asynchronous mode; the row is still visible before the replica has it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Set `sync_binlog = 0` so that binary log writes are faster and reach the replica sooner after each commit",
+        "why": "That weakens local durability and can lose binlog events on a crash, making things worse."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Switch to asynchronous replication and run the reading client against the replica instead of the primary",
+        "why": "Asynchronous replication loses more on failover, and moving readers doesn't stop the primary exposing the row."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "`rpl_semi_sync_master_wait_point = AFTER_SYNC`, so the primary waits for the replica before committing in InnoDB",
+        "why": "Other clients can't see the row until a replica has it, so nothing visible can be lost on failover."
+      }
+    ],
+    "explanation": "With AFTER_COMMIT, the primary commits in the storage engine and then waits for the replica's acknowledgement. In that window other sessions can read data that a failover will discard: a \"phantom\" committed read. AFTER_SYNC, called lossless semi-sync and the default since MySQL 5.7, waits for the replica after writing the binlog but before the engine commit, so nothing becomes visible until it exists on two servers. Semi-sync still falls back to asynchronous after the timeout, so monitor for it.",
+    "reference": "MySQL docs: Semisynchronous Replication (rpl_semi_sync_master_wait_point)"
+  },
+  {
+    "id": "SD-REP-042",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A PostgreSQL primary has one synchronous standby with `synchronous_commit = on`. To get read-your-writes, the app commits on the primary and immediately reads the same row from that synchronous standby. Occasionally the read still returns the old value. Why, and what is the fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`on` waits for the standby to flush the WAL, not to replay it; `remote_apply` waits until the change is visible there",
+        "why": "A durable but not yet applied record isn't visible to queries on the standby. `remote_apply` closes that gap."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Synchronous replication is only enforced for writes, never reads, so the app must read from the primary in every case",
+        "why": "Reading from the standby can be made safe; PostgreSQL has a commit level made for exactly this."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The standby is serving reads from a cached query plan; disable the plan cache on the standby to always see fresh rows",
+        "why": "Plan caching affects how a query runs, not which row versions it can see."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`on` only waits for the standby to receive the data into memory; `remote_write` waits for it to be written to disk",
+        "why": "That gets the levels backwards: `remote_write` is weaker than `on`, and neither waits for replay."
+      }
+    ],
+    "explanation": "PostgreSQL's `synchronous_commit` levels say how far a commit must get on the synchronous standby before the client is told it succeeded: `remote_write` (handed to the standby's OS), `on` (flushed to the standby's disk) or `remote_apply` (replayed, so visible to queries there). Only `remote_apply` gives read-your-writes on the standby, at the cost of extra commit latency and stalls if replay is blocked by long standby queries.",
+    "reference": "PostgreSQL docs: synchronous_commit"
+  },
+  {
+    "id": "SD-REP-043",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "During a 43-second network partition between two regions, automated failover promoted database replicas in region B. Region A's old primaries had accepted writes in the seconds before promotion that never replicated, and region B accepted new writes after promotion. When the network healed, engineers found they couldn't simply fail back to region A. Which statements explain why? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Both regions now hold writes the other lacks, so neither copy is a superset and failing back would discard one side's data",
+        "why": "The histories diverged, so any switch in either direction loses data unless the two sides are reconciled by hand."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Applications in region A were now talking to databases across the continent, so latency rose and some services degraded",
+        "why": "Cross-region promotion changes every write's round-trip time, which is an availability problem of its own."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Replication from region B back to region A is impossible in principle once one region has failed over to another",
+        "why": "Replicas can be rebuilt in either direction; the obstacle is divergent writes, not a law of replication."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The unreplicated writes in region A were lost when it failed over, so there was nothing to reconcile at all",
+        "why": "They are still on the old primaries in region A, which is exactly why reconciling them is needed."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The failover tool should have waited for the partition to heal before promoting anything, which always avoids data loss",
+        "why": "Waiting avoids divergence but means no writes during long partitions; it is a trade-off, not a free fix."
+      }
+    ],
+    "explanation": "This is close to GitHub's October 2018 incident: a short cross-coast partition led to cross-region promotion, both sides took writes, and restoring a consistent state took about 24 hours of careful reconciliation. Lessons: an automated failover must weigh lost or divergent writes against downtime, cross-region promotion changes latency for every caller, and the plan for the moment the network heals has to exist before the incident.",
+    "reference": "GitHub Engineering, October 21 post-incident analysis (2018)"
+  },
+  {
+    "id": "SD-REP-044",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A leaderless store uses N = 3, W = 2, R = 2. A write of `x = 2` is in flight: it has reached replica 1 but not yet replicas 2 or 3. Reader P reads replicas 1 and 2 and returns `x = 2`. Moments later, after P's read finished, reader Q reads replicas 2 and 3 and returns `x = 1`. Which statement is correct?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "This can't happen, because R + W > N guarantees that every read quorum overlaps the replicas holding the newest value",
+        "why": "The overlap applies to completed writes. This write had reached only one replica when both reads ran."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It is allowed and harmless, since eventual consistency only requires that Q sees `x = 2` the next time it reads",
+        "why": "It is allowed by the store, but harmful wherever linearizability is expected, because a later read went back in time."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Q's read is wrong because replica 3 must be faulty; a healthy replica 3 would already have the in-flight value",
+        "why": "Replica 3 simply hasn't received the write yet. That's normal during the propagation window."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Quorums alone aren't linearizable; synchronous read repair before returning would stop Q seeing the older value",
+        "why": "If P had written `x = 2` back to a read quorum before returning, Q's quorum would overlap it and see the new value."
+      }
+    ],
+    "explanation": "Q's read starts after P's read finished, yet returns an older value, so the history isn't linearizable even though R + W > N. Linearizable reads in a quorum system need the reader to perform synchronous read repair, writing the latest value back to a quorum before returning (the ABD algorithm). Cassandra doesn't fully do this, and Dynamo-style systems generally provide only eventual consistency. Choose a system with consensus (for example Raft-based stores) when you need linearizability.",
+    "reference": "Kleppmann, DDIA ch. 9: Linearizability and Quorums; Attiya, Bar-Noy & Dolev (1995)"
+  },
+  {
+    "id": "SD-REP-045",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team moves its money-transfer code to PostgreSQL SERIALIZABLE isolation to stop write skew. The transfer function reads balances, sends a \"transfer started\" email, writes the new balances and commits. Under load, some commits fail with SQLSTATE 40001. Which practices are required for this to be correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "On 40001, retry the whole transaction from its first statement, rereading every value instead of reusing old results",
+        "why": "The abort means the earlier reads may be stale; only a full re-run decides on fresh data."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Move side effects such as emails out of the transaction, for example to an outbox processed after commit",
+        "why": "A retried transaction would otherwise send the email twice, or send one for a transfer that never committed."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "On 40001, retry only the statement that failed, keeping the values read earlier in the transaction as they were",
+        "why": "Reusing the reads from the aborted attempt is exactly the stale view the abort was protecting against."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add `SELECT ... FOR UPDATE` to every read so that serialization failures can't happen under SERIALIZABLE",
+        "why": "Locks reduce some conflicts but don't remove serialization failures, and they are redundant for SSI's correctness."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Lower the retry count to zero and show the error, because retrying serializable transactions can corrupt data",
+        "why": "Retrying is safe and expected; SSI is designed around applications that retry aborted transactions."
+      }
+    ],
+    "explanation": "Serializable snapshot isolation is optimistic: it lets transactions run and aborts one when their reads and writes form a dangerous structure. Correctness then depends on the application retrying the entire transaction, including its reads, and on the transaction having no external side effects, since the database can roll back its own writes but not an email. Use an outbox or another post-commit mechanism for side effects, and keep transactions short to limit aborts.",
+    "reference": "PostgreSQL docs: Serializable Isolation Level; Ports & Grittner, SSI in PostgreSQL (VLDB 2012)"
+  }
+]

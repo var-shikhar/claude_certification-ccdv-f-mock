@@ -1,5 +1,5 @@
 // Converts question CSVs in Udemy's practice-test import format into
-// certMonkey questions. Used by the admin bulk importer and the CLI script.
+// quizMonkey questions. Used by the admin bulk importer and the CLI script.
 //
 // The CSV has no per-option rationale, so each option's `why` is generic and
 // the set's overall explanation becomes the item explanation. Imported items

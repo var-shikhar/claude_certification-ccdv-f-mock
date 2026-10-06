@@ -1,0 +1,44 @@
+{
+  "data-modeling": {
+    "summary": "Choose storage engines, indexes and shard keys for the queries you actually run. Every choice makes some queries cheap and others expensive.",
+    "points": [
+      "A composite index serves any leftmost prefix of its columns. Put equality-filtered columns first and the range or ORDER BY column last.",
+      "Every index is extra work on every write. B-trees update pages in place for predictable reads; LSM-trees buffer and flush sorted files for fast writes, paying with compaction and multi-file reads.",
+      "The shard key decides which queries stay on one shard. Hashing spreads writes evenly but destroys range locality; range partitioning keeps scans local but can create a hotspot on the newest range.",
+      "`hash mod N` moves almost every key when N changes (10 to 11 nodes moves about 91%). Consistent hashing moves about 1/N, and virtual nodes even out the load.",
+      "A single hot key beats any partitioning scheme. Split it with key suffixes and aggregate on read, or batch writes before they reach storage.",
+      "Lookups by a non-key attribute need a global index partitioned by that attribute. Local per-shard indexes force a scatter-gather and can't enforce uniqueness."
+    ],
+    "traps": [
+      "Scatter-gather latency follows the slowest shard: with 64 shards, about 47% of requests hit at least one shard's p99 (1 − 0.99^64).",
+      "Low-cardinality columns such as status are poor leading index columns on their own.",
+      "Partitions keyed only by an entity ID grow without bound for time-series data; add a time bucket to the partition key."
+    ],
+    "docs": [
+      { "title": "Designing Data-Intensive Applications (Kleppmann)", "url": "https://dataintensive.net/" },
+      { "title": "Use The Index, Luke: SQL indexing explained", "url": "https://use-the-index-luke.com/" },
+      { "title": "DynamoDB: Best practices for partition keys", "url": "https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-partition-key-design.html" }
+    ]
+  },
+  "replication-consistency": {
+    "summary": "Know exactly what each replication scheme and isolation level promises, which anomalies it still allows, and what the stronger guarantee costs in latency and availability.",
+    "points": [
+      "Asynchronous followers lag. Session guarantees (read-your-writes, monotonic reads, consistent prefix) patch the common anomalies cheaply, for example by pinning a user's reads to one replica.",
+      "Leaderless quorums overlap when R + W > N, but sloppy quorums, concurrent writes and last-write-wins clocks all break the 'always fresh' intuition.",
+      "Snapshot isolation prevents dirty reads, non-repeatable reads and lost updates, but allows write skew. Fix write skew with SERIALIZABLE (SSI), FOR UPDATE locks on the premise rows, or a constraint.",
+      "Serializability is about transactions matching some serial order; linearizability is about recency in real time. Strict serializability is both.",
+      "2PC blocks: a participant that voted YES can neither commit nor abort until it learns the decision, so make the coordinator's log highly available.",
+      "PACELC: even without a partition, strong consistency costs latency. A cross-region majority write costs at least one round trip to the nearest follower."
+    ],
+    "traps": [
+      "A YES vote in 2PC is not a commit; other participants may have voted NO.",
+      "READ COMMITTED doesn't fix write skew; it allows even more anomalies than snapshot isolation.",
+      "Raft and Paxos commit on a majority, not on every replica, so one failed replica out of three doesn't stop writes."
+    ],
+    "docs": [
+      { "title": "Jepsen: Consistency Models", "url": "https://jepsen.io/consistency" },
+      { "title": "PostgreSQL: Transaction Isolation", "url": "https://www.postgresql.org/docs/current/transaction-iso.html" },
+      { "title": "Linearizability versus Serializability (Bailis)", "url": "http://www.bailis.org/blog/linearizability-versus-serializability/" }
+    ]
+  }
+}

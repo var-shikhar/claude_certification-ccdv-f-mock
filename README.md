@@ -1,6 +1,6 @@
-# certMonkey
+# quizMonkey
 
-Mock exams, quizzes and interview practice in one calm place. certMonkey runs
+Mock exams, quizzes and interview practice in one calm place. quizMonkey runs
 timed certification mocks that follow each exam's official blueprint, drills
 that explain every option, a readiness score that tells you when you're ready,
 and AI mock interviews with rubric feedback.
@@ -103,8 +103,10 @@ at delivery, so explanations should describe options rather than cite letters.
 enforces it along with item-writing checks.
 
 The catalog currently holds CCDV-F, CCAO-F, CCAR-F and CCAR-P (Anthropic
-certification mocks) and a JavaScript Essentials quiz that exercises every
-question type and a case study.
+certification mocks), a System Design interview mock (Basic to Expert levels,
+with case studies), and a JavaScript Essentials quiz that exercises every
+question type and a case study. [`docs/ROADMAP.md`](docs/ROADMAP.md) lists the
+subjects coming next.
 
 ## How scoring works
 
@@ -151,5 +153,5 @@ progress moves to the account when a guest signs up.
 
 ## Disclaimer
 
-certMonkey is an independent practice platform. It is not affiliated with any
+quizMonkey is an independent practice platform. It is not affiliated with any
 exam vendor, and readiness certificates are not official credentials.

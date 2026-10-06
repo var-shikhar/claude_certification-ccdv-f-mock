@@ -1,0 +1,1317 @@
+[
+  {
+    "id": "SD-REL-011",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A service promises 99.99% availability measured over a full year (365 days). Roughly how much total downtime does that allow per year?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 8.8 hours per year, which works out to a little over 40 minutes in every month",
+        "why": "That is the budget for 99.9% (three nines): 0.1% of 525,600 minutes is about 526 minutes."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "About 52.6 minutes per year",
+        "why": "Correct: 0.01% of 525,600 minutes is 52.56 minutes."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "About 5.3 minutes per year, so even one slow deploy rollback would spend it all",
+        "why": "That is the budget for 99.999% (five nines), ten times stricter than four nines."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 4.4 minutes per year, the same as the monthly figure for four nines",
+        "why": "Roughly 4.4 minutes is four nines over a 30-day month. Over a whole year the budget is twelve times larger."
+      }
+    ],
+    "explanation": "A year has 365 × 24 × 60 = 525,600 minutes. Four nines leaves 0.01% of that: 525,600 × 0.0001 ≈ 52.6 minutes. Each additional nine divides the budget by ten, which is why every extra nine costs far more engineering than the one before.",
+    "reference": "Google SRE book: Embracing risk"
+  },
+  {
+    "id": "SD-REL-012",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Ten identical servers each report their own p99 latency. Averaging those ten p99 values gives the p99 latency of the whole fleet.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Percentiles do not compose by averaging: the result is not the 99th percentile of any real set of requests."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: you need the underlying distributions (for example summed histogram buckets) to compute a fleet-wide percentile."
+      }
+    ],
+    "explanation": "A percentile is a property of a whole distribution. The average of per-server p99s can be far from the true fleet p99, especially when servers carry different traffic or one server is much slower. Aggregate the raw data instead, such as histogram bucket counts summed across servers, and compute the percentile from that.",
+    "reference": "Google SRE book: Monitoring distributed systems"
+  },
+  {
+    "id": "SD-REL-013",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A web app runs three stateless app servers spread over two availability zones. The database is a managed primary with a synchronous standby and automatic failover. All traffic enters through one self-managed HAProxy virtual machine. Which component is a single point of failure?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The database primary, because only one node accepts writes at any moment",
+        "why": "One writer is fine here: the synchronous standby takes over automatically if the primary fails."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The app tier, because the three servers are not spread over all three zones",
+        "why": "Two zones still survive the loss of one zone; the app tier has redundant capacity."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The HAProxy virtual machine",
+        "why": "Correct: every request passes through one machine with no standby, so its failure takes the whole site down."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The availability zones, because a regional outage would still take down everything",
+        "why": "A regional outage is a wider scope of failure, not a single component without redundancy."
+      }
+    ],
+    "explanation": "A single point of failure is a component whose failure alone stops the system. The lone HAProxy VM qualifies. Fix it with a managed load balancer, or a pair of HAProxy nodes with a floating IP (keepalived) or DNS failover. Hunting SPOFs means following one request end to end and asking, for each hop, \"what happens if this one thing dies?\"",
+    "reference": "AWS Well-Architected: Reliability pillar"
+  },
+  {
+    "id": "SD-REL-014",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each disaster-recovery strategy with how it works.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Data is copied off-site; after a disaster the whole environment is rebuilt and the data restored (RTO of hours or more)"
+      },
+      {
+        "id": "B",
+        "text": "Core data stays replicated in a second region and the rest of the stack is defined but switched off until needed"
+      },
+      {
+        "id": "C",
+        "text": "A scaled-down but fully working copy runs in a second region and is scaled up during a failover"
+      },
+      {
+        "id": "D",
+        "text": "Two or more regions serve live traffic all the time, so failover is mostly a routing change"
+      },
+      {
+        "id": "E",
+        "text": "Every write is acknowledged by both regions, so no failover is ever needed"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Backup and restore",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Pilot light",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Warm standby",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Multi-site active/active",
+        "answer": "D"
+      }
+    ],
+    "explanation": "The four classic tiers trade cost for recovery time. Backup and restore is cheapest and slowest. Pilot light keeps only data live. Warm standby runs a small working copy. Active/active costs the most but recovers fastest. No strategy removes the need for failover planning: even synchronous replication needs routing changes and tested runbooks.",
+    "reference": "AWS whitepaper: Disaster Recovery of Workloads on AWS"
+  },
+  {
+    "id": "SD-REL-015",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A database is backed up in full every night at 02:00. Restoring a backup takes about 4 hours. Nothing else is copied off the server. What is the worst-case recovery point objective (RPO) this design can meet?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 4 hours, because that is how long the restore takes to finish",
+        "why": "Restore time is the recovery time objective (RTO), not how much data you lose."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Zero, because a full backup is taken every single night without exception",
+        "why": "A backup only captures data up to the moment it was taken; later writes are lost."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "About 28 hours, adding the 24-hour backup gap to the 4-hour restore time",
+        "why": "This mixes RPO and RTO. Data loss does not grow while the restore runs."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "About 24 hours of lost data",
+        "why": "Correct: a failure just before the next 02:00 backup loses almost a full day of writes."
+      }
+    ],
+    "explanation": "RPO is how much data you can lose, measured back from the failure. RTO is how long it takes to be serving again. With nightly backups only, a failure at 01:59 loses nearly 24 hours of writes. Continuous log shipping (WAL archiving) or replication brings RPO down to seconds or minutes.",
+    "reference": "AWS whitepaper: Disaster Recovery of Workloads on AWS"
+  },
+  {
+    "id": "SD-REL-016",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Why should every outbound network call from a service have an explicit timeout?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A hung dependency could otherwise hold threads, sockets and memory until the caller runs out",
+        "why": "Correct: waiting forever ties up finite resources, so one stuck dependency can stall the whole caller."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Timeouts make the dependency respond faster, because the dependency sees how long the caller will wait",
+        "why": "A timeout only limits how long the caller waits; most protocols do not even tell the server about it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Timeouts guarantee that the operation did not happen on the server, so it is always safe to retry",
+        "why": "A timed-out request may still have completed. Safe retries need idempotency, not just a timeout."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Operating systems drop TCP connections after a few seconds of silence, so calls fail anyway",
+        "why": "Default TCP keepalive and retransmission limits run to minutes or hours; the OS will not save you."
+      }
+    ],
+    "explanation": "A call without a timeout can wait as long as the connection stays open, which can be hours. Each waiting call pins a thread or connection, so a single slow dependency gradually exhausts the caller. Set timeouts from the dependency's measured latency (for example a little above its p99.9) and from the caller's own deadline.",
+    "reference": "AWS Builders' Library: Timeouts, retries and backoff with jitter"
+  },
+  {
+    "id": "SD-REL-017",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each release strategy with its description.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Replace instances a few at a time with the new version until all are updated"
+      },
+      {
+        "id": "B",
+        "text": "Run a full copy of the new version beside the old one, then switch all traffic at once and keep the old copy ready for instant rollback"
+      },
+      {
+        "id": "C",
+        "text": "Send a small share of real traffic to the new version, compare its metrics with the old version, and widen gradually"
+      },
+      {
+        "id": "D",
+        "text": "Ship the code switched off and turn the feature on for chosen users at runtime, without a deploy"
+      },
+      {
+        "id": "E",
+        "text": "Deploy the new version straight to every instance at once during a maintenance window"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Rolling deployment",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Blue/green deployment",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Canary release",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Feature flag",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Rolling deploys need no extra capacity but mix versions during the rollout. Blue/green doubles capacity briefly in exchange for an instant switch back. Canaries limit the blast radius of a bad build to a small share of users. Feature flags separate deploying code from releasing behaviour, so a bad feature can be switched off without a rollback.",
+    "reference": "Google SRE workbook: Canarying releases"
+  },
+  {
+    "id": "SD-REL-018",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "The RED method for monitoring request-driven services tracks Rate, Errors and one more signal. Type the missing word.",
+    "options": [],
+    "accepted": [
+      "Duration",
+      "duration",
+      "latency",
+      "Latency"
+    ],
+    "explanation": "RED stands for Rate (requests per second), Errors (failed requests per second) and Duration (the distribution of latency). Its counterpart for resources is USE: Utilization, Saturation and Errors. Google's four golden signals combine both views: latency, traffic, errors and saturation.",
+    "reference": "Tom Wilkie, The RED Method"
+  },
+  {
+    "id": "SD-REL-019",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 1,
+    "type": "order",
+    "select": 1,
+    "stem": "A dependency starts failing and later recovers. Put the states of a standard circuit breaker in the order it moves through them during this episode.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Open: the failure threshold is crossed, so calls fail fast without reaching the dependency"
+      },
+      {
+        "id": "B",
+        "text": "Closed again: the trial calls succeed, so normal traffic resumes"
+      },
+      {
+        "id": "C",
+        "text": "Closed: calls pass through while the breaker counts failures"
+      },
+      {
+        "id": "D",
+        "text": "Half-open: after a cool-down, a few trial calls are let through"
+      }
+    ],
+    "answerOrder": [
+      "C",
+      "A",
+      "D",
+      "B"
+    ],
+    "explanation": "A breaker starts closed and opens when failures cross a threshold, which protects both caller and dependency. After a cool-down it goes half-open and lets a limited number of trial requests through. If they succeed it closes; if they fail it opens again for another cool-down.",
+    "reference": "Martin Fowler: CircuitBreaker"
+  },
+  {
+    "id": "SD-REL-020",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An API limits each client to 100 requests per minute with a fixed-window counter that resets at the start of every clock minute. What is the most requests a client can get accepted within any 2-second span?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "100, because the limit is enforced in every window without exception",
+        "why": "The limit holds per clock minute, but a 2-second span can straddle two minutes."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "About 3, because 100 per minute averages out to 1.67 requests every second",
+        "why": "Fixed windows do not spread requests out; the whole allowance can be used at once."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "200, by sending 100 just before a minute boundary and 100 just after it",
+        "why": "Correct: each burst fits its own window, so twice the limit lands within a second or two."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "150, because the counter resets halfway through the span between the two bursts",
+        "why": "There is no partial reset: each new window starts from zero and allows the full 100."
+      }
+    ],
+    "explanation": "Fixed-window counters are cheap but allow up to twice the limit around a window boundary. Sliding-log and sliding-window-counter algorithms (or a token bucket with a small capacity) avoid this burst, at the cost of more state or an approximation.",
+    "reference": "Cloudflare blog: How we built rate limiting capable of scaling to millions of domains"
+  },
+  {
+    "id": "SD-REL-021",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "A rate limiter allows 100 requests per minute using the sliding-window-counter approximation: estimate = current window count + previous window count × (fraction of the previous window still inside the last 60 seconds). The previous minute had 80 requests. We are 15 seconds into the current minute, which has 30 requests so far. How many more requests can be accepted right now? Type just the number.",
+    "options": [],
+    "accepted": [
+      "10"
+    ],
+    "explanation": "The last 60 seconds cover the current 15 seconds plus the final 45 seconds (75%) of the previous minute. Estimate = 30 + 80 × 0.75 = 90, so 100 − 90 = 10 more requests fit. The approximation assumes the previous window's requests were spread evenly, which is why it uses two counters per key instead of a full log of timestamps.",
+    "reference": "Cloudflare blog: How we built rate limiting capable of scaling to millions of domains"
+  },
+  {
+    "id": "SD-REL-022",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A gateway forwards requests to a legacy backend that falls over when it sees bursts. The backend must receive a steady stream of at most 50 requests per second, and short client bursts may wait briefly in a queue. Which algorithm fits best?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A token bucket refilled at 50 per second with a capacity of 500 tokens",
+        "why": "A large bucket explicitly allows bursts of up to 500 requests, the very thing the backend cannot take."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A leaky bucket that queues requests and releases them at a fixed 50 per second",
+        "why": "Correct: the queue absorbs bursts and the output rate stays constant, which is exactly the requirement."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A fixed-window counter allowing 3,000 requests per minute for the backend",
+        "why": "The average matches, but all 3,000 could arrive in the first second of a window."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A sliding log that allows at most 50 requests in any rolling one-second window, measured per client",
+        "why": "It caps the count per second, but all 50 can still arrive within the same millisecond."
+      }
+    ],
+    "explanation": "A token bucket limits the average rate while permitting bursts up to its capacity, which suits client-facing APIs. A leaky bucket used as a queue shapes traffic into a constant output rate, which suits fragile downstreams. Give the queue a bounded size and a timeout, or it simply turns overload into latency.",
+    "reference": "Wikipedia: Leaky bucket; RFC 2697"
+  },
+  {
+    "id": "SD-REL-023",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Each app server enforces a per-user limit of 100 requests per minute in Redis with this code:\n\n```\nn = INCR key\nif n == 1: EXPIRE key 60\nif n > 100: reject\n```\n\nWhich statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "If the server crashes or loses its connection between INCR and EXPIRE, the key has no TTL, and once that user goes over 100 they stay blocked forever",
+        "why": "Correct: the two commands are not atomic, so a key can be left without an expiry."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Running INCR and EXPIRE together in one Lua script (or one MULTI transaction) closes that gap",
+        "why": "Correct: Redis executes a script or transaction as a unit, so the TTL is always set together with the first increment."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Two app servers calling INCR on the same key at the same moment can lose an increment",
+        "why": "INCR is atomic in Redis; concurrent increments are applied one after another."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Each server needs a distributed lock around INCR to keep the count accurate",
+        "why": "A lock adds latency and failure modes for no gain, because INCR is already atomic."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Keeping the counter in each app server's own memory instead would enforce the same per-user limit with less latency",
+        "why": "Local counters enforce the limit per server, so with 10 servers a user could get about 1,000 requests a minute."
+      }
+    ],
+    "explanation": "Single Redis commands are atomic, but sequences of commands are not. Rate limiters therefore usually run as a Lua script, or set the TTL at creation (`SET key 0 EX 60 NX` followed by `INCR`). Local counters scale better but enforce only an approximate global limit; some systems combine them with periodic synchronisation.",
+    "reference": "Redis docs: INCR (rate limiter pattern)"
+  },
+  {
+    "id": "SD-REL-024",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An API server makes all its outbound calls (payments, search and reviews) from one shared pool of 200 threads. The reviews service starts taking 10 seconds per call. Within a minute, checkout and search also fail, even though those services are healthy. What change best prevents this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Raise the shared pool to 1,000 threads so that there is enough room for all the slow calls",
+        "why": "More threads only delay exhaustion; slow reviews calls will eventually fill any shared pool."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Retry reviews calls up to three times so that more of them eventually succeed",
+        "why": "Retrying a slow dependency multiplies the threads it ties up and worsens the outage."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Give each dependency its own bounded pool or concurrency limit, plus a timeout on reviews calls",
+        "why": "Correct: a bulkhead caps how much of the server one dependency can occupy, so the others keep working."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Switch the load balancer to least-connections so that the slowest servers receive fewer new requests",
+        "why": "Every server shares the same slow dependency, so balancing across servers changes nothing."
+      }
+    ],
+    "explanation": "This is the bulkhead pattern, named after the watertight compartments of a ship. Separate pools or semaphores per dependency, sized to that dependency's needs, stop one slow call path from starving the rest. Combine them with timeouts and a circuit breaker so that reviews fails fast and the page can render without them.",
+    "reference": "Release It! (Nygard): Bulkheads"
+  },
+  {
+    "id": "SD-REL-025",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "An alert fires for elevated checkout errors. Put these incident-response steps in the order a well-run team follows them.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Confirm from user-facing metrics that the error rate is back to normal"
+      },
+      {
+        "id": "B",
+        "text": "Acknowledge the page and declare an incident with a named incident commander"
+      },
+      {
+        "id": "C",
+        "text": "Write a blameless postmortem with owned action items"
+      },
+      {
+        "id": "D",
+        "text": "Close the incident and communicate the resolution to stakeholders"
+      },
+      {
+        "id": "E",
+        "text": "Mitigate first, for example by rolling back the deploy that preceded the errors"
+      }
+    ],
+    "answerOrder": [
+      "B",
+      "E",
+      "A",
+      "D",
+      "C"
+    ],
+    "explanation": "Mitigation comes before root-cause analysis: restore service first, then understand why it broke. Recovery should be confirmed with the same symptoms that triggered the alert. A blameless postmortem afterwards captures the timeline, contributing factors and concrete follow-ups, without hunting for someone to blame.",
+    "reference": "Google SRE book: Managing incidents; Postmortem culture"
+  },
+  {
+    "id": "SD-REL-026",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team is redesigning which alerts should page an on-call engineer at night. Which conditions deserve a page? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The checkout error ratio is consuming the monthly error budget fast enough to exhaust it within a few days",
+        "why": "Correct: it is a user-facing symptom tied to the SLO and needs action soon."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "CPU on one of 40 web servers has been above 90% for 10 minutes",
+        "why": "High CPU on one host is a cause, not a symptom; if users are fine, it belongs on a dashboard or in a ticket."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The p99 latency of the public API has been above its SLO threshold for 10 minutes",
+        "why": "Correct: users are experiencing a slow service right now."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A disk on the logging cluster has reached 70% full",
+        "why": "Capacity trends are important but not urgent; a ticket or a daytime alert is the right response."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "One pod restarted once after an out-of-memory kill and is serving again",
+        "why": "A self-healed single event does not need a human at 3 a.m.; track its frequency instead."
+      }
+    ],
+    "explanation": "Page on symptoms that users feel (errors, latency, availability) and that need prompt human action. Causes such as CPU, disk usage or single restarts belong on dashboards and in tickets, or in alerts only when they predict imminent user impact. Every page should be actionable; otherwise on-call engineers learn to ignore them.",
+    "reference": "Google SRE book: Monitoring distributed systems"
+  },
+  {
+    "id": "SD-REL-027",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A Kubernetes service's liveness probe calls `/health`, which runs a query against the shared database. During a 30-second database slowdown, the kubelet restarts every pod, and the service stays down for several minutes after the database recovers. Which changes are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Make the liveness probe check only the process itself, such as whether its event loop or request threads are responsive",
+        "why": "Correct: liveness should detect a stuck process that a restart would fix; a restart cannot fix a slow database."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep the database query in the liveness probe but lower its timeout to 1 second with a failure threshold of 1",
+        "why": "This makes the restart storm happen sooner and more often."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Use a readiness probe for \"can this pod usefully take traffic\", and avoid failing every pod at once because of one shared dependency",
+        "why": "Correct: readiness removes a pod from load balancing without restarting it, and a shared-dependency outage should be handled by degrading, not by emptying the pool."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Remove all probes, because Kubernetes restarts crashed containers anyway",
+        "why": "Without probes, a deadlocked process that has not crashed keeps receiving traffic forever."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Restarting pods is harmless, so the probe design does not matter as long as pods restart quickly",
+        "why": "Mass restarts cause cold caches, connection storms and startup load that prolong the outage, as happened here."
+      }
+    ],
+    "explanation": "Liveness answers \"is this process broken in a way a restart fixes?\"; readiness answers \"should this pod receive traffic right now?\". Putting shared dependencies into liveness turns a dependency blip into a fleet-wide restart, and the restarts then hammer the recovering dependency.",
+    "reference": "Kubernetes docs: Configure liveness, readiness and startup probes"
+  },
+  {
+    "id": "SD-REL-028",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A promotion push goes out at 20:00 every day, and traffic jumps from 2,000 to 6,000 requests per second within a minute. The fleet autoscales on CPU with a 60% target. Detecting the rise takes about 1 minute, and a new instance takes 4 minutes to boot and warm up. Which change best prevents the nightly overload?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Lower the CPU target to 30% so that the fleet always runs with much more spare capacity",
+        "why": "It roughly doubles cost all day and may still not cover a 3× jump in one minute."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Shorten the CPU metric period to 10 seconds so that the scaling decision is made earlier",
+        "why": "Detection gets faster, but the 4-minute boot time still leaves several minutes of overload."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Schedule a scale-out shortly before 20:00, and keep load shedding as a safety net",
+        "why": "Correct: the spike is predictable, so capacity can be ready before it arrives."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use larger scaling steps so that each scaling action adds ten instances instead of two",
+        "why": "Bigger steps still arrive only after detection plus boot time, about 5 minutes after the spike starts."
+      }
+    ],
+    "explanation": "Reactive autoscaling always lags by detection time plus boot time, here about 5 minutes. Predictable spikes call for scheduled or predictive scaling; unpredictable ones need headroom, fast-starting instances and load shedding to cover the gap. Warm pools of pre-initialised instances shorten the boot part.",
+    "reference": "AWS docs: Scheduled scaling for Amazon EC2 Auto Scaling"
+  },
+  {
+    "id": "SD-REL-029",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A service runs three replicas, each 99.5% available, and any single replica can serve every request. All three are deployed by the same pipeline from the same configuration repository. Which statement about the service's availability is most accurate?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It is 98.5%, because the unavailability of the three replicas adds up",
+        "why": "Adding up unavailability is the rule for components in series, not for redundant replicas."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It is 99.5%, because the service can be no more available than one replica",
+        "why": "Redundancy exists precisely to beat the availability of a single replica."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "About 99.99999% on paper, but correlated failures such as one bad config push set the real figure",
+        "why": "Correct: 1 − 0.005³ assumes independence, which shared deploys and dependencies break."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It is 99.9999875%, and the shared pipeline does not matter because the replicas run on separate hosts",
+        "why": "Separate hosts do not make failures independent when the same bad change reaches every host."
+      }
+    ],
+    "explanation": "For independent replicas the service fails only if all three fail: 0.005³ = 1.25 × 10⁻⁷, about 99.99999% availability. Real outages are dominated by correlated causes such as bad deploys, config pushes, shared dependencies and region-wide events. That is why staged rollouts, cell isolation and independent failure domains matter more than adding replicas.",
+    "reference": "Google SRE book: Embracing risk; AWS Builders' Library: Static stability"
+  },
+  {
+    "id": "SD-REL-030",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "At peak, a service needs the capacity of 6 instances. It runs evenly across 3 availability zones and must still handle peak load with no degradation if any one zone is lost. What is the minimum number of instances it should run?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "7, which is N + 1 on top of the 6 instances needed at peak",
+        "why": "N + 1 covers the loss of one instance, but losing a zone removes a third of the fleet."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "9, three per zone",
+        "why": "Correct: the two surviving zones must hold 6 instances, so each zone needs 3."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "8, which is N + 2 so that two instances can fail at the same time",
+        "why": "With 8 spread over 3 zones, a zone holds up to 3, leaving as few as 5 after a zone loss."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "12, which doubles peak capacity so that any failure is covered",
+        "why": "Doubling is more than needed; 9 already survives the loss of any one zone."
+      }
+    ],
+    "explanation": "To survive the loss of one of Z zones, the remaining Z − 1 zones must carry peak: each zone needs ⌈6 / 2⌉ = 3 instances, so 9 in total, running at 6 / 9 ≈ 67% of capacity at peak. With more zones the overhead shrinks: across 4 zones you would need 2 per zone, 8 in total. Static stability means this capacity is already running, not launched during the outage.",
+    "reference": "AWS Builders' Library: Static stability using Availability Zones"
+  },
+  {
+    "id": "SD-REL-031",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A client library sends 1,000 requests per second to a backend and retries each failed request up to 3 times. During an outage every attempt fails. How much traffic does the backend receive without a retry budget, and with a budget that caps retries at 10% of requests?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 3,000 requests per second without a budget, and about 1,000 with the 10% budget",
+        "why": "Without a budget each request makes 1 try plus 3 retries, which is 4 attempts, not 3."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "About 4,000 requests per second without a budget, and about 400 with the 10% budget",
+        "why": "The budget limits retries only; the 1,000 original requests still arrive."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "About 4,000 requests per second without a budget, and about 1,100 with the 10% budget",
+        "why": "Correct: 1,000 × 4 attempts versus 1,000 originals plus at most 100 retries."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 1,000 requests per second either way, because failed requests are cheap for the backend",
+        "why": "Failed attempts still use connections and CPU, and a struggling backend often fails slowly."
+      }
+    ],
+    "explanation": "Per-request retry limits multiply load exactly when the backend is weakest: 1 + 3 retries is 4× traffic during a full outage. A retry budget (used in gRPC and Envoy, and recommended in the SRE book) caps retries as a fraction of total requests, so an outage adds at most about 10% extra load while transient blips are still retried.",
+    "reference": "Google SRE book: Handling overload; Envoy docs: retry budgets"
+  },
+  {
+    "id": "SD-REL-032",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An SLO says that 99% of requests complete within 300 ms. Latency is recorded in a Prometheus histogram with bucket bounds of 100 ms, 250 ms, 500 ms and 1 s. A dashboard shows `histogram_quantile(0.99, …)` = 290 ms. What can you conclude?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The SLO is being met, because the 99th percentile shown is below 300 ms",
+        "why": "The 290 ms figure is an interpolation, not a measurement of where requests actually fell."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Nothing changes if you switch to average latency, which is more precise than a histogram",
+        "why": "An average hides the tail entirely and says nothing about the 99th percentile."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Scraping the metrics more often will make the 290 ms estimate exact",
+        "why": "Scrape frequency affects time resolution, not how latency is spread inside a bucket."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "You cannot tell: the true p99 is somewhere between 250 and 500 ms. Add a 300 ms bucket and measure the share of requests at or under it",
+        "why": "Correct: the estimate assumes requests are spread evenly within the 250–500 ms bucket."
+      }
+    ],
+    "explanation": "`histogram_quantile` interpolates linearly within the bucket containing the target rank, so it cannot resolve anything finer than the bucket bounds. For an SLO, put a bucket bound exactly on the threshold and compute the SLI as a ratio of counts: requests in the `le=\"0.3\"` bucket divided by all requests. That is exact, needs no interpolation, and aggregates correctly across instances.",
+    "reference": "Prometheus docs: Histograms and summaries"
+  },
+  {
+    "id": "SD-REL-033",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A service has 8 workers. With shuffle sharding, each customer is assigned a random pair of 2 workers, and clients retry on the other worker in their pair. One customer's poison requests crash both of that customer's workers. What share of other customers lose both of their workers?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 25%, the same as splitting the 8 workers into 4 fixed shards of 2",
+        "why": "With fixed shards, a quarter of customers share the poisoned shard. Shuffle sharding is what avoids that."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "About 3.6%: only customers assigned exactly the same pair, which is 1 of 28 possible pairs",
+        "why": "Correct: C(8,2) = 28 pairs, so 1/28 ≈ 3.6% match exactly."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "About 46%, because nearly half of the other customers share at least one worker with the poisoned customer",
+        "why": "Sharing one worker is not an outage for them, because they can retry on the other worker of their pair."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 12.5%, one worker out of every eight that are available to the service",
+        "why": "Two workers are down, and what matters is whether a customer's whole pair is down, not one worker."
+      }
+    ],
+    "explanation": "There are C(8,2) = 28 possible pairs. A customer is fully affected only if their pair matches the poisoned pair: 1/28 ≈ 3.6%. About 1 − C(6,2)/28 = 13/28 ≈ 46% share one worker but stay up through retries. With fixed shards, 25% would be fully down. Larger fleets make the effect dramatic: 100 workers with shards of 5 give 75 million combinations.",
+    "reference": "AWS Builders' Library: Workload isolation using shuffle-sharding"
+  },
+  {
+    "id": "SD-REL-034",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A service handles 10,000 requests per minute with a baseline error rate of 0.1%. A canary receives 1% of traffic for 10 minutes before the release is promoted automatically. Would this canary reliably catch a bug that doubles the error rate to 0.2%?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Yes: doubling the error rate is a large change that any canary comparison will flag",
+        "why": "The relative change is large, but the absolute numbers here are tiny."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Yes, provided the canary's error rate is compared with the baseline fleet over the same 10 minutes, not with a fixed threshold",
+        "why": "Comparing with a baseline is good practice, but it cannot overcome so little data."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "No: the canary sees about 1,000 requests, so it expects about 1 error instead of 2, which is indistinguishable from noise",
+        "why": "Correct: 1% of 10,000 per minute for 10 minutes is 1,000 requests; 1 versus 2 errors is not a meaningful signal."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "No, because canaries can only detect latency regressions, not changes in error rates",
+        "why": "Canaries routinely compare error rates; the problem here is sample size."
+      }
+    ],
+    "explanation": "Statistical power depends on event counts. 100 requests per minute for 10 minutes is 1,000 requests: about 1 expected error at baseline and 2 with the bug. Random variation easily covers that difference. To detect it, the canary needs far more traffic or time (tens of thousands of requests), or a more sensitive signal. Size canaries from the smallest regression you need to catch.",
+    "reference": "Google SRE workbook: Canarying releases"
+  },
+  {
+    "id": "SD-REL-035",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A team uses blue/green deploys. The green release renames column `name` to `full_name`, and its migration drops the old column. Twenty minutes after the switch, green shows errors, so traffic is switched back to blue, but blue now fails on every query. What practice would have kept rollback safe?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Snapshot the database before each deploy and restore the snapshot when rolling back",
+        "why": "Restoring throws away 20 minutes of real customer writes made on green."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Expand and contract: add `full_name`, write to both columns, backfill, switch reads, and drop `name` only once no running version uses it",
+        "why": "Correct: each step stays compatible with both the old and new code, so either version can run."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Give blue and green separate databases so that schema changes never affect the old version",
+        "why": "The two databases would diverge immediately, and switching back would lose or conflict with green's writes."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use a canary release instead of blue/green, because canaries roll back automatically",
+        "why": "A canary still shares the database, so a destructive migration breaks the old version just the same."
+      }
+    ],
+    "explanation": "Application rollbacks are only safe when the database schema works for both versions. Expand-and-contract (also called parallel change) splits a breaking change into backwards-compatible steps spread over several releases, with the destructive step last. Treat schema migrations as their own deploys, with their own rollback plan.",
+    "reference": "Martin Fowler: ParallelChange"
+  },
+  {
+    "id": "SD-REL-036",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 3,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "A service restarts, and its Prometheus request counter drops from 1,000,000 back to 0. A `rate(http_requests_total[5m])` query over that period still gives a sensible per-second rate, not a large negative spike.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: `rate()` and `increase()` treat any decrease in a counter as a reset and adjust for it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "Prometheus is designed for counters that reset on restart, so it does not produce a negative rate here."
+      }
+    ],
+    "explanation": "Counters only go up, so Prometheus treats any decrease as a reset and adds the pre-reset value back when computing `rate()` and `increase()`. Requests between the last scrape before the restart and the crash are still lost, so the estimate can undercount slightly. Never use `rate()` on gauges, where decreases are real.",
+    "reference": "Prometheus docs: rate()"
+  },
+  {
+    "id": "SD-REL-037",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A product page synchronously calls a pricing service (required to sell) and a recommendations service (nice to have). During an incident, recommendations p99 latency rises to 2 seconds, and product pages time out for everyone. Which changes give the best graceful degradation? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Call recommendations with a short timeout and render the page without them, or with a cached default list, when it is slow",
+        "why": "Correct: a non-critical dependency should never be able to block the critical path."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Add a kill switch (feature flag) that skips the recommendations call entirely during incidents",
+        "why": "Correct: operators can remove the load and the latency instantly without a deploy."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Retry recommendations up to three times before rendering, so that users usually still see them",
+        "why": "Retries multiply both latency and load on a service that is already struggling."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Treat pricing as optional as well and show \"price unavailable\" whenever it is slower than usual",
+        "why": "Pricing is required to sell; degrading it loses sales, and showing stale prices can be worse."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Raise the page timeout to 5 seconds so that slow recommendations can still finish",
+        "why": "Every page would become as slow as its slowest optional dependency."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Call recommendations after pricing instead of in parallel, so that pricing always finishes first",
+        "why": "Serial calls make pages slower overall and the page still waits for recommendations."
+      }
+    ],
+    "explanation": "Graceful degradation starts by classifying dependencies as critical or optional. Optional ones get tight timeouts, fallbacks (cached or default content) and kill switches. Critical ones get redundancy and capacity. The page then fails partially instead of completely.",
+    "reference": "AWS Well-Architected: REL05-BP01 Implement graceful degradation"
+  },
+  {
+    "id": "SD-REL-038",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A platform serves 5,000 requests per second, and each request crosses about 8 services. A rare bug affects 1 in a million requests. Today each service independently keeps a random 1% of the spans it sees. Engineers almost never find a complete trace of the bug. Which change best fixes this, and what does it cost?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Raise every service's independent sampling to 10%, which keeps ten times as many bug traces at ten times the storage cost",
+        "why": "Independent per-service sampling keeps a whole 8-hop trace with probability 0.1⁸, so complete traces stay vanishingly rare."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep 100% of traces forever, which is the only way to capture rare bugs but costs nothing extra on the services",
+        "why": "Full retention multiplies storage and network costs a hundredfold and still adds overhead on every service."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Tail-based sampling: buffer all spans until each trace completes, then keep every error or slow trace plus a small share of normal ones. Collectors must hold whole traces in memory",
+        "why": "Correct: the keep decision is made with full knowledge of the trace, at the cost of buffering it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Head-based sampling of 1% at the edge, with the decision passed downstream, which captures all bug traces at no extra cost",
+        "why": "Coherent head sampling gives complete traces, but still keeps only 1% of them, so about 4 bug traces a day."
+      }
+    ],
+    "explanation": "The bug occurs about 5,000 × 10⁻⁶ × 86,400 ≈ 432 times a day. Independent per-span sampling almost never keeps all 8 spans of a trace (0.01⁸). Head-based sampling decided once at the edge keeps whole traces, but only 1% of them, about 4 bug traces a day. Tail-based sampling decides after seeing the whole trace, so it keeps every error. The cost is buffering all spans in collectors, and spans from the same trace must reach the same collector (trace-ID-aware load balancing).",
+    "reference": "OpenTelemetry docs: Sampling"
+  },
+  {
+    "id": "SD-REL-039",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A team adds a `user_id` label to a Prometheus latency histogram that already has `endpoint` (20 values) and `status` (5 values) labels and 12 buckets (14 series per label combination, counting `_sum` and `_count`). The product has 10 million users. What is the problem, and what is the right fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 14,000 series, which is fine, because Prometheus handles that easily on one server",
+        "why": "That count leaves out the 10 million user values; labels multiply, they do not add."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Up to about 14 billion series. Fix it by scraping less often so that each series takes less storage",
+        "why": "Cost is driven by the number of active series, not mainly by the scrape interval."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Up to about 14 billion series. Fix it by sharding Prometheus across ten servers, so that each one stores only a tenth of them",
+        "why": "Even a tenth, 1.4 billion series, is orders of magnitude beyond what a server can hold."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Up to about 14 billion series. Remove `user_id` from metrics and keep per-user detail in logs, traces or exemplars",
+        "why": "Correct: 10⁷ × 20 × 5 × 14 = 1.4 × 10¹⁰; high-cardinality identifiers belong in event data, not metric labels."
+      }
+    ],
+    "explanation": "Each unique combination of label values is its own time series: 10,000,000 × 20 × 5 × 14 = 14 billion in the worst case. Even if only 1% of combinations occur, 140 million series would overwhelm a typical Prometheus. Metrics should use bounded labels. Unbounded identifiers (user, request or order IDs) go into logs and traces, and exemplars can link a metric sample to an example trace.",
+    "reference": "Prometheus docs: Metric and label naming"
+  },
+  {
+    "id": "SD-REL-040",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An app runs active/active in two regions. Each region accepts writes, and the data replicates asynchronously with a typical lag of 200 ms that sometimes spikes to 5 s. Region A fails abruptly during a lag spike. Users are failed over to region B. Which statement is correct?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "RPO is zero, because both regions are active and serving live traffic",
+        "why": "Active/active is about serving traffic; with asynchronous replication, recent writes can still be lost."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "RPO is up to the replication lag at the moment of failure, about 5 s here, and those writes can return as conflicts when region A comes back",
+        "why": "Correct: writes acknowledged in A but not yet copied to B are missing in B and need reconciliation later."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "RPO is 200 ms, the typical lag, because replication lag spikes are too short to matter for planning",
+        "why": "Failures do not wait for average conditions; RPO must be planned for the worst lag you allow."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "No writes are lost, because region A will replay them to B when it recovers",
+        "why": "Replay brings them back only after recovery, possibly hours later, and only if A's storage survived. Meanwhile B has accepted conflicting writes."
+      }
+    ],
+    "explanation": "Asynchronous replication means a region can acknowledge writes the other region has not received. On abrupt failure, those writes are unavailable in B (an RPO equal to the lag), and they may reappear later as conflicts with writes B accepted in the meantime. Options: synchronous or quorum writes for data that must not be lost (paying cross-region latency), home-region ownership per record, or conflict-free data types with explicit reconciliation.",
+    "reference": "Designing Data-Intensive Applications, ch. 5: Multi-leader replication"
+  },
+  {
+    "id": "SD-REL-041",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 3,
+    "stem": "A SaaS company moves to a cell-based architecture: many identical, independent copies of its stack, each serving a subset of customers. Which statements are correct? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A bad deploy or a poison request affects only the customers in one cell, as long as changes roll out cell by cell",
+        "why": "Correct: limiting the blast radius is the main point of cells, and it depends on staged rollouts."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The cell router that maps customers to cells is shared by everyone, so it must stay extremely simple and highly available",
+        "why": "Correct: the thin routing layer is the one shared component, so it needs the most care."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Cells have a tested maximum size, and the system scales by adding cells, not by growing a cell without limit",
+        "why": "Correct: a known cell size keeps behaviour predictable and testable under load."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Cells should call each other to borrow capacity during spikes, so no cell is ever overloaded",
+        "why": "Cross-cell calls create shared fate and defeat the isolation cells are built for."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Deploying to all cells at once keeps their versions consistent, which is safer than a staggered rollout",
+        "why": "A simultaneous deploy turns one bad change into a full outage, which cells exist to prevent."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Because each cell is small, a cell no longer needs to span several availability zones",
+        "why": "Cells still need internal redundancy; cell boundaries limit blast radius, not hardware failures."
+      }
+    ],
+    "explanation": "Cells cap the number of customers any single failure can reach. That only holds if cells share nothing except a minimal router, changes reach one cell at a time, and each cell is redundant internally. Moving a customer between cells then becomes an explicit, tested migration.",
+    "reference": "AWS Well-Architected: Reducing the scope of impact with cell-based architecture"
+  },
+  {
+    "id": "SD-REL-042",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A service calls an inventory API through a circuit breaker that opens when at least 50% of calls in a 10-second window fail. It counts every non-2xx response as a failure. One tenant's buggy client starts sending 300 malformed requests per second, and inventory answers them with `400 Bad Request`. Healthy traffic is 200 requests per second, and inventory itself is fine. What happens, and what is the right fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing happens, because a breaker opens only on timeouts and connection errors",
+        "why": "This breaker is configured to count every non-2xx response, so the 400s count as failures."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The breaker opens. Raise the threshold to 80% so that it trips only in a real outage",
+        "why": "A worse client, say 900 bad requests per second, would still trip it; the threshold isn't the real bug."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The breaker opens and blocks healthy traffic too. Count only signs of dependency trouble (5xx, timeouts, connection errors) and require a minimum call volume",
+        "why": "Correct: 300 / 500 = 60% \"failures\" open the breaker, though inventory is healthy; 4xx responses are the caller's fault."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The breaker opens, which is correct behaviour, because it protects inventory from the malformed requests",
+        "why": "Inventory rejects them cheaply and is healthy; the breaker now blocks 200 good requests per second."
+      }
+    ],
+    "explanation": "Here 300 / (300 + 200) = 60% of calls \"fail\", so the breaker opens and blocks all callers, including healthy ones. A circuit breaker should measure the health of the dependency, not the quality of the caller's input: count 5xx, timeouts and connection failures, ignore 4xx, and require a minimum number of calls per window so a handful of errors in quiet periods can't trip it. Throttle the abusive tenant separately.",
+    "reference": "Resilience4j docs: CircuitBreaker"
+  },
+  {
+    "id": "SD-REL-043",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A service can handle 10,000 requests per second. During a surge it receives 14,000: 6,000 critical (checkout), 5,000 default (browsing) and 3,000 sheddable (prefetch and analytics), with the criticality carried in a request header. Which load-shedding choices are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Shed all 3,000 sheddable requests and about 1,000 default ones, keeping every critical request",
+        "why": "Correct: shed in priority order until the load fits the capacity."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Reject at the earliest point, such as the edge or front door, so that rejected requests cost almost nothing",
+        "why": "Correct: shedding after work has started wastes the capacity you are trying to protect."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Shed the same share of every class (about 29% each), which is fairest to all users",
+        "why": "Uniform shedding drops about 1,700 checkout requests even though lower-value traffic could have been shed instead."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Let requests reach the database and cancel the ones that are still waiting there for a lock",
+        "why": "By then each request has used gateway, app and connection-pool capacity; shedding that late protects little."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Return 503 with no Retry-After header, so that clients retry immediately and finish their work sooner",
+        "why": "Immediate retries add more load during the overload and turn shedding into a retry storm."
+      }
+    ],
+    "explanation": "Priority-aware load shedding keeps the most valuable work: 14,000 − 3,000 sheddable leaves 11,000, so about 1,000 default requests also go, and all 6,000 critical ones fit. It must be cheap, so reject at ingress using the propagated criticality, and tell clients when to come back (429 or 503 with Retry-After) so they back off instead of retrying straight away.",
+    "reference": "Google SRE book: Handling overload"
+  },
+  {
+    "id": "SD-REL-044",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Each replica of a consensus-based store is independently available 99% of the time, and the store accepts writes while a majority of replicas is up. Roughly how available are writes with 3 replicas compared with 5?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 99% with 3 and 99% with 5, because a majority quorum adds no availability over a single replica",
+        "why": "A majority quorum tolerates minority failures, so it is far more available than one replica."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "About 99.9999% with 3 and 99.99999999% with 5, because writes fail only when every replica is down",
+        "why": "Writes fail as soon as a majority is lost, not only when every replica is down."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "About 99.97% with 3 and 99.999% with 5",
+        "why": "Correct: 3 replicas fail when 2 or more are down (about 3 × 10⁻⁴); 5 fail when 3 or more are down (about 10⁻⁵)."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 97% with 3 and 95% with 5, because more replicas mean more things that can fail",
+        "why": "That is the rule for components in series; a majority quorum keeps working through minority failures."
+      }
+    ],
+    "explanation": "With 3 replicas, writes fail when at most 1 is up: 3 × 0.99 × 0.01² + 0.01³ ≈ 2.98 × 10⁻⁴, so about 99.97%. With 5 replicas, writes fail when at most 2 are up: 10 × 0.99² × 0.01³ + 5 × 0.99 × 0.01⁴ + 0.01⁵ ≈ 9.85 × 10⁻⁶, so about 99.999%. As always, this assumes independent failures; correlated failures such as a shared zone or a bad config change the picture.",
+    "reference": "Raft paper; Designing Data-Intensive Applications, ch. 9"
+  },
+  {
+    "id": "SD-REL-045",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A company keeps a warm standby region with replicated data and a small, scaled-down fleet whose caches stay empty because it serves no traffic. During a regional outage, DNS moves 100% of traffic to the standby at once. The standby database is overwhelmed within a minute, and the failover itself becomes an outage. What would most likely have prevented this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Use a lower DNS TTL, so that all clients switch to the standby region even faster",
+        "why": "Faster switching makes the sudden load arrive sooner; it does not reduce it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Replicate the database synchronously, so that the standby region has no replication lag at failover",
+        "why": "Replication lag affects data loss, not the read load that hits a cold cache."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Ramp traffic in steps while scaling out, pre-warm caches, and cap load with admission control",
+        "why": "Correct: cold caches and a small fleet cannot absorb full load instantly, so the ramp must match capacity."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Keep the standby fleet at its current small size, so that failover cost stays predictable",
+        "why": "An under-sized, cold standby is exactly what failed; the failover plan has to account for full load."
+      }
+    ],
+    "explanation": "A cold standby turns every request into a cache miss. With full traffic arriving at once, the database sees many times its normal load. Safe failover ramps traffic with weighted routing, scales capacity ahead of the traffic, warms caches (by replaying reads or shadowing a share of traffic), and sheds load while it catches up. Regular failover drills reveal this before a real outage.",
+    "reference": "AWS whitepaper: Disaster Recovery of Workloads on AWS; Google SRE book: Addressing cascading failures"
+  }
+]

@@ -1,0 +1,756 @@
+[
+  {
+    "id": "SD-CRD-001",
+    "domain": 4,
+    "skill": "coordination",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A Raft cluster has 5 voting members. How many members can fail at the same time while the cluster can still elect a leader and commit new writes?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "1, because Raft keeps one spare beyond the leader",
+        "why": "Raft needs a majority, not leader plus one spare. One failure is tolerated, but so is a second."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "2, because the 3 survivors still form a majority",
+        "why": "A majority of 5 is 3, so the cluster keeps working with any 2 members down."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "3, as long as the current leader is one of the 2 survivors",
+        "why": "Two of five is not a majority. A leader that cannot reach a majority cannot commit anything."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "4, since a single node can keep serving from its own log",
+        "why": "A lone node cannot tell a crash from a partition, so committing alone would risk split brain."
+      }
+    ],
+    "explanation": "Consensus needs a majority quorum: floor(N/2) + 1. For N = 5 that is 3, so up to 2 members can fail. In general a cluster of 2f + 1 members tolerates f failures, which is why clusters use odd sizes.",
+    "reference": "Raft paper (Ongaro and Ousterhout)"
+  },
+  {
+    "id": "SD-CRD-002",
+    "domain": 4,
+    "skill": "coordination",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "If two servers both run NTP, comparing their wall-clock timestamps (for example `System.currentTimeMillis()`) reliably tells you which of two events on those servers happened first.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "NTP only keeps clocks roughly in sync: skew of milliseconds or more is normal, and clocks can jump when NTP steps them."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Clock skew can easily exceed the gap between two events, so the order of timestamps may not match the real order."
+      }
+    ],
+    "explanation": "Wall clocks on different machines drift and can be stepped forward or backward. Events closer together than the skew can appear in the wrong order, which is how last-write-wins can silently drop the newer write. Use logical clocks (Lamport or vector) for causal order, or a bounded-uncertainty clock like Spanner's TrueTime.",
+    "reference": "DDIA, chapter 8: Unreliable clocks"
+  },
+  {
+    "id": "SD-CRD-003",
+    "domain": 4,
+    "skill": "coordination",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A lease library computes `expiresAt = wallClockNow() + 10s` and later checks `wallClockNow() > expiresAt` to decide whether it still holds the lease. Why should it use a monotonic clock for this instead?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Monotonic clocks are synchronised across machines, so other nodes can verify the lease",
+        "why": "Monotonic clocks are local to one process or machine. Their absolute values mean nothing on another node."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Monotonic clocks have nanosecond resolution, and a 10-second lease needs that precision",
+        "why": "Resolution is not the problem. A 10-second lease works fine with millisecond resolution."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The wall clock can be stepped by NTP or an operator, so the measured interval can be wrong",
+        "why": "A backward step makes the lease seem to last too long; a forward step ends it early. Monotonic clocks only move forward."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Reading the wall clock is a slow system call, and lease checks run on every request in the hot path",
+        "why": "Reading either clock is cheap. The concern is correctness of elapsed time, not speed."
+      }
+    ],
+    "explanation": "Measuring a duration needs a clock that never jumps. Wall-clock time can move backwards or leap forward when it is corrected, so elapsed-time checks on it are unsafe. A monotonic clock is right for measuring intervals on one machine, but it still cannot compare times between machines.",
+    "reference": "DDIA, chapter 8: Monotonic versus time-of-day clocks"
+  },
+  {
+    "id": "SD-CRD-004",
+    "domain": 4,
+    "skill": "coordination",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about Lamport timestamps and vector clocks are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "If event a happened before event b, then the Lamport timestamp of a is lower than that of b",
+        "why": "This is the clock condition Lamport clocks guarantee: causality implies a lower timestamp."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "If the Lamport timestamp of a is lower than that of b, then a happened before b",
+        "why": "The converse does not hold. Two concurrent events still get different timestamps, and one is lower."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Vector clocks can show that two events are concurrent, which Lamport timestamps alone cannot",
+        "why": "If neither vector is less than or equal to the other in every entry, the events are concurrent."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lamport timestamps track physical time closely, so they can drive TTL expiry",
+        "why": "Lamport counters are logical. They have no relationship to seconds and cannot express a TTL."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "A vector clock stays the same size no matter how many nodes write to the data",
+        "why": "A vector clock has one entry per node or writer, so it grows with the number of participants."
+      }
+    ],
+    "explanation": "Lamport clocks give a total order that is consistent with causality, but a lower timestamp does not prove causality. Vector clocks capture the full happened-before relation, so they can detect concurrent (conflicting) updates, at the cost of size proportional to the number of writers.",
+    "reference": "Lamport 1978; DDIA, chapter 5: Detecting concurrent writes"
+  },
+  {
+    "id": "SD-CRD-005",
+    "domain": 4,
+    "skill": "coordination",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "A client sends a write to the leader of a healthy 5-node Raft cluster. Put the steps in the order they happen before the client gets a success reply.",
+    "options": [
+      {
+        "id": "A",
+        "text": "The leader appends the command to its own log"
+      },
+      {
+        "id": "B",
+        "text": "The leader sends AppendEntries with the new entry to its followers"
+      },
+      {
+        "id": "C",
+        "text": "At least two followers persist the entry and acknowledge it"
+      },
+      {
+        "id": "D",
+        "text": "The leader marks the entry committed by advancing its commit index"
+      },
+      {
+        "id": "E",
+        "text": "The leader applies the entry to its state machine and replies to the client"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "An entry is committed once a majority (the leader plus 2 followers in a 5-node cluster) has stored it. Only then does the leader apply it and answer the client. Followers learn the new commit index in later AppendEntries messages and apply the entry themselves.",
+    "reference": "Raft paper, section 5.3: Log replication"
+  },
+  {
+    "id": "SD-CRD-006",
+    "domain": 4,
+    "skill": "coordination",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Worker 1 takes a lock from a lock service (lease 30 s, token 33) and starts rewriting a file in object storage. It then hits a 40-second garbage-collection pause. The lease expires, worker 2 gets the lock with token 34 and writes the file. Worker 1 wakes up, still believes it holds the lock, and writes its stale version. What reliably prevents the corruption?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Make the lease longer than the longest GC pause you have ever seen, for example 5 minutes",
+        "why": "Pauses, VM migrations and network delays have no upper bound, and long leases slow failover when a holder really dies."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Have the storage service reject any write whose fencing token is lower than the highest it has seen",
+        "why": "Storage sees token 34 first, so worker 1's late write with token 33 is refused no matter how long it paused."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Have worker 1 check that it still holds the lock immediately before each write it sends",
+        "why": "The pause can happen between the check and the write, so the race window remains."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Switch to Redlock across five independent Redis nodes so that one node failing cannot break the lock",
+        "why": "Redlock adds fault tolerance for the lock service but still relies on timing and issues no fencing token, so the paused client still writes."
+      }
+    ],
+    "explanation": "A client can never be sure its lease is still valid at the moment its write lands. The fix is to make the resource itself enforce ordering: the lock service hands out monotonically increasing fencing tokens, and the storage layer rejects stale ones. This is Kleppmann's argument for why timing-based locks need fencing to be safe for correctness.",
+    "reference": "DDIA, chapter 8: Fencing tokens; Kleppmann, How to do distributed locking"
+  },
+  {
+    "id": "SD-CRD-007",
+    "domain": 4,
+    "skill": "coordination",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "In a 5-node Raft cluster, a network partition isolates the leader (term 7) and one follower from the other three nodes. The three elect a new leader in term 8 and commit `x = 2`. The old leader still believes it leads and answers reads from its local state machine without contacting a quorum. A client connected to it reads `x`. What can it see?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing: the old leader steps down within one election timeout as soon as it sees no heartbeats",
+        "why": "A leader sends heartbeats; it does not wait for them. Without a check-quorum or lease mechanism it learns of term 8 only after the partition heals."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The stale value `x = 1`, even though `x = 2` is already committed on the majority side",
+        "why": "Local reads skip the majority check, so the deposed leader can serve values that are no longer current."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "An error, because the old leader cannot commit writes and Raft blocks reads in the same way",
+        "why": "Raft blocks commits without a majority, but a read served from local state never goes through the log."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`x = 2`, because the new value reaches the old leader with the term-8 heartbeats",
+        "why": "The partition stops all messages from the term-8 leader, so the old leader cannot learn the new value."
+      }
+    ],
+    "explanation": "Writes are safe in this scenario, since the old leader cannot reach a majority to commit. Reads are not, unless the leader confirms it is still leader: Raft section 8 has it exchange heartbeats with a majority before answering (ReadIndex), or rely on a time-bounded leader lease. etcd and Consul expose this choice as linearizable versus stale reads.",
+    "reference": "Raft paper, section 8: Client interaction"
+  },
+  {
+    "id": "SD-CRD-008",
+    "domain": 4,
+    "skill": "coordination",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "An order spans three services: payments, inventory and shipping, each with its own database. The team is choosing between two-phase commit (2PC) and an orchestrated saga. Which statements are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "With 2PC, if the coordinator crashes after every participant votes yes, the participants stay blocked and hold their locks until it recovers",
+        "why": "A participant that voted yes cannot decide alone, since the coordinator may have decided either way. This is 2PC's blocking problem."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A saga gives up isolation: other requests can see intermediate states, such as reserved stock for an order that is later compensated",
+        "why": "Each saga step commits locally, so its effects are visible before the whole saga finishes or is undone."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A saga is atomic in the same way as 2PC, because the orchestrator rolls back committed steps automatically",
+        "why": "Compensations are new business actions, such as a refund, not rollbacks. Some effects, like a sent email, cannot be undone."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "With 2PC, a participant that voted yes can time out and safely commit or abort on its own",
+        "why": "Acting alone after voting yes risks disagreeing with the coordinator's decision and breaking atomicity."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Saga compensations need not be idempotent, because the orchestrator runs each step exactly once",
+        "why": "Orchestrators retry after crashes and timeouts, so steps and compensations run at least once and must be idempotent."
+      }
+    ],
+    "explanation": "2PC gives atomic commit but blocks when the coordinator fails at the wrong time, and it holds locks across services. Sagas avoid distributed locks by committing each step locally and undoing with compensations, which means no isolation (the I in ACID) and steps that must be idempotent and retryable.",
+    "reference": "DDIA, chapter 9: Distributed transactions; Garcia-Molina and Salem, Sagas"
+  },
+  {
+    "id": "SD-CRD-009",
+    "domain": 4,
+    "skill": "coordination",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Spanner's TrueTime API returns an interval `[earliest, latest]` guaranteed to contain true time, with uncertainty ε (so the interval is about 2ε wide). A transaction picks commit timestamp `s = TT.now().latest`, then waits until `TT.now().earliest > s` before making its writes visible. With ε = 7 ms, roughly how long is this commit wait, and why is it needed?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 7 ms (one ε), so the timestamp is past on the coordinator's own clock before it reports success",
+        "why": "s is already ε ahead of true time, and earliest trails true time by another ε, so the wait is two ε, not one."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "About 14 ms (2ε), so that s is in the past everywhere before any client can see the commit",
+        "why": "Any transaction starting after this one becomes visible gets a later timestamp, which gives external consistency."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "About 14 ms (2ε), so that the Paxos followers have time to replicate the writes before the commit",
+        "why": "The wait is about clock uncertainty, not replication. Spanner overlaps it with Paxos replication, which is a separate step."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "No wait at all, because Paxos already orders the writes and makes them linearizable",
+        "why": "Paxos orders writes within one group. Ordering across groups by timestamp needs the uncertainty to have passed."
+      }
+    ],
+    "explanation": "Picking s at the moment of TT.now() at true time t gives s ≤ t + ε. TT.now().earliest exceeds s only once true time passes about t + 2ε, so the wait is about 2 × 7 = 14 ms. After that, true time is definitely past s, so any transaction that starts later gets a larger timestamp. Spanner hides most of the wait by overlapping it with Paxos replication.",
+    "reference": "Spanner paper (Corbett et al., OSDI 2012), section 4.1.2"
+  },
+  {
+    "id": "SD-CRD-010",
+    "domain": 4,
+    "skill": "coordination",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "You run an etcd cluster spread across three availability zones. It must keep accepting writes even if one whole zone is lost and, at the same time, one more member in another zone fails. Which layout is the smallest of these that meets the requirement?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "5 members spread 2 / 2 / 1",
+        "why": "Losing a 2-member zone leaves 3, which is exactly the majority. One more failure leaves 2, below quorum."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "6 members spread 2 / 2 / 2",
+        "why": "A majority of 6 is 4. Losing a zone leaves 4, and one more failure leaves 3, below quorum."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "7 members spread 3 / 2 / 2",
+        "why": "A majority of 7 is 4. Losing the 3-member zone leaves 4, and one more failure leaves 3, below quorum."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "9 members spread 3 / 3 / 3",
+        "why": "A majority of 9 is 5. Losing any zone leaves 6, and one more failure still leaves 5."
+      }
+    ],
+    "explanation": "Check the worst case: lose the largest zone, then one more member, and compare what is left to floor(N/2) + 1. 5 → 3 − 1 = 2 < 3. 6 → 4 − 1 = 3 < 4. 7 → 4 − 1 = 3 < 4. 9 → 6 − 1 = 5 ≥ 5. Adding an even member never helps, and bigger clusters cost write latency, since every commit waits for more acknowledgements.",
+    "reference": "etcd FAQ: cluster size and failure tolerance"
+  },
+  {
+    "id": "SD-REL-001",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Thousands of clients lose their connection to a service at the same moment and all retry with exponential backoff (1 s, 2 s, 4 s...). Why is it recommended to add random jitter to each delay?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "So the total time each client spends retrying is shorter, because random delays average out lower than fixed ones",
+        "why": "Jitter does not aim to shorten waits; full jitter can even make an individual wait longer."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "So the clients' retries spread out over time instead of arriving together in synchronised waves",
+        "why": "Without jitter every client retries at the same instants, recreating the spike that caused the failure."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "So the server can tell retries apart from new requests by their unusual timing",
+        "why": "Servers identify retries with headers or idempotency keys, not by the timing of arrivals."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "So that each retry is routed by the load balancer to a different backend instance",
+        "why": "Routing does not depend on when a request arrives. Jitter affects timing only."
+      }
+    ],
+    "explanation": "Clients that fail together and back off on the same schedule retry together, a thundering herd. Randomising each delay (for example full jitter: a random value between 0 and the backoff cap) spreads the load and lets the service recover.",
+    "reference": "AWS Builders' Library: Timeouts, retries and backoff with jitter"
+  },
+  {
+    "id": "SD-REL-002",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "A service has an availability SLO of 99.9% measured over a 30-day window. How many minutes of total downtime does the error budget allow in that window? Type just the number.",
+    "options": [],
+    "accepted": [
+      "43.2",
+      "43.2 minutes",
+      "43.2 min",
+      "43.2min"
+    ],
+    "explanation": "30 days × 24 h × 60 min = 43,200 minutes. The error budget is 0.1% of that: 43,200 × 0.001 = 43.2 minutes. Each extra nine divides it by ten (99.99% allows about 4.3 minutes).",
+    "reference": "Google SRE book: Embracing risk"
+  },
+  {
+    "id": "SD-REL-003",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A checkout service is itself available 99.95% of the time. Every request must call three independent dependencies in sequence, each available 99.9%, and fails if any of them fails. What is the best estimate of checkout's availability?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 99.9%, the availability of the weakest dependency",
+        "why": "That holds only if failures always overlap. Independent failures add up, so the result is lower."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "About 99.95%, because the service's own availability is what users see",
+        "why": "Users see failures of any hard dependency too, so the total can never beat the service's own number."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "About 99.85%, the average of all four components",
+        "why": "Averaging is not how serial availability combines. Each hard dependency multiplies in."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "About 99.65%, the product of all four availabilities",
+        "why": "All four must be up: 0.9995 × 0.999³ ≈ 0.9965."
+      }
+    ],
+    "explanation": "For hard serial dependencies multiply availabilities: 0.999³ = 0.997003, and × 0.9995 ≈ 0.99650, or 99.65%. That is about 3.5 hours of downtime a month instead of the 43 minutes a 99.9% target allows. This is why critical paths need fewer hard dependencies, caching or fallbacks.",
+    "reference": "Google SRE workbook: The calculus of service availability"
+  },
+  {
+    "id": "SD-REL-004",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 2,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each resilience pattern with the problem it is designed to solve.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Stop calling a dependency that keeps failing, and fail fast until it recovers"
+      },
+      {
+        "id": "B",
+        "text": "Stop one slow dependency from using up the threads or connections every other call needs"
+      },
+      {
+        "id": "C",
+        "text": "Reject excess work at the front door when the server is past capacity, so admitted requests still succeed"
+      },
+      {
+        "id": "D",
+        "text": "Cap how many requests a single client may send over a period of time"
+      },
+      {
+        "id": "E",
+        "text": "Guarantee that each message is processed exactly once"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Circuit breaker",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Bulkhead",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Load shedding",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Rate limiting",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Circuit breakers protect callers from a sick dependency, bulkheads isolate resource pools so a failure cannot spread, load shedding protects a server from its own overload, and rate limiting enforces fairness per client. None of them provides exactly-once processing, which comes from idempotency and deduplication.",
+    "reference": "Release It! (Nygard); AWS Builders' Library: Using load shedding to avoid overload"
+  },
+  {
+    "id": "SD-REL-005",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "An API uses a token bucket per client with capacity 100 tokens, refilled at 10 tokens per second. Each request costs one token. Which statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "After the client is idle for 30 seconds, it can send 100 requests at once and all are accepted",
+        "why": "The bucket refills to its capacity of 100 and stops there, so a burst of up to 100 is allowed."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "After the client is idle for 30 seconds, it can send 300 requests at once and all are accepted",
+        "why": "Tokens stop accumulating at the capacity, so 30 seconds of refill is capped at 100."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Over a long period, the client cannot average more than 10 accepted requests per second",
+        "why": "Beyond the one-off burst, tokens appear at 10 per second, which bounds the sustained rate."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The client is rejected the moment it sends 11 requests within any single second",
+        "why": "That describes a fixed per-second counter. A full bucket can absorb up to 100 requests in one second."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "A leaky bucket used as a queue would let the same bursts through to the backend unchanged",
+        "why": "A leaky-bucket queue drains at a constant rate, so it smooths bursts instead of passing them on."
+      }
+    ],
+    "explanation": "A token bucket enforces a long-run rate (the refill rate) while allowing bursts up to its capacity. A leaky bucket used as a queue outputs at a fixed rate and smooths bursts. Fixed-window counters are simpler but allow up to twice the limit at window boundaries, which sliding windows fix.",
+    "reference": "Stripe engineering: Scaling your API with rate limiters"
+  },
+  {
+    "id": "SD-REL-006",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Requests flow through four services in a chain: A → B → C → D. A, B and C each make up to 3 attempts (1 try plus 2 retries) when their call to the next service fails. D is now failing every request. How many requests does D receive for a single request entering A?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "9 requests, because only the two layers nearest D are retrying",
+        "why": "All three upstream layers retry, and each multiplies the attempts below it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "27 requests, because each of the three retrying layers multiplies by 3",
+        "why": "Each of C's 3 attempts per call comes from one of B's 3, which comes from one of A's 3: 3 × 3 × 3."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "81 requests, because all four services multiply by 3 attempts",
+        "why": "D is the failing service and does not call anyone, so only A, B and C multiply."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "7 requests, because the retries from each layer simply add up",
+        "why": "Retries nest rather than add: each upstream attempt starts a whole new round of downstream attempts."
+      }
+    ],
+    "explanation": "Retries at every layer multiply: 3 × 3 × 3 = 27 times the load on the service that is already failing, which can turn a partial outage into a full one. AWS's guidance is to retry at a single point in the stack, use retry budgets or token buckets for retries, and pass an 'already retried' signal or deadline downstream.",
+    "reference": "AWS Builders' Library: Timeouts, retries and backoff with jitter"
+  },
+  {
+    "id": "SD-REL-007",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A database fails over and is unavailable for 90 seconds. It recovers fully, but the service in front of it stays down: queues are full, most requests time out, clients retry, and the cache that normally absorbs 80% of reads has been emptied by expirations during the outage. Two hours later it still has not recovered on its own. Which action is most likely to break the cycle?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Double the number of application servers so there is spare capacity to work through the backlog of queued requests",
+        "why": "More app servers send even more queries to the same database, which is the real bottleneck while the cache is cold."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Raise every client and server timeout so that slow requests finally complete instead of being retried again",
+        "why": "Longer timeouts hold connections and queue slots longer, so the queues grow and latency rises further."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Shed load at the front door and cap retries with a retry budget until the queues drain and the cache warms",
+        "why": "The trigger has gone; the overload is now sustained by retries and a cold cache. Cutting offered load lets goodput recover."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Fail the database over again to a fresh replica so that the queries run against a clean set of connections",
+        "why": "The database is healthy. A second failover adds another outage and changes nothing about the retry-driven load."
+      }
+    ],
+    "explanation": "This is a metastable failure: a short trigger pushes the system into a bad state that sustains itself (retries plus a cold cache keep load above capacity) after the trigger is gone. Recovery needs load reduced below capacity: shed or rate-limit traffic, stop retry amplification, warm the cache, then ramp traffic back up.",
+    "reference": "Bronson et al., Metastable Failures in Distributed Systems (HotOS 2021)"
+  },
+  {
+    "id": "SD-REL-008",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "During a traffic spike, requests arrive 20% faster than a service can process them. Requests wait in an unbounded FIFO queue, and clients give up after 1 second. CPU is at 100% and the service completes as many requests per second as ever, yet almost no client receives a successful response. Which change most directly restores useful throughput (goodput)?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add worker threads so the queue drains faster, keeping the queue and its first-in-first-out order exactly as they are today",
+        "why": "The CPU is already saturated, so more threads add contention, and the workers still serve requests whose callers have gone."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Bound time in the queue: drop requests older than the client deadline, or serve the newest first while the queue is congested",
+        "why": "Workers then spend capacity only on requests whose callers are still waiting, so most of the throughput becomes goodput again."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Raise the client timeout to 10 seconds so that queued requests have enough time to finish before their callers give up",
+        "why": "With arrivals above capacity the queue grows without limit, so waiting time soon passes any fixed timeout and latency gets worse."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Have clients retry immediately on timeout, so that no user request is lost while the service works through its backlog",
+        "why": "Retries add load to a service that is already overloaded and push it further into collapse."
+      }
+    ],
+    "explanation": "This is congestion collapse. The server stays busy, but with FIFO order and a growing queue every request it finishes has already been abandoned, so goodput approaches zero. The fix is to stop doing work nobody is waiting for: cap queueing delay (as CoDel does), drop requests past their deadline, or switch to adaptive LIFO under congestion, as Facebook describes in \"Fail at Scale\". Combine it with load shedding at admission so that excess work is rejected cheaply and early.",
+    "reference": "Maurer, Fail at Scale (ACM Queue 2015)"
+  },
+  {
+    "id": "SD-REL-009",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A service has a 99.9% success SLO over 30 days. Following the SRE workbook, it pages when the error ratio over the last hour exceeds a burn rate of 14.4. What error ratio triggers the page, and what share of the 30-day error budget is spent if that rate lasts exactly one hour?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "An error ratio of 1.44%, which spends 2% of the 30-day budget in that hour",
+        "why": "Burn rate 14.4 × allowed 0.1% = 1.44%; one hour is 1/720 of 30 days, and 14.4 / 720 = 2%."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "An error ratio of 14.4%, which spends 2% of the 30-day budget in that hour",
+        "why": "Burn rate multiplies the allowed error ratio of 0.1%, not 1%. 14.4% would be a burn rate of 144."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "An error ratio of 1.44%, which spends 14.4% of the 30-day budget in that hour",
+        "why": "A burn rate of 1 spends the budget in 720 hours, so one hour at 14.4 spends 14.4 / 720 = 2%."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An error ratio of 0.144%, which spends 0.2% of the 30-day budget in that hour",
+        "why": "That divides by ten where it should multiply: 14.4 × 0.1% is 1.44%, not 0.144%."
+      }
+    ],
+    "explanation": "Burn rate is how fast the budget is consumed relative to spending exactly all of it in the window. Allowed error ratio = 0.1%, so burn rate 14.4 means 1.44% errors. 30 days = 720 hours, so one hour at 14.4× spends 14.4 / 720 = 2% of the budget. The workbook pairs this long window with a 5-minute short window so the alert also resets quickly.",
+    "reference": "Google SRE workbook: Alerting on SLOs"
+  },
+  {
+    "id": "SD-REL-010",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A mobile client times out after 2 s. The API gateway calls service A with a 5 s timeout. Service A calls service B with a 3 s timeout and up to 2 retries. B's p99 latency is 400 ms, but during a B slowdown users see errors and B's load triples. Which changes address real flaws in this setup? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Pass the caller's remaining deadline downstream so that A and B stop work the client has already abandoned",
+        "why": "Work after 2 s is wasted: the client is gone, but A and B keep computing and retrying for up to 9 s."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Make A's total retry time fit inside its own budget, for example a ~600 ms per-try timeout with one retry",
+        "why": "Three 3 s attempts can take 9 s, far past the 5 s gateway timeout, so later retries can never help a caller."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Give each inner call a longer timeout than its caller, so inner work always has time to finish",
+        "why": "This is the current flaw: inner timeouts should be shorter than outer ones, or the caller gives up first."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Keep the retries as they are, since a timed-out call is known to have done nothing",
+        "why": "A timeout tells you nothing about whether B did the work, so retries must be idempotent and bounded."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Set every timeout to B's median latency so that slow calls are cut off as early as possible",
+        "why": "A median timeout fails about half of all healthy calls, then their retries double the load."
+      }
+    ],
+    "explanation": "Timeouts should shrink as you go deeper, and the whole retry plan of a layer must fit in its caller's budget. Here the client waits 2 s, but A can spend 3 × 3 s = 9 s on B, so B's load triples for answers nobody receives. Propagating a deadline (as gRPC does) and setting per-try timeouts from the dependency's p99 latency fix both problems.",
+    "reference": "AWS Builders' Library: Timeouts, retries and backoff with jitter; gRPC deadlines"
+  }
+]

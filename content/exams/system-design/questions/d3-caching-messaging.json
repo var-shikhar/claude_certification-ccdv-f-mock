@@ -1,0 +1,358 @@
+[
+  {
+    "id": "SD-CAC-001",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A service uses the cache-aside pattern in front of its database. A read request finds no entry for the key in the cache. What happens next?",
+    "options": [
+      { "id": "A", "correct": false, "text": "The cache itself queries the database, stores the row and returns it to the application", "why": "That is read-through caching, where the cache library owns loading. In cache-aside the cache is a passive key-value store." },
+      { "id": "B", "correct": true, "text": "The application reads the row from the database, then writes it into the cache", "why": "In cache-aside the application owns both steps: it checks the cache, loads from the database on a miss and populates the cache for next time." },
+      { "id": "C", "correct": false, "text": "The request fails with a miss error, and a background job fills the cache later", "why": "A miss is a normal event in cache-aside, not an error; the request is still served from the database." },
+      { "id": "D", "correct": false, "text": "The application returns an empty result and waits for the next write to fill the cache", "why": "Returning nothing would be wrong data. Only write-through designs fill the cache on writes, and even they read the database on a miss." }
+    ],
+    "explanation": "Cache-aside (lazy loading): check the cache, on a miss read the source of truth, then store the value in the cache with a TTL. Writes usually update the database and delete the cache key.",
+    "reference": "AWS: Caching best practices"
+  },
+  {
+    "id": "SD-CAC-002",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "With write-through caching, a write is acknowledged to the client only after both the cache and the backing database have been updated.",
+    "options": [
+      { "id": "A", "correct": true, "text": "True", "why": "Write-through updates the store synchronously as part of the write, so the cache never holds data the database lacks." },
+      { "id": "B", "correct": false, "text": "False", "why": "This describes write-back (write-behind), which acknowledges after the cache update and flushes to the database later." }
+    ],
+    "explanation": "Write-through trades higher write latency for safety: a cache node crash cannot lose acknowledged writes. Write-back gives faster writes but can lose data that has not been flushed yet.",
+    "reference": "AWS: Caching best practices"
+  },
+  {
+    "id": "SD-CAC-003",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 2,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each caching strategy with how it behaves.",
+    "options": [
+      { "id": "A", "text": "The application checks the cache, loads from the database on a miss and stores the result itself" },
+      { "id": "B", "text": "The cache layer loads missing keys from the database on the application's behalf" },
+      { "id": "C", "text": "Each write updates the cache and the database before it is acknowledged" },
+      { "id": "D", "text": "Writes are acknowledged once the cache has them; the database is updated later in batches" },
+      { "id": "E", "text": "Writes go straight to the database and skip the cache, which fills only on reads" }
+    ],
+    "prompts": [
+      { "id": "P1", "text": "Cache-aside", "answer": "A" },
+      { "id": "P2", "text": "Read-through", "answer": "B" },
+      { "id": "P3", "text": "Write-through", "answer": "C" },
+      { "id": "P4", "text": "Write-back (write-behind)", "answer": "D" }
+    ],
+    "explanation": "The unused description is write-around, which keeps rarely re-read data out of the cache. Write-back is the only one of these that can lose acknowledged writes if a cache node fails before flushing.",
+    "reference": "AWS: Caching best practices"
+  },
+  {
+    "id": "SD-CAC-004",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An in-process LRU cache holds the 50,000 most popular products and normally has a 95% hit ratio. Every night a reporting job reads all 4 million products once through the same cache. Each morning the hit ratio starts near 0% and takes an hour to recover. Which change addresses the cause?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Raise the TTL of entries from one hour to one day so hot products stay cached overnight", "why": "The hot entries are not expiring; they are evicted for capacity by the scan. A longer TTL does not stop eviction." },
+      { "id": "B", "correct": false, "text": "Switch the eviction policy to FIFO, so the newest entries are always kept and old ones leave first", "why": "FIFO also admits every scanned item and pushes out older hot items, so the scan still flushes the cache." },
+      { "id": "C", "correct": true, "text": "Use a frequency-aware, scan-resistant policy such as W-TinyLFU or segmented LRU", "why": "These admit or promote items based on repeat access, so items touched once by the scan cannot displace items read thousands of times." },
+      { "id": "D", "correct": false, "text": "Switch to random eviction, so hot products are statistically unlikely to be chosen for removal", "why": "With 4 million inserts into a 50,000-slot cache, random eviction still removes nearly every original entry." }
+    ],
+    "explanation": "This is cache pollution by a sequential scan, the classic weakness of pure LRU: every access, even a one-off, makes an item the most recent. Frequency-aware admission (TinyLFU, as in Caffeine) or segmented LRU keeps one-hit wonders from evicting the working set. Routing the batch job around the cache also works.",
+    "reference": "Einziger et al., TinyLFU"
+  },
+  {
+    "id": "SD-CAC-005",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A scraper requests `/users/{id}` with random IDs that do not exist. Every such request misses the cache-aside cache and runs a database query, and database CPU is climbing. Which two changes stop these requests reaching the database? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "Cache the \"not found\" result for each missing ID with a short TTL", "why": "Negative caching turns repeated lookups of the same missing ID into cache hits; the short TTL limits staleness if the ID is created later." },
+      { "id": "B", "correct": true, "text": "Check a Bloom filter of existing user IDs before querying the database", "why": "A Bloom filter has no false negatives, so a \"definitely absent\" answer can skip the database entirely; only rare false positives reach it." },
+      { "id": "C", "correct": false, "text": "Raise the TTL of cached user records from 10 minutes to 24 hours", "why": "Missing IDs never have a cached record, so a longer TTL on real records does nothing for them." },
+      { "id": "D", "correct": false, "text": "Add more cache nodes so the random keys fit in memory", "why": "Nothing is ever stored for a missing ID in plain cache-aside, so extra capacity does not create hits." },
+      { "id": "E", "correct": false, "text": "Switch from cache-aside to write-through caching", "why": "Write-through fills the cache on writes; IDs that were never written still miss and fall through to the database." }
+    ],
+    "explanation": "This is cache penetration. Negative caching handles repeated misses; a Bloom filter handles a stream of always-new random IDs, which negative caching alone cannot. Rate limiting the client is the other half of the fix.",
+    "reference": "Redis docs: Bloom filter"
+  },
+  {
+    "id": "SD-CAC-006",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A cache-aside service updates the database and then deletes the cache key. Consider this interleaving for key `k`, which has a 1-hour TTL:\n\n1. Reader A misses the cache and reads `v1` from the database.\n2. Writer B commits `v2` to the database.\n3. Writer B deletes `k` from the cache.\n4. Reader A sets `k = v1` in the cache.\n\nWhat does the cache hold afterwards, and what prevents this?",
+    "options": [
+      { "id": "A", "correct": false, "text": "It holds `v2`, because B's delete happened after A's database read, so the stale value can never be written back", "why": "The order of A's read does not matter; A's set in step 4 lands after B's delete and nothing rejects it." },
+      { "id": "B", "correct": false, "text": "It holds stale `v1` for up to an hour; deleting the cache key before the database update closes the race", "why": "A can still read v1 before B commits and set it after B's earlier delete. Moving the delete only moves the window." },
+      { "id": "C", "correct": true, "text": "It holds stale `v1` for up to an hour; a lease token issued on A's miss and invalidated by B's delete makes A's set fail", "why": "This is the lease mechanism from Facebook's memcache paper: a delete invalidates outstanding leases, so a late set from a reader with an old token is rejected." },
+      { "id": "D", "correct": false, "text": "It holds stale `v1` for up to an hour; having writers set `v2` in the cache instead of deleting `k` closes the race", "why": "A's step-4 set still overwrites v2 with v1, and two concurrent writers can apply cache sets in the reverse order of their commits." }
+    ],
+    "explanation": "The race needs a read that starts before a write and finishes after the invalidation. Short TTLs bound the damage; leases (or versioned compare-and-set) prevent it. Facebook's memcache leases also throttle thundering herds by issuing one token per key at a time.",
+    "reference": "Nishtala et al., Scaling Memcache at Facebook"
+  },
+  {
+    "id": "SD-CAC-007",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "One cached key serves 20,000 requests per second. When it expires, rebuilding it takes a 200 ms database query, and every request that misses runs that query. Roughly how many queries reach the database before the first rebuild repopulates the key, and what stops it?",
+    "options": [
+      { "id": "A", "correct": false, "text": "About 4,000; adding random jitter to each key's TTL spreads the expiries out so that they never coincide again", "why": "Jitter spreads expiry times across many keys. A single hot key still expires at one moment and draws the whole herd." },
+      { "id": "B", "correct": true, "text": "About 4,000; let one request rebuild the key under a per-key lock while others wait or get the stale value", "why": "20,000 req/s × 0.2 s = 4,000 misses. Coalescing (single-flight) or stale-while-revalidate cuts that to one query." },
+      { "id": "C", "correct": false, "text": "About 20,000; every request in the second after expiry misses, so coalescing requests by key is needed", "why": "The miss window lasts only as long as the rebuild, 0.2 s, not a full second: 20,000 × 0.2 = 4,000." },
+      { "id": "D", "correct": false, "text": "About 4,000; raising the TTL from 60 seconds to 10 minutes makes the stampede go away for good", "why": "A longer TTL makes the stampede ten times rarer, but each expiry still sends about 4,000 queries at once." }
+    ],
+    "explanation": "Misses during the rebuild = arrival rate × rebuild time. Fixes that bound it to one rebuild: request coalescing (a lock or single-flight per key), serving stale data while one worker refreshes, or refreshing early before expiry.",
+    "reference": "Nishtala et al., Scaling Memcache at Facebook"
+  },
+  {
+    "id": "SD-CAC-008",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A product page is identical for every visitor apart from its language. It is served through a CDN with these response headers:\n\n```\nCache-Control: public, max-age=300\nVary: Accept-Language, Cookie\n```\n\nEvery visitor has a unique session cookie, and the CDN hit ratio is close to 0%. Which two changes raise the hit ratio without serving the wrong language? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "Remove `Cookie` from `Vary` and load any per-user fragments in a separate request", "why": "Varying on a unique cookie gives every visitor a private copy, so no two requests can share a cached response." },
+      { "id": "B", "correct": true, "text": "Normalise `Accept-Language` at the edge to the few languages the site supports before using it in the cache key", "why": "Raw values such as \"en-GB,en;q=0.9,fr;q=0.8\" have thousands of variants; mapping them to \"en\" or \"fr\" collapses them to a handful." },
+      { "id": "C", "correct": false, "text": "Raise `max-age` from 300 to 86,400 seconds", "why": "Each variant is still unique per visitor, so a longer lifetime only keeps useless copies around longer." },
+      { "id": "D", "correct": false, "text": "Change `public` to `private`", "why": "private forbids shared caches such as a CDN from storing the response at all, taking the hit ratio to exactly zero." },
+      { "id": "E", "correct": false, "text": "Add `stale-while-revalidate=60`", "why": "It hides revalidation latency for cached variants but does nothing about the fragmentation that prevents hits." }
+    ],
+    "explanation": "Under RFC 9111 a cached response is reused only when the request headers named in Vary match. A cache key built from a per-user header makes the page uncacheable in practice. Keep Vary minimal and normalise the headers it lists.",
+    "reference": "RFC 9111: HTTP Caching"
+  },
+  {
+    "id": "SD-CAC-009",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A cache uses probabilistic early expiration (XFetch): a request recomputes the value early when `now - delta * beta * ln(rand()) >= expiry`, where `rand()` is uniform on (0, 1), `delta` is the recompute time and `beta = 1`. Recomputing takes 100 ms. A request arrives 50 ms before the key expires. What is the probability that this request triggers a recompute?",
+    "options": [
+      { "id": "A", "correct": false, "text": "About 39%, the chance that `-ln(rand())` falls below 0.5", "why": "That is the complement. The recompute fires when -ln(rand()) is at least 0.5, which happens with probability e^-0.5." },
+      { "id": "B", "correct": false, "text": "50%, because the request arrives halfway through the 100 ms window", "why": "The trigger is not linear in time. -ln(rand()) follows an exponential distribution, so the chance decays exponentially with distance from expiry." },
+      { "id": "C", "correct": false, "text": "0%, because XFetch only recomputes once the key has actually expired", "why": "Recomputing before expiry is the whole point: one early request refreshes the key so the herd never sees a miss." },
+      { "id": "D", "correct": true, "text": "About 61%, which is e^-0.5", "why": "The condition rearranges to -ln(rand()) >= 50/100 = 0.5. -ln(rand()) is Exp(1), so P = e^-0.5 ≈ 0.607." }
+    ],
+    "explanation": "-ln(U) for uniform U is exponentially distributed with rate 1, so P(-ln U >= x) = e^-x, where x = time-to-expiry / (delta × beta). At 50 ms out that is about 61%; at 1 s out it is e^-10, about 0.005%. Requests close to expiry are very likely to refresh it, distant ones almost never, and scaling by delta makes slow-to-compute keys refresh earlier.",
+    "reference": "Vattani et al., Optimal Probabilistic Cache Stampede Prevention (VLDB 2015)"
+  },
+  {
+    "id": "SD-CAC-010",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A celebrity's profile is one Redis Cluster key that receives 500,000 reads per second. Each Redis primary handles about 100,000 operations per second, and that shard is saturated while the other shards are idle. Which change removes the bottleneck?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Add four more shards so the cluster rebalances its 16,384 hash slots and spreads the load more evenly", "why": "A key maps to exactly one slot, and one slot lives on one primary. More shards cannot split a single key's traffic." },
+      { "id": "B", "correct": true, "text": "Serve the key from a short-TTL in-process cache on each app server, or copy it under several suffixed keys on different shards", "why": "Both spread one key's reads across many places. A 1–2 s local cache absorbs nearly all reads; suffixed copies like profile:42#0..#7 split them across shards." },
+      { "id": "C", "correct": false, "text": "Set the eviction policy to allkeys-lfu so that the hot key is never evicted while it stays popular", "why": "The key is not being evicted; the shard is CPU- and network-bound by request volume. Eviction policy does not change throughput." },
+      { "id": "D", "correct": false, "text": "Wrap related keys in a hash tag like `{profile:42}` so that they live on the same shard together", "why": "Hash tags deliberately co-locate keys on one slot, which concentrates even more traffic on the saturated shard." }
+    ],
+    "explanation": "Hot keys are a partitioning problem, not a capacity problem: horizontal scaling only helps traffic that spreads across keys. Fixes either duplicate the key (local L1 caches, key replicas with random suffixes, replica reads) or cut requests (coalescing). All of them accept a little staleness.",
+    "reference": "Redis docs: Cluster specification"
+  },
+  {
+    "id": "SD-MSG-001",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A Kafka topic has 6 partitions, and producers send each record with no key. What ordering does Kafka guarantee to consumers?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Records are read in the exact order they were produced, across the whole topic", "why": "Kafka has no total order across partitions; each partition is an independent log." },
+      { "id": "B", "correct": true, "text": "Records are ordered only within each partition, by their offsets", "why": "Each partition is an append-only log with increasing offsets; that is the only ordering Kafka promises." },
+      { "id": "C", "correct": false, "text": "Records are ordered by producer timestamp, after the broker sorts them", "why": "Brokers never reorder by timestamp; record timestamps are metadata, not an ordering key." },
+      { "id": "D", "correct": false, "text": "No ordering at all, because Kafka spreads records across brokers at random", "why": "Order within a partition is guaranteed. Without a key, records are spread across partitions, so related events may interleave." }
+    ],
+    "explanation": "Kafka guarantees order per partition. To keep related events in order (all events for one order), give them the same key so they land in the same partition.",
+    "reference": "Apache Kafka documentation"
+  },
+  {
+    "id": "SD-MSG-002",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Within one Kafka consumer group, each partition is assigned to at most one consumer at a time, so a group with more consumers than partitions leaves some consumers idle.",
+    "options": [
+      { "id": "A", "correct": true, "text": "True", "why": "Partitions are the unit of parallelism: each goes to exactly one member of the group, so extra members get nothing to read." },
+      { "id": "B", "correct": false, "text": "False", "why": "Classic consumer groups never share a partition between two members, which is what preserves per-partition order." }
+    ],
+    "explanation": "A topic with 8 partitions supports at most 8 active consumers per group. To scale consumption further you need more partitions, or parallel processing inside each consumer.",
+    "reference": "Apache Kafka documentation"
+  },
+  {
+    "id": "SD-MSG-003",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 2,
+    "type": "match",
+    "select": 1,
+    "stem": "A consumer reads from Kafka and writes results to a database. Match each processing approach with the delivery guarantee it gives if the consumer can crash at any moment.",
+    "options": [
+      { "id": "A", "text": "At-most-once: a crash can lose messages but never repeats them" },
+      { "id": "B", "text": "At-least-once: a crash can repeat messages but never loses them" },
+      { "id": "C", "text": "Effectively once: the result and the progress marker commit together" },
+      { "id": "D", "text": "Exactly-once delivery: the network never carries a message twice" }
+    ],
+    "prompts": [
+      { "id": "P1", "text": "Commit the offset, then process the message", "answer": "A" },
+      { "id": "P2", "text": "Process the message, then commit the offset", "answer": "B" },
+      { "id": "P3", "text": "Write the result and the consumed offset in one database transaction", "answer": "C" }
+    ],
+    "explanation": "No system can guarantee a message is delivered exactly once over an unreliable network. What you can get is exactly-once effects: deliver at least once, and make processing idempotent or atomic with the progress marker.",
+    "reference": "Kleppmann, Designing Data-Intensive Applications, ch. 11"
+  },
+  {
+    "id": "SD-MSG-004",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An SQS standard queue has a 30-second visibility timeout and a dead-letter queue with `maxReceiveCount = 3`. Most jobs finish in 5 seconds, but video jobs take about 45 seconds. Video jobs are processed several times and finally land in the dead-letter queue even though each run succeeds. Why, and what fixes it?",
+    "options": [
+      { "id": "A", "correct": true, "text": "The message reappears after 30 s while the first worker is still busy; extend visibility with a heartbeat and make jobs idempotent", "why": "Each redelivery counts as a receive. ChangeMessageVisibility (or a longer timeout) keeps the message hidden until the job finishes and deletes it." },
+      { "id": "B", "correct": false, "text": "Short polling returns the same message to several workers at once; enable long polling with a 20-second wait time", "why": "Long polling reduces empty responses and cost; it does not stop a message becoming visible again when its timeout expires." },
+      { "id": "C", "correct": false, "text": "Standard queues deliver duplicates by design; switching to a FIFO queue with deduplication removes the redeliveries", "why": "FIFO deduplication only drops duplicate sends within 5 minutes. A message whose visibility timeout expires is still redelivered." },
+      { "id": "D", "correct": false, "text": "The jobs start before their payload is ready; set a 60-second DelaySeconds on the queue so video jobs wait first", "why": "DelaySeconds only postpones the first delivery. The 45-second job still outlives the 30-second visibility timeout." }
+    ],
+    "explanation": "Set the visibility timeout above the worst-case processing time, or extend it from a heartbeat while the work runs. Standard queues can still deliver a message twice, so consumers should be idempotent either way.",
+    "reference": "AWS: Amazon SQS visibility timeout"
+  },
+  {
+    "id": "SD-MSG-005",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "An order service inserts an order into PostgreSQL and then publishes an `OrderPlaced` event to Kafka. After a crash, some orders exist with no event, and some events exist for orders that were rolled back. Which two designs keep the database and the event stream consistent? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "Insert the event into an outbox table in the same transaction as the order, and relay it to Kafka with CDC or a poller", "why": "One local transaction makes the order and its event atomic; the relay publishes at least once, and consumers deduplicate by event ID." },
+      { "id": "B", "correct": true, "text": "Publish to Kafka first, and have the service build its order table by consuming that topic", "why": "With the log as the single source of truth there is only one write. The database becomes a derived view, so the two cannot diverge." },
+      { "id": "C", "correct": false, "text": "Publish to Kafka inside the database transaction, just before COMMIT", "why": "If the commit then fails, the event is already out for an order that does not exist." },
+      { "id": "D", "correct": false, "text": "After committing, retry the publish in a loop until Kafka acknowledges it", "why": "A crash between the commit and a successful publish still loses the event; the retry loop dies with the process." },
+      { "id": "E", "correct": false, "text": "Wrap PostgreSQL and Kafka in an XA two-phase commit", "why": "Kafka does not take part in XA transactions, and 2PC would couple the availability of both systems even if it did." }
+    ],
+    "explanation": "This is the dual-write problem: two independent systems cannot be updated atomically by application code. Either make one write the source of truth and derive the other from it (an outbox with CDC, or the log first), or accept inconsistency.",
+    "reference": "microservices.io: Transactional outbox"
+  },
+  {
+    "id": "SD-MSG-006",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A Kafka consumer (client 3.x) uses `max.poll.records = 500`, `max.poll.interval.ms = 300000` and `session.timeout.ms = 45000`. After a downstream API slowed down, each batch of 500 records takes about 6 minutes to process. Now the group rebalances every few minutes and the same records are processed over and over. What is the cause, and what fixes it?",
+    "options": [
+      { "id": "A", "correct": false, "text": "The busy processing thread stops sending heartbeats, so the 45 s session timeout expires; raise session.timeout.ms to 10 minutes", "why": "Since Kafka 0.10.1 (KIP-62) heartbeats come from a background thread, so a slow batch does not stop them. The session timeout is not the trigger." },
+      { "id": "B", "correct": false, "text": "Auto-commit stores offsets before records are processed, so the broker resends them; turn off enable.auto.commit", "why": "Auto-commit only commits records already returned by an earlier poll. Turning it off does not stop the eviction that causes the redelivery." },
+      { "id": "C", "correct": false, "text": "The partition leaders keep failing over under the extra load; raise the topic's replication factor from 2 to 3", "why": "Leader changes do not evict consumers or rewind committed offsets, and nothing in the symptoms points at the brokers." },
+      { "id": "D", "correct": true, "text": "Six minutes between poll() calls exceeds the 5-minute max poll interval, so the consumer leaves the group; poll smaller batches", "why": "The member is evicted, its partitions move and its uncommitted batch is redelivered. Fewer records per poll (or a higher interval) fixes the loop." }
+    ],
+    "explanation": "max.poll.interval.ms bounds the time between poll() calls, which detects a stuck processing loop; session.timeout.ms detects a dead process. With 500 records at about 0.72 s each, a batch takes 6 minutes. At 200 records it takes about 2.4 minutes, safely inside the limit.",
+    "reference": "Apache Kafka: KIP-62 and consumer configuration"
+  },
+  {
+    "id": "SD-MSG-007",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 3,
+    "stem": "A stream processor reads topic `payments`, transforms each record and writes to topic `ledger`. It uses an idempotent, transactional producer, sends its consumed offsets with `sendOffsetsToTransaction()`, and downstream consumers use `isolation.level = read_committed`. It also sends a receipt email for every record. Which three guarantees does Kafka's exactly-once support provide here? (Choose three.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "The `ledger` output records and the advance of the input offsets commit atomically", "why": "Offsets are written to __consumer_offsets inside the same transaction, so either both the output and the progress commit, or neither does." },
+      { "id": "B", "correct": true, "text": "`read_committed` consumers of `ledger` never see records from aborted transactions", "why": "Aborted records stay in the log but are filtered out, using transaction markers, for read_committed readers." },
+      { "id": "C", "correct": true, "text": "Producer retries after a lost acknowledgement do not write duplicate records to `ledger`", "why": "The idempotent producer tags batches with a producer ID and sequence numbers, so brokers drop retried duplicates." },
+      { "id": "D", "correct": false, "text": "Each receipt email is sent exactly once, even if the processor crashes and restarts", "why": "The email is an external side effect outside Kafka's transaction. After an abort, the reprocessed record sends it again." },
+      { "id": "E", "correct": false, "text": "Consumers of `ledger` using `read_uncommitted` also never see aborted records", "why": "read_uncommitted returns every record in the log, including those from aborted or still-open transactions." },
+      { "id": "F", "correct": false, "text": "Records for different keys reach `ledger` in the same order they arrived in `payments`", "why": "Transactions give atomicity, not a global order. Ordering is still per partition." }
+    ],
+    "explanation": "Kafka exactly-once covers read-process-write cycles that stay inside Kafka: atomic multi-partition writes plus offset commits, with fencing of zombie producers. Anything outside Kafka (emails, database writes, HTTP calls) needs its own idempotency, such as a dedup key stored with the side effect.",
+    "reference": "Confluent: Exactly-once semantics in Apache Kafka"
+  },
+  {
+    "id": "SD-MSG-008",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A topic keyed by `order_id` has 12 partitions and uses the default partitioner. Consumers rely on all events for one order arriving in order. To add throughput, an operator raises the partition count to 24 while traffic is flowing. What happens?",
+    "options": [
+      { "id": "A", "correct": true, "text": "Many keys now hash to a different partition, so an order's later events can be read before its earlier ones", "why": "The partition is hash(key) mod partition count. Changing 12 to 24 moves about half the keys, and old events stay in their old partitions." },
+      { "id": "B", "correct": false, "text": "Kafka moves existing records into the new partitions, so the 24 partitions stay balanced and keep their order", "why": "Kafka never moves or rewrites existing records between partitions. The new partitions start empty." },
+      { "id": "C", "correct": false, "text": "Nothing changes for existing orders, because a key's hash is stable and keeps sending it to the same partition", "why": "The hash is stable, but the partition is the hash modulo the partition count, and that count just changed." },
+      { "id": "D", "correct": false, "text": "Producers keep using the 12-partition mapping until they restart, so ordering only breaks after a deploy", "why": "Producers refresh topic metadata periodically and pick up the new count without a restart." }
+    ],
+    "explanation": "For keyed topics that need per-key order, choose enough partitions up front. If you must grow, drain or pause producers until consumers catch up on the old partitions, or migrate to a new topic. Partitions cannot be reduced.",
+    "reference": "Apache Kafka documentation"
+  },
+  {
+    "id": "SD-MSG-009",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the steps of one Kafka consume-transform-produce cycle with exactly-once semantics in the order a correct processor runs them.",
+    "options": [
+      { "id": "A", "text": "`initTransactions()` once at startup, fencing any older producer with the same transactional.id" },
+      { "id": "B", "text": "`poll()` a batch of records from the input topic" },
+      { "id": "C", "text": "`beginTransaction()`" },
+      { "id": "D", "text": "`send()` the transformed records to the output topic" },
+      { "id": "E", "text": "`sendOffsetsToTransaction()` with the offsets of the batch just read" },
+      { "id": "F", "text": "`commitTransaction()`" }
+    ],
+    "answerOrder": ["A", "B", "C", "D", "E", "F"],
+    "explanation": "The output records and the input offsets go into one transaction, so a crash before the commit aborts both and the batch is re-read. initTransactions also bumps the producer epoch, which fences a zombie instance that is still running.",
+    "reference": "Apache Kafka: KafkaProducer Javadoc"
+  },
+  {
+    "id": "SD-MSG-010",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Kafka consumer applies account events keyed by `account_id`, and per-account order matters: a `Debit` must never be applied before the `Deposit` that funds it. One `Deposit` for account 42 fails every time because of a bug, and retrying it blocks the whole partition and thousands of other accounts. What is the best way to handle the poison message?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Move the failing event to a dead-letter topic, commit its offset and carry on processing every later event on the partition", "why": "Later events for account 42 would then be applied without the deposit before them, breaking the per-key ordering the system relies on." },
+      { "id": "B", "correct": true, "text": "Park account 42: send its failing event and all later events for that key to a retry topic until fixed, and keep processing other keys", "why": "Only the broken key stalls. Its events stay in order in the parked stream, while every other account keeps flowing." },
+      { "id": "C", "correct": false, "text": "Retry the event forever with exponential backoff, since blocking the partition is the price of keeping strict ordering", "why": "It keeps order but turns one bad record into an outage for every key on that partition, until a human intervenes." },
+      { "id": "D", "correct": false, "text": "Increase the partition count so that account 42 ends up alone on its own partition, isolated from the others", "why": "Partitioning is by hash, so you cannot give one key its own partition. Remapping keys also breaks ordering for in-flight events." }
+    ],
+    "explanation": "Head-of-line blocking is the cost of ordered partitions. Sending the record to a dead-letter queue unblocks the partition but breaks ordering for that key. Parking the key (keep a set of blocked keys and divert their later events to a retry or parked topic) keeps both ordering and availability, and the parked events are replayed in order once the bug is fixed.",
+    "reference": "Uber Engineering: Reliable reprocessing with Kafka"
+  }
+]

@@ -1,0 +1,768 @@
+[
+  {
+    "id": "SD-API-001",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 1,
+    "type": "order",
+    "select": 1,
+    "stem": "A client asks an API to transcode a video, which takes about ten minutes. The API uses the standard long-running-operation pattern instead of holding the HTTP connection open. Put the steps in the order they happen.",
+    "options": [
+      {
+        "id": "A",
+        "text": "The client sends `POST /transcodes` with the source video URL"
+      },
+      {
+        "id": "B",
+        "text": "The server replies `202 Accepted` with `Location: /transcodes/123`"
+      },
+      {
+        "id": "C",
+        "text": "The client polls `GET /transcodes/123` and sees `\"status\": \"running\"`"
+      },
+      {
+        "id": "D",
+        "text": "A later poll returns `\"status\": \"succeeded\"` with a link to the output file"
+      },
+      {
+        "id": "E",
+        "text": "The client downloads the output from the link in the status resource"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "`202 Accepted` means the request was accepted for processing but is not complete. The server points the client at a status resource (often via `Location`), the client polls it (ideally honouring `Retry-After`), and the finished resource links to the result. This keeps every request short, survives client disconnects and works through proxies with idle timeouts.",
+    "reference": "RFC 9110 §15.3.3; Google AIP-151"
+  },
+  {
+    "id": "SD-API-002",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "According to RFC 9110, `POST` is an idempotent method, so a client can always safely resend a `POST` that timed out without any extra protection.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "RFC 9110 lists PUT, DELETE and the safe methods (GET, HEAD, OPTIONS, TRACE) as idempotent. POST is not, so a blind retry can create a second order or a second charge."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: POST is not idempotent. Safe retries of POST need an application-level mechanism such as an Idempotency-Key header that the server deduplicates."
+      }
+    ],
+    "explanation": "Idempotent means sending the same request several times has the same intended effect on the server as sending it once. POST carries no such promise, which is exactly why payment APIs such as Stripe accept an `Idempotency-Key` header on POST requests.",
+    "reference": "RFC 9110 §9.2.2"
+  },
+  {
+    "id": "SD-API-003",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A feed API returns posts newest-first with `?offset=20&limit=20`. A user loads page 1 (offset 0). Before they request page 2, three new posts are published at the top of the feed. Nothing is deleted. Which two statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Page 2 starts with the last three posts the user already saw at the bottom of page 1",
+        "why": "The three inserts push every older post down three places, so rows 21-23 are now the old rows 18-20 and show up again."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Requests for deep pages get slower, because the database still reads and discards every skipped row",
+        "why": "OFFSET n makes the database produce and throw away n rows, so the cost grows with page depth even with a good index."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Three older posts are silently skipped and never appear on any page the user loads",
+        "why": "Skipping is what happens when rows above the offset are deleted. Inserts at the top cause duplicates, not gaps."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Switching to a cursor such as `?after=<last post id>` would show the same duplicates",
+        "why": "A keyset cursor asks for rows strictly older than the last row seen, so new rows inserted above it cannot shift the next page."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Page 2 returns only seventeen posts, because three rows were added after page 1 was served",
+        "why": "LIMIT 20 still returns twenty rows as long as at least that many exist past the offset; the page size does not shrink."
+      }
+    ],
+    "explanation": "Offset pagination addresses rows by position, so any insert or delete above the offset shifts every later page: inserts duplicate items, deletes skip them. Keyset (cursor) pagination addresses rows by value, which is stable under concurrent writes and uses an index seek instead of scanning past skipped rows.",
+    "reference": "Use The Index, Luke: Paging Through Results"
+  },
+  {
+    "id": "SD-API-004",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Two admins open the same product. Both receive `ETag: \"v7\"`. Admin 1 saves first, so the server's current ETag becomes `\"v8\"`. Admin 2 then sends `PUT /products/42` with `If-Match: \"v7\"`. How should the server respond to Admin 2?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`409 Conflict`, the general status for a request that conflicts with the resource's state",
+        "why": "409 is used for semantic conflicts, but RFC 9110 defines a specific status for a failed conditional header, and that is what clients check for."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`412 Precondition Failed`, and the update is not applied",
+        "why": "The If-Match condition evaluated to false, so the server must not perform the PUT and signals that with 412. The client can re-fetch, merge and retry."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`304 Not Modified`, telling the client its copy is already out of date",
+        "why": "304 answers a conditional GET or HEAD with If-None-Match or If-Modified-Since. It never answers a failed If-Match on an update."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`428 Precondition Required`, asking the client to retry with a newer tag",
+        "why": "428 means the request had no precondition at all when the server requires one. Here the header was present but did not match."
+      }
+    ],
+    "explanation": "This is optimistic concurrency control over HTTP. The ETag acts as a version number, `If-Match` makes the write conditional on that version, and `412` prevents Admin 2 from silently overwriting Admin 1's change (the lost-update problem). Servers can send `428` to clients that try to update without `If-Match` at all.",
+    "reference": "RFC 9110 §13.1.1, §15.5.13; RFC 6585"
+  },
+  {
+    "id": "SD-API-005",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 2,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each requirement with the delivery mechanism that fits it best.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Server-Sent Events (SSE)"
+      },
+      {
+        "id": "B",
+        "text": "WebSockets"
+      },
+      {
+        "id": "C",
+        "text": "Webhooks"
+      },
+      {
+        "id": "D",
+        "text": "Long polling"
+      },
+      {
+        "id": "E",
+        "text": "A unary gRPC call"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "A browser shows live stock prices sent one way from the server over plain HTTP, with automatic reconnection and resume from `Last-Event-ID`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "A collaborative whiteboard where the browser and the server both send many small messages per second",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "A payment provider tells a merchant's backend server that a payment has settled",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Near-real-time updates through a corporate proxy that buffers streaming responses, at the cost of one new request per batch of events",
+        "answer": "D"
+      }
+    ],
+    "explanation": "SSE is a one-way server-to-client stream over ordinary HTTP with reconnection and `Last-Event-ID` built into `EventSource`. WebSockets give a full-duplex channel for chatty, two-way traffic. Webhooks are server-to-server callbacks to a URL the receiver registered. Long polling works through proxies that break streaming, because every response completes. A unary gRPC call is plain request/response, so it can't push updates by itself.",
+    "reference": "WHATWG HTML: Server-sent events; RFC 6455"
+  },
+  {
+    "id": "SD-API-006",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A payments API supports an `Idempotency-Key` header. For each request the server (1) looks the key up, (2) if it isn't found, charges the card, then (3) inserts the key with the saved response. A mobile client times out and its network library resends the same request with the same key 50 ms later, while the first request is still charging the card. What happens, and what is the right fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing goes wrong: the duplicate has the same key, so step 1 finds it and the stored response is replayed",
+        "why": "Step 1 only finds the key once step 3 has run. While the first request is still charging, the key isn't stored yet, so the retry also misses."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Both requests can charge. Insert the key first under a unique constraint with status in-progress, answer a concurrent duplicate with 409, then save and replay the final response",
+        "why": "Claiming the key atomically before doing the work turns check-then-act into a single winner. The loser sees the in-progress record and is told to retry later, which is the behaviour Stripe documents."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Both requests can charge. Fix it by hashing the request body and using that hash as the key in place of the client-supplied value",
+        "why": "A body hash is still a check-then-act race if it's stored after the work. It also merges two genuinely separate identical purchases into one."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Both requests can charge. Fix it by caching the key in Redis for 24 hours as soon as step 3 finishes",
+        "why": "Where and how long the key is kept doesn't matter if it is written after the charge. The race window between steps 1 and 3 is still open."
+      }
+    ],
+    "explanation": "An idempotency key only works if claiming it is atomic and happens before the side effect. A robust server inserts `(key, request fingerprint, status = started)` under a unique index, rejects a concurrent duplicate (Stripe returns 409), rejects a reused key with a different body (422 in the IETF draft), and on completion stores the response so later retries replay it exactly.",
+    "reference": "Stripe API: Idempotent requests; IETF draft-ietf-httpapi-idempotency-key-header"
+  },
+  {
+    "id": "SD-API-007",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A GraphQL query `posts(first: 50) { title author { name } }` makes 51 SQL queries: one for the posts and one per post for its author. The team adds DataLoader, created once per incoming request. How does that fix the problem, and why per request?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It runs the 50 author queries in parallel. That is still 51 queries, but the latency drops to roughly one round trip",
+        "why": "DataLoader does more than parallelise: it merges the keys into one batched fetch, so the database sees two queries, not 51."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It caches authors in a shared cache across requests. Per request only controls how often that shared cache is warmed",
+        "why": "DataLoader's memoisation is deliberately request-scoped. A cache shared across users would serve stale data and could leak records one user may not see."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It rewrites the resolver tree into a single SQL JOIN, and per request is needed because each query shape compiles to a different plan",
+        "why": "DataLoader knows nothing about SQL. It calls your batch function with a list of keys, and you decide how to fetch them."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "It batches the author IDs requested in one tick into one `IN (...)` query, and per-request caching keeps users' data apart",
+        "why": "Loads are queued during one tick of the event loop and sent to a batch function together, so 51 queries become 2. Scoping the cache to the request respects per-user authorisation and keeps data fresh."
+      }
+    ],
+    "explanation": "The N+1 problem comes from resolvers fetching related data one item at a time. DataLoader batches keys requested in the same tick and de-duplicates repeats inside a request. Its README recommends creating a new loader per request because the cache is a memoisation layer, not an application cache.",
+    "reference": "graphql/dataloader README"
+  },
+  {
+    "id": "SD-API-008",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "You consume webhooks from a provider that delivers at least once, retries failed deliveries with exponential backoff for up to three days, may deliver events out of order, and signs each delivery with an HMAC over `timestamp + \".\" + raw body`. Which three practices does a correct receiver need? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Verify the HMAC over the exact raw request bytes with a constant-time comparison, and reject deliveries whose timestamp is too old",
+        "why": "Re-serialised JSON may differ byte for byte from what was signed. The timestamp window stops an attacker replaying a captured, validly signed request."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Record each processed event ID and skip any event ID you have already handled",
+        "why": "At-least-once delivery guarantees duplicates sooner or later, so the handler must be idempotent by event ID."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Return 2xx as soon as the event is durably queued, and do the slow processing asynchronously",
+        "why": "Slow handlers time out, and the provider then retries, so slow processing creates more duplicates and retry storms. Acknowledge fast after a durable enqueue."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Parse the JSON body first, then verify the HMAC against `JSON.stringify` of the parsed object",
+        "why": "Key order, whitespace and number formatting can change during a round trip, so valid signatures fail and the check no longer covers the exact bytes received."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Apply events in the order they arrive, because the provider sends them in the order they happened",
+        "why": "The provider explicitly allows out-of-order delivery, and retries reorder events too. Compare versions or timestamps, or re-fetch the object's current state."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Return a 500 error for a duplicate event so the provider learns to stop sending it",
+        "why": "A 5xx tells the provider delivery failed, so it keeps retrying for days. Duplicates should get a 2xx and be ignored."
+      }
+    ],
+    "explanation": "A robust webhook receiver authenticates the raw bytes and checks freshness, deduplicates by event ID, acknowledges quickly after a durable write, and never trusts arrival order. These are the practices Stripe and GitHub document for their webhooks.",
+    "reference": "Stripe Docs: Webhooks best practices"
+  },
+  {
+    "id": "SD-API-009",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An orders API pages newest-first with the cursor `WHERE created_at < :last_ts ORDER BY created_at DESC LIMIT 50`. After a bulk import inserted 3,000 orders with the same `created_at`, support reports orders missing from exports. Order `id`s are unique, but backfilled rows mean `id` order does not follow `created_at` order. Which cursor query is correct?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`WHERE created_at <= :last_ts AND id < :last_id ORDER BY created_at DESC, id DESC`",
+        "why": "The AND applies `id < :last_id` to every older row too. Older rows with a higher id, which backfills produce, are skipped."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`WHERE created_at <= :last_ts ORDER BY created_at DESC`, with the client dropping any order IDs it has already exported",
+        "why": "With 3,000 rows sharing a timestamp, every page returns the same first 50 tied rows, so the client loops forever and never moves past the tie."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`WHERE (created_at, id) < (:last_ts, :last_id) ORDER BY created_at DESC, id DESC`, with an index on both columns",
+        "why": "The row-value comparison means `created_at < ts OR (created_at = ts AND id < last_id)`. That is a total order with a unique tiebreaker, so no row is skipped or repeated, and the index makes it a seek."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Keep `created_at < :last_ts` but raise `LIMIT` to 5,000 so that a page always holds the whole tie",
+        "why": "A larger page only hides the bug until the next tie that is bigger than the page, and any tied rows cut off at a page boundary are still skipped."
+      }
+    ],
+    "explanation": "Keyset pagination needs a sort key that is unique. Add a tiebreaker column (usually the primary key) to both the `ORDER BY` and the cursor, and compare the pair lexicographically. In PostgreSQL the row-value comparison `(a, b) < (x, y)` does this and can use a composite index on `(created_at, id)`.",
+    "reference": "Use The Index, Luke: Paging Through Results; PostgreSQL row comparisons"
+  },
+  {
+    "id": "SD-API-010",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A client sends `PUT /docs/9` with `If-Match: \"v7\"`. The server applies it (the ETag becomes `\"v8\"`), but the response is lost and the client times out. The client resends the identical request with `If-Match: \"v7\"`. Which statement matches RFC 9110 and gives correct client behaviour?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The server must return 200 because PUT is idempotent, and that guarantee takes precedence over the If-Match check",
+        "why": "Preconditions are evaluated before the method is applied. Idempotency describes the intended effect of repeats; it does not override a failed If-Match."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The client should resend without If-Match after a timeout, because the precondition has already done its job",
+        "why": "That reopens the lost-update window: if another writer saved in between, the unconditional PUT silently overwrites their change."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The server may return 412, or a 2xx if the change already appears applied. On 412 after a timeout, the client re-reads the document to see if its edit landed before treating it as a conflict",
+        "why": "RFC 9110 lets a server answer 2xx when a state-changing request appears to have already succeeded. Otherwise 412 is ambiguous for a retry, so the client must check the current state."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The server must return 409, and the client should show a merge dialog because another user changed the document",
+        "why": "409 is not the status for a failed precondition, and in this case the conflicting change is the client's own first attempt, not another user's."
+      }
+    ],
+    "explanation": "Retries and conditional requests interact in a subtle way: the first attempt changes the very validator the retry depends on. RFC 9110 §13.1.1 explicitly allows a 2xx when the requested change has already been applied. A careful client treats 412 after an ambiguous failure as \"check the state\": it re-fetches, and if the document already holds its edit, reports success.",
+    "reference": "RFC 9110 §13.1.1"
+  },
+  {
+    "id": "SD-CAS-001",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "You are designing a URL shortener that creates 1,000 links per second and serves 100 times as many redirects. Short codes must never collide, and creating a link should not need a lookup to check whether a code is taken. Which way of generating codes fits best?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Take the first 7 characters of the MD5 hash of the long URL and use them directly as the short code for the link",
+        "why": "Truncated hashes collide (the birthday bound), so you still need a lookup. The same URL from two users also maps to one code, which breaks per-user analytics."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Generate 7 random base62 characters and insert them without checking for collisions",
+        "why": "62^7 ≈ 3.5 trillion sounds large, but by the birthday bound collisions become likely after a few million codes. Without a check, two links can share a code."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Hand each app server a block of unique integer IDs from a counter service and base62-encode each ID",
+        "why": "Unique integers map to unique codes, so collisions are impossible without any lookup. Allocating ranges keeps the counter off the hot path: one call covers thousands of IDs."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Read `MAX(id)` from the links table, add one and base62-encode it for every new link",
+        "why": "Two servers can read the same maximum at once and produce the same code, and each create now needs an extra read against a hot row."
+      }
+    ],
+    "explanation": "Encoding a unique number guarantees unique codes. Seven base62 characters cover 62^7 ≈ 3.5 × 10^12 IDs; at 1,000 links/s (about 3.15 × 10^10 a year) that lasts more than a century. Range allocation (each server leases, say, 10,000 IDs at a time) removes the per-request coordination. If codes must not be guessable, permute the integer with a keyed bijection before encoding.",
+    "reference": "Designing Data-Intensive Applications; Flickr ticket servers"
+  },
+  {
+    "id": "SD-CAS-002",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "In the ticket drop, some seats were sold twice. What is the direct cause?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "PostgreSQL can't lock individual rows, so two transactions can always update the same seat at once",
+        "why": "PostgreSQL has row-level locks. The problem is that the code never asks for one or makes the update conditional."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Checking `status = 'free'` and setting `'held'` happen in separate statements, so two checkouts can both see the seat as free",
+        "why": "This is a check-then-act race. Both transactions read 'free' before either writes, and both then write 'held' for different fans."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The database CPU hit 100%, and under that much load PostgreSQL drops some writes",
+        "why": "Saturation makes queries slow and makes them time out; it doesn't make PostgreSQL break atomicity or lose committed writes. The race exists at any load."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Checkouts read the seat status from a read replica that lags behind the primary, so it showed seats that were already sold as free",
+        "why": "The scenario describes one primary and no replicas. Lag could make the race worse, but separate read and write statements cause it even on one node."
+      }
+    ],
+    "explanation": "Under PostgreSQL's default READ COMMITTED isolation, a SELECT followed by an unconditional UPDATE lets concurrent transactions act on the same stale read. The fix is to make the check and the write one atomic step: a conditional `UPDATE ... WHERE status = 'free'` that checks the affected row count, or `SELECT ... FOR UPDATE` in the same transaction.",
+    "reference": "PostgreSQL Docs: Transaction Isolation",
+    "caseId": "S1"
+  },
+  {
+    "id": "SD-CAS-003",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "For the ticket drop, which two changes together guarantee that a seat is held by at most one fan and that unpaid seats go back on sale after 10 minutes? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Hold a seat with one statement, `UPDATE seats SET status='held', holder=:fan, expires_at=now()+'10 min' WHERE id=:seat AND (status='free' OR (status='held' AND expires_at < now()))`, and treat 0 rows updated as \"taken\"",
+        "why": "The check and the write become one atomic row update. Only one concurrent transaction can match the predicate; the other sees 0 rows."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Make expiry part of the data: store `expires_at` on the row so an expired hold counts as free, and let a background sweeper tidy up only for display",
+        "why": "Correctness no longer depends on a job running on time. The moment a hold expires, the next conditional UPDATE can claim the seat."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Wrap the existing SELECT and UPDATE in an in-process mutex in each checkout server",
+        "why": "There are many checkout instances. A per-process lock doesn't stop two servers from racing on the same seat."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Keep the list of free seats in Redis with a 10-minute TTL and sell from that list, writing to PostgreSQL afterwards",
+        "why": "This adds a second source of truth that can disagree with the database, and the read-then-write race simply moves to Redis."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Run a cron job every minute that sets expired holds back to 'free', and keep the current two statements",
+        "why": "Leaving the SELECT/UPDATE pair in place leaves the double-sell race untouched. Cron-only expiry also leaves seats stuck for up to a minute."
+      }
+    ],
+    "explanation": "Concurrency control should live where the data lives. A single conditional UPDATE is atomic under row locking, and it scales to tens of thousands of distinct seats because contention is per row. Modelling the hold as \"held until `expires_at`\" makes expiry a property of the data instead of a scheduled event. Admission control (a waiting room) is still needed to protect the database from 2 million simultaneous visitors, but it does not by itself prevent double-selling.",
+    "reference": "Designing Data-Intensive Applications, ch. 7",
+    "caseId": "S1"
+  },
+  {
+    "id": "SD-CAS-004",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "In the ticket drop, browsers retried timed-out payment requests and fans were charged twice. The checkout service calls an external payment provider that accepts an idempotency key. Which design prevents double charges even if a checkout server crashes after the provider charges the card but before checkout commits to its own database?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The checkout server makes a fresh UUID for every incoming payment request and sends it to the provider as the key",
+        "why": "Every retry arrives as a new request and gets a new UUID, so the provider sees distinct keys and charges each one."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The browser makes one key per order and reuses it on retries. Checkout stores it with a unique constraint and calls the provider without a key",
+        "why": "This handles concurrent retries, but if checkout crashes after the charge and before its commit, the key record is lost or left in-progress and a retry charges again. The provider must deduplicate too."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The browser makes one key per order and reuses it on every retry. Checkout claims it atomically and sends the same key to the provider",
+        "why": "Every hop deduplicates on one key that the client controls. Even if checkout loses its own record in a crash, the provider recognises the retry and returns the original charge instead of a new one."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Reject any second payment from the same fan for the same amount within 10 minutes, using a database check",
+        "why": "That heuristic blocks a fan legitimately buying two separate orders, and a check-then-insert has the same race as the seat bug."
+      }
+    ],
+    "explanation": "Exactly-once side effects across services come from an end-to-end idempotency key: it is created once by the party that retries (the client) and passed through to every downstream system that performs the side effect. Each layer claims the key before acting and replays the stored result after. A key that is stored only locally can't cover a crash between the external call and the local commit.",
+    "reference": "Stripe Engineering: Designing robust and predictable APIs with idempotency",
+    "caseId": "S1"
+  },
+  {
+    "id": "SD-CAS-005",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "In the chat product, two members of the same room send messages at the same moment through different gateways, and other members see the two messages in different orders. What is the standard fix that also scales to a million rooms?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Stamp every message with the sending device's local clock and have each client sort the room's messages by that timestamp",
+        "why": "Device clocks drift by seconds or more, and users can change them. Two clients can still disagree, and messages can appear to arrive in the past."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Generate every message ID from one global auto-increment counter shared by all rooms",
+        "why": "It does produce a total order, but every message in every room now goes through one counter. That is a global bottleneck and single point of failure that per-room ordering doesn't need."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Give each room one owner that numbers its messages in sequence, and have clients display messages in that order",
+        "why": "Ordering is only needed within a room, so a single sequencer per room gives everyone the same order while rooms spread across many owners."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Sync every gateway's clock with NTP and stamp each message with the receiving gateway's time",
+        "why": "NTP leaves milliseconds of skew between hosts, enough to reorder near-simultaneous messages, and ties remain ambiguous."
+      }
+    ],
+    "explanation": "Physical clocks can't order concurrent events across machines reliably. The usual design routes each room to a single partition owner (for example by hashing `room_id`). The owner appends to the room's log with a monotonically increasing sequence number, and clients use that number for ordering, de-duplication and \"fetch everything after N\" catch-up.",
+    "reference": "Designing Data-Intensive Applications, ch. 8-9",
+    "caseId": "S2"
+  },
+  {
+    "id": "SD-CAS-006",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "The chat product currently has the sender's gateway push a message to every member. Which two changes best meet the requirements of surviving a gateway crash and reaching all of a user's devices? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The room owner persists the message with its sequence number, then publishes it once to a pub/sub channel. Only gateways with members of that room subscribe, and each delivers to its own connections",
+        "why": "Fan-out no longer depends on the sender's gateway staying up, and each gateway does only local work for the users it actually holds."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Each device keeps the last sequence number it saw per room. On reconnect it fetches every message after that number, so push becomes an optimisation, not the source of truth",
+        "why": "Messages are durable before any push, so a device that missed a push because of a crash, a network drop or being offline catches up from the log."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Switch to a layer-7 load balancer with room-based sticky routing, so every member of a room connects to the same gateway",
+        "why": "A user belongs to many rooms but holds one connection per device, and a 200,000-member room can't fit on one gateway."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Have the sending gateway retry each push until the recipient acknowledges it, keeping pending pushes in memory",
+        "why": "The pending state lives on the very gateway whose crash must be survived, so a crash still loses those messages."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Broadcast every message to all 400 gateways and let each discard messages for rooms it has no members of",
+        "why": "This works at small scale, but every gateway processes every message on the platform, which wastes resources as the system grows."
+      }
+    ],
+    "explanation": "A durable per-room log plus targeted pub/sub separates the two jobs: the log gives durability and ordering, and push gives low latency. Multi-device delivery and crash recovery both reduce to \"sync from my last sequence number\", which is how production chat systems handle reconnects.",
+    "reference": "Designing Data-Intensive Applications, ch. 11",
+    "caseId": "S2"
+  },
+  {
+    "id": "SD-CAS-007",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "The chat product now uses per-room logs and gateway pub/sub. Someone posts in a 200,000-member announcement room. Members are spread evenly over the 400 gateways and are all online. Which statement about the work and the storage design is correct?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The room owner publishes 200,000 times, once per member, so the write side has to be scaled out for big rooms",
+        "why": "Pub/sub is per gateway, not per member. The owner publishes once, and the broker delivers to at most 400 subscribed gateways."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "One publish reaches up to 400 gateways, each writing to about 500 sockets. Store it once in the room log; compute unread counts from each member's last-read sequence",
+        "why": "200,000 ÷ 400 = 500 sockets per gateway. Fan-out on read avoids 200,000 per-user copies, and unread count is just latest sequence minus last-read sequence."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Copy the message into all 200,000 members' inboxes, because 200,000 rows is a small write for a modern database",
+        "why": "That's 200,000 writes for one message. A burst of replies multiplies it (100 messages = 20 million writes) and swamps the store. Fan-out on write suits small rooms, not huge ones."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Split the room into 400 sub-rooms, one per gateway, each with its own sequence numbers to spread the load",
+        "why": "Separate sequences break the requirement that everyone sees the same order, and replies would have to be merged across 400 logs."
+      }
+    ],
+    "explanation": "This is the classic fan-out-on-write versus fan-out-on-read trade-off, the same one as celebrity accounts in news feeds. Small rooms can afford per-user writes. Very large rooms should store once and have readers pull by sequence number, while delivery fan-out happens per gateway rather than per member: 200,000 members over 400 gateways means about 500 local sends each.",
+    "reference": "Designing Data-Intensive Applications, ch. 1 (Twitter fan-out)",
+    "caseId": "S2"
+  },
+  {
+    "id": "SD-CAS-008",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "In the metrics pipeline, why won't raising the topic from 64 to 256 partitions bring the large customer's dashboards back up to date?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Kafka can't add partitions to an existing topic, so the change would mean re-creating the topic and losing the data still waiting in it",
+        "why": "Kafka can increase a topic's partition count online; it can't decrease it. The real problem is how keys map to partitions."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It will help: once more partitions exist, Kafka spreads a hot key's records round-robin across them",
+        "why": "Records with a non-null key always go to the partition chosen by hashing the key. Round-robin or sticky assignment only applies to records without a key."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Every record for that customer still hashes to a single partition, which one consumer reads, so its throughput ceiling doesn't change",
+        "why": "With `customer_id` as the key, one customer is one partition. More partitions only spread the other customers more thinly."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "More partitions add rebalancing overhead, so lag would grow on every partition and outweigh any gain",
+        "why": "Rebalances have a cost, but that isn't why this fails. Even with free rebalancing, the hot customer's records still land on one partition."
+      }
+    ],
+    "explanation": "Partitioning by key bounds a single key's throughput at what one partition and its single consumer (within a consumer group) can handle. Adding partitions also remaps existing keys, which briefly breaks per-key ordering. The fix for one hot key is to split that key, not to add partitions.",
+    "reference": "Apache Kafka Documentation: Producer partitioning",
+    "caseId": "S3"
+  },
+  {
+    "id": "SD-CAS-009",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "In the metrics pipeline, the large customer produces 30,000 records per second and one consumer can process 4,000 records per second. The team will split the customer's key into N sub-keys (salts), each spread evenly and read by its own consumer. What is the smallest N that keeps up? Type a whole number.",
+    "options": [],
+    "accepted": [
+      "8"
+    ],
+    "explanation": "30,000 ÷ 4,000 = 7.5 consumers' worth of work, and you can't run half a consumer, so round up to 8. In practice you'd add headroom (say 10-12) for bursts, uneven salts and catching up on the existing backlog. At exactly 8 the lag would stop growing but would shrink only slowly.",
+    "reference": "Apache Kafka Documentation: Consumer groups",
+    "caseId": "S3"
+  },
+  {
+    "id": "SD-CAS-010",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "In the metrics pipeline, the team salts the large customer's key as `customer_id#(hash(agent_id) % 8)`. Stage-1 consumers build partial 1-minute rollups per salt, and stage 2 merges partials by customer and minute. Which statement about this design is correct?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Ordering across the customer's whole stream is preserved, because all eight salted keys share the same `customer_id` prefix",
+        "why": "Kafka hashes the whole key, so the eight salts land on different partitions with no ordering between them. Only each agent's own data stays in order."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Stage 2 must combine mergeable partials (sums, counts, min/max, quantile sketches) and wait for a watermark before closing each minute",
+        "why": "Partials from eight independent consumers finish at different times, and only some aggregates combine correctly. Averages need (sum, count), and percentiles need sketches."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Stage 2 can produce the customer's p99 latency by averaging the eight partial p99 values",
+        "why": "Percentiles aren't mergeable: an average of p99s isn't the overall p99. You need a mergeable sketch such as t-digest or DDSketch, or the raw distribution."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Salting each record with a random number instead of `agent_id` would be strictly better, because it spreads the load more evenly across the eight salts",
+        "why": "Random salts do spread load evenly, but they scatter one agent's records across partitions, which loses per-agent ordering and complicates de-duplication of agent retries."
+      }
+    ],
+    "explanation": "Splitting a hot key trades ordering and simplicity for throughput. You keep ordering only within each sub-key, and you need a second aggregation stage that combines associative partial results and decides when a window is complete (watermarks and allowed lateness). Salting by a stable attribute such as `agent_id` keeps each source's data in order and de-duplicable.",
+    "reference": "Streaming Systems (Akidau et al.); Designing Data-Intensive Applications, ch. 6",
+    "caseId": "S3"
+  }
+]
