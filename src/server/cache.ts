@@ -11,8 +11,8 @@ import 'server-only';
 
 interface Entry { at: number; ttl: number; value: Promise<unknown> }
 
-const g = globalThis as unknown as { __certmonkeyCache?: Map<string, Entry> };
-const store = (g.__certmonkeyCache ??= new Map());
+const g = globalThis as unknown as { __quizmonkeyCache?: Map<string, Entry> };
+const store = (g.__quizmonkeyCache ??= new Map());
 
 export const CATALOG_TTL = 5 * 60_000;
 

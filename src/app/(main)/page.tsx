@@ -64,7 +64,7 @@ export default async function LandingPage() {
       <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
         <Reveal className="mx-auto mb-10 max-w-2xl text-center">
           <h2 className="text-3xl font-semibold sm:text-4xl">Three steps. No guesswork.</h2>
-          <p className="mt-3 text-muted-foreground">certMonkey always shows you one next step, so you spend your time practising instead of planning.</p>
+          <p className="mt-3 text-muted-foreground">quizMonkey always shows you one next step, so you spend your time practising instead of planning.</p>
         </Reveal>
         <div className="grid gap-4 md:grid-cols-3">
           {[

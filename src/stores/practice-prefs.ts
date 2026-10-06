@@ -31,6 +31,6 @@ export const usePracticePrefs = create<PracticePrefsState>()(
       saveDrill: (examId, prefs) => set((s) => ({ drills: { ...s.drills, [examId]: prefs } })),
       saveMockDifficulty: (examId, difficulty) => set((s) => ({ mockDifficulty: { ...s.mockDifficulty, [examId]: difficulty } })),
     }),
-    { name: 'certmonkey.practice', storage: createJSONStorage(() => localStorage), skipHydration: true },
+    { name: 'quizmonkey.practice', storage: createJSONStorage(() => localStorage), skipHydration: true },
   ),
 );

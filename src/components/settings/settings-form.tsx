@@ -105,12 +105,12 @@ export function SettingsForm({ initial }: { initial: Settings }) {
       </Section>
 
       {initial.billing && !initial.isAnonymous && (
-        <Section title="Plan" description={initial.plan === 'pro' ? 'You are on Pro. Thanks for supporting certMonkey!' : 'You are on the free plan.'}>
+        <Section title="Plan" description={initial.plan === 'pro' ? 'You are on Pro. Thanks for supporting quizMonkey!' : 'You are on the free plan.'}>
           {initial.plan === 'pro' ? <ManageBillingButton /> : <Button asChild variant="premium"><Link href="/pricing">See Pro</Link></Button>}
         </Section>
       )}
 
-      <Section title="Appearance" description="certMonkey follows your device by default.">
+      <Section title="Appearance" description="quizMonkey follows your device by default.">
         <ToggleGroup type="single" variant="outline" value={theme ?? 'system'} onValueChange={(v) => v && setTheme(v)}>
           <ToggleGroupItem value="light" className="px-4"><Sun /> Light</ToggleGroupItem>
           <ToggleGroupItem value="dark" className="px-4"><Moon /> Dark</ToggleGroupItem>

@@ -11,9 +11,9 @@ const mono = Geist_Mono({ subsets: ['latin'], variable: '--font-mono' });
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.BETTER_AUTH_URL ?? 'http://localhost:3000'),
-  title: { default: 'certMonkey · Mock exams, quizzes & interview practice', template: '%s · certMonkey' },
+  title: { default: 'quizMonkey · Mock exams, quizzes & interview practice', template: '%s · quizMonkey' },
   description: 'Timed certification mocks, practice drills, readiness analytics and AI mock interviews, all in one place.',
-  applicationName: 'certMonkey',
+  applicationName: 'quizMonkey',
 };
 
 export const viewport: Viewport = {
