@@ -1,0 +1,1701 @@
+[
+  {
+    "id": "TSM-NAR-001",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What is the type of `x` inside the `if` block?\n\n```ts\nfunction show(x: string | number) {\n  if (typeof x === \"string\") {\n    x; // here\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`string | number`, because a runtime check never changes the declared type of a parameter",
+        "why": "Control-flow analysis narrows the declared type inside the guarded block."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`string`",
+        "why": "The `typeof x === \"string\"` check removes `number` from the union inside the block."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`\"string\"`, the literal type of the text that typeof returned",
+        "why": "That is the value typeof produced, not the type of `x`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`unknown`, until `x` is explicitly cast with `as string`",
+        "why": "No cast is needed; `typeof` is one of the built-in type guards."
+      }
+    ],
+    "explanation": "`typeof x === \"string\"` is a type guard. TypeScript follows the control flow and, inside the block, keeps only the union members that can pass the check, so `x` is `string` there and `number` in an `else` branch.",
+    "reference": "TypeScript Handbook: Narrowing"
+  },
+  {
+    "id": "TSM-NAR-002",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A teammate wrote this helper. What does `len(\"\")` return?\n\n```ts\nfunction len(s?: string): number {\n  if (s) {\n    return s.length;\n  }\n  return -1;\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`0`, because the empty string is a valid `string` and its length is zero",
+        "why": "The empty string is falsy, so the `if (s)` branch never runs for it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`-1`, because `\"\"` is falsy and is treated like a missing value",
+        "why": "Truthiness checks drop `\"\"`, `0` and `NaN` along with `undefined`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It is a compile error, because `s` might be `undefined` inside the `if`",
+        "why": "The truthiness check narrows `s` to `string`, so the code compiles."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`undefined`, because `s.length` is read from a missing value",
+        "why": "The function never reads `.length` on `\"\"`; it skips to `return -1`."
+      }
+    ],
+    "explanation": "Truthiness narrowing is convenient but lossy. `if (s)` removes `undefined` from the type, and at runtime it also rejects the empty string. When `\"\"` (or `0` for numbers) is a legitimate value, compare explicitly: `if (s !== undefined)`.",
+    "reference": "TypeScript Handbook: Truthiness narrowing"
+  },
+  {
+    "id": "TSM-NAR-003",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What is the type of `pet` inside the `if` block?\n\n```ts\ntype Fish = { swim(): void };\ntype Bird = { fly(): void };\n\nfunction move(pet: Fish | Bird) {\n  if (\"swim\" in pet) {\n    pet; // here\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`Fish | Bird`, because `in` checks only work on plain objects and not on type aliases",
+        "why": "The `in` operator is a supported type guard for unions of object types."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`Bird`, because the `in` check succeeds only for values that do not declare the key",
+        "why": "That inverts the check: `\"swim\" in pet` is true for values that have `swim`."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`Fish`",
+        "why": "Only `Fish` declares `swim`, so the true branch keeps only `Fish`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`Fish & Bird`, because the check proves the value has both sets of members",
+        "why": "Narrowing filters union members; it does not merge them into an intersection."
+      }
+    ],
+    "explanation": "`\"key\" in value` narrows a union to the members that declare (or optionally declare) that key in the true branch, and to the members that lack it in the false branch. Here the false branch would be `Bird`.",
+    "reference": "TypeScript Handbook: The in operator narrowing"
+  },
+  {
+    "id": "TSM-NAR-004",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What is the type of `x` in the `else` branch?\n\n```ts\nfunction stamp(x: Date | string) {\n  if (x instanceof Date) {\n    return x.getTime();\n  } else {\n    return x; // here\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`string`",
+        "why": "Everything that is not a `Date` instance is left, which is `string`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`Date | string`, since `instanceof` only narrows the true branch and leaves the else alone",
+        "why": "Narrowing applies to both branches: the else branch removes `Date`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`object`, because `instanceof` can only ever narrow values to object types",
+        "why": "`string` is a primitive, and it is exactly what remains after removing `Date`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`never`, because a value that fails the `instanceof` check cannot exist at all",
+        "why": "Strings fail the check and are perfectly real values."
+      }
+    ],
+    "explanation": "`x instanceof C` narrows to the instance type in the true branch and removes it in the false branch. It checks the prototype chain at runtime, so it only works with constructors that exist at runtime (classes), not interfaces or type aliases.",
+    "reference": "TypeScript Handbook: instanceof narrowing"
+  },
+  {
+    "id": "TSM-NAR-005",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "A type guard such as `typeof x === \"string\"` is erased when TypeScript compiles to JavaScript, so the check does not run at runtime.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Only type annotations are erased. The `typeof` comparison is ordinary JavaScript and runs on every call."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: the check is real code, and TypeScript simply reads it to narrow types."
+      }
+    ],
+    "explanation": "Narrowing works the other way round from what many beginners expect. TypeScript does not add runtime checks; it observes the JavaScript checks you already wrote (`typeof`, `instanceof`, `in`, equality, truthiness) and narrows types to match. The checks stay in the emitted code.",
+    "reference": "TypeScript Handbook: Narrowing"
+  },
+  {
+    "id": "TSM-NAR-006",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Which statement about `s` inside `case \"circle\"` is correct?\n\n```ts\ntype Shape =\n  | { kind: \"circle\"; radius: number }\n  | { kind: \"square\"; side: number };\n\nfunction area(s: Shape) {\n  switch (s.kind) {\n    case \"circle\":\n      return Math.PI * s.radius ** 2;\n    case \"square\":\n      return s.side ** 2;\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`s.radius` is an error, because `radius` exists on only one member of the union",
+        "why": "It would be an error before the check, but the `case` narrows `s` to the circle member."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`s` is `{ kind: \"circle\"; radius: number }`, so `s.radius` type-checks",
+        "why": "Matching the literal `kind` discriminant selects exactly one member of the union."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`s` is the full `Shape` union, so the code needs `(s as any).radius`",
+        "why": "Switching on a discriminant property narrows the object itself; no cast is needed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`s.radius` is `number | undefined`, because the other member lacks it",
+        "why": "Narrowing removes the square member entirely, so there is no `undefined`."
+      }
+    ],
+    "explanation": "This is a discriminated union: every member has a `kind` property with a different literal type. Comparing `s.kind` with a literal (in `if`, `switch` or `===`) narrows `s` to the matching member, giving safe access to its own properties.",
+    "reference": "TypeScript Handbook: Discriminated unions"
+  },
+  {
+    "id": "TSM-NAR-007",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "After a `switch` has handled every member of a union, the variable in the `default` branch has a type with no possible values. Type the name of that type.",
+    "options": [],
+    "accepted": [
+      "never",
+      "`never`"
+    ],
+    "explanation": "Once every possibility is removed, the narrowed type is `never`. Assigning the value to a `never` variable in `default` (or writing `x satisfies never`) turns a forgotten case into a compile error: the leftover member is not assignable to `never`.",
+    "reference": "TypeScript Handbook: The never type"
+  },
+  {
+    "id": "TSM-NAR-008",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What is the type of `a` inside the `if` block?\n\n```ts\nfunction same(a: string | number, b: string | boolean) {\n  if (a === b) {\n    a; // here\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`string | number`, because comparing two different variables never narrows either of them",
+        "why": "Equality narrowing does apply between two variables."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`string | number | boolean`, the union of both declared types",
+        "why": "Narrowing never widens a variable beyond its declared type."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`never`, because the two variables have different declared types",
+        "why": "Their types overlap in `string`, so the check can succeed."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "`string`",
+        "why": "With `===`, both sides must have the same type, and `string` is their only shared type."
+      }
+    ],
+    "explanation": "Strict equality narrows both operands to the types they could share. `string | number` and `string | boolean` overlap only in `string`, so inside the block both `a` and `b` are `string`.",
+    "reference": "TypeScript Handbook: Equality narrowing"
+  },
+  {
+    "id": "TSM-NAR-009",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each check with the kind of narrowing it performs.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`typeof` narrowing",
+        "why": "Distinguishes primitive kinds and functions."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`instanceof` narrowing",
+        "why": "Checks a class instance through the prototype chain."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`in` narrowing",
+        "why": "Checks whether a key exists on an object."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Discriminant (equality) narrowing",
+        "why": "Compares a literal tag property."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`if (typeof id === \"number\")`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`if (err instanceof HttpError)`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`if (\"headers\" in response)`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`if (event.type === \"click\")`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Each JavaScript check maps to a narrowing rule: `typeof` for primitives, `instanceof` for classes, `in` for key presence, and `===` against a literal tag for discriminated unions.",
+    "reference": "TypeScript Handbook: Narrowing"
+  },
+  {
+    "id": "TSM-NAR-010",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 3,
+    "stem": "Inside which of these `if` blocks is `x: string | undefined` narrowed to exactly `string`? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`if (x !== undefined)`",
+        "why": "Removes `undefined`, leaving `string`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`if (typeof x === \"string\")`",
+        "why": "Keeps only the `string` member."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`if (x != null)`",
+        "why": "Loose inequality with null rules out both `null` and `undefined`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`if (x !== null)`",
+        "why": "`x` was never `null`, so this leaves `string | undefined` unchanged."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`if (typeof x === \"object\")`",
+        "why": "`typeof` never returns `\"object\"` for strings or undefined, so this branch is empty."
+      }
+    ],
+    "explanation": "Three checks remove `undefined`. Comparing against `null` with `!==` does nothing here, because `null` was not in the type to begin with. Note that `x != null` (loose) is the idiomatic way to remove both `null` and `undefined` at once.",
+    "reference": "TypeScript Handbook: Equality narrowing"
+  },
+  {
+    "id": "TSM-NAR-011",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 1,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the type of `x` at each marked point in order, from point 1 to point 4.\n\n```ts\nfunction f(x: string | number | boolean | null) {\n  // 1\n  if (x === null) return;\n  // 2\n  if (typeof x === \"boolean\") return;\n  // 3\n  if (typeof x === \"number\") return;\n  // 4\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`string | number | boolean | null`",
+        "why": "The declared type, before any check."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`string | number | boolean`",
+        "why": "After the null case returns."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`string | number`",
+        "why": "After the boolean case returns."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`string`",
+        "why": "After the number case returns."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "explanation": "Each early `return` removes the matching member for the rest of the function. Control-flow analysis tracks what can still reach each point, which is why guard clauses read so cleanly in TypeScript.",
+    "reference": "TypeScript Handbook: Control flow analysis"
+  },
+  {
+    "id": "TSM-NAR-012",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What are the types of `x` in the two branches?\n\n```ts\nfunction toList(x: string | string[]) {\n  if (Array.isArray(x)) {\n    x; // branch 1\n  } else {\n    x; // branch 2\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Branch 1 is `any[]` and branch 2 is `string`, because `Array.isArray` always returns `any[]`",
+        "why": "For a mutable `string[]` member, TypeScript keeps the element type in the true branch."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Branch 1 is `string[]` and branch 2 is `string`",
+        "why": "`Array.isArray` is declared as a type guard `arg is any[]`, which narrows this union cleanly."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Both branches are `string | string[]`, because `Array.isArray` is not a type guard",
+        "why": "Its lib declaration is `isArray(arg: any): arg is any[]`, a real type predicate."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Branch 1 is `string[]` and branch 2 is `never`, because strings are array-like",
+        "why": "Strings are array-like at runtime, but `Array.isArray(\"a\")` is false, so branch 2 is `string`."
+      }
+    ],
+    "explanation": "`Array.isArray` is typed as `(arg: any) => arg is any[]`. Narrowing `string | string[]` by `any[]` keeps the `string[]` member in the true branch, and the else branch keeps `string`.",
+    "reference": "TypeScript lib: ArrayConstructor.isArray"
+  },
+  {
+    "id": "TSM-NAR-013",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Inside the `if` block, which statement is true?\n\n```ts\ntype User = { address?: { city?: string } };\n\nfunction label(user: User | undefined) {\n  if (user?.address?.city) {\n    // here\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Only `user.address.city` is narrowed; `user` is still `User | undefined`",
+        "why": "A truthy optional chain also proves every link before it was defined."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Nothing is narrowed, because optional chaining results are never used for narrowing",
+        "why": "TypeScript does narrow through optional chains."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`user.address.city` is `string | undefined`, since the property is optional",
+        "why": "The truthiness check removes `undefined` from the city as well."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "`user` is `User`, `user.address` is `{ city?: string }` and `user.address.city` is `string`",
+        "why": "A truthy result is only possible if each step of the chain existed."
+      }
+    ],
+    "explanation": "If `user?.address?.city` is truthy, `user` and `user.address` cannot have been nullish, so TypeScript narrows the whole chain. Inside the block you can write `user.address.city.toUpperCase()` without any `?.`.",
+    "reference": "TypeScript 3.7 release notes: Optional chaining"
+  },
+  {
+    "id": "TSM-NAR-014",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What is the type of `n` inside the `if` block?\n\n```ts\nfunction check(n: number | undefined) {\n  if (!n) {\n    n; // here\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`undefined`, because a falsy check proves that the value is missing",
+        "why": "A falsy number such as `0` or `NaN` also reaches this block."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`number | undefined`",
+        "why": "Since `0` and `NaN` are falsy numbers, `number` cannot be removed."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`0`, because zero is the only falsy number literal that TypeScript can represent",
+        "why": "TypeScript has no literal type for `NaN`, and `number` is not split up this way."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`never`, because a `number` can never be falsy at runtime",
+        "why": "It can: `0` and `NaN` are falsy."
+      }
+    ],
+    "explanation": "In the falsy branch, TypeScript keeps every member that could be falsy. `undefined` is always falsy and `number` sometimes is, so both stay. In the truthy branch `n` is `number`. This is why `if (!n) return` silently treats `0` as missing.",
+    "reference": "TypeScript Handbook: Truthiness narrowing"
+  },
+  {
+    "id": "TSM-NAR-015",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What is the type of `v` in the `else` branch?\n\n```ts\nfunction isString(x: unknown): x is string {\n  return typeof x === \"string\";\n}\n\nfunction f(v: string | number) {\n  if (isString(v)) {\n    v.toUpperCase();\n  } else {\n    v; // here\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`unknown`, because the type guard parameter was declared as `unknown`",
+        "why": "The predicate narrows the argument passed in, which is `string | number`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`string | number`, because user-defined guards only narrow the true branch",
+        "why": "A `x is T` predicate narrows both branches."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`number`",
+        "why": "The false branch removes `string` from the argument's type."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`never`, because the guard returned false and the value no longer exists",
+        "why": "Numbers reach the else branch, so it is not empty."
+      }
+    ],
+    "explanation": "A user-defined type guard `x is T` narrows the argument to `T` when it returns true, and excludes `T` when it returns false. That second half is powerful, and dangerous if the guard can return false for values that really are `T`.",
+    "reference": "TypeScript Handbook: Using type predicates"
+  },
+  {
+    "id": "TSM-NAR-016",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "TypeScript checks that the body of a type predicate actually proves its claim, so this function is a compile error:\n\n```ts\nfunction isNumber(x: unknown): x is number {\n  return true;\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "TypeScript accepts any boolean-returning body for a type predicate."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: the predicate is trusted as written, so this compiles and lies to every caller."
+      }
+    ],
+    "explanation": "Type predicates are a promise from you to the compiler, not something it verifies. A wrong predicate compiles fine and leads to runtime crashes in code that trusts it. Keep guards small, test them, and prefer inferred predicates (TypeScript 5.5+) or schema validators where you can.",
+    "reference": "TypeScript Handbook: Using type predicates"
+  },
+  {
+    "id": "TSM-NAR-017",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A third member, `{ kind: \"triangle\"; b: number }`, is added to `Shape`, but nobody updates this function. What happens?\n\n```ts\nfunction area(s: Shape): number {\n  switch (s.kind) {\n    case \"circle\": return s.r;\n    case \"square\": return s.s;\n    default: {\n      const _exhaustive: never = s;\n      return _exhaustive;\n    }\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It compiles, and the default branch quietly returns `undefined` for triangles at runtime",
+        "why": "The `never` assignment is exactly what stops this from compiling."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It compiles, but TypeScript prints a warning that the switch is no longer exhaustive",
+        "why": "TypeScript has no warnings; this is a hard error."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`s.kind` itself becomes an error, because the switch must list every literal member",
+        "why": "The switch is fine; the error is on the assignment to `never`."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "A compile error: type `{ kind: \"triangle\"; b: number; }` is not assignable to type `never`",
+        "why": "In `default`, `s` is the unhandled triangle member, which can't be assigned to `never`."
+      }
+    ],
+    "explanation": "This is the exhaustiveness-check pattern. While every case is handled, `s` is `never` in `default` and the assignment compiles. Adding a member leaves it in `default`, so the assignment fails with TS2322 and points straight at the missing case.",
+    "reference": "TypeScript Handbook: Exhaustiveness checking"
+  },
+  {
+    "id": "TSM-NAR-018",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the type of `x` at each marked point in order, from A to D.\n\n```ts\nfunction f(x: unknown) {\n  // A\n  if (typeof x === \"string\" || typeof x === \"number\") {\n    // B\n    if (typeof x === \"string\") {\n      // C\n      if (x === \"admin\") {\n        // D\n      }\n    }\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`unknown`",
+        "why": "The declared type at the start."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`string | number`",
+        "why": "After the combined typeof check."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`string`",
+        "why": "After the string-only check."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`\"admin\"`",
+        "why": "Equality with a literal narrows to that literal type."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "explanation": "`unknown` narrows with the same guards as any union. `||` combines the guards into `string | number`, the next `typeof` keeps `string`, and comparing with a string literal narrows all the way to the literal type `\"admin\"`.",
+    "reference": "TypeScript Handbook: Narrowing"
+  },
+  {
+    "id": "TSM-NAR-019",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which callbacks compile without a \"possibly undefined\" error? (Choose two.)\n\n```ts\nfunction f(a: string | undefined) {\n  const c = a;\n  let l = a;\n  let m = a;\n  if (c !== undefined && l !== undefined && m !== undefined) {\n    [1].forEach(() => c.length); // callback 1\n    [1].forEach(() => l.length); // callback 2\n    [1].forEach(() => m.length); // callback 3\n  }\n  m = undefined;\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Callback 1, which reads the `const` variable `c`",
+        "why": "A `const` can never change, so its narrowing always carries into closures."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Callback 2, which reads the `let` variable `l`",
+        "why": "Since TypeScript 5.4, narrowing carries into closures created after the last assignment, and `l` is never reassigned."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Callback 3, which reads the `let` variable `m`",
+        "why": "`m` is reassigned later, so the closure might run after it becomes `undefined`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "None of them, because narrowing never carries into callbacks at all",
+        "why": "That was roughly true for `let` before TypeScript 5.4, but never for `const`."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "All three, because every check happened before the callbacks were created",
+        "why": "The check order is not enough: `m = undefined` could run before callback 3 does."
+      }
+    ],
+    "explanation": "Closures may run later, so TypeScript must ask whether the variable can change before then. `const` narrowing always survives. Since TypeScript 5.4, a `let` or parameter keeps its narrowing in closures created after its last assignment. `m` is assigned after the closure is created, so callback 3 errors with TS18048.",
+    "reference": "TypeScript 5.4 release notes: Preserved narrowing in closures"
+  },
+  {
+    "id": "TSM-NAR-020",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "In TypeScript 5.5 or later, what is the type of `xs`? Type it exactly as TypeScript would show it.\n\n```ts\nconst xs = [1, undefined, 2].filter((x) => x !== undefined);\n```",
+    "options": [],
+    "accepted": [
+      "number[]",
+      "Array<number>"
+    ],
+    "explanation": "TypeScript 5.5 infers type predicates: the arrow `x => x !== undefined` is inferred as `(x: number | undefined) => x is number`. `filter` has an overload that uses a predicate, so the result is `number[]`. Before 5.5 it stayed `(number | undefined)[]`.",
+    "reference": "TypeScript 5.5 release notes: Inferred type predicates"
+  },
+  {
+    "id": "TSM-NAR-021",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What is the type of `o.name` inside the `if` block (TypeScript 4.9 or later)?\n\n```ts\nfunction getName(o: unknown) {\n  if (typeof o === \"object\" && o !== null && \"name\" in o) {\n    o.name; // here\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`string`, because a property called `name` is assumed to hold text",
+        "why": "TypeScript knows nothing about the value, only that the key exists."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`any`, because the object came from an `unknown` value",
+        "why": "`unknown` never silently becomes `any`."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`unknown`",
+        "why": "The `in` check adds the key as `Record<\"name\", unknown>`, so its value is still `unknown`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It is a compile error, because `in` cannot narrow a value whose type is `object`",
+        "why": "Since TypeScript 4.9, `in` narrows unlisted keys by intersecting with `Record<key, unknown>`."
+      }
+    ],
+    "explanation": "TypeScript 4.9 made `\"key\" in o` useful on `object`: `o` becomes `object & Record<\"name\", unknown>`. You can read `o.name`, but you still have to narrow it, for example with `typeof o.name === \"string\"`.",
+    "reference": "TypeScript 4.9 release notes: Unlisted property narrowing with in"
+  },
+  {
+    "id": "TSM-NAR-022",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 2,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each guard signature with what it tells the compiler.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`(x: unknown) => x is Cat`",
+        "why": "A type predicate returning boolean."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`(x: unknown) => asserts x is Cat`",
+        "why": "An assertion function with a type."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`(cond: unknown) => asserts cond`",
+        "why": "An assertion function on a condition."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`isCat(): this is Cat` (a method)",
+        "why": "A `this`-based type guard."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Returns true or false; the caller is narrowed only inside an `if` on the result",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Returns nothing and throws on failure; the argument is a `Cat` after the call",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Throws if the condition is falsy; everything the condition proves holds afterwards",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Narrows the object the method was called on",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Type predicates narrow inside a conditional on their boolean result. Assertion functions return `void` and narrow the rest of the scope after the call, because a failed check throws. `this is T` lets class methods guard their own receiver, as in `if (node.isLeaf())`.",
+    "reference": "TypeScript 3.7 release notes: Assertion functions"
+  },
+  {
+    "id": "TSM-NAR-023",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 3,
+    "stem": "Inside which of these `if` blocks is `value: string | number | boolean` narrowed to exactly `string | number`? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`if (typeof value !== \"boolean\")`",
+        "why": "Removes the `boolean` member."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`if (typeof value === \"string\" || typeof value === \"number\")`",
+        "why": "Keeps the two named members."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`if (value !== true && value !== false)`",
+        "why": "`boolean` is the union `true | false`, so removing both literals removes it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`if (!!value)`",
+        "why": "Truthiness only removes `false`, leaving `string | number | true`."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`if (typeof value === \"object\")`",
+        "why": "None of the three members has typeof `\"object\"`, so this block is unreachable."
+      }
+    ],
+    "explanation": "`boolean` is just `true | false`, so equality checks against both literals remove it, just like `typeof`. Truthiness is weaker: it removes only `false`, and it cannot remove `string` or `number` because they have truthy values too.",
+    "reference": "TypeScript Handbook: Narrowing"
+  },
+  {
+    "id": "TSM-NAR-024",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What are the types of `x` in the two branches?\n\n```ts\nfunction toList(x: string | readonly string[]) {\n  if (Array.isArray(x)) {\n    x; // branch 1\n  } else {\n    x; // branch 2\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Branch 1 is `readonly string[]` and branch 2 is `string`, just as with a mutable array",
+        "why": "That is what most people expect, but `readonly string[]` is not a subtype of `any[]`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Branch 1 is `string[]` and branch 2 is `string`, because the readonly modifier is dropped",
+        "why": "TypeScript does not convert the member; it falls back to the predicate type."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Branch 1 is `any[]` and branch 2 is still `string | readonly string[]`",
+        "why": "A `readonly` array is not assignable to `any[]`, so neither branch narrows cleanly."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It is a compile error, because `Array.isArray` cannot accept a `readonly` array argument",
+        "why": "The parameter is `any`, so any argument is accepted."
+      }
+    ],
+    "explanation": "`Array.isArray(arg: any): arg is any[]` narrows by assignability to `any[]`. `readonly string[]` lacks the mutating methods, so it is not a subtype of `any[]`. TypeScript then falls back to the predicate type (`any[]`), losing the element type, and cannot remove anything in the else branch. Common fixes are a custom guard such as `(x: unknown): x is readonly unknown[]` or checking `typeof x === \"string\"` first.",
+    "reference": "TypeScript issue #17002: Array.isArray and readonly arrays"
+  },
+  {
+    "id": "TSM-NAR-025",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "In which functions is `x` narrowed to `string` inside `if (isStr)`? (Choose two.)\n\n```ts\nfunction f1(x: string | number) {\n  const isStr = typeof x === \"string\";\n  if (isStr) { x; }\n}\nfunction f2(x: string | number) {\n  let isStr = typeof x === \"string\";\n  if (isStr) { x; }\n}\nfunction f3(x: string | number) {\n  const isStr = typeof x === \"string\";\n  x = 1;\n  if (isStr) { x; }\n}\nfunction f4(b: { readonly v: string | number }) {\n  const isStr = typeof b.v === \"string\";\n  if (isStr) { b.v; }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`f1`",
+        "why": "A `const` alias of a guard on an unreassigned parameter is honoured (TypeScript 4.4+)."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`f2`",
+        "why": "The alias is a `let`, which could be reassigned, so TypeScript ignores it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`f3`",
+        "why": "`x` is reassigned after the check, so the alias no longer describes it; `x` is `number` here."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "`f4`",
+        "why": "Aliases also work on `readonly` properties of a const or unreassigned parameter."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "None of them, because only direct conditions inside the `if` narrow",
+        "why": "TypeScript 4.4 added control-flow analysis of aliased conditions."
+      }
+    ],
+    "explanation": "TypeScript 4.4 narrows through aliased conditions when the alias is a `const` and the narrowed reference is a `const`, a `readonly` property, or a parameter with no assignments in the function body. `f2` uses a `let` alias. In `f3` the assignment `x = 1` breaks the link, so TypeScript uses the assigned type `number`.",
+    "reference": "TypeScript 4.4 release notes: Control flow analysis of aliased conditions"
+  },
+  {
+    "id": "TSM-NAR-026",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Which function compiles under `strict`?\n\n```ts\ntype Action =\n  | { kind: \"add\"; amount: number }\n  | { kind: \"reset\"; amount: undefined };\n\nfunction f1(a: Action) {\n  const { kind, amount } = a;\n  if (kind === \"add\") amount.toFixed();\n}\nfunction f2(a: Action) {\n  let { kind, amount } = a;\n  if (kind === \"add\") amount.toFixed();\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both, because destructuring never affects how the discriminant narrows",
+        "why": "Destructuring into `let` bindings breaks the connection between them."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Only `f1`",
+        "why": "Since TypeScript 4.6, `const` destructured discriminants still narrow their sibling properties."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Only `f2`, because `let` bindings are re-evaluated after every check",
+        "why": "A `let` could be reassigned independently, so `amount` is not narrowed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Neither, because destructured values lose their union relationship",
+        "why": "That was true before 4.6; now `const` destructuring keeps it."
+      }
+    ],
+    "explanation": "TypeScript 4.6 added control-flow analysis for destructured discriminated unions. When the bindings are `const` (or unassigned parameters), checking `kind` narrows `amount` too. With `let`, either binding could be reassigned on its own, so TypeScript drops the link and `amount` stays `number | undefined`.",
+    "reference": "TypeScript 4.6 release notes: Destructured discriminated unions"
+  },
+  {
+    "id": "TSM-NAR-027",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Which line errors?\n\n```ts\nfunction f(x: string | undefined) {\n  if (x !== undefined) {\n    setTimeout(() => x.length); // line A\n  }\n  x = undefined;                // line B\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Neither line, because the check happens before the callback is created",
+        "why": "The callback runs later, after `x = undefined` may already have executed."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Line A: `x` is possibly `undefined` inside the callback",
+        "why": "`x` is assigned after the closure is created, so the narrowing cannot be kept."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Line B: parameters cannot be reassigned under `strict`",
+        "why": "Reassigning parameters is allowed in TypeScript and JavaScript."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Both lines, because narrowed parameters become read-only",
+        "why": "Narrowing never changes whether a variable can be assigned."
+      }
+    ],
+    "explanation": "TypeScript 5.4 preserves narrowing in closures only when they are created after the last assignment to the variable. Here `x = undefined` comes later, and the timer callback runs after it, so TypeScript reports TS18048 on line A. Removing line B, or copying `x` into a `const` first, fixes it.",
+    "reference": "TypeScript 5.4 release notes: Preserved narrowing in closures"
+  },
+  {
+    "id": "TSM-NAR-028",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Does this compile, and what happens at runtime?\n\n```ts\ntype R = { data: string | null };\n\nfunction clear(r: R) { r.data = null; }\n\nfunction f(r: R) {\n  if (r.data !== null) {\n    clear(r);\n    return r.data.length;\n  }\n  return 0;\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It is a compile error, because calling `clear(r)` resets the narrowing of `r.data`",
+        "why": "TypeScript does not invalidate property narrowing on function calls."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It compiles and is safe, because `clear` receives a copy of the object",
+        "why": "Objects are passed by reference, so `clear` mutates the same object."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It is a compile error, because `r.data` can only be narrowed after copying it into a local",
+        "why": "Narrowing works on property access paths like `r.data` directly."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "It compiles, but throws a TypeError at runtime because `r.data` is `null` after `clear`",
+        "why": "TypeScript keeps `r.data` as `string`, which is unsound here."
+      }
+    ],
+    "explanation": "Invalidating every narrowing on every function call would make narrowing nearly useless, so TypeScript optimistically assumes calls do not mutate the properties you checked. That trade-off is unsound when they do. Copy the value into a `const` before calling out, or re-check after the call.",
+    "reference": "TypeScript issue #9998: Trade-offs in control flow analysis"
+  },
+  {
+    "id": "TSM-NAR-029",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Why does the call to `x.toUpperCase()` fail to type-check?\n\n```ts\nconst assertString = (v: unknown): asserts v is string => {\n  if (typeof v !== \"string\") throw new Error(\"not a string\");\n};\n\nfunction f(x: unknown) {\n  assertString(x);\n  x.toUpperCase();\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Assertion functions must be declared with `async` so that the compiler can wait for them",
+        "why": "Assertion functions must return `void`; an async one returns a promise."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The call target `assertString` has no explicit type annotation, so it is not treated as an assertion",
+        "why": "TS2775: assertions require every name in the call target to have an explicit type."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Assertion functions only work on parameters typed as `any`, not on `unknown` ones",
+        "why": "`unknown` is the most common parameter type for assertion functions."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An `asserts` signature can only be written on methods of a class",
+        "why": "Function declarations and annotated variables work as assertion functions too."
+      }
+    ],
+    "explanation": "Control-flow analysis has to know a call is an assertion without inferring anything first. A `const` holding an arrow gets its type by inference, so TypeScript reports TS2775 and does not narrow. Use a `function` declaration, or annotate the variable: `const assertString: (v: unknown) => asserts v is string = (v) => { ... }`.",
+    "reference": "TypeScript 3.7 release notes: Assertion functions"
+  },
+  {
+    "id": "TSM-NAR-030",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What is the type of `x` inside the `if` block?\n\n```ts\nfunction f<T extends string | number>(x: T) {\n  if (typeof x === \"string\") {\n    x; // here\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`string`, because the generic type parameter is erased by the check",
+        "why": "TypeScript keeps the connection to `T` so it can return the precise type."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`T & string`",
+        "why": "Narrowing a type parameter intersects it with the guarded type."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`T`, because generic values are never narrowed",
+        "why": "They are narrowed, by intersection."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`Extract<T, string>`, computed by a conditional type",
+        "why": "Narrowing does not produce conditional types."
+      }
+    ],
+    "explanation": "For a value of a type parameter, TypeScript cannot filter a union it does not know yet, so it narrows by intersection: `T & string`. That is assignable to both `T` and `string`. It also explains why returning a different `string` where `T` is expected still fails: `string` is not `T`.",
+    "reference": "TypeScript Handbook: Generics and narrowing"
+  },
+  {
+    "id": "TSM-NAR-031",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "In TypeScript 5.5 or later, which statements about these declarations are true? (Choose three.)\n\n```ts\nconst a = [\"x\", undefined, \"\"].filter((v) => !!v);\nconst b = [1, \"a\"].filter((v) => typeof v === \"number\");\nconst c = [1, null].filter((v) => v !== null);\nconst isDef = (v: string | undefined) => v !== undefined;\nconst isDef2 = (v: string | undefined): boolean => v !== undefined;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`a` is `string[]`",
+        "why": "`!!v` is false for `\"\"` too, so a false result does not prove `v` is not a string. `a` stays `(string | undefined)[]`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`b` is `number[]`",
+        "why": "The arrow is inferred as `v is number`."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`c` is `number[]`",
+        "why": "The arrow is inferred as `v is number`."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "`isDef` has the type `(v: string | undefined) => v is string`",
+        "why": "Predicate inference applies to any function, not only filter callbacks."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`isDef2` has the type `(v: string | undefined) => v is string`",
+        "why": "An explicit `boolean` return annotation turns predicate inference off."
+      }
+    ],
+    "explanation": "TypeScript 5.5 infers `x is T` only when the function returns a boolean expression, has no explicit return annotation, and narrows in an \"if and only if\" way: true means `T` and false means not `T`. `!!v` fails the second half, because `\"\"` is a string that returns false.",
+    "reference": "TypeScript 5.5 release notes: Inferred type predicates"
+  },
+  {
+    "id": "TSM-NAR-032",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "`Shape` has three members (circle, square, triangle). What does the compiler report?\n\n```ts\nfunction area(s: Shape): number {\n  switch (s.kind) {\n    case \"circle\": return s.r;\n    case \"square\": return s.s;\n    default:\n      s satisfies never;\n      throw new Error(\"unreachable\");\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing, because `satisfies` only checks object literals",
+        "why": "`satisfies` works on any expression, including identifiers."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "An error saying that the function lacks an ending return statement",
+        "why": "The `throw` ends that path, so every path returns or throws."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "TS1360: type `{ kind: \"triangle\"; b: number; }` does not satisfy the expected type `never`",
+        "why": "The unhandled triangle member is left in `default`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A warning that `s` is unused in the default branch, which `noUnusedLocals` reports",
+        "why": "This is a type error, not an unused-variable report."
+      }
+    ],
+    "explanation": "`expr satisfies never` (TypeScript 4.9+) is a compact exhaustiveness check that needs no helper variable. When every case is handled it compiles; when one is missing, TypeScript names the leftover type. Keep the `throw` so the function still has a defined result at runtime.",
+    "reference": "TypeScript 4.9 release notes: The satisfies operator"
+  },
+  {
+    "id": "TSM-NAR-033",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "What is the type of `x` inside the `if` block? Type it as TypeScript shows it.\n\n```ts\ntype A = { a: string; b?: number };\ntype B = { b: number };\n\nfunction f(x: A | B) {\n  if (\"b\" in x) {\n    x; // here\n  }\n}\n```",
+    "options": [],
+    "accepted": [
+      "A | B",
+      "B | A"
+    ],
+    "explanation": "The `in` operator keeps members that declare the key, even as optional. `A` has an optional `b`, so a value of type `A` might pass the check, and both members remain. In the false branch, only `A` remains, since a `B` always has `b`.",
+    "reference": "TypeScript Handbook: The in operator narrowing"
+  },
+  {
+    "id": "TSM-NAR-034",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 3,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In TypeScript 5.3 or later, the `case` clause below narrows `x` to `string`, so the call compiles.\n\n```ts\nfunction f(x: string | number) {\n  switch (true) {\n    case typeof x === \"string\":\n      return x.toUpperCase();\n    default:\n      return x.toFixed();\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "TypeScript 5.3 narrows on each `case` condition of `switch (true)`, and `default` gets `number`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "This was a common complaint before 5.3, but the code now compiles."
+      }
+    ],
+    "explanation": "`switch (true)` is a readable alternative to long `if`/`else if` chains. Since TypeScript 5.3, each `case` condition narrows like an `if`, and later clauses (including `default`) see the earlier conditions as false.",
+    "reference": "TypeScript 5.3 release notes: switch (true) narrowing"
+  },
+  {
+    "id": "TSM-NAR-035",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "Put these narrowing features in the order they arrived in TypeScript, from oldest to newest.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Narrowing through aliased conditions (`const isStr = typeof x === \"string\"`)",
+        "why": "TypeScript 4.4."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Narrowing destructured discriminated unions",
+        "why": "TypeScript 4.6."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`in` narrowing of keys an object does not list, such as on `object`",
+        "why": "TypeScript 4.9."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`switch (true)` narrowing",
+        "why": "TypeScript 5.3."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Inferred type predicates, such as in `.filter(x => x !== undefined)`",
+        "why": "TypeScript 5.5."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "Narrowing has improved steadily: aliased conditions in 4.4, destructured discriminants in 4.6, unlisted-key `in` narrowing in 4.9, `switch (true)` in 5.3, closure preservation in 5.4 and inferred predicates in 5.5. Knowing the versions explains why older codebases are full of workarounds that now look unnecessary.",
+    "reference": "TypeScript release notes 4.4 to 5.5"
+  },
+  {
+    "id": "TSM-NAR-036",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "What happens when this runs?\n\n```ts\nfunction isPositive(n: number | string): n is number {\n  return typeof n === \"number\" && n > 0;\n}\n\nfunction show(n: number | string) {\n  if (isPositive(n)) {\n    console.log(n.toFixed(1));\n  } else {\n    console.log(n.toUpperCase());\n  }\n}\n\nshow(-1);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It logs `-1.0`, because TypeScript routes negative numbers to the true branch",
+        "why": "The guard returns false for `-1`, so the else branch runs."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It is a compile error, because a predicate may only contain one `typeof` check",
+        "why": "Predicates can contain any boolean logic; TypeScript does not inspect it."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "It compiles, then throws `TypeError: n.toUpperCase is not a function`",
+        "why": "The predicate also returns false for non-positive numbers, but the else branch was narrowed to `string`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It logs `-1`, because `toUpperCase` is a no-op on numbers",
+        "why": "Numbers have no `toUpperCase` method at all."
+      }
+    ],
+    "explanation": "A type predicate means \"true if and only if `n` is a number\". This one returns false for `-1`, so TypeScript narrows the else branch to `string` while a number actually arrives there. Predicates that check more than the type are a classic source of runtime crashes. Return `n is number` only for the type check, and test positivity separately.",
+    "reference": "TypeScript Handbook: Using type predicates"
+  },
+  {
+    "id": "TSM-NAR-037",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "In TypeScript 5.5 or later, what is the type of `names`?\n\n```ts\nconst raw: (string | undefined)[] = [\"ann\", undefined, \"\"];\nconst names = raw.filter((x) => x !== undefined && x.length > 0);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`string[]`, because the callback rules out `undefined` before it reads the length",
+        "why": "The true branch proves `string`, but the false branch does not prove \"not a string\"."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`(string | undefined)[]`",
+        "why": "No predicate is inferred, because `\"\"` returns false although it is a string."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`never[]`, because the two conditions contradict each other",
+        "why": "They do not; `\"ann\"` satisfies both."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`string[]` only when `strictNullChecks` is turned off",
+        "why": "With it off there is no `undefined` in the type to begin with."
+      }
+    ],
+    "explanation": "An inferred predicate `x is string` would also tell TypeScript that every value for which the callback returns false is not a string, which is wrong for `\"\"`. So TypeScript 5.5 refuses to infer it and the element type stays wide. Split the filter (`.filter(x => x !== undefined).filter(x => x.length > 0)`) or write the predicate yourself.",
+    "reference": "TypeScript 5.5 release notes: Inferred type predicates"
+  },
+  {
+    "id": "TSM-NAR-038",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Does this compile, and why?\n\n```ts\ntype Action =\n  | { kind: \"add\"; amount: number }\n  | { kind: \"reset\"; amount: undefined };\n\nfunction reduce({ kind, amount }: Action) {\n  if (kind === \"add\") {\n    return amount.toFixed();\n  }\n  return \"reset\";\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "No: destructured parameters are always widened to the declared property types",
+        "why": "Parameters with no assignments are treated like `const` bindings."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "No: `amount` must be read as `action.amount` for the discriminant to apply",
+        "why": "Since 4.6 the sibling binding is narrowed directly."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Yes: destructured parameter bindings that are never reassigned still narrow together",
+        "why": "Checking `kind` narrows `amount` to `number`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Yes, but only because `amount.toFixed` is looked up through the `any` type",
+        "why": "Nothing here is `any`; `amount` is properly narrowed."
+      }
+    ],
+    "explanation": "TypeScript 4.6 handles destructuring in parameter lists as well as `const` declarations, as long as none of the bindings is assigned in the body. Reassigning `kind` or `amount` anywhere would break the link and bring back the error.",
+    "reference": "TypeScript 4.6 release notes: Destructured discriminated unions"
+  },
+  {
+    "id": "TSM-NAR-039",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Which statement is correct?\n\n```ts\nfunction f(x: string | number) {\n  if (typeof x === \"string\") {\n    const g = () => x.toUpperCase();          // closure g\n    function h() { return x.toUpperCase(); }   // closure h\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both closures compile, since `x` is never reassigned anywhere",
+        "why": "The function declaration `h` behaves differently from the arrow."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Both closures error, since parameters never keep narrowing in closures",
+        "why": "Since 5.4 they can, as `g` shows."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`h` compiles but `g` errors, because arrows capture variables by reference",
+        "why": "Both capture by reference; the difference is hoisting."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "`g` compiles but `h` errors: function declarations are hoisted, so `h` could be called before the check",
+        "why": "Preserved narrowing does not apply to hoisted function declarations."
+      }
+    ],
+    "explanation": "TypeScript 5.4 keeps narrowing in closures created after the last assignment. A function declaration is hoisted to the top of its block, so it can be called before the `typeof` check ran, and inside it `x` is `string | number` (TS2339). Use an arrow or function expression assigned to a `const`.",
+    "reference": "TypeScript 5.4 release notes: Preserved narrowing in closures"
+  },
+  {
+    "id": "TSM-NAR-040",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "What is the type of `item` inside the `if` block?\n\n```ts\nclass FsItem {\n  isFile(): this is FileItem {\n    return this instanceof FileItem;\n  }\n}\nclass FileItem extends FsItem {\n  size = 0;\n}\n\nfunction describe(item: FsItem) {\n  if (item.isFile()) {\n    item; // here\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`FileItem`",
+        "why": "A `this is T` method narrows the object it was called on."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`FsItem`, because a method cannot narrow the object it belongs to",
+        "why": "`this`-based type guards exist for exactly this purpose."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`FsItem & boolean`, because the method returns a boolean",
+        "why": "The predicate refers to `this`, not to the return value."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It is a compile error, because `this is` can only be used in interfaces",
+        "why": "It is valid in class methods, as here."
+      }
+    ],
+    "explanation": "A method declared to return `this is T` narrows the receiver when it returns true. It is common in tree and AST APIs (`node.isIdentifier()`), and combines with `instanceof` or discriminants inside the method body.",
+    "reference": "TypeScript Handbook: this-based type guards"
+  },
+  {
+    "id": "TSM-NAR-041",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "In which function is `b.value` narrowed to `string` inside `if (isStr)`?\n\n```ts\ntype Box = { value: string | number };\n\nfunction f1(b: Box) {\n  const isStr = typeof b.value === \"string\";\n  if (isStr) { const v = b.value; }\n}\nfunction f2(b: Readonly<Box>) {\n  const isStr = typeof b.value === \"string\";\n  if (isStr) { const v = b.value; }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both, because `b` is a parameter that is never reassigned in either function",
+        "why": "For an aliased condition, the property itself must also be read-only."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Only `f1`, because `Readonly` hides the property from control-flow analysis",
+        "why": "`Readonly` is what makes the alias trustworthy."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Neither, because aliased conditions never apply to property accesses",
+        "why": "They do for `readonly` properties."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Only `f2`",
+        "why": "Aliasing narrows property paths only when every property in the path is `readonly`."
+      }
+    ],
+    "explanation": "With an aliased condition, TypeScript must be sure nothing changed between storing the result and using it. A mutable property could be reassigned in between (by any code holding the object), so the alias is ignored in `f1`, and `v` is `string | number`. Making the property `readonly` (here through `Readonly<Box>`) lets the alias narrow. A direct `if (typeof b.value === \"string\")` works in both.",
+    "reference": "TypeScript 4.4 release notes: Control flow analysis of aliased conditions"
+  },
+  {
+    "id": "TSM-NAR-042",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which statements about assertion functions are true under TypeScript 6? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "An assertion function must return `void`; `return true` in a body declared `asserts v is string` is a type error",
+        "why": "TS2322: type boolean is not assignable to type void."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Narrowing only applies when the assertion is called as a statement on its own, not when its result is assigned",
+        "why": "`const r = assertDefined(x)` does not narrow `x`."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "A `const` arrow can be an assertion function if the variable has an explicit function type annotation",
+        "why": "The explicit annotation satisfies the TS2775 requirement."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An `async` function can be declared to return `Promise<asserts x is T>`",
+        "why": "Rejected with TS1228: an assertion can only be the return type itself, so it can't be wrapped in a Promise."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Assertion functions are checked by the compiler to throw whenever the asserted type is wrong",
+        "why": "Like type predicates, the body is trusted, not verified."
+      }
+    ],
+    "explanation": "Assertion functions (TypeScript 3.7) narrow the rest of the scope after a call statement, because a failed check throws. They must be synchronous, return `void`, and be called through names with explicit types. Their bodies are trusted, so an assertion that forgets to throw is as dangerous as a wrong type predicate.",
+    "reference": "TypeScript 3.7 release notes: Assertion functions"
+  },
+  {
+    "id": "TSM-NAR-043",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Which line errors?\n\n```ts\nfunction parse(o: unknown) {\n  if (typeof o === \"object\" && o && \"id\" in o && typeof o.id === \"number\") {\n    const n: number = o.id;          // line A\n    const r: { id: number } = o;     // line B\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Line A, because a property of an `unknown` value can never be narrowed",
+        "why": "Property access paths like `o.id` narrow normally once `o.id` is readable."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Line B, because `o` itself is still `object & Record<\"id\", unknown>`",
+        "why": "Narrowing `o.id` narrows that access path, not the declared type of `o`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Both lines, because `in` narrowing is not supported on values that started as `unknown`",
+        "why": "Line A compiles fine since TypeScript 4.9."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Neither line, because every check before the block has proved `o` is `{ id: number }`",
+        "why": "TypeScript does not fold the property narrowing back into the object type."
+      }
+    ],
+    "explanation": "Narrowing applies to references. `typeof o.id === \"number\"` narrows the reference `o.id`, so line A compiles. The object `o` keeps the type built from the earlier checks, `object & Record<\"id\", unknown>`, so line B fails. Validation code typically ends by returning a newly built object, or uses a schema library to produce a properly typed value.",
+    "reference": "TypeScript 4.9 release notes: Unlisted property narrowing with in"
+  },
+  {
+    "id": "TSM-NAR-044",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "For which unions does the shown check narrow the object so that the property access compiles? (Choose two.)\n\n```ts\ntype U = { kind: string; a: number } | { kind: \"b\"; b: string };\n// check 1: if (u.kind === \"b\") u.b\n\ntype V = { ok: true; value: number } | { ok: false; error: string };\n// check 2: if (v.ok) v.value; else v.error\n\ntype W = { kind: \"a\"; a: number } | { kind: \"b\"; b: string };\n// check 3: if (w.kind === \"a\") w.a\n\n// check 4: if (typeof w.kind === \"string\" && w.kind.startsWith(\"a\")) w.a\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Check 1 on `U`",
+        "why": "One member's `kind` is plain `string`, which also includes `\"b\"`, so `U` does not narrow."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Check 2 on `V`",
+        "why": "`true` and `false` are unit types, so a boolean tag works as a discriminant."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Check 3 on `W`",
+        "why": "Comparing a literal-typed tag with a literal is the standard discriminated union."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Check 4 on `W`",
+        "why": "`startsWith` is a method call, not a literal comparison, so it proves nothing about the type."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Every check, because each one tests the tag before reading the member",
+        "why": "Only checks that compare a unit-typed tag with a matching value narrow the object."
+      }
+    ],
+    "explanation": "A discriminant must be a property whose types are unit (literal) types such as string literals, numbers, `true`/`false`, `null` or `undefined`, and the check must compare it with a value. A plain `string` member overlaps every literal, and arbitrary method calls are opaque to the compiler. Checks 1 and 4 give TS2339.",
+    "reference": "TypeScript Handbook: Discriminated unions"
+  },
+  {
+    "id": "TSM-NAR-045",
+    "domain": 2,
+    "skill": "narrowing",
+    "difficulty": 4,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each narrowing check with the resulting type inside its `if` block (all compiled with `strict`).",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`any[]`",
+        "why": "The predicate type, without the element type."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`object | null`",
+        "why": "typeof reports \"object\" for null too."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`object & Record<\"id\", unknown>`",
+        "why": "The key added by `in` narrowing."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`T & string`",
+        "why": "A type parameter narrowed by intersection."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`x: string | readonly string[]`, checked with `Array.isArray(x)`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`x: unknown`, checked with `typeof x === \"object\"`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`o: object`, checked with `\"id\" in o`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`x: T` where `T extends string | number`, checked with `typeof x === \"string\"`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "These four results surprise many developers. `Array.isArray` loses the element type for readonly arrays. `typeof null` is `\"object\"`, so the check alone does not remove `null`. `in` on `object` adds a `Record` with an `unknown` value. Type parameters are narrowed by intersection rather than by filtering.",
+    "reference": "TypeScript Handbook: Narrowing"
+  }
+]

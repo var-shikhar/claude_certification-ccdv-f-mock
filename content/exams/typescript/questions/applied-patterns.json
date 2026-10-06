@@ -1,0 +1,1650 @@
+[
+  {
+    "id": "TSM-APP-001",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A teammate writes this to load a user:\n\n```ts\nconst res = await fetch(\"/api/user/42\");\nconst user = (await res.json()) as User;\nconsole.log(user.email.toLowerCase());\n```\n\nWhat protection does `as User` give if the server returns `{ \"error\": \"not found\" }`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "TypeScript inserts a runtime check, so `as User` throws a TypeError when the JSON shape is wrong",
+        "why": "Type assertions are erased during compilation. No check of any kind exists in the emitted JavaScript."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "None at runtime: the assertion is erased, so the bad object flows on unchecked",
+        "why": "The crash happens later, at `user.email.toLowerCase()`, far from where the wrong data entered."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It makes `user` a partial `User`, so the compiler forces you to null-check every field before use",
+        "why": "An assertion produces exactly `User`. Nothing becomes optional, so no null checks are demanded."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The compiler rejects the assertion because `res.json()` returns `Promise<unknown>`, not `User`",
+        "why": "`res.json()` is typed `Promise<any>`, and `any` can be asserted to anything without complaint."
+      }
+    ],
+    "explanation": "`as` is a compile-time instruction, not a conversion or validation. Data crossing a trust boundary (network, storage, user input) should be typed `unknown` and validated with a schema or type guard before it becomes a `User`.",
+    "reference": "TypeScript Handbook: Type Assertions"
+  },
+  {
+    "id": "TSM-APP-002",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Given `const o = { a: 1, b: 2 }`, TypeScript types `Object.keys(o)` as `(\"a\" | \"b\")[]`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Object types are open: a value of that type may carry extra keys at runtime, so the compiler cannot promise only \"a\" and \"b\"."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: `Object.keys` returns `string[]` because structural typing lets objects have more keys than their type lists."
+      }
+    ],
+    "explanation": "Because any object with at least `a` and `b` is assignable to `{ a: number; b: number }`, `Object.keys` would be unsound if it returned `keyof T`. It deliberately returns `string[]`. When you control the object, a narrow assertion or a separate `as const` key list is the usual workaround.",
+    "reference": "TypeScript FAQ: Why doesn't Object.keys return keyof T?"
+  },
+  {
+    "id": "TSM-APP-003",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What is `Role` here?\n\n```ts\nconst roles = [\"admin\", \"editor\", \"viewer\"] as const;\ntype Role = typeof roles[number];\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`string`, because array elements are always widened to their base primitive type",
+        "why": "Without `as const` they would be, but `as const` keeps each element as its literal type."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`\"admin\" | \"editor\" | \"viewer\"`",
+        "why": "`as const` makes a readonly tuple of literals, and indexing it with `number` gives the union of its elements."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`readonly [\"admin\", \"editor\", \"viewer\"]`, the tuple type itself",
+        "why": "That is `typeof roles`. Indexing it with `[number]` extracts the element types."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A compile error, because `typeof` cannot be applied to a value declared with `as const`",
+        "why": "`typeof` works on any value in a type position, including const-asserted ones."
+      }
+    ],
+    "explanation": "Declaring the list once as a value and deriving the type from it keeps runtime data (for dropdowns or validation) and the type in sync. `typeof arr[number]` is the standard way to turn a const tuple into a union.",
+    "reference": "TypeScript Handbook: Indexed Access Types"
+  },
+  {
+    "id": "TSM-APP-004",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "With `strict: true`, what is the type of `e` in `try { ... } catch (e) { ... }`, and how should you read an error message from it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`any`, so `e.message` is fine to read directly in every case",
+        "why": "That was the old default. `strict` enables `useUnknownInCatchVariables`, which makes it `unknown`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`Error`, so `e.message` always exists and can be read directly",
+        "why": "JavaScript can throw any value, such as strings or numbers, so TypeScript can't assume `Error`."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`unknown`, so narrow it first: `e instanceof Error ? e.message : String(e)`",
+        "why": "Narrowing handles both real errors and thrown non-error values safely."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`never`, because the compiler cannot know which statement in the try block threw",
+        "why": "`never` would mean the catch block is unreachable. The variable is `unknown`."
+      }
+    ],
+    "explanation": "Since TypeScript 4.4, `useUnknownInCatchVariables` (part of `strict`) types catch variables as `unknown`. You narrow with `instanceof Error`, a type guard, or a schema before reading properties, because `throw \"oops\"` is legal JavaScript.",
+    "reference": "TSConfig: useUnknownInCatchVariables"
+  },
+  {
+    "id": "TSM-APP-005",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each pattern with the problem it is best at preventing.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Branded types",
+        "why": "Make two string IDs incompatible."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A discriminated union for state",
+        "why": "Rule out contradictory field combinations."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The `satisfies` operator",
+        "why": "Check a value against a type without widening it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Typing input as `unknown` and parsing it",
+        "why": "Force validation before use."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Passing an order ID where a user ID is expected",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "A UI state that is \"loading\" while also holding an error message",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "A config object loses its literal key names after being type-checked",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Code reads fields of a webhook body that was never validated",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Each pattern moves a class of bug from runtime to compile time. Brands add nominal distinctions to structurally identical types; discriminated unions make illegal states unrepresentable; `satisfies` validates without changing the inferred type; and `unknown` forces a parsing step at trust boundaries.",
+    "reference": "TypeScript Handbook: Narrowing; TypeScript 4.9 release notes"
+  },
+  {
+    "id": "TSM-APP-006",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Which type for a data-loading component makes the state \"still loading, but already holding data and an error\" impossible to represent?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`{ loading: boolean; data?: User; error?: string }`",
+        "why": "All three fields are independent, so every contradictory combination still type-checks."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`{ status: \"loading\" } | { status: \"success\"; data: User } | { status: \"error\"; error: string }`",
+        "why": "Each variant carries only the fields that make sense for it, and `status` tells them apart."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`{ status: \"loading\" | \"success\" | \"error\"; data: User | null; error: string | null }`",
+        "why": "The status is a union, but `data` and `error` can still be set in any status."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`Partial<{ loading: true; data: User; error: string }>`",
+        "why": "Making every field optional allows all combinations, including the impossible ones."
+      }
+    ],
+    "explanation": "A discriminated union encodes the state machine in the type. Code that switches on `status` gets the right fields in each branch, and no variant combines loading with data and an error. This is often summarised as \"make illegal states unrepresentable\".",
+    "reference": "TypeScript Handbook: Discriminated unions"
+  },
+  {
+    "id": "TSM-APP-007",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "Fill in the operator that checks this object against `Record<string, Route>` while keeping its exact inferred type (including literal key names):\n\n```ts\nconst routes = {\n  home: { path: \"/\" },\n  user: { path: \"/users/:id\" },\n} ____ Record<string, Route>;\n```\n\nType just the keyword.",
+    "options": [],
+    "accepted": [
+      "satisfies"
+    ],
+    "explanation": "`satisfies` (TypeScript 4.9) reports an error if the expression doesn't match the type, but the variable keeps the expression's own inferred type. With a `: Record<string, Route>` annotation, `keyof typeof routes` would collapse to `string`; with `satisfies` it stays `\"home\" | \"user\"`.",
+    "reference": "TypeScript 4.9 release notes: The satisfies Operator"
+  },
+  {
+    "id": "TSM-APP-008",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "You are writing `parseJson(text: string)` for request bodies that callers will validate before use. What should it return?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`any`, the same as `JSON.parse`, so callers can use the result without friction",
+        "why": "`any` turns off checking, so callers can skip validation and the compiler won't notice."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`unknown`, so callers must narrow or validate before touching any property",
+        "why": "`unknown` accepts every value but allows no operations until narrowed, which forces the validation step."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`object`, since every valid JSON document is parsed into an object",
+        "why": "JSON can also be a string, number, boolean, null or array, so `object` is wrong as well as too loose."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A generic `T` the caller chooses, such as `parseJson<User>(text)`",
+        "why": "A caller-chosen `T` is an unchecked assertion in disguise; nothing verifies the data is a `User`."
+      }
+    ],
+    "explanation": "`unknown` is the type-safe top type: anything can be assigned to it, but you must prove what it is before using it. Wrapping `JSON.parse` to return `unknown` turns forgotten validation into a compile error instead of a production incident.",
+    "reference": "TypeScript Handbook: unknown"
+  },
+  {
+    "id": "TSM-APP-009",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "A branded type such as `type UserId = string & { readonly __brand: \"UserId\" }` adds a `__brand` property to the string at runtime.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Types are erased. A UserId is an ordinary string at runtime, and `__brand` never exists."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: the brand is a compile-time fiction. It costs nothing at runtime and only changes assignability."
+      }
+    ],
+    "explanation": "Branding intersects a primitive with an object type that no real value has, so plain strings aren't assignable to it. The only way to get one is a cast, ideally inside a single \"smart constructor\" that validates first. At runtime the value is just the string.",
+    "reference": "TypeScript Deep Dive: Nominal Typing"
+  },
+  {
+    "id": "TSM-APP-010",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Many teams replace enums with a const object. What type is `Status` here?\n\n```ts\nconst Status = { Active: \"active\", Inactive: \"inactive\" } as const;\ntype Status = typeof Status[keyof typeof Status];\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`\"Active\" | \"Inactive\"`, the key names of the object",
+        "why": "`keyof typeof Status` gives the keys, but indexing the object with them gives the values."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`\"active\" | \"inactive\"`, the union of the object's values",
+        "why": "`typeof Status[keyof typeof Status]` reads every property type, and `as const` keeps them literal."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`string`, because object property values are always widened",
+        "why": "`as const` prevents widening, so each value keeps its literal type."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An enum type that only the `Status` object itself can produce",
+        "why": "This is an ordinary literal union: the plain string \"active\" is assignable to it."
+      }
+    ],
+    "explanation": "The const-object pattern gives you a runtime object (for iteration and lookup) and a union type of its values from one declaration, without enum-specific emit. Unlike a string enum, the plain literal `\"active\"` is assignable to the type, which suits values that arrive from JSON.",
+    "reference": "TypeScript Handbook: Enums (Objects vs Enums)"
+  },
+  {
+    "id": "TSM-APP-011",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 1,
+    "type": "order",
+    "select": 1,
+    "stem": "Put these steps for migrating a large JavaScript codebase to TypeScript in the usual safe order.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add a tsconfig with `allowJs` and lenient settings, so the build includes existing .js files unchanged",
+        "why": "Start by getting the compiler into the build without breaking anything."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Turn on `checkJs` (or `// @ts-check`) for some files and fix the errors JSDoc types reveal",
+        "why": "Surface type errors in JavaScript before renaming anything."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Rename files to .ts one at a time, starting with leaf modules that have few dependants",
+        "why": "Convert incrementally, from the leaves of the import graph up."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Enable `noImplicitAny`, then `strictNullChecks`, then the rest of `strict`, fixing errors at each step",
+        "why": "Ratchet strictness up in stages."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Remove `allowJs` once no .js source files remain",
+        "why": "Finish by making TypeScript the only source language."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "A gradual migration keeps the app shippable at every step: first include JS in the TypeScript build, then type-check it, convert files from the leaves inwards, and tighten compiler strictness in stages (implicit any first, then null checks). Flipping `strict` on day one usually produces thousands of errors and stalls the effort.",
+    "reference": "TypeScript Handbook: Migrating from JavaScript"
+  },
+  {
+    "id": "TSM-APP-012",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Which call compiles?\n\n```ts\ntype UserId = string & { readonly __brand: \"UserId\" };\ntype OrderId = string & { readonly __brand: \"OrderId\" };\n\nfunction toUserId(s: string): UserId {\n  if (!s.startsWith(\"u_\")) throw new Error(\"bad user id\");\n  return s as UserId;\n}\ndeclare function getUser(id: UserId): void;\ndeclare const orderId: OrderId;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`getUser(orderId)`, since both IDs are strings underneath",
+        "why": "The brands differ (\"UserId\" vs \"OrderId\"), so the intersections are incompatible."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`getUser(\"u_1\")`, since the literal matches the prefix check",
+        "why": "A plain string lacks the brand. The prefix check only runs inside `toUserId`, at runtime."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`getUser(toUserId(\"u_1\"))`",
+        "why": "The smart constructor validates and returns the branded type, so the call type-checks."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`getUser(String(orderId))`, since converting strips the brand",
+        "why": "`String(...)` returns `string`, which still lacks the UserId brand."
+      }
+    ],
+    "explanation": "Branded types give structurally identical primitives distinct identities. Funnelling every `as UserId` through one validating constructor means a `UserId` in the codebase has been checked once. A branded value is still usable as a string wherever `string` is expected.",
+    "reference": "TypeScript Deep Dive: Nominal Typing"
+  },
+  {
+    "id": "TSM-APP-013",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about `satisfies` are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "It reports an error if the expression doesn't conform to the type, such as a misspelled key",
+        "why": "That is its purpose: the same checking an annotation gives."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The variable keeps the expression's own inferred type rather than the checked type",
+        "why": "Unlike an annotation, it doesn't replace the type, so specific keys and narrower values survive."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Like `as`, it lets you claim a type the value doesn't actually have",
+        "why": "`satisfies` is a check, not an assertion. A non-conforming value is an error."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It adds a runtime validation step that throws if the shape is wrong",
+        "why": "Like every type operator, it is erased during compilation."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "It always keeps string literals, even where the target type is plain `string`",
+        "why": "Values contextually typed by `string` still widen to `string`; add `as const` to keep literals."
+      }
+    ],
+    "explanation": "`expr satisfies T` checks `expr` against `T` (with excess-property checks) but leaves the variable typed as `expr`'s own inferred type. It doesn't make a value conform the way `as` pretends to, and it doesn't freeze literals by itself. Combine it with `as const` (`as const satisfies T`) when you need exact literal values.",
+    "reference": "TypeScript 4.9 release notes: The satisfies Operator"
+  },
+  {
+    "id": "TSM-APP-014",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A typed event emitter declares:\n\n```ts\ntype Events = { login: { userId: string }; logout: undefined };\ndeclare function on<K extends keyof Events>(\n  event: K,\n  handler: (payload: Events[K]) => void,\n): void;\n```\n\nWhich call does the compiler reject?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`on(\"login\", (p) => console.log(p.userId))`",
+        "why": "K is inferred as \"login\", so `p` is `{ userId: string }` and the property exists."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`on(\"logout\", () => console.log(\"bye\"))`",
+        "why": "A handler may ignore its parameter; fewer parameters are always assignable."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`on(\"signup\", () => {})`",
+        "why": "\"signup\" is not a key of Events, so it fails the `K extends keyof Events` constraint."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`on(\"login\", () => {})`",
+        "why": "Ignoring the payload is allowed for the same reason as the logout handler."
+      }
+    ],
+    "explanation": "Keying the event map by name and indexing it with the inferred `K` ties each event name to its payload type. Misspelled event names and wrong payload shapes become compile errors, and handlers get precise payload types without annotations.",
+    "reference": "TypeScript Handbook: Generics (Using Type Parameters in Generic Constraints)"
+  },
+  {
+    "id": "TSM-APP-015",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Which signature for `debounce` lets callers keep the exact parameter types of the function they pass in?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`function debounce(fn: Function, ms: number): Function`",
+        "why": "`Function` erases parameters and return types, so calls are unchecked."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`function debounce(fn: (...args: any[]) => void, ms: number): (...args: any[]) => void`",
+        "why": "It accepts any function but returns one taking `any[]`, which loses the original parameters."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`function debounce<F extends (...args: any[]) => void>(fn: F, ms: number): (...args: Parameters<F>) => void`",
+        "why": "The generic captures F, and `Parameters<F>` copies its parameter list to the returned function."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`function debounce<T>(fn: T, ms: number): T`",
+        "why": "T is unconstrained, so it can't be called inside, and it falsely promises the original return value."
+      }
+    ],
+    "explanation": "A debounced function runs later, so it can't return the original result synchronously: the honest return type is `void`. Capturing the function type as a constrained generic and reusing `Parameters<F>` preserves argument checking at every call site.",
+    "reference": "TypeScript Handbook: Utility Types (Parameters)"
+  },
+  {
+    "id": "TSM-APP-016",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A team adds `{ kind: \"idle\" }` to this union but forgets to update `render`. What happens?\n\n```ts\ntype State =\n  | { kind: \"loading\" }\n  | { kind: \"ok\"; data: string }\n  | { kind: \"error\"; message: string };\n\nfunction render(s: State): string {\n  switch (s.kind) {\n    case \"loading\": return \"Loading...\";\n    case \"ok\": return s.data;\n    case \"error\": return s.message;\n    default: {\n      const unreachable: never = s;\n      return unreachable;\n    }\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It compiles, and `render` returns `undefined` for the idle state at runtime",
+        "why": "The `never` assignment is exactly what stops this from compiling."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A compile error at `const unreachable: never = s`, where `s` is the idle variant",
+        "why": "In the default branch, `s` narrows to the unhandled variants, and those aren't assignable to `never`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A compile error at the `switch` line, saying the switch statement is not exhaustive",
+        "why": "TypeScript has no built-in exhaustiveness error for switch; the `never` check is what provides it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It compiles, but `s.kind` in the switch becomes `string` because the union grew",
+        "why": "Adding a variant only adds \"idle\" to the union of kinds; it doesn't widen it."
+      }
+    ],
+    "explanation": "Assigning the narrowed value to `never` in the default branch is the standard exhaustiveness check. When every variant is handled, `s` is `never` there and the assignment is fine. A new variant makes it fail, pointing directly at the function that needs updating.",
+    "reference": "TypeScript Handbook: Exhaustiveness checking"
+  },
+  {
+    "id": "TSM-APP-017",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Which line does the compiler reject?\n\n```ts\ntype Result<T, E> = { ok: true; value: T } | { ok: false; error: E };\n\nfunction show(r: Result<number, string>) {\n  console.log(r.ok);       // line 1\n  console.log(r.value);    // line 2\n  if (!r.ok) return r.error; // line 3\n  return r.value;          // line 4\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Line 1, because `ok` has a different literal type in each variant",
+        "why": "`ok` exists in both variants, so reading it is always allowed; its type is `boolean`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Line 2: `value` exists only on success, and `r` isn't narrowed yet",
+        "why": "Before checking `ok`, `r` might be the failure variant, which has no `value`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Line 3, because `error` might be undefined when `ok` is false",
+        "why": "After `!r.ok`, `r` is exactly the failure variant, where `error: E` is required."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Line 4, because the compiler forgets the narrowing after the early return",
+        "why": "Control-flow analysis remembers the early return, so `r` is the success variant here."
+      }
+    ],
+    "explanation": "A `Result` union makes callers handle failure explicitly: success fields are unreachable until `ok` is checked. Compared with throwing, errors become part of the function's type, at the cost of more explicit branching at each call site.",
+    "reference": "TypeScript Handbook: Discriminated unions"
+  },
+  {
+    "id": "TSM-APP-018",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "With only `strict: true` enabled, `const first = names[0]` (where `names: string[]`) gives `first` the type `string`, not `string | undefined`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: `strict` doesn't include `noUncheckedIndexedAccess`, so index reads are assumed to hit an element."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "`strict` doesn't change array indexing. Only `noUncheckedIndexedAccess` adds `| undefined`."
+      }
+    ],
+    "explanation": "Array index access is a well-known unsound spot: an empty array still yields `string`. `noUncheckedIndexedAccess` (not part of `strict`) adds `undefined` to index reads and index-signature lookups, forcing a check. Many teams enable it for safety despite the extra narrowing.",
+    "reference": "TSConfig: noUncheckedIndexedAccess"
+  },
+  {
+    "id": "TSM-APP-019",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "Which compiler option makes `arr[i]` and `record[key]` (for index signatures) include `| undefined` in their type? Type the option name.",
+    "options": [],
+    "accepted": [
+      "noUncheckedIndexedAccess",
+      "--noUncheckedIndexedAccess"
+    ],
+    "explanation": "`noUncheckedIndexedAccess` (TypeScript 4.1) treats every index read as possibly missing. It isn't part of `strict`, because it adds friction to loops and lookups where the index is known to be valid. For-of loops and known tuple positions are unaffected.",
+    "reference": "TSConfig: noUncheckedIndexedAccess"
+  },
+  {
+    "id": "TSM-APP-020",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What is the main problem with this \"typed\" helper?\n\n```ts\nasync function getJson<T>(url: string): Promise<T> {\n  const res = await fetch(url);\n  return res.json();\n}\n\nconst user = await getJson<User>(\"/api/me\");\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It doesn't compile, because `res.json()` returns `Promise<unknown>`, which isn't assignable to `Promise<T>`",
+        "why": "`res.json()` returns `Promise<any>`, and `any` is assignable to `Promise<T>`, so it compiles."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The caller picks `T` with nothing verifying it, so it is an unchecked assertion disguised as a generic",
+        "why": "The data could be anything; the generic only relabels `any` as `User`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Generic functions can't be declared `async`, so the declared return type is silently erased to `Promise<any>`",
+        "why": "Async generics are fine. The issue is that `T` never connects to a real check."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Because `T` has no default, every caller must pass it, which makes the helper unusable",
+        "why": "A missing type argument is inferred as `unknown`. Callers can still pass `T`."
+      }
+    ],
+    "explanation": "A type parameter that appears only in the return type and is never checked is the \"return-only generic\" smell: it moves the `as` from the call site into the helper. Safer designs return `unknown`, or take a schema and return its inferred type after validating, for example `getJson(url, UserSchema)`.",
+    "reference": "TypeScript Handbook: Generics; typescript-eslint: no-unnecessary-type-parameters"
+  },
+  {
+    "id": "TSM-APP-021",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "You need to loop over the keys of an object you created yourself, with keys typed as `keyof typeof config`. Which two approaches work? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Cast once: `(Object.keys(config) as Array<keyof typeof config>)`, acceptable because you know the object has no extra keys",
+        "why": "The assertion is safe when you control the object's exact contents."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Keep a separate `const KEYS = [\"host\", \"port\"] as const` list and loop over it to index `config`",
+        "why": "The key list is typed exactly, and indexing with its elements is fully checked."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Call `Object.keys<typeof config>(config)` to pass the key type explicitly",
+        "why": "`Object.keys` is not generic; passing a type argument is a compile error."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use `for (const k in config)`, which types `k` as `keyof typeof config`",
+        "why": "`for...in` types the variable as `string`, for the same open-object reason."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Enable the `strictObjectKeys` compiler option",
+        "why": "No such option exists; the `string[]` return type is deliberate."
+      }
+    ],
+    "explanation": "`Object.keys` returns `string[]` because objects may have extra keys. When you own the object (a literal, a frozen config), a narrow cast is a reasonable, documented assertion. Alternatively, drive the loop from a const key list, which also gives you an ordering you control.",
+    "reference": "TypeScript FAQ: Object.keys returns string[]"
+  },
+  {
+    "id": "TSM-APP-022",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A PATCH endpoint is typed `updateUser(id: string, patch: Partial<User>)`, where `User` is `{ id: string; name: string; createdAt: Date }`. Which change best stops callers from changing `id` or `createdAt`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Keep `Partial<User>` and add a comment saying `id` and `createdAt` are ignored",
+        "why": "Callers still get no error, and the server must remember to strip those fields."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Use `Required<User>`, so every field must be sent and nothing can be left out",
+        "why": "That turns a patch into a full replace, and it still allows changing `id`."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Type it as `Partial<Omit<User, \"id\" | \"createdAt\">>`",
+        "why": "Only the editable fields remain, and each is optional, so `{ id: \"x\" }` is now an error."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use `Readonly<Partial<User>>`, which stops callers from setting `id`",
+        "why": "`Readonly` stops reassigning properties on the patch object, not including them in it."
+      }
+    ],
+    "explanation": "Reusing the entity type for writes leaks fields the client must never control. Deriving a dedicated input type, either with `Omit` plus `Partial` or a separately declared DTO, documents the contract and turns forbidden fields into excess-property errors on object literals.",
+    "reference": "TypeScript Handbook: Utility Types (Partial, Omit)"
+  },
+  {
+    "id": "TSM-APP-023",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 2,
+    "type": "match",
+    "select": 1,
+    "stem": "TypeScript is deliberately unsound in places. Match each snippet with the unsound feature it relies on.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Method parameter bivariance",
+        "why": "Method parameters are checked both ways."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Unchecked array indexing",
+        "why": "Index reads assume an element exists."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A user-defined type predicate",
+        "why": "The compiler trusts `x is T` blindly."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A type assertion",
+        "why": "`as` overrides the inferred type."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "An object `{ handle(e: MouseEvent) {} }` is accepted where `{ handle(e: Event): void }` is expected",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`const names: string[] = []; const first: string = names[0];` compiles, and `first.length` throws at runtime",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`function isUser(x: unknown): x is User { return true; }` compiles and narrows anything to `User`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`const user = {} as User;` compiles and `user.name.length` throws at runtime",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Knowing where the type system trusts you is a key review skill. Method bivariance and index access are intentional trade-offs for usability. Type predicates and assertions are escape hatches: their correctness is your responsibility, so keep them small, close to real checks, and few.",
+    "reference": "TypeScript Handbook: Type Compatibility (A Note on Soundness)"
+  },
+  {
+    "id": "TSM-APP-024",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A service validates input with zod:\n\n```ts\nconst UserSchema = z.object({ id: z.string(), age: z.number().int() });\ntype User = z.infer<typeof UserSchema>;\n\nconst result = UserSchema.safeParse(body);\n```\n\nWhich statement is correct?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`z.infer` validates `body` at runtime and throws a ZodError when it doesn't match",
+        "why": "`z.infer` is purely a type; only `parse` and `safeParse` run validation."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`result` is `{ success: true; data: User } | { success: false; error: ZodError }`, so code must check `success` before reading `data`",
+        "why": "safeParse never throws; it returns a discriminated union to narrow on."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`User` must be declared by hand, and `z.infer` only checks that the two agree",
+        "why": "`z.infer` derives `User` from the schema, so there is nothing to keep in sync."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`safeParse` returns `User | undefined`, so a simple truthiness check is enough",
+        "why": "It returns a result object with `success`, `data` and `error`, not the bare value."
+      }
+    ],
+    "explanation": "Schema-first validation keeps one source of truth: the runtime validator, whose static type is derived with `z.infer`. `parse` throws a ZodError on bad input; `safeParse` returns a discriminated union. Either way the validated value is typed `User` only after it has really been checked.",
+    "reference": "Zod docs: Basic usage (parse, safeParse, z.infer)"
+  },
+  {
+    "id": "TSM-APP-025",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about branded types like `type UserId = string & { readonly __brand: \"UserId\" }` are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Any code can still write `\"x\" as UserId`, so the guarantee depends on routing creation through one validating constructor",
+        "why": "A brand is enforced by convention plus review; the compiler can't stop a cast."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Two libraries that both brand with the string tag \"UserId\" produce mutually assignable types",
+        "why": "Brands are structural too: identical tag properties make identical types."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A branded value can't be passed where a plain `string` is expected without casting back",
+        "why": "An intersection with `string` is a subtype of `string`, so it is accepted directly."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Brands survive `JSON.stringify` and `JSON.parse`, so a parsed value keeps its brand",
+        "why": "Brands don't exist at runtime; parsed data is just `unknown` again."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The `__brand` property must be assigned once in the constructor for the brand to work",
+        "why": "There is no runtime property. The constructor only casts after validating."
+      }
+    ],
+    "explanation": "Brands add nominal-like typing on top of structural typing, but the brand is still just a structural property. Use a unique tag (or a `unique symbol` key) to avoid accidental collisions, and keep every cast to the brand inside a single parsing function.",
+    "reference": "TypeScript Deep Dive: Nominal Typing"
+  },
+  {
+    "id": "TSM-APP-026",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An API client is typed from a route map:\n\n```ts\ntype Routes = {\n  \"/users\": { res: User[] };\n  \"/users/:id\": { res: User };\n};\ndeclare function get<P extends keyof Routes>(path: P): Promise<Routes[P][\"res\"]>;\n```\n\nWhat type does `get(\"/users\")` have, and what happens with `get(\"/posts\")`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`Promise<User | User[]>`, and `get(\"/posts\")` returns `Promise<never>`",
+        "why": "P is inferred as the literal \"/users\", so indexing picks exactly that route's response."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`Promise<User[]>`, and `get(\"/posts\")` is a compile error",
+        "why": "\"/posts\" is not a key of Routes, so it fails the constraint."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`Promise<User[]>`, and `get(\"/posts\")` compiles with `Promise<unknown>`",
+        "why": "An invalid key isn't widened to unknown; the `extends keyof Routes` constraint rejects it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`Promise<Routes[\"/users\"]>`, and `get(\"/posts\")` is a compile error",
+        "why": "The return type indexes one level deeper, into `[\"res\"]`, giving `User[]`."
+      }
+    ],
+    "explanation": "A route map turns path strings into a typed contract: the inferred literal `P` selects the right response type, and unknown paths fail to compile. Generating such maps from an OpenAPI spec or sharing them between client and server is how tools like tRPC and typed fetch wrappers work.",
+    "reference": "TypeScript Handbook: Indexed Access Types"
+  },
+  {
+    "id": "TSM-APP-027",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A Node service reads `process.env.PORT` in a dozen places. Which two statements are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "With @types/node, `process.env.PORT` is `string | undefined`, so each use must handle a missing value",
+        "why": "`process.env` is a string index signature, so any key may be absent."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A better design parses all variables once at startup into a typed, validated config object",
+        "why": "Validation fails fast at boot, and the rest of the code sees `port: number`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Declaring `PORT: string` in a `ProcessEnv` augmentation guarantees the variable is set at runtime",
+        "why": "Augmentation only changes the type; nothing checks the environment."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "TypeScript reads the `.env` file at compile time and types the variables to match it",
+        "why": "The compiler knows nothing about `.env` files or the runtime environment."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`Number(process.env.PORT)` safely gives a number, or a compile error when the variable is missing",
+        "why": "`Number(undefined)` is NaN at runtime, and nothing errors at compile time."
+      }
+    ],
+    "explanation": "Environment variables are untrusted input. Typing them via augmentation only hides the risk. A single config module that reads, validates and converts them (with a schema library or hand-written checks) gives strong types downstream and crashes early with a clear message when something is missing.",
+    "reference": "@types/node: process.env; Zod docs"
+  },
+  {
+    "id": "TSM-APP-028",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A small dependency container stores services in `Map<string, unknown>`, so every `get` needs a cast. Which design gives `container.get(\"logger\")` the type `Logger` with no casts at call sites?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`get<T>(key: string): T`, with each caller passing the expected service type as an explicit type argument",
+        "why": "This is a return-only generic: callers can claim any type for any key."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A `Services` map type, with `get<K extends keyof Services>(key: K): Services[K]`",
+        "why": "The key selects the service type, so the compiler checks both the key and the result."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Changing the storage to `Map<string, any>` so values come out without needing any casts at all",
+        "why": "`any` removes the casts by removing the checks; a wrong key still compiles."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Overloads such as `get(key: string): Logger` and `get(key: string): Db`",
+        "why": "Overloads with the same parameter types can't be told apart; the first always matches."
+      }
+    ],
+    "explanation": "Keying services by a typed map gives each lookup a precise type and makes unknown keys compile errors. Internally you still need one cast where the untyped storage is read, but it is confined to one place instead of every call site.",
+    "reference": "TypeScript Handbook: keyof and Indexed Access Types"
+  },
+  {
+    "id": "TSM-APP-029",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 3,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "This compiles under `strict: true`, even though the predicate lies:\n\n```ts\nfunction isString(x: unknown): x is string {\n  return true;\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: the compiler checks only that a boolean is returned, never that it matches `x is string`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "Type predicates are trusted, not verified, so the function compiles."
+      }
+    ],
+    "explanation": "A user-defined type guard is an unchecked promise. A wrong predicate narrows values to the wrong type everywhere it is used. Keep guards simple and well tested, or derive them from a schema. TypeScript 5.5 can infer predicates from simple function bodies, which avoids hand-written mistakes.",
+    "reference": "TypeScript Handbook: Using type predicates"
+  },
+  {
+    "id": "TSM-APP-030",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Which assignment does the compiler reject under `strict: true` (with `strictFunctionTypes`)?\n\n```ts\ninterface WithMethod { handle(e: Event): void }\ninterface WithProp { handle: (e: Event) => void }\n\nconst onMouse = (e: MouseEvent) => console.log(e.clientX);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`const a: WithMethod = { handle: onMouse };`",
+        "why": "Parameters of method-syntax members are checked bivariantly, so this is accepted."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`const b: WithProp = { handle: onMouse };`",
+        "why": "Function-typed properties are checked contravariantly, and `Event` is not a `MouseEvent`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Both, because a handler for `MouseEvent` can't handle every `Event`",
+        "why": "That reasoning is sound, but method syntax is exempt from strict function types."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Neither, because `MouseEvent` is a subtype of `Event`",
+        "why": "For parameters, a subtype is the wrong direction; the property version is rejected."
+      }
+    ],
+    "explanation": "`strictFunctionTypes` checks function-typed properties contravariantly but deliberately leaves method declarations bivariant (to keep common DOM and array types usable). Declaring callbacks as properties (`handle: (e: Event) => void`) gets the stricter, sound check.",
+    "reference": "TSConfig: strictFunctionTypes"
+  },
+  {
+    "id": "TSM-APP-031",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about TypeScript enums are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A numeric enum emits a reverse mapping, so `E[0]` gives the member name",
+        "why": "Numeric enums compile to an object mapping both ways."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "For `enum Status { Active = \"active\" }`, the plain string `\"active\"` is not assignable to `Status`",
+        "why": "String enum members behave nominally: only `Status.Active` is accepted."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Assigning any `number` variable to a numeric enum type is an error since TypeScript 5.0",
+        "why": "Only out-of-range literals are rejected; a `number`-typed variable still assigns."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Enums are type-only and are erased completely, like interfaces",
+        "why": "Regular enums emit a runtime object; only `const enum` is inlined."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`const enum` works smoothly under `isolatedModules` across files",
+        "why": "Inlining needs cross-file type information, which isolated per-file transpilers don't have."
+      }
+    ],
+    "explanation": "Enums are one of TypeScript's few features with runtime emit. String enums are nominal, which is handy for internal codes but awkward for values arriving as plain JSON strings. That, plus `const enum` problems with per-file transpilers, is why many codebases prefer const objects with derived literal unions.",
+    "reference": "TypeScript Handbook: Enums"
+  },
+  {
+    "id": "TSM-APP-032",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "Put these steps for handling an untrusted webhook body in the safest order.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Read the raw request body as text and verify the signature over those exact bytes",
+        "why": "Verify authenticity before trusting anything."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Call `JSON.parse` and type the result as `unknown`",
+        "why": "Parse without asserting a shape."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Validate the value against a schema, rejecting the request on failure",
+        "why": "This is the step that earns a static type."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Map the validated data into domain types, such as branded IDs",
+        "why": "Convert into the types the rest of the code relies on."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Pass the domain object to the business logic",
+        "why": "Only checked, well-typed data reaches the core."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "Signatures must be checked against the raw bytes, before parsing changes them. After that, data should be `unknown` until validated, then converted into domain types once, at the edge. Inner code can then trust its types without re-checking.",
+    "reference": "Stripe docs: Verify webhook signatures; TypeScript Handbook: unknown"
+  },
+  {
+    "id": "TSM-APP-033",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A query builder should only allow `build()` after `from()` has been called:\n\n```ts\nclass QB<HasTable extends boolean = false> {\n  from(t: string): QB<true> { return this as unknown as QB<true>; }\n  build(this: QB<true>): string { return \"query\"; }\n}\n\nnew QB().build();\n```\n\nWhat happens with `new QB().build()`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A compile error, because `this` is `QB<false>` and `build` requires `QB<true>`",
+        "why": "This is the intent, but `QB<false>` and `QB<true>` turn out to have identical structure."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It compiles: no member uses `HasTable`, so both instantiations are structurally identical",
+        "why": "Assignability compares members. An unused type parameter changes nothing."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A compile error, because a class method can't declare a `this` parameter",
+        "why": "`this` parameters are allowed on methods and are a common builder technique."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It compiles, because the default `false` makes the type parameter optional, so it is erased entirely",
+        "why": "The default isn't the issue; even `new QB<false>()` is accepted."
+      }
+    ],
+    "explanation": "TypeScript compares classes structurally, so a phantom type parameter that no member uses has no effect on assignability. To make the state real, mention it in a member, for example `declare private readonly _hasTable: HasTable;`. With that line, `new QB().build()` is rejected while `new QB().from(\"t\").build()` compiles.",
+    "reference": "TypeScript FAQ: Why doesn't a generic type with an unused parameter behave differently?"
+  },
+  {
+    "id": "TSM-APP-034",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "Complete the type so that `R` is `User` (not `Promise<User>`):\n\n```ts\ndeclare function loadUser(): Promise<User>;\ntype R = ____<ReturnType<typeof loadUser>>;\n```\n\nType just the utility type name.",
+    "options": [],
+    "accepted": [
+      "Awaited"
+    ],
+    "explanation": "`ReturnType<typeof loadUser>` is `Promise<User>`. `Awaited<T>` (TypeScript 4.5) recursively unwraps promises and thenables, mirroring what `await` does at runtime, giving `User`. It is the standard way to name the resolved type of an async function.",
+    "reference": "TypeScript Handbook: Utility Types (Awaited)"
+  },
+  {
+    "id": "TSM-APP-035",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "In a code review, which three are red flags? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`const cfg = raw as unknown as Config;` to force an unrelated type through",
+        "why": "A double assertion silences a mismatch the compiler spotted, without any check."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`const user = (await res.json()) as User;` on data from a third-party API",
+        "why": "Untrusted data gets a type it has never been checked against."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`cache.get(key)!.value` with no prior `has` check or fallback",
+        "why": "The non-null assertion hides a real possibility: a cache miss."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`const COLORS = [\"red\", \"green\"] as const;` to derive a union type",
+        "why": "`as const` only narrows literals; it doesn't lie about the value."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`const routes = {...} satisfies Record<string, Route>;` for a config table",
+        "why": "`satisfies` adds checking without weakening the type."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "`catch (e) { if (e instanceof Error) log(e.message); }`",
+        "why": "This narrows `unknown` correctly before use."
+      }
+    ],
+    "explanation": "Assertions (`as`, `as unknown as`, `!`) are claims the compiler can't verify, so each one deserves scrutiny, especially on external data. Constructs that add checking (`satisfies`, `as const` narrowing of literals, `instanceof` narrowing) are the safe end of the spectrum.",
+    "reference": "typescript-eslint: no-non-null-assertion, consistent-type-assertions"
+  },
+  {
+    "id": "TSM-APP-036",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Which function fails to compile?\n\n```ts\ntype Res = { status: \"ok\"; data: string } | { status: \"error\"; message: string };\n\nfunction f1(r: Res) { const { status } = r; if (status === \"ok\") r.data; }\nfunction f2(r: Res) { const isOk = r.status === \"ok\"; if (isOk) r.data; }\nfunction f3(r: Res) { let { status } = r; if (status === \"ok\") r.data; }\n\ntype A = { kind: \"a\"; payload: number } | { kind: \"b\"; payload: string };\nfunction f4(x: A) { const { kind, payload } = x; if (kind === \"a\") { const n: number = payload; } }\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`f1`, because a destructured discriminant can never narrow the original object",
+        "why": "A `const` destructured discriminant narrows `r` as long as neither is reassigned."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`f2`, because a condition stored in a variable is forgotten by control-flow analysis",
+        "why": "Aliased conditions (TypeScript 4.4) work when the alias is `const` and `r` isn't reassigned."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`f3`, because a `let` binding could be reassigned, so the check can't narrow `r`",
+        "why": "Narrowing through aliases requires `const`; with `let`, `r.data` is an error."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`f4`, because `payload` was destructured before `kind` was checked",
+        "why": "Destructured discriminated unions (TypeScript 4.6) narrow sibling bindings like `payload`."
+      }
+    ],
+    "explanation": "Control-flow analysis follows narrowing through `const` aliases: stored conditions, destructured discriminants and sibling destructured properties. It stops as soon as the alias (or the parameter) could change, so a `let` binding, or reassigning `r` before the check, gives the error \"Property 'data' does not exist\".",
+    "reference": "TypeScript 4.4 and 4.6 release notes: control-flow analysis of aliased conditions and destructured unions"
+  },
+  {
+    "id": "TSM-APP-037",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An emitter wants events without payloads to be emitted with no argument:\n\n```ts\ntype Events = { ready: void; data: string };\ndeclare function emit<K extends keyof Events>(\n  event: K,\n  ...args: Events[K] extends void ? [] : [Events[K]]\n): void;\n```\n\nWhich call does the compiler reject?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`emit(\"ready\")`, because a rest parameter needs at least one argument",
+        "why": "A rest parameter of tuple type `[]` means exactly zero extra arguments."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`emit(\"data\", \"chunk\")`, because `string` also extends `void`",
+        "why": "`string` doesn't extend `void`, so the tuple is `[string]` and one argument is required."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`emit(\"data\")`, because `args` must be the one-element tuple `[string]`",
+        "why": "K is \"data\", so the conditional picks `[string]` and the missing payload is an error."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "None of them, because conditional types are not evaluated for rest parameters",
+        "why": "With K inferred as a literal, the conditional resolves and constrains the call."
+      }
+    ],
+    "explanation": "A conditional tuple in a rest parameter lets one signature express \"no payload\" and \"exactly one payload\" per event. Once K is inferred from the first argument, the tuple resolves and the argument count is checked, so `emit(\"ready\", \"x\")` is also rejected.",
+    "reference": "TypeScript Handbook: Conditional Types; Rest parameters with tuple types"
+  },
+  {
+    "id": "TSM-APP-038",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A generic `debounce` uses `Parameters<F>` for the returned function. What parameter list does it produce for this overloaded function?\n\n```ts\ndeclare function parse(x: string): number;\ndeclare function parse(x: number): string;\n\ntype P = Parameters<typeof parse>;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`[x: string]`, from the first overload",
+        "why": "Inference against an overloaded type uses the last signature, not the first."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`[x: number]`, from the last overload",
+        "why": "When `infer` matches an overloaded function type, TypeScript uses its last signature."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`[x: string] | [x: number]`, a union of every overload",
+        "why": "TypeScript doesn't distribute over overloads when inferring."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`[x: string | number]`, merging all parameter types",
+        "why": "Overloads aren't merged; one signature is picked."
+      }
+    ],
+    "explanation": "`Parameters`, `ReturnType` and any conditional type using `infer` resolve an overloaded function against its last (usually most general) signature. Wrapping such a function in a generic HOF silently drops the other overloads, so callers passing a string to the debounced `parse` get an error. Either order the overloads with the general one last, or write overloads for the wrapper too.",
+    "reference": "TypeScript Handbook: Conditional Types (Inferring Within Conditional Types)"
+  },
+  {
+    "id": "TSM-APP-039",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Two internal packages each define a branded ID with the same tag. Which definition keeps `IdA` and `IdB` incompatible?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`type IdA = string & { readonly __brand: \"Id\" }` in both packages, since each package lives in its own separate module scope",
+        "why": "Modules don't make types nominal; identical properties make identical types."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Declare `declare const brandA: unique symbol` and use `type IdA = string & { readonly [brandA]: true }` (likewise for B)",
+        "why": "Each `unique symbol` declaration is a distinct type, so the property keys can never collide."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`interface IdA extends String { __brand: \"Id\" }`, because interfaces are nominal",
+        "why": "Interfaces are structural too, so the same property makes them compatible."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`type IdA = string & { readonly __brand?: \"Id\" }`, so the brand is optional and unique",
+        "why": "An optional brand is weaker: plain strings become assignable."
+      }
+    ],
+    "explanation": "String-tagged brands collide when two places choose the same tag. A `unique symbol` key is a fresh, nominal type per declaration, so brands built on different symbols are never mutually assignable. Libraries such as Effect and zod's `.brand()` use symbol keys for the same reason.",
+    "reference": "TypeScript Handbook: unique symbol"
+  },
+  {
+    "id": "TSM-APP-040",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Compare an annotation with `satisfies` for a route table:\n\n```ts\nconst a: Record<string, string> = { home: \"/\", user: \"/user/:id\" };\nconst b = { home: \"/\", user: \"/user/:id\" } satisfies Record<string, string>;\n```\n\nWhich statement is correct?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`a.typo` and `b.typo` are both compile errors, because both objects are checked against the same `Record` type",
+        "why": "The annotation types `a` as a string-keyed record, so any key is allowed."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`a.typo` compiles (as `string`), but `b.typo` is an error, and `keyof typeof b` is `\"home\" | \"user\"`",
+        "why": "`b` keeps its own inferred shape, so only its real keys exist."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`b.home` has the literal type `\"/\"` because `satisfies` keeps literal types",
+        "why": "The values are contextually typed by `string` and widen; add `as const` for literals."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`b` is a `Record<string, string>` at runtime, while `a` is a plain object",
+        "why": "Both are identical plain objects at runtime; only their static types differ."
+      }
+    ],
+    "explanation": "An annotation replaces the inferred type, so `a` forgets its keys and indexing any string compiles. `satisfies` checks the same constraint but keeps the precise object type, so typos are caught. String values still widen to `string` under a `string` constraint. Use `as const satisfies Record<string, string>` to keep `\"/\"` as a literal.",
+    "reference": "TypeScript 4.9 release notes: The satisfies Operator"
+  },
+  {
+    "id": "TSM-APP-041",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team's type-checking has become slow. Which two statements are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A template literal type built from three 100-member unions yields 1,000,000 members, which TypeScript rejects as too complex",
+        "why": "Unions above the 100,000-member limit are rejected as too complex to represent."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Interfaces that `extend` each other are usually cheaper to check than large intersections of object types",
+        "why": "The compiler caches interface relationships; intersections are re-normalised repeatedly."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Type aliases are erased before checking, so even deeply recursive aliases add no compile-time cost",
+        "why": "Types are erased only in the output; checking them can be very expensive."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Replacing explicit return types with inferred ones always speeds checking up",
+        "why": "Explicit annotations often help, because the checker and declaration emit don't re-infer complex types."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`skipLibCheck` also skips checking your own `.ts` files, which explains most of its speed-up",
+        "why": "It skips only declaration (`.d.ts`) files; your source is still fully checked."
+      }
+    ],
+    "explanation": "Clever types have real compile-time cost. Cross-product template literal types explode combinatorially, deep recursive conditional types hit instantiation limits, and big intersections are slower than interface hierarchies. The TypeScript performance guide recommends interfaces over intersections, annotating return types of exported functions, and measuring with `--extendedDiagnostics` and `--generateTrace`.",
+    "reference": "TypeScript wiki: Performance"
+  },
+  {
+    "id": "TSM-APP-042",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A new `{ kind: \"idle\" }` variant is added to `State`. Which version of `label` reports a compile error until the new case is handled?\n\n```ts\nfunction label1(s: State): string {\n  switch (s.kind) {\n    case \"loading\": return \"l\";\n    case \"ok\": return \"o\";\n    case \"error\": return \"e\";\n  }\n}\n\nfunction label2(s: State) {\n  switch (s.kind) {\n    case \"loading\": return \"l\";\n    case \"ok\": return \"o\";\n    case \"error\": return \"e\";\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Only `label1`: a declared `string` return makes falling off the end an error",
+        "why": "TS2366: the function lacks an ending return and its return type doesn't include undefined."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Only `label2`: inferred return types are checked more strictly than declared ones",
+        "why": "`label2` simply infers `\"l\" | \"o\" | \"e\" | undefined` and compiles."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Both, because TypeScript checks every switch on a discriminant for exhaustiveness",
+        "why": "There is no general switch exhaustiveness check; it comes from return types or `never`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Neither, because without a `default: never` check no error is ever reported",
+        "why": "The explicit return type in `label1` already provides a check."
+      }
+    ],
+    "explanation": "An explicit return type that excludes `undefined` acts as an exhaustiveness check: an unhandled variant creates a path that falls off the end (error TS2366). Without the annotation, TypeScript just adds `undefined` to the inferred return type, and the gap shows up only where callers use the result. A `never` check in a default branch works regardless of the return type.",
+    "reference": "TypeScript Handbook: Exhaustiveness checking; TSConfig: noImplicitReturns"
+  },
+  {
+    "id": "TSM-APP-043",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "With `strict: true` (including `useUnknownInCatchVariables`), what does this compile to?\n\n```ts\ndeclare const p: Promise<number>;\n\np.catch((e) => e.response.status);\n\ntry { await p; } catch (e) { e.response.status; }\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both lines are errors, because `e` is `unknown` in both places",
+        "why": "`useUnknownInCatchVariables` affects only `catch` clauses, not promise callbacks."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The `.catch` callback compiles because its `e` is `any`; the `try/catch` access is an error because `e` is `unknown`",
+        "why": "The lib types `onrejected` as `(reason: any) => ...`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The `.catch` callback is an error and the `try/catch` access compiles",
+        "why": "It is the other way round: only the `catch` clause variable is `unknown`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Both compile, because `strict` keeps `e` as `any` for backward compatibility",
+        "why": "Under `strict`, the `catch` clause variable is `unknown`, so the second access fails."
+      }
+    ],
+    "explanation": "The compiler flag changes only `catch (e)` bindings. Promise rejection handlers are typed by `lib.es5.d.ts` with `reason: any`, so `.catch((e) => e.anything)` stays unchecked. Annotate the parameter as `(e: unknown) => ...` or use the typescript-eslint rule `use-unknown-in-catch-callback-variable` to close this gap.",
+    "reference": "TSConfig: useUnknownInCatchVariables; typescript-eslint: use-unknown-in-catch-callback-variable"
+  },
+  {
+    "id": "TSM-APP-044",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A patch type is `Partial<{ name: string }>`. A client sends `{ name: undefined }`, and the update code does `Object.assign(user, patch)`, wiping the name. Which compiler option would make that object literal a type error?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`strictNullChecks`, because it forbids assigning `undefined` to a property whose declared type is `string`",
+        "why": "Under `strictNullChecks`, optional properties already include `undefined`, so it is allowed."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`exactOptionalPropertyTypes`, so `name?: string` means absent or a string, never `undefined`",
+        "why": "With it, an explicit `undefined` is no longer assignable to the optional property."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`noUncheckedIndexedAccess`, because reading `patch.name` would then be typed `string | undefined` everywhere",
+        "why": "That option affects index reads, not what optional properties accept."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`noPropertyAccessFromIndexSignature`, because `name` would then have to be read with bracket syntax instead",
+        "why": "That option is about index-signature access syntax, not optional properties."
+      }
+    ],
+    "explanation": "By default, `name?: string` accepts both a missing key and an explicit `undefined`, which are different at runtime (`in`, `Object.assign`, spreads). `exactOptionalPropertyTypes` (not part of `strict`) separates them: write `name?: string | undefined` where an explicit `undefined` really is allowed. It is useful for patch and options objects.",
+    "reference": "TSConfig: exactOptionalPropertyTypes"
+  },
+  {
+    "id": "TSM-APP-045",
+    "domain": 5,
+    "skill": "applied-patterns",
+    "difficulty": 4,
+    "type": "fill",
+    "select": 1,
+    "stem": "What is `Status`? Type the resulting type exactly as TypeScript would display it.\n\n```ts\nconst S = { A: \"a\", B: \"b\" } satisfies Record<string, string>;\ntype Status = typeof S[keyof typeof S];\n```",
+    "options": [],
+    "accepted": [
+      "string"
+    ],
+    "explanation": "Without `as const`, the property values are contextually typed by the constraint's value type `string`, so they widen from `\"a\"` and `\"b\"` to `string`. `satisfies` keeps the object's own inferred type, and here that inferred type already has `string` values. Writing `{ A: \"a\", B: \"b\" } as const satisfies Record<string, string>` would make `Status` equal `\"a\" | \"b\"`.",
+    "reference": "TypeScript 4.9 release notes: The satisfies Operator"
+  }
+]
