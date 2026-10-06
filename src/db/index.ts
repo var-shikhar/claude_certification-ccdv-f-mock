@@ -5,6 +5,7 @@
 // DATABASE_URL=pglite:<dir>, an embedded Postgres (PGlite) is used so the app
 // and tests run with zero setup.
 
+import net from 'node:net';
 import { Pool } from '@neondatabase/serverless';
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle as drizzleNeon, type NeonDatabase } from 'drizzle-orm/neon-serverless';
@@ -22,6 +23,9 @@ export const usingPglite = () => {
 function createDb(): DB {
   const url = process.env.DATABASE_URL;
   if (!usingPglite()) {
+    // Node tries each resolved address for only 250 ms before moving on ("happy eyeballs"). On
+    // networks with broken IPv6 and a slow IPv4 handshake every attempt times out, so allow longer.
+    net.setDefaultAutoSelectFamilyAttemptTimeout(2_500);
     // Opening a connection costs several network round trips (WebSocket, TLS, auth), so keep
     // idle connections for a few minutes instead of the driver's 10-second default.
     const pool = new Pool({ connectionString: url, max: 10, idleTimeoutMillis: 5 * 60_000, connectionTimeoutMillis: 20_000 });
