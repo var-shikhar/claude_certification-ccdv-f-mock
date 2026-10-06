@@ -1,0 +1,1705 @@
+[
+  {
+    "id": "JSM-EVL-001",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A click handler runs this code. When does the timer callback run?\n\n```js\nsetTimeout(() => console.log('timer'), 0);\nconst end = Date.now() + 2000;\nwhile (Date.now() < end) {} // busy-wait for 2 seconds\nconsole.log('loop done');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "After 'loop done' is logged, about 2 seconds later, once the handler has returned",
+        "why": "The timer can only fire once the call stack is empty; the 0 ms delay is a minimum, not a deadline."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "After 0 ms, interrupting the busy-wait loop so that the timer logs first",
+        "why": "JavaScript never pre-empts running code: a callback cannot interrupt a loop on the same thread."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Never, because the 2-second loop outlasts the 0 ms delay and the expired timer is dropped",
+        "why": "An overdue timer is not cancelled; it runs as soon as the thread is free."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Roughly halfway through the loop, when the browser next checks its timers",
+        "why": "Timers are checked by the event loop between tasks, never in the middle of one."
+      }
+    ],
+    "explanation": "JavaScript on the main thread runs each task to completion. `setTimeout` only queues a task once its delay has passed, and the event loop can't pick that task up until the current one (the click handler) returns. So 'loop done' logs first, and the timer fires about 2 seconds after it was scheduled.",
+    "reference": "HTML Standard: Event loops"
+  },
+  {
+    "id": "JSM-EVL-002",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In a browser, a callback passed to `queueMicrotask()` runs before a `setTimeout(fn, 0)` callback that was scheduled earlier in the same script.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: microtasks are drained as soon as the current script finishes, before the event loop picks the next task, such as a timer."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "Scheduling order across the two queues does not matter: the whole microtask queue empties before the next task runs."
+      }
+    ],
+    "explanation": "After any script or task finishes, the browser performs a microtask checkpoint and runs every queued microtask. Timer callbacks are tasks, so they wait for a later turn of the event loop, even if they were scheduled first with a 0 ms delay.",
+    "reference": "MDN: Using microtasks in JavaScript with queueMicrotask()"
+  },
+  {
+    "id": "JSM-EVL-003",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What is logged?\n\n```js\nasync function f() {\n  console.log('1');\n  await null;\n  console.log('2');\n}\nf();\nconsole.log('3');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`1 3 2`",
+        "why": "The body runs synchronously until await; then the caller continues, and the rest of f runs as a microtask."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`1 2 3`",
+        "why": "await always suspends the function, even for a non-promise value; the rest runs later as a microtask."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`3 1 2`",
+        "why": "Calling an async function runs its body synchronously up to the first await."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`1 3`, because `await null` never resumes the function",
+        "why": "await null resumes on the next microtask, so 2 is still logged."
+      }
+    ],
+    "explanation": "Calling `f()` runs its body synchronously: it logs 1, then `await null` suspends it and returns a pending promise to the caller. The caller logs 3. When the stack is empty, the microtask that resumes `f` runs and logs 2.",
+    "reference": "MDN: await"
+  },
+  {
+    "id": "JSM-EVL-004",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "The HTML standard clamps deeply nested timers: once `setTimeout` calls are nested more than 5 levels deep, any shorter delay is raised to a fixed minimum. What is that minimum, in milliseconds? Type a number.",
+    "options": [],
+    "accepted": [
+      "4",
+      "4 ms",
+      "4ms"
+    ],
+    "explanation": "Per the HTML timer initialization steps, if the nesting level is greater than 5 and the timeout is less than 4, the timeout becomes 4 ms. That is why a long chain of `setTimeout(fn, 0)` hops costs about 4 ms each after the first few. Schedulers that need fast zero-delay yields use `MessageChannel` or `scheduler.postTask` instead.",
+    "reference": "HTML Standard: Timers"
+  },
+  {
+    "id": "JSM-EVL-005",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "You want to move an element in step with the display, updating it just before the browser paints each frame. Which API is designed for this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`requestAnimationFrame(callback)`",
+        "why": "Its callbacks run in the rendering step, right before style, layout and paint for the next frame."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`setTimeout(callback, 1000 / 60)` with a 60 fps delay",
+        "why": "A 16.7 ms timer drifts relative to the display and can fire mid-frame or twice in one frame."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`queueMicrotask(callback)`",
+        "why": "Microtasks run when the current task ends, not in step with frames, and a loop of them blocks rendering."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`requestIdleCallback(callback)`",
+        "why": "Idle callbacks run only when the browser has spare time after a frame, possibly not for a while."
+      }
+    ],
+    "explanation": "`requestAnimationFrame` callbacks run once per frame, in the \"update the rendering\" step, just before style, layout and paint. They also pause in background tabs, which saves power. Timers are not synchronised with the display refresh, so timer-driven animation stutters.",
+    "reference": "MDN: Window.requestAnimationFrame()"
+  },
+  {
+    "id": "JSM-EVL-006",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each API with where its callback is scheduled in a browser.",
+    "options": [
+      {
+        "id": "A",
+        "text": "The microtask queue"
+      },
+      {
+        "id": "B",
+        "text": "A task on the task queue"
+      },
+      {
+        "id": "C",
+        "text": "The rendering step, before paint"
+      },
+      {
+        "id": "D",
+        "text": "An idle period after a frame"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`Promise.resolve().then(cb)`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`setTimeout(cb, 0)`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`requestAnimationFrame(cb)`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`requestIdleCallback(cb)`",
+        "answer": "D"
+      },
+      {
+        "id": "P5",
+        "text": "A `MutationObserver` callback",
+        "answer": "A"
+      }
+    ],
+    "explanation": "Promise reactions, `queueMicrotask` and MutationObserver notifications are microtasks: they run as soon as the current task or callback ends. Timers queue tasks. Animation frame callbacks run in the rendering step. Idle callbacks run only when the browser has spare time after a frame.",
+    "reference": "HTML Standard: Event loops"
+  },
+  {
+    "id": "JSM-EVL-007",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "You run this file with `node main.js` (a CommonJS script). What is logged?\n\n```js\nPromise.resolve().then(() => console.log('promise'));\nprocess.nextTick(() => console.log('tick'));\nconsole.log('sync');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`sync tick promise`",
+        "why": "Node empties the nextTick queue before the promise microtask queue once the script finishes."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`sync promise tick`",
+        "why": "In a CommonJS script the nextTick queue runs first, even though the promise was scheduled earlier."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`tick promise sync`",
+        "why": "Both callbacks are deferred; the synchronous code always finishes first."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`sync`, then `tick` and `promise` in an order that varies between runs",
+        "why": "The order is deterministic: nextTick callbacks run before promise callbacks."
+      }
+    ],
+    "explanation": "When the main script finishes, Node processes the `process.nextTick` queue and then V8's promise microtask queue, so the output is `sync tick promise`. One subtlety: in an ES module the top-level code itself runs inside a promise job, so there `promise` can be logged before `tick`.",
+    "reference": "Node.js docs: The Node.js Event Loop (process.nextTick)"
+  },
+  {
+    "id": "JSM-EVL-008",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Because the code after `await` runs as a microtask, it can run before the next synchronous line of the function that called the async function.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "A microtask cannot run until the current synchronous code, including the caller's, has finished."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: the caller resumes as soon as the async function hits await, and the continuation waits for an empty call stack."
+      }
+    ],
+    "explanation": "Microtasks run only when the JavaScript call stack is empty. When an async function reaches `await`, control returns to its caller, which runs to the end of its synchronous code first. Only then does the continuation run.",
+    "reference": "MDN: async function"
+  },
+  {
+    "id": "JSM-EVL-009",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Where does the code of a Web Worker run?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "On its own thread with its own event loop; it talks to the page through `postMessage`",
+        "why": "Workers run in parallel with the main thread and exchange data by message."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "On the main thread, during idle periods between frames",
+        "why": "That describes requestIdleCallback, not workers; worker code never runs on the main thread."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "On the main thread, but from a separate microtask queue",
+        "why": "Workers have their own thread and their own task and microtask queues."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "On a thread that shares the page's variables and DOM directly",
+        "why": "Workers share no ordinary JS objects with the page and have no DOM access; messages are copied or transferred."
+      }
+    ],
+    "explanation": "Each worker gets its own thread, global scope and event loop. CPU-heavy work there does not block rendering or input on the page. Communication happens with `postMessage`, which structured-clones the data or transfers ownership of buffers. Only `SharedArrayBuffer` gives true shared memory.",
+    "reference": "MDN: Using Web Workers"
+  },
+  {
+    "id": "JSM-EVL-010",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "An Express route calls `JSON.parse` on a 200 MB request body, which takes about 3 seconds. What happens to other requests that arrive during those 3 seconds?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "They all wait, because the parse blocks Node's single JavaScript thread",
+        "why": "All callbacks share one thread, so nothing else runs until the parse returns."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "They are served normally, because Node handles each request on its own thread",
+        "why": "Node runs all JavaScript callbacks on one thread; only some I/O and crypto work goes to background threads."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "They are served normally, because `JSON.parse` runs in the libuv thread pool",
+        "why": "JSON.parse is synchronous JavaScript and never leaves the main thread."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "They are rejected immediately with 503 errors until the parse has finished",
+        "why": "Node doesn't reject them: the OS accepts the connections and they wait for the event loop."
+      }
+    ],
+    "explanation": "Node executes JavaScript on a single thread. A 3-second synchronous call means the event loop cannot accept, read or answer anything else for 3 seconds, so every concurrent request's latency jumps. Limit body sizes, parse in a streaming way, or move heavy CPU work to `worker_threads`.",
+    "reference": "Node.js docs: Don't Block the Event Loop"
+  },
+  {
+    "id": "JSM-EVL-011",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each callback with the phase of the Node.js event loop in which it runs.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Timers"
+      },
+      {
+        "id": "B",
+        "text": "Poll"
+      },
+      {
+        "id": "C",
+        "text": "Check"
+      },
+      {
+        "id": "D",
+        "text": "Close callbacks"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "A `setTimeout` callback whose delay has expired",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "The completion callback of `fs.readFile`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "A `setImmediate` callback",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "A `socket.on('close')` handler after `socket.destroy()`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Each loop iteration runs timers, pending callbacks, idle/prepare, poll (most I/O callbacks), check (`setImmediate`) and close callbacks, in that order. `process.nextTick` and promise callbacks are not a phase: they run after each callback, before the loop moves on.",
+    "reference": "Node.js docs: The Node.js Event Loop"
+  },
+  {
+    "id": "JSM-EVL-012",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What is logged in a browser?\n\n```js\nsetTimeout(() => console.log('t1'), 0);\nsetTimeout(() => console.log('t2'), 0);\nPromise.resolve().then(() => {\n  console.log('p1');\n  setTimeout(() => console.log('t3'), 0);\n});\nPromise.resolve().then(() => console.log('p2'));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`p1 p2 t1 t2 t3`",
+        "why": "Both microtasks run first; t3 is created later than t1 and t2, so it fires last."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`p1 t3 p2 t1 t2`",
+        "why": "t3 is only a timer task; it cannot run between two microtasks of the same checkpoint."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`t1 t2 p1 p2 t3`",
+        "why": "Promise callbacks run before any timer task, regardless of scheduling order."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`p1 p2 t3 t1 t2`, since t3 has the most recent zero-delay timer",
+        "why": "Timers with the same delay fire in the order they were created, oldest first."
+      }
+    ],
+    "explanation": "Trace. Sync: two timers queued (t1, t2), two microtasks queued (p1, p2). Checkpoint: p1 logs and queues timer t3, then p2 logs. Tasks: t1, t2, then t3. Output: `p1 p2 t1 t2 t3`.",
+    "reference": "HTML Standard: Event loops"
+  },
+  {
+    "id": "JSM-EVL-013",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the logged values in the order they appear in a browser.\n\n```js\nconsole.log('start');\nsetTimeout(() => {\n  console.log('timeout 1');\n  Promise.resolve().then(() => console.log('promise in timeout'));\n}, 0);\nsetTimeout(() => console.log('timeout 2'), 0);\nqueueMicrotask(() => console.log('microtask'));\nconsole.log('end');\n```",
+    "options": [
+      {
+        "id": "A",
+        "text": "`timeout 2`"
+      },
+      {
+        "id": "B",
+        "text": "`microtask`"
+      },
+      {
+        "id": "C",
+        "text": "`start`"
+      },
+      {
+        "id": "D",
+        "text": "`promise in timeout`"
+      },
+      {
+        "id": "E",
+        "text": "`end`"
+      },
+      {
+        "id": "F",
+        "text": "`timeout 1`"
+      }
+    ],
+    "answerOrder": [
+      "C",
+      "E",
+      "B",
+      "F",
+      "D",
+      "A"
+    ],
+    "explanation": "Sync code logs start and end. The checkpoint after the script runs the microtask. The first timer task logs timeout 1 and queues a promise callback, and the checkpoint after that task runs it, so promise in timeout comes before timeout 2. Node 11 and later behave the same way.",
+    "reference": "Jake Archibald: Tasks, microtasks, queues and schedules"
+  },
+  {
+    "id": "JSM-EVL-014",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What is logged?\n\n```js\nasync function a() {\n  console.log('a1');\n  await b();\n  console.log('a2');\n}\nasync function b() {\n  console.log('b');\n}\na();\nPromise.resolve().then(() => console.log('p'));\nconsole.log('s');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`a1 b s a2 p`",
+        "why": "a's continuation is queued when it awaits b()'s fulfilled promise, before p's callback exists."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`a1 b s p a2`",
+        "why": "Awaiting a native, already-fulfilled promise takes one tick, and it was queued before the .then callback."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`a1 s b a2 p`",
+        "why": "b() is called synchronously inside a, before a reaches its await."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`a1 b a2 s p`, because b() has already resolved",
+        "why": "Even an already-settled await defers the rest of a until the stack is empty."
+      }
+    ],
+    "explanation": "Trace. `a()` logs a1 and calls `b()`, which logs b and returns a fulfilled promise. `await` on it queues a's continuation (one tick). Back in the script, the `.then` queues p, and s is logged. Microtasks: a2, then p. Engines before the 2019 `await` optimization needed three ticks here and printed p first.",
+    "reference": "V8 blog: Faster async functions and promises"
+  },
+  {
+    "id": "JSM-EVL-015",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 3,
+    "stem": "A script calls `setTimeout(timer, 0)` first, and then schedules each callback below. Which are guaranteed to run before `timer`? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A `queueMicrotask` callback",
+        "why": "A microtask; the queue is drained before the next task."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A `.then` callback on `Promise.resolve()`",
+        "why": "Promise reactions are microtasks, so they beat any task."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The code after `await null` in an async function the script calls",
+        "why": "The continuation is a microtask, so it runs at the end of the script."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A second `setTimeout(fn, 0)` callback",
+        "why": "Timers with equal delays run in creation order, so it runs after timer."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "A `requestIdleCallback` callback",
+        "why": "Idle callbacks wait for spare time and usually run well after pending timers."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "A `MessageChannel` message handler",
+        "why": "A message is a task from a different task source; it may run before or after the timer."
+      }
+    ],
+    "explanation": "Everything in the microtask queue runs at the checkpoint after the script, before the event loop picks the timer task. Tasks from other sources (messages, idle callbacks) have no guaranteed order relative to the timer, and a later timer with the same delay always runs after it.",
+    "reference": "HTML Standard: Event loops"
+  },
+  {
+    "id": "JSM-EVL-016",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What happens when this runs in a browser tab?\n\n```js\nfunction loop() {\n  Promise.resolve().then(loop);\n}\nsetTimeout(() => console.log('timer'), 0);\nloop();\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "'timer' is never logged, and the page stops rendering and responding",
+        "why": "Each microtask queues another, so the checkpoint never ends and no task or render can run."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "'timer' is logged after a few iterations, once the timer's delay has passed",
+        "why": "Timers are tasks; they must wait for the microtask queue to empty, which never happens."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The engine throws `RangeError: Maximum call stack size exceeded`",
+        "why": "Each call returns before the next one starts; microtasks don't nest on the stack, so there is no overflow."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "'timer' is logged once, then the loop keeps running in the background",
+        "why": "The timer would need the microtask queue to empty first, and it never does."
+      }
+    ],
+    "explanation": "This is microtask starvation. The microtask checkpoint keeps running until the queue is empty, and every callback queues another one. Timers, input events and rendering are all starved, so the tab hangs. Recursive `setTimeout` would not hang the page, because each step is a separate task.",
+    "reference": "MDN: In depth: Microtasks and the JavaScript runtime environment"
+  },
+  {
+    "id": "JSM-EVL-017",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A page calls `setInterval(work, 10)`, and every call to `work` spends 30 ms of synchronous CPU time. What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Calls never overlap or pile up; each starts only after the previous one ends, so the real period stretches",
+        "why": "One thread can only run one callback at a time, and overdue interval ticks are not stored up."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Three calls are queued for every one that finishes, until the tab runs out of memory",
+        "why": "An interval never has more than one pending run; missed ticks are skipped, not stored."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Each call starts exactly 10 ms after the previous one, running in parallel with it",
+        "why": "JavaScript callbacks can't overlap on one thread; a call can't start while the previous is running."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The browser cancels the interval after the first overrun and logs a warning",
+        "why": "Nothing cancels it; it keeps running, just at a slower rate than requested."
+      }
+    ],
+    "explanation": "An interval re-arms itself after each run, and only one run can be pending. When the callback takes longer than the interval, the effective rate drops and the main thread is busy most of the time. Chained `setTimeout` calls make the gap between runs explicit, and they are easier to stop or back off.",
+    "reference": "MDN: setInterval()"
+  },
+  {
+    "id": "JSM-EVL-018",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "You run this CommonJS script with Node 20. Type the four labels in the order they are logged, separated by spaces.\n\n```js\nprocess.nextTick(() => console.log('n1'));\nPromise.resolve().then(() => {\n  console.log('p1');\n  process.nextTick(() => console.log('n2'));\n});\nPromise.resolve().then(() => console.log('p2'));\n```",
+    "options": [],
+    "accepted": [
+      "n1 p1 p2 n2",
+      "n1,p1,p2,n2",
+      "n1, p1, p2, n2",
+      "n1 → p1 → p2 → n2"
+    ],
+    "explanation": "Node drains the nextTick queue first (n1), then asks V8 to run the whole promise microtask queue: p1 logs and adds n2 to the nextTick queue, then p2 logs. Node then checks the nextTick queue again and runs n2. So the output is `n1 p1 p2 n2`. A nextTick queued from a promise callback can't cut in front of promise callbacks that are already queued.",
+    "reference": "Node.js docs: process.nextTick()"
+  },
+  {
+    "id": "JSM-EVL-019",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "The main thread posts a message to a worker, then immediately runs a synchronous loop for 2 seconds. The worker replies within 1 ms. When does the main thread's `worker.onmessage` handler run?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "After the 2-second loop and any microtasks it queued have finished",
+        "why": "The reply becomes a task on the main thread's event loop, which is busy until the loop ends."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Within about 1 ms, on the worker's own thread",
+        "why": "worker.onmessage is a main-thread handler; only the worker's self.onmessage runs on its thread."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Within about 1 ms, briefly interrupting the synchronous loop",
+        "why": "Nothing interrupts running JavaScript; the message waits until the main thread is free."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Never, because messages that arrive while the main thread is busy get dropped",
+        "why": "Messages are queued, not dropped, and they are delivered in order once the thread is free."
+      }
+    ],
+    "explanation": "The worker runs in parallel, so its reply is ready almost at once. But delivering it means queuing a task on the main thread, and that task can't start until the current one returns. Moving work to a worker only helps if the main thread itself stays free.",
+    "reference": "MDN: Worker: message event"
+  },
+  {
+    "id": "JSM-EVL-020",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "On an 8-core machine, a Node script starts six `crypto.pbkdf2` calls at once with the default configuration. Each needs about 1 second of CPU. Roughly when do the callbacks fire?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Four after about 1 s, and the other two after about 2 s",
+        "why": "libuv's thread pool has 4 threads by default, so two calls wait for a free thread."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "All six after about 1 s, one call per core",
+        "why": "The async crypto calls share libuv's 4-thread pool, not one thread per core."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "One per second, so the last fires after about 6 s",
+        "why": "That is how the Sync version behaves on the main thread; the async version runs four at a time."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "All six after about 1.5 s, since the cores are time-shared evenly",
+        "why": "Only four run at once; the pool does not start extra threads for the other two."
+      }
+    ],
+    "explanation": "Async `crypto.pbkdf2`, `scrypt`, `fs` and `dns.lookup` run on libuv's shared thread pool, which defaults to 4 threads. With six 1-second jobs, four finish at about 1 s and two at about 2 s. Set `UV_THREADPOOL_SIZE` (up to 1024) before the pool is first used, typically in the environment at process start.",
+    "reference": "Node.js docs: UV_THREADPOOL_SIZE"
+  },
+  {
+    "id": "JSM-EVL-021",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "`requestAnimationFrame` callbacks keep running at the display's refresh rate while the tab is in the background.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Browsers pause animation frame callbacks in hidden tabs to save CPU and battery."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: rAF callbacks stop while the tab is hidden and resume when it becomes visible again."
+      }
+    ],
+    "explanation": "Animation frame callbacks run only when the document is rendering. Hidden tabs don't render, so rAF loops pause. That makes rAF a good fit for animation, but a poor choice for work that must keep going in the background.",
+    "reference": "MDN: Window.requestAnimationFrame()"
+  },
+  {
+    "id": "JSM-EVL-022",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "A `MutationObserver` watches a list for `childList` changes. One synchronous script then appends three `<li>` elements in a loop. How many times is the observer's callback invoked? Type a number.",
+    "options": [],
+    "accepted": [
+      "1",
+      "one",
+      "once"
+    ],
+    "explanation": "The first mutation queues a single mutation-observer microtask, and later mutations just add records to the observer's list. When the script ends, the callback runs once with all three `MutationRecord`s. This batching is why MutationObserver replaced the old synchronous mutation events.",
+    "reference": "MDN: MutationObserver"
+  },
+  {
+    "id": "JSM-EVL-023",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about the microtask queue in browsers are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "It is emptied completely, including microtasks queued while it is being emptied",
+        "why": "The checkpoint keeps going until the queue is empty, which is why recursive microtasks can starve the page."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It is processed after each task, and also after each callback once the stack becomes empty",
+        "why": "Clean-up after running a script performs a checkpoint, for example after every event listener."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The browser may render between two microtasks queued in the same task",
+        "why": "Rendering only happens between tasks, after the microtask queue is empty."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A `setTimeout(fn, 0)` callback can run between two microtasks queued by the same task",
+        "why": "Tasks wait until the whole microtask queue is empty."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Microtasks have lower priority than timer callbacks that are already overdue",
+        "why": "The microtask queue is always drained before the next task, even an overdue timer."
+      }
+    ],
+    "explanation": "A microtask checkpoint drains the queue to empty. It happens after each task and whenever a callback returns to an empty stack, such as between event listeners or animation frame callbacks. Nothing else (tasks, rendering, input) can run during it.",
+    "reference": "HTML Standard: Perform a microtask checkpoint"
+  },
+  {
+    "id": "JSM-EVL-024",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A button has two click listeners:\n\n```js\nbtn.addEventListener('click', () => {\n  Promise.resolve().then(() => console.log('m1'));\n  console.log('l1');\n});\nbtn.addEventListener('click', () => {\n  Promise.resolve().then(() => console.log('m2'));\n  console.log('l2');\n});\n```\n\nWhat is logged when a user clicks the button, and what is logged when a script calls `btn.click()`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "User click: `l1 m1 l2 m2`. Script `btn.click()`: `l1 l2 m1 m2`",
+        "why": "With a real click the stack empties after each listener; inside btn.click() the calling script is still on the stack."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Both cases: `l1 l2 m1 m2`",
+        "why": "That only holds for btn.click(); a real click runs a microtask checkpoint after each listener."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Both cases: `l1 m1 l2 m2`",
+        "why": "Inside btn.click() the calling script is still on the stack, so microtasks wait until it returns."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "User click: `l1 l2 m1 m2`. Script `btn.click()`: `l1 m1 l2 m2`",
+        "why": "This swaps the two cases: the real click is the one with checkpoints between listeners."
+      }
+    ],
+    "explanation": "Microtask checkpoints happen when a callback returns and the stack is empty. For a real click the browser calls each listener from an empty stack, so m1 runs before l2. With `btn.click()`, both listeners run synchronously inside the calling script, so the stack is never empty until `click()` returns. This difference can break code that tests event handling by calling `click()`.",
+    "reference": "Jake Archibald: Tasks, microtasks, queues and schedules"
+  },
+  {
+    "id": "JSM-EVL-025",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What is logged?\n\n```js\nconst p = Promise.resolve();\n(async () => { await p; console.log('A'); })();\np.then(() => console.log('B')).then(() => console.log('C'));\n(async () => { await null; console.log('D'); })();\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`A B D C`",
+        "why": "Three microtasks are queued in source order (A, B, D), and C is queued only when B runs."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`B C A D`",
+        "why": "Awaiting a native promise takes one tick, the same as a .then callback, so A is queued first."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`A D B C`",
+        "why": "B's callback was registered before the second async function ran, so it is ahead of D."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`A B C D`, because `await null` takes an extra tick",
+        "why": "await null takes one tick like the others; D was queued before C existed."
+      }
+    ],
+    "explanation": "Trace. The first IIFE awaits the fulfilled native promise `p`, which queues its continuation, the one that logs A. `p.then` queues B. The second IIFE awaits `null`, which is wrapped in a fulfilled promise and queues the continuation that logs D. Checkpoint: A, then B (which queues C), then D, then C.",
+    "reference": "ECMAScript: Await"
+  },
+  {
+    "id": "JSM-EVL-026",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A scheduler splits work into small chunks and yields between them with `setTimeout(runNextChunk, 0)`. Profiling shows that each yield costs about 4 ms after the first few chunks, even with an idle main thread. What explains this, and what is a common alternative?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Nested timers are clamped to at least 4 ms; yield with a `MessageChannel` message or `scheduler.postTask` instead",
+        "why": "Both queue a task without the timer clamp, which is why schedulers such as React's use MessageChannel."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The browser waits for the next frame between timers; yield with `queueMicrotask` instead",
+        "why": "Microtasks never yield to rendering or input, so the page would freeze until every chunk is done."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Garbage collection runs between timers; reuse a single closure for every chunk instead",
+        "why": "GC pauses are irregular, not a steady 4 ms that starts after a fixed number of chunks."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Every platform uses a 4 ms OS timer tick; use `setInterval(runNextChunk, 0)` instead",
+        "why": "The clamp comes from the HTML standard's nesting rule, and setInterval is clamped the same way."
+      }
+    ],
+    "explanation": "The HTML standard raises any delay below 4 ms to 4 ms once timers are nested more than 5 levels deep, and each chunk scheduling the next one counts as nesting. Posting a message to a `MessageChannel` queues a task with no clamp, and `scheduler.postTask` or `scheduler.yield` (where supported) add priorities as well.",
+    "reference": "HTML Standard: Timers"
+  },
+  {
+    "id": "JSM-EVL-027",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A dashboard refreshes itself with `setInterval` every 200 ms and animates a chart with `requestAnimationFrame`. The user then switches to another tab for 10 minutes. Which statements are true in current browsers? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Its timers may be throttled to run at most about once per second",
+        "why": "Browsers throttle timers in hidden tabs, and chained timers can be throttled even harder after a few minutes."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Its `requestAnimationFrame` callbacks stop running until the tab is visible again",
+        "why": "Hidden documents do not render, so animation frame callbacks pause."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Its promise callbacks are paused until the tab becomes visible",
+        "why": "Microtasks still run whenever a task runs; they aren't throttled separately."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "All the missed `setInterval` ticks fire in a burst when the user returns",
+        "why": "Missed ticks are dropped, not saved up; the interval simply resumes."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`Date.now()` stops advancing while the tab is hidden",
+        "why": "Wall-clock time keeps going, which is why throttled timers look late."
+      }
+    ],
+    "explanation": "To save power, browsers throttle timers in background tabs to about once per second, and Chrome can throttle chained timers to once per minute after 5 minutes hidden. rAF pauses entirely. Code that must keep accurate time should compute elapsed time from `Date.now()` or `performance.now()` instead of counting ticks, or move the work to a worker or the server.",
+    "reference": "Chrome for Developers: Heavy throttling of chained JS timers"
+  },
+  {
+    "id": "JSM-EVL-028",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What does the user see after clicking this button?\n\n```js\nbutton.onclick = () => {\n  status.textContent = 'Working…';\n  heavyWork(); // 300 ms of synchronous work\n  status.textContent = 'Done';\n};\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Nothing changes for about 300 ms, then 'Done' appears; 'Working…' is never painted",
+        "why": "Rendering only happens between tasks, and by then the text is already Done."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "'Working…' appears immediately, and 'Done' replaces it about 300 ms later",
+        "why": "Setting textContent doesn't paint by itself; the browser can't render until the handler returns."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "'Working…' appears, then 'Done', and after that the page freezes for 300 ms",
+        "why": "The freeze happens inside the handler, before any paint, not after it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Both texts flash briefly, because every DOM change triggers its own paint",
+        "why": "The browser batches DOM changes and paints at most once per frame, between tasks."
+      }
+    ],
+    "explanation": "DOM updates take effect in memory at once, but the browser paints only in the rendering step between tasks. The handler is one 300 ms task, so the first visible state is the final one. To show progress, yield after setting 'Working…' (for example `requestAnimationFrame(() => setTimeout(heavyWork))`), or move the work to a worker.",
+    "reference": "web.dev: Optimize long tasks"
+  },
+  {
+    "id": "JSM-EVL-029",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "You run this as `node main.js` many times. What do you observe?\n\n```js\nsetTimeout(() => console.log('timeout'), 0);\nsetImmediate(() => console.log('immediate'));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The order changes between runs, depending on process timing",
+        "why": "Whether the 1 ms timer has expired when the loop first reaches the timers phase depends on startup speed."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Always `timeout` then `immediate`, because timers is the first phase",
+        "why": "Timers runs first only if the delay has already elapsed when the loop starts, which is not guaranteed."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Always `immediate` then `timeout`, because setImmediate is immediate",
+        "why": "That order is only guaranteed inside an I/O callback, where check comes before the next timers phase."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Only `immediate` is logged, because setImmediate cancels any pending timers",
+        "why": "The two are independent, and both callbacks always run."
+      }
+    ],
+    "explanation": "Node turns a 0 ms delay into 1 ms. When the main module finishes, the loop enters the timers phase. If 1 ms has already passed, timeout runs first; otherwise the loop continues to the check phase and immediate wins. Inside an I/O callback the loop is in the poll phase, so check (immediate) always comes before the next timers phase.",
+    "reference": "Node.js docs: setImmediate() vs setTimeout()"
+  },
+  {
+    "id": "JSM-EVL-030",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which of these, called inside a Node.js HTTP request handler, block the event loop so that no other request is served until they finish? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`fs.readFileSync` on a 2 GB file",
+        "why": "Sync fs calls block the JavaScript thread for the whole read."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`crypto.pbkdf2Sync` with 1,000,000 iterations",
+        "why": "The Sync variant does the hashing on the main thread."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`JSON.stringify` on a 500 MB object",
+        "why": "Serialization is synchronous JavaScript work on the main thread."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`await fs.promises.readFile` on the same 2 GB file",
+        "why": "The read runs in the libuv thread pool while the loop keeps serving other requests."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`await fetch()` to a slow upstream service",
+        "why": "Waiting on the network is handled by the OS; the loop is free during the wait."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "`setImmediate(callback)`",
+        "why": "It only queues the callback for the check phase and returns at once."
+      }
+    ],
+    "explanation": "Anything synchronous (Sync APIs, big JSON work, CPU-heavy loops, catastrophic regexes) holds the single JavaScript thread. Async APIs hand the waiting to the OS or the thread pool, so other callbacks keep running. Keep per-request synchronous work small and bounded.",
+    "reference": "Node.js docs: Don't Block the Event Loop"
+  },
+  {
+    "id": "JSM-EVL-031",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "You run this CommonJS script with Node 20. Put the logged values in order.\n\n```js\nconst fs = require('fs');\nfs.readFile(__filename, () => {\n  setTimeout(() => console.log('timeout'), 0);\n  setImmediate(() => console.log('immediate'));\n  process.nextTick(() => console.log('tick'));\n});\nPromise.resolve().then(() => console.log('promise'));\nconsole.log('sync');\n```",
+    "options": [
+      {
+        "id": "A",
+        "text": "`immediate`"
+      },
+      {
+        "id": "B",
+        "text": "`sync`"
+      },
+      {
+        "id": "C",
+        "text": "`timeout`"
+      },
+      {
+        "id": "D",
+        "text": "`tick`"
+      },
+      {
+        "id": "E",
+        "text": "`promise`"
+      }
+    ],
+    "answerOrder": [
+      "B",
+      "E",
+      "D",
+      "A",
+      "C"
+    ],
+    "explanation": "The script logs sync, and the promise callback runs right after the main module. Later the readFile callback runs in the poll phase and schedules three things. The nextTick runs as soon as that callback returns. The loop then moves to check (immediate) and only reaches timers (timeout) in the next iteration, so this order is deterministic.",
+    "reference": "Node.js docs: The Node.js Event Loop"
+  },
+  {
+    "id": "JSM-EVL-032",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What is logged?\n\n```js\nconst obs = new MutationObserver(() => console.log('mo'));\nobs.observe(el, { attributes: true });\nPromise.resolve().then(() => console.log('p1'));\nel.setAttribute('data-x', '1');\nPromise.resolve().then(() => console.log('p2'));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`p1 mo p2`",
+        "why": "The observer microtask is queued at the moment of the mutation, between the two promise callbacks."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`p1 p2 mo`",
+        "why": "The observer's microtask is queued when the mutation happens, before p2's callback is queued."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`mo p1 p2`",
+        "why": "p1 was queued before the mutation happened, so it runs first."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`p1 p2`, then `mo` in a later task, since observers are batched",
+        "why": "Observers are batched within a microtask, not deferred to a later task."
+      }
+    ],
+    "explanation": "Each mutation adds a record to the observer and, if none is pending, queues one \"notify mutation observers\" microtask. Microtasks run in the order they were queued: p1 (queued first), the observer notification (queued by `setAttribute`), then p2.",
+    "reference": "DOM Standard: Queue a mutation observer microtask"
+  },
+  {
+    "id": "JSM-EVL-033",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the logged values in order.\n\n```js\nasync function x() {\n  console.log('x1');\n  await null;\n  console.log('x2');\n  await null;\n  console.log('x3');\n}\nasync function y() {\n  console.log('y1');\n  await null;\n  console.log('y2');\n}\nx();\ny();\n```",
+    "options": [
+      {
+        "id": "A",
+        "text": "`y2`"
+      },
+      {
+        "id": "B",
+        "text": "`x1`"
+      },
+      {
+        "id": "C",
+        "text": "`x3`"
+      },
+      {
+        "id": "D",
+        "text": "`y1`"
+      },
+      {
+        "id": "E",
+        "text": "`x2`"
+      }
+    ],
+    "answerOrder": [
+      "B",
+      "D",
+      "E",
+      "A",
+      "C"
+    ],
+    "explanation": "Both bodies run synchronously to their first await: x1, y1. Microtasks queued: [x→x2, y→y2]. x2 runs and awaits again, queuing x3 behind y2. Then y2, then x3. Async functions interleave at every await.",
+    "reference": "MDN: async function"
+  },
+  {
+    "id": "JSM-EVL-034",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 3,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each symptom with its most likely cause.",
+    "options": [
+      {
+        "id": "A",
+        "text": "A microtask that keeps re-queuing itself"
+      },
+      {
+        "id": "B",
+        "text": "Background-tab timer throttling"
+      },
+      {
+        "id": "C",
+        "text": "Synchronous CPU work on the main thread"
+      },
+      {
+        "id": "D",
+        "text": "A saturated libuv thread pool"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "A page hangs forever, and a profile shows the same promise callback running again and again without a task boundary",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "A page works normally, but its 100 ms polling timer fires only about once a second while the user is on another tab",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "A Node server's latency jumps for every request while one CPU core sits at 100%",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "A Node server's file reads and DNS lookups slow down while total CPU usage stays low",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Recursive microtasks never let the checkpoint finish. Hidden tabs throttle timers. One busy core with every request slower points to synchronous work on the event loop. Slow fs and `dns.lookup` with idle CPU suggests the 4 thread-pool threads are all busy, often with slow disks or DNS.",
+    "reference": "Node.js docs: The Node.js Event Loop"
+  },
+  {
+    "id": "JSM-EVL-035",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which Node.js operations run on libuv's thread pool? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`fs.readFile`",
+        "why": "File system operations use the thread pool because most OSes lack good async file APIs."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`crypto.scrypt`",
+        "why": "Async CPU-heavy crypto functions run in the pool so that the main thread stays free."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`dns.lookup`",
+        "why": "It calls the OS resolver (getaddrinfo), which is blocking, so it runs in the pool."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Reading data from a TCP socket",
+        "why": "Sockets use the OS's non-blocking I/O (epoll, kqueue, IOCP), not the thread pool."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`dns.resolve4`",
+        "why": "dns.resolve* use the c-ares library asynchronously over the network, without the pool."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "A `setTimeout` callback",
+        "why": "Timers are managed by the event loop itself and run on the main thread."
+      }
+    ],
+    "explanation": "Network I/O is truly asynchronous at the OS level, so it needs no extra threads. File system work, `dns.lookup`, and async `crypto` and `zlib` jobs go to the shared pool (4 threads by default). Because `http.get` uses `dns.lookup` by default, slow DNS can quietly starve file reads.",
+    "reference": "Node.js docs: Don't Block the Event Loop (libuv thread pool)"
+  },
+  {
+    "id": "JSM-EVL-036",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "What is logged?\n\n```js\nconsole.log(1);\nsetTimeout(() => console.log(2));\n(async () => {\n  console.log(3);\n  await Promise.resolve();\n  console.log(4);\n  await new Promise((r) => setTimeout(r));\n  console.log(5);\n})();\nPromise.resolve().then(() => console.log(6)).then(() => console.log(7));\nconsole.log(8);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`1 3 8 4 6 7 2 5`",
+        "why": "After the sync code, the microtasks run (4, 6, 7); then the two timer tasks run in creation order."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`1 3 8 4 6 2 7 5`",
+        "why": "7 is a microtask queued by 6, and it runs in the same checkpoint, before the timer task logs 2."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`1 3 8 6 7 4 2 5`",
+        "why": "The await continuation was queued before 6, because the async IIFE ran first."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`1 3 8 4 6 7 5 2`, since 5 resolves as soon as its timer is created",
+        "why": "5 waits for the second timer, which was created after the first and fires after it."
+      }
+    ],
+    "explanation": "Trace. Sync: 1, 3, 8. Timer queue [T2]. Microtasks [cont→4, 6]. 4 runs and creates timer Tr, then awaits it, so the queue is [T2, Tr]. 6 runs and queues 7, then 7 runs. Task T2 logs 2. Task Tr resolves the promise, and its microtask logs 5.",
+    "reference": "Jake Archibald: Tasks, microtasks, queues and schedules"
+  },
+  {
+    "id": "JSM-EVL-037",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 3,
+    "stem": "A page must process 50,000 rows without making the UI janky. Which approaches let the browser paint and handle input while the work is in progress? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Process a few hundred rows per `setTimeout(next, 0)` task",
+        "why": "Each chunk is its own task, so rendering and input can happen between chunks."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Move the processing into a Web Worker",
+        "why": "The work leaves the main thread entirely."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Process a small batch inside each `requestAnimationFrame` callback",
+        "why": "One short batch per frame leaves time for the paint that follows each callback."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Process a few hundred rows per `Promise.resolve().then(next)` callback",
+        "why": "Chained microtasks all run in one checkpoint, so the browser never gets to render."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Use an async loop with `await null` between batches",
+        "why": "await null is a microtask too, so the loop never hands control back to rendering."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Run the whole job inside one `requestIdleCallback` callback",
+        "why": "An idle callback that runs for seconds is still one long task; it must check timeRemaining() and stop."
+      }
+    ],
+    "explanation": "Yielding means ending the current task. Timer or message tasks, `scheduler.yield()`, and per-frame rAF batches all return control to the event loop, so input and paint can happen. Microtask-based yielding (`then`, `await`) does not, because the checkpoint runs to empty first. A worker avoids the problem altogether.",
+    "reference": "web.dev: Optimize long tasks"
+  },
+  {
+    "id": "JSM-EVL-038",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "In Node 20, which statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A `process.nextTick` callback that keeps re-scheduling itself starves I/O, just like a recursive promise chain",
+        "why": "The nextTick queue is drained completely before the loop continues, so I/O never gets a turn."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A `setImmediate` callback that re-schedules itself lets I/O callbacks run between iterations",
+        "why": "Immediates added during the check phase run in the next iteration, after poll."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`process.nextTick` callbacks run in the check phase of the event loop",
+        "why": "They run as soon as the current operation finishes; check is where setImmediate runs."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "In a CommonJS script, promise callbacks run before nextTick callbacks queued at the same time",
+        "why": "In CommonJS the nextTick queue is drained first."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`setImmediate` always runs before `setTimeout(fn, 0)`, wherever both are scheduled",
+        "why": "Only inside an I/O callback; in the main module the order varies between runs."
+      }
+    ],
+    "explanation": "Both `process.nextTick` and promise microtasks are drained to empty after each callback, so recursion in either starves the loop. `setImmediate` is a real macrotask: callbacks added while check runs wait for the next iteration, so polling for I/O happens in between. Use `setImmediate` to yield in long Node computations.",
+    "reference": "Node.js docs: process.nextTick() vs setImmediate()"
+  },
+  {
+    "id": "JSM-EVL-039",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "You run this file with Node.js 20 or later, using default flags. What happens?\n\n```js\nconst p = Promise.reject(new Error('boom'));\nsetTimeout(() => {\n  p.catch(() => console.log('caught'));\n}, 0);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It logs `caught` and exits normally, because the handler is attached before the process exits",
+        "why": "Node decides a rejection is unhandled once the microtask queue drains, which is before any timer runs."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The process crashes with the `boom` error and exit code 1 before the timer callback runs",
+        "why": "Since Node 15 the default `--unhandled-rejections=throw` turns it into an uncaught exception at that point."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It prints an UnhandledPromiseRejectionWarning, then logs `caught` and exits with code 0",
+        "why": "That warn-and-continue behaviour was the default before Node 15. It is now opt-in with `--unhandled-rejections=warn`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Nothing happens: a rejection with no handler is silently ignored until garbage collection",
+        "why": "Node tracks unhandled rejections actively. Browsers fire an `unhandledrejection` event and also report it in the console."
+      }
+    ],
+    "explanation": "After the main script runs, Node drains the microtask queue and then processes its list of rejections that have no handler. `p` has none yet, because the `catch` is only attached inside a later timer task. Under the default mode (`throw`, since Node 15) the rejection is raised as an uncaught exception, the process prints the stack and exits with code 1, and the timer never fires. Attach handlers in the same tick as the promise is created, or await it promptly. Browsers are more lenient: they fire `unhandledrejection`, and later `rejectionhandled` if a handler arrives.",
+    "reference": "Node.js docs: --unhandled-rejections"
+  },
+  {
+    "id": "JSM-EVL-040",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A click handler sets `status.textContent = 'Working…'` and must then run `heavyWork()`, 300 ms of synchronous work. Which way of scheduling `heavyWork` guarantees that 'Working…' is painted before the heavy work starts?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`requestAnimationFrame(() => setTimeout(heavyWork, 0))`",
+        "why": "rAF runs just before the next paint, and the timer it queues can only run after that frame is painted."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`requestAnimationFrame(heavyWork)`",
+        "why": "rAF callbacks run before the paint of that frame, so 300 ms of work there still delays the paint."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`Promise.resolve().then(heavyWork)`",
+        "why": "The microtask runs before the browser gets any chance to render."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`queueMicrotask(heavyWork)`, after forcing a reflow by reading `status.offsetHeight`",
+        "why": "A forced reflow computes layout but doesn't paint; paint still waits for the task to end."
+      }
+    ],
+    "explanation": "Painting happens in the rendering step after rAF callbacks. A plain `setTimeout` might run before the next rendering opportunity, and work inside rAF delays that frame's paint. Queuing a task from inside rAF ensures the frame with 'Working…' is painted first. Where available, `await scheduler.yield()` after a rAF achieves the same.",
+    "reference": "web.dev: Optimize long tasks"
+  },
+  {
+    "id": "JSM-EVL-041",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "What is logged?\n\n```js\nconst thenable = {\n  then(resolve) {\n    console.log('then called');\n    resolve('v');\n  },\n};\n(async () => { const v = await thenable; console.log('got', v); })();\nPromise.resolve().then(() => console.log('p1')).then(() => console.log('p2'));\nconsole.log('sync');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`sync` → `then called` → `p1` → `got v` → `p2`",
+        "why": "A job calls the thenable first, and the continuation is queued only when it calls resolve, behind p1."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`sync` → `then called` → `got v` → `p1` → `p2`",
+        "why": "resolve is called inside the thenable job, after p1 was queued, so got v comes after p1."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`then called` → `sync` → `got v` → `p1` → `p2`",
+        "why": "await never calls then synchronously; a PromiseResolveThenableJob calls it later."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`sync` → `p1` → `then called` → `p2` → `got v`",
+        "why": "The thenable job was queued before p1, so then is called first."
+      }
+    ],
+    "explanation": "Trace. `await thenable` wraps the thenable in a new promise, which queues a NewPromiseResolveThenableJob. `.then` queues p1, and sync logs. Queue: [job, p1]. The job calls `then`, which logs 'then called' and resolves, queuing the continuation. Queue: [p1, cont]. p1 logs and queues p2. Then the continuation logs got v, and p2 logs. Thenables cost one more tick than native promises.",
+    "reference": "ECMAScript: PromiseResolveThenableJob"
+  },
+  {
+    "id": "JSM-EVL-042",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "In Node 20, what does this log?\n\n```js\nsetImmediate(() => console.log('i1'));\nsetImmediate(() => {\n  console.log('i2');\n  process.nextTick(() => console.log('n'));\n  Promise.resolve().then(() => console.log('p'));\n});\nsetImmediate(() => console.log('i3'));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`i1 i2 n p i3`",
+        "why": "Since Node 11, nextTick and promise queues are drained after each setImmediate callback."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`i1 i2 i3 n p`",
+        "why": "That was Node 10 and earlier; since Node 11 microtasks run between setImmediate callbacks."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`i1 i2 p n i3`",
+        "why": "After each callback, nextTick callbacks run before promise callbacks."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`i1 i2 i3`, then `n p` in the next loop iteration",
+        "why": "They don't wait for the next iteration; they run right after i2's callback."
+      }
+    ],
+    "explanation": "Node 11 aligned with browsers: after each individual timer or immediate callback, Node drains `process.nextTick` callbacks and then promise microtasks. So n and p run between i2 and i3. Code written for older Node that relied on batching may behave differently today.",
+    "reference": "Node.js 11 release notes: timers and microtasks"
+  },
+  {
+    "id": "JSM-EVL-043",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Both callbacks below run in the same frame. What is logged?\n\n```js\nrequestAnimationFrame(() => {\n  console.log('raf1');\n  Promise.resolve().then(() => console.log('micro'));\n});\nrequestAnimationFrame(() => console.log('raf2'));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`raf1 micro raf2`",
+        "why": "A microtask checkpoint runs after each animation frame callback returns."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`raf1 raf2 micro`",
+        "why": "Checkpoints happen after each callback, not after the whole batch of callbacks."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`micro raf1 raf2`",
+        "why": "The promise is only created inside raf1, so its callback cannot run before raf1."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`raf1 raf2`, then `micro` after the frame is painted",
+        "why": "Microtasks never wait for paint; they run as soon as the callback that queued them returns."
+      }
+    ],
+    "explanation": "Animation frame callbacks are invoked one after another, and \"clean up after running script\" performs a microtask checkpoint whenever the stack empties. So promise work queued in one rAF callback finishes before the next rAF callback starts, and well before style, layout and paint.",
+    "reference": "HTML Standard: Run the animation frame callbacks"
+  },
+  {
+    "id": "JSM-EVL-044",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Node service processes a 5-million-item array inside a request handler, believing the `await` lets other requests through:\n\n```js\nfor (const item of items) {\n  process(item); // fast, synchronous\n  await Promise.resolve();\n}\n```\n\nWhat actually happens to other requests and timers while the loop runs?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "They wait until the loop ends, because each await resumes as a microtask before any I/O can run",
+        "why": "The microtask queue never empties between iterations, so the poll phase and timers never get a turn."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "They are interleaved between iterations, because each await yields to the event loop",
+        "why": "await yields only to other microtasks, not to the phases of the event loop."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "They run in parallel on the libuv thread pool while the loop continues",
+        "why": "JavaScript callbacks never run on the thread pool; only certain built-in operations do."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "They run about every 4 ms, when Node clamps the chain of awaits",
+        "why": "There is no clamp on microtasks; the 4 ms rule applies to nested browser timers."
+      }
+    ],
+    "explanation": "Each `await` queues a microtask, and Node drains the microtask queue completely before moving to the next phase. So the loop runs from start to finish as one uninterrupted stretch, about as blocking as a plain `for` loop. To really yield, await a macrotask every few thousand items, for example `await new Promise((r) => setImmediate(r))`, or move the work to a worker thread.",
+    "reference": "Node.js docs: Don't Block the Event Loop"
+  },
+  {
+    "id": "JSM-EVL-045",
+    "domain": 3,
+    "skill": "event-loop",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about `await` in current JavaScript engines are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Awaiting an already-fulfilled native promise resumes the function after one microtask tick",
+        "why": "Since ES2019, await on a native promise attaches directly to it, which costs a single tick."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Awaiting a non-promise value, such as `await 5`, still suspends the function until the stack is empty",
+        "why": "The value is wrapped in a fulfilled promise, and the continuation is still queued as a microtask."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Awaiting an already-fulfilled promise continues synchronously, without any tick",
+        "why": "await always suspends; ECMAScript never resumes an async function synchronously."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Awaiting a custom thenable takes the same single tick as awaiting a native promise",
+        "why": "A thenable needs an extra job to call its then method, so it takes at least one more tick."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`return await p` inside an async function takes more ticks than `return p`",
+        "why": "The reverse: returning a promise costs two extra ticks, while return await settles sooner."
+      }
+    ],
+    "explanation": "Modern engines implement `await v` as `PromiseResolve(v)` plus a reaction, so a native promise costs one tick. Non-promises are wrapped and still cost a tick. Thenables go through NewPromiseResolveThenableJob, which adds one. `return await` also gives better async stack traces and lets a surrounding `try/catch` see rejections.",
+    "reference": "V8 blog: Faster async functions and promises"
+  }
+]

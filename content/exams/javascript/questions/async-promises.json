@@ -1,0 +1,1647 @@
+[
+  {
+    "id": "JSM-PRM-001",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this code log?\n\n```js\nconst p = new Promise((resolve, reject) => {\n  resolve('first');\n  reject(new Error('second'));\n  resolve('third');\n});\np.then((v) => console.log(v), (e) => console.log(e.message));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`first`",
+        "why": "The first call settles the promise, and a settled promise can never change state again."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`second`",
+        "why": "The reject call comes after resolve, so the promise is already fulfilled and the call is ignored."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`third`",
+        "why": "Later resolve calls do not overwrite the value. Settlement happens once and is final."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An uncaught error, because a promise can only be settled once and calling again throws",
+        "why": "Extra resolve or reject calls are silently ignored; they never throw."
+      }
+    ],
+    "explanation": "A promise moves from pending to fulfilled or rejected exactly once. After that, further calls to `resolve` or `reject` do nothing, so the handler receives `\"first\"`. This is also why it is safe to call `resolve` from several racing callbacks: only the first one counts.",
+    "reference": "MDN: Promise"
+  },
+  {
+    "id": "JSM-PRM-002",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "In what order are the letters logged?\n\n```js\nconsole.log('A');\nnew Promise((resolve) => {\n  console.log('B');\n  resolve();\n});\nconsole.log('C');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`A C B`, because the code inside a promise always runs later",
+        "why": "Only `then` callbacks are deferred. The executor itself runs immediately."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`A B C`",
+        "why": "The executor function runs synchronously inside the `new Promise(...)` call."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`B A C`, because promise executors are hoisted to the top of the script",
+        "why": "Nothing is hoisted here; statements run in source order."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`A C`, because `B` is only logged once a `then` handler is attached",
+        "why": "The executor runs whether or not anyone ever calls `then`."
+      }
+    ],
+    "explanation": "The `Promise` constructor calls its executor straight away, on the same call stack. Only the reactions registered with `then`, `catch` or `finally` are queued as microtasks. So the output is `A`, `B`, `C`.",
+    "reference": "MDN: Promise() constructor"
+  },
+  {
+    "id": "JSM-PRM-003",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "If the executor function passed to `new Promise(...)` throws an error synchronously, the `new Promise(...)` expression throws that error to the code that called it.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "It would be true for most functions, but the Promise constructor catches executor errors."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: the constructor catches the error and returns a promise rejected with it."
+      }
+    ],
+    "explanation": "The Promise constructor wraps the executor call in a try/catch. A synchronous `throw` becomes a rejection of the returned promise, so you handle it with `.catch()` or `await` inside `try`, not with a try/catch around the constructor. If `resolve` was already called before the throw, the error is ignored.",
+    "reference": "ECMAScript: Promise ( executor )"
+  },
+  {
+    "id": "JSM-PRM-004",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this code log?\n\n```js\nconst p1 = Promise.resolve(1);\nconst p2 = p1.then((x) => x + 1);\nconsole.log(p1 === p2);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`false`",
+        "why": "`then` always returns a brand-new promise for the result of the callback."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`true`, because `then` updates the existing promise in place",
+        "why": "Promises are never mutated by `then`; the original keeps its value of 1."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`2`, because the comparison waits for the callback to finish",
+        "why": "The comparison runs synchronously and compares object identity, not values."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It throws, because promises cannot be compared with `===`",
+        "why": "Promises are ordinary objects, so `===` compares their references."
+      }
+    ],
+    "explanation": "Every call to `then`, `catch` or `finally` creates a new promise, which is what makes chaining work: each link represents the result of one step. `p1` stays fulfilled with 1, and `p2` will fulfil with 2.",
+    "reference": "MDN: Promise.prototype.then()"
+  },
+  {
+    "id": "JSM-PRM-005",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What happens when this code runs?\n\n```js\nasync function f() {\n  throw new Error('boom');\n}\nconst r = f();\nconsole.log('after');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The error is thrown synchronously from `f()`, so `after` is never logged",
+        "why": "An async function never throws to its caller; its body's errors become rejections."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`after` is logged, and `r` is a rejected promise that is reported as an unhandled rejection",
+        "why": "Nothing handles `r`, so the runtime reports the rejection once the current job finishes."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`after` is logged, and `r` is a promise that fulfils with `undefined`, because the async wrapper swallows the error",
+        "why": "The thrown error is not swallowed; it rejects the returned promise."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`after` is logged, and `r` holds the `Error` object itself",
+        "why": "Async functions always return a promise, never the thrown value directly."
+      }
+    ],
+    "explanation": "An error thrown inside an async function, even before its first `await`, rejects the promise that the function returns. The caller keeps running. Because nobody calls `r.catch(...)` or awaits `r`, browsers log \"Uncaught (in promise)\" and Node.js reports an unhandled rejection.",
+    "reference": "MDN: async function"
+  },
+  {
+    "id": "JSM-PRM-006",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "Which `Promise` static method fulfils with the value of the first input promise to fulfil, ignores rejections, and rejects only if every input rejects? Type just the method name.",
+    "options": [],
+    "explanation": "`Promise.any` is the mirror image of `Promise.all`: it waits for the first success and treats rejections as non-final. If every input rejects, it rejects with an `AggregateError` whose `errors` array holds every reason in input order. It suits \"use the fastest healthy mirror\" patterns.",
+    "reference": "MDN: Promise.any()",
+    "accepted": [
+      "any",
+      "Promise.any",
+      "Promise.any()",
+      "any()"
+    ]
+  },
+  {
+    "id": "JSM-PRM-007",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What happens with this call?\n\n```js\nPromise.all([\n  Promise.resolve(1),\n  Promise.reject(new Error('x')),\n  new Promise((r) => setTimeout(() => r(3), 1000)),\n]).then(console.log, (e) => console.log('failed:', e.message));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "It logs `failed: x` almost immediately, and the 1-second timer still fires later",
+        "why": "`Promise.all` rejects on the first rejection it sees, but it cannot stop the other work."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It waits about 1 second for every input to settle, including the timer, and only then logs `failed: x`",
+        "why": "That is how `Promise.allSettled` waits; `Promise.all` short-circuits on the first rejection."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It logs `[1, undefined, 3]` after about 1 second",
+        "why": "Rejected inputs are not turned into `undefined`; the whole result rejects."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It logs `[1, Error: x, 3]` after about 1 second",
+        "why": "Only `allSettled` reports each input's outcome; `all` gives up on the first failure."
+      }
+    ],
+    "explanation": "`Promise.all` rejects as soon as any input rejects, with that input's reason. The other operations are not cancelled: promises represent results, not tasks, so the timer still runs and resolves its now-ignored promise. Use `Promise.allSettled` to wait for everything, or an `AbortSignal` to actually stop work.",
+    "reference": "MDN: Promise.all()"
+  },
+  {
+    "id": "JSM-PRM-008",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each combinator with how it settles.",
+    "options": [
+      {
+        "id": "A",
+        "text": "`Promise.all`"
+      },
+      {
+        "id": "B",
+        "text": "`Promise.allSettled`"
+      },
+      {
+        "id": "C",
+        "text": "`Promise.race`"
+      },
+      {
+        "id": "D",
+        "text": "`Promise.any`"
+      }
+    ],
+    "explanation": "The four combinators differ in what counts as \"done\". `all` needs every success, `allSettled` needs every outcome, `race` needs the first outcome of any kind, and `any` needs the first success. None of them cancels the inputs that lose.",
+    "reference": "MDN: Promise concurrency",
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Fulfils with an array of all values, or rejects with the first rejection",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Always fulfils, with an object `{ status, value }` or `{ status, reason }` per input",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Settles the same way as whichever input settles first, fulfilled or rejected",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Fulfils with the first fulfilment; rejects with an `AggregateError` only if all reject",
+        "answer": "D"
+      }
+    ]
+  },
+  {
+    "id": "JSM-PRM-009",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this code log?\n\n```js\nPromise.reject(new Error('bad'))\n  .catch((e) => 'recovered')\n  .then((v) => console.log('then:', v));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing, because a chain stops for good once any promise in it has rejected",
+        "why": "A `catch` handler that returns normally puts the chain back on the fulfilled path."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`then: recovered`",
+        "why": "The value returned from `catch` fulfils the next promise in the chain."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`then: undefined`, because `catch` never passes a value on",
+        "why": "`catch` passes on whatever its callback returns, here the string `recovered`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`then: Error: bad`, because the original rejection reason flows through",
+        "why": "The reason was consumed by `catch`; the next step sees the callback's return value."
+      }
+    ],
+    "explanation": "`catch(fn)` is shorthand for `then(undefined, fn)`. If `fn` returns a value, the promise it creates fulfils with that value, so the chain recovers. To keep the chain rejected, rethrow inside `catch` or return a rejected promise.",
+    "reference": "MDN: Promise.prototype.catch()"
+  },
+  {
+    "id": "JSM-PRM-010",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer writes this to save several records before reporting success. What is wrong?\n\n```js\nasync function saveAll(ids) {\n  ids.forEach(async (id) => {\n    await save(id);\n  });\n  console.log('all saved');\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing: `forEach` waits for each async callback to finish before it moves on to the next item",
+        "why": "`forEach` ignores the promises that its callbacks return."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`await` is not allowed inside an arrow function passed to `forEach`, so this is a syntax error",
+        "why": "The arrow function is itself `async`, so `await` is legal there."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`all saved` logs before any save finishes, and a failed save becomes an unhandled rejection",
+        "why": "`forEach` starts every callback and returns at once, throwing away the promises."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The saves run one after another, so the function is slow but still correct",
+        "why": "All the saves start at once, and the function does not wait for any of them."
+      }
+    ],
+    "explanation": "`forEach` calls the callback and discards its return value, so the promises are lost. The function logs straight away, its own promise fulfils before any save completes, and nothing handles the rejections. Use `for (const id of ids) await save(id)` for sequential saves, or `await Promise.all(ids.map(save))` for concurrent ones.",
+    "reference": "MDN: Array.prototype.forEach()"
+  },
+  {
+    "id": "JSM-PRM-011",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Using `await` on a value that is not a promise, such as `await 5`, throws a `TypeError`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "It might seem reasonable, but await accepts any value."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: non-promise values are wrapped with Promise.resolve, so `await 5` evaluates to 5 after a microtask."
+      }
+    ],
+    "explanation": "`await v` converts `v` with `PromiseResolve`, so plain values and thenables both work. The function still pauses and resumes in a later microtask, which means even `await 5` lets other queued microtasks run first.",
+    "reference": "MDN: await"
+  },
+  {
+    "id": "JSM-PRM-012",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this code log?\n\n```js\nPromise.resolve('data')\n  .finally(() => 'ignored')\n  .then((v) => console.log(v));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`ignored`",
+        "why": "The return value of a `finally` callback is discarded."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`data`",
+        "why": "`finally` passes the original fulfilment value through to the next step."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`undefined`",
+        "why": "`finally` does not reset the value; it forwards the one it received."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Nothing, because `finally` ends the chain",
+        "why": "`finally` returns a new promise, so the chain continues."
+      }
+    ],
+    "explanation": "`finally` is for cleanup that must happen either way, so its callback receives no argument and its return value is ignored. The promise it returns settles like the original (here fulfilled with `\"data\"`). The exceptions are a `finally` callback that throws or returns a rejected promise; those override the result.",
+    "reference": "MDN: Promise.prototype.finally()"
+  },
+  {
+    "id": "JSM-PRM-013",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this code log?\n\n```js\nPromise.resolve('ok')\n  .finally(() => {\n    throw new Error('cleanup failed');\n  })\n  .then(\n    (v) => console.log('value', v),\n    (e) => console.log('error', e.message),\n  );\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`value ok`, because `finally` never changes the outcome of a chain",
+        "why": "Its return value is ignored, but a throw does change the outcome."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`error cleanup failed`",
+        "why": "An error thrown in `finally` replaces the original fulfilment with a rejection."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`value undefined`",
+        "why": "The fulfilment value is not reset; the chain becomes rejected instead."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An uncaught error, because errors thrown in `finally` are not caught by later handlers",
+        "why": "The error rejects the promise returned by `finally`, and the next `then` handles it."
+      }
+    ],
+    "explanation": "A `finally` callback is transparent only when it completes normally. If it throws, or returns a promise that rejects, the promise from `finally` rejects with that new reason, and the original value or reason is lost. Keep cleanup code from throwing, or catch inside it.",
+    "reference": "ECMAScript: Promise.prototype.finally"
+  },
+  {
+    "id": "JSM-PRM-014",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Which implementation of `delay(ms)` returns a promise that fulfils after `ms` milliseconds?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));`",
+        "why": "The executor hands `resolve` to `setTimeout`, so the promise fulfils when the timer fires."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`const delay = (ms) => new Promise(setTimeout(ms));`",
+        "why": "`setTimeout(ms)` returns a timer id, and the constructor throws because its argument is not a function."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`const delay = (ms) => Promise.resolve(setTimeout(() => {}, ms)).then(() => undefined);`",
+        "why": "This fulfils at once with the timer id; nothing waits for the timer."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`const delay = async (ms) => { setTimeout(() => {}, ms); };`",
+        "why": "The async function returns straight away, so its promise fulfils with `undefined` immediately."
+      }
+    ],
+    "explanation": "To promisify a callback API, create the promise yourself and call `resolve` (or `reject`) from the callback. Here `setTimeout(resolve, ms)` makes the timer settle the promise. Node.js also ships this as `setTimeout` from `node:timers/promises`.",
+    "reference": "MDN: Using promises (creating a promise around an old callback API)"
+  },
+  {
+    "id": "JSM-PRM-015",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which of these give you a promise for the contents of a file read with Node.js `fs.readFile(path, callback)`, which calls `callback(err, data)`? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`util.promisify(fs.readFile)(path)`",
+        "why": "`promisify` wraps any error-first callback API in a promise-returning function."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`fs.promises.readFile(path)` (or `readFile` from `node:fs/promises`)",
+        "why": "Node ships a promise-based version of the file system API."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`new Promise((res, rej) => fs.readFile(path, (err, data) => (err ? rej(err) : res(data))))`",
+        "why": "This hand-written wrapper maps the error-first callback correctly."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`new Promise((res) => fs.readFile(path, res))`",
+        "why": "The callback's first argument is `err`, so this fulfils with `null` on success and with the error on failure."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`Promise.resolve(fs.readFile(path))`",
+        "why": "`fs.readFile` without a callback throws an argument error, and it never returns the data anyway."
+      }
+    ],
+    "explanation": "Error-first callbacks put the error in the first argument and the data in the second. A correct wrapper must route `err` to `reject` and `data` to `resolve`; passing `resolve` directly as the callback gets this backwards. Prefer the built-in promise APIs when they exist.",
+    "reference": "Node.js docs: util.promisify"
+  },
+  {
+    "id": "JSM-PRM-016",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this code log?\n\n```js\nconst p = new Promise((r) => r(1));\nconsole.log(Promise.resolve(p) === p, new Promise((r) => r(p)) === p);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`false false`",
+        "why": "`Promise.resolve` returns a native promise unchanged instead of wrapping it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`true true`",
+        "why": "`new Promise` always creates a new object, whatever it is resolved with."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`true false`",
+        "why": "`Promise.resolve(p)` returns `p` itself, while the constructor builds a new promise that follows `p`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`false true`",
+        "why": "This reverses the two rules."
+      }
+    ],
+    "explanation": "When `Promise.resolve` receives a native promise whose constructor is `Promise`, it returns that same object. `new Promise(r => r(p))` always creates a new promise, which adopts `p`'s state a couple of microtasks later. That extra wrapping also explains the extra ticks you see when a promise is resolved with another promise.",
+    "reference": "ECMAScript: PromiseResolve"
+  },
+  {
+    "id": "JSM-PRM-017",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this code log?\n\n```js\nPromise.resolve(1)\n  .then(2)\n  .then(Promise.resolve(3))\n  .then(console.log);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`1`",
+        "why": "Arguments to `then` that are not functions are ignored, so the value 1 passes straight through."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`2`",
+        "why": "A plain number passed to `then` is not a callback, so it cannot replace the value."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`3`",
+        "why": "A promise passed as the argument to `then` is not a function either, so it is ignored too."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A `TypeError`, because `then` requires function arguments",
+        "why": "`then` quietly replaces non-function arguments with pass-through handlers."
+      }
+    ],
+    "explanation": "The spec says that if `onFulfilled` is not callable, `then` uses an identity function in its place. Both `.then(2)` and `.then(Promise.resolve(3))` therefore just forward the value 1. The usual intent was `.then(() => 2)`.",
+    "reference": "ECMAScript: PerformPromiseThen"
+  },
+  {
+    "id": "JSM-PRM-018",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this code log, and when?\n\n```js\nPromise.resolve(1)\n  .then((x) => new Promise((r) => setTimeout(() => r(x * 10), 100)))\n  .then((v) => console.log(v));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`10`, after about 100 ms",
+        "why": "Returning a promise from `then` makes the chain wait for it and pass on its value."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`Promise { <pending> }`, immediately",
+        "why": "The next handler never receives a promise; returned promises are unwrapped first."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`1`, immediately",
+        "why": "The callback's return value replaces 1, once it has settled."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`undefined`, after about 100 ms",
+        "why": "The inner promise fulfils with `x * 10`, which is 10."
+      }
+    ],
+    "explanation": "If a `then` callback returns a promise (or any thenable), the promise created by `then` adopts its state. That is how chains sequence asynchronous steps without nesting. Because of this unwrapping you can never fulfil a promise with another promise as its value.",
+    "reference": "MDN: Using promises (chaining)"
+  },
+  {
+    "id": "JSM-PRM-019",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A Node.js 20 service creates a promise that rejects, and no handler is ever attached. Using default settings, what happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The rejection is silently ignored, because the promise was never awaited",
+        "why": "Node has reported unhandled rejections for years and has crashed on them by default since v15."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Node prints an `UnhandledPromiseRejectionWarning` deprecation notice to stderr and then keeps the process running",
+        "why": "The warn-only behaviour was the default before Node 15."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Node emits `unhandledRejection` and, with no listener, raises it as an uncaught exception that exits the process",
+        "why": "The default mode, `--unhandled-rejections=throw`, treats it like a thrown error."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Node retries the rejected operation once before giving up",
+        "why": "Promises are results, not operations, so there is nothing to retry."
+      }
+    ],
+    "explanation": "Since Node.js 15 the default for `--unhandled-rejections` is `throw`. An unhandled rejection is emitted as `unhandledRejection`; if no listener handles it, it is raised as an uncaught exception and the process exits with a non-zero code. Browsers instead fire `unhandledrejection` and log to the console.",
+    "reference": "Node.js docs: --unhandled-rejections"
+  },
+  {
+    "id": "JSM-PRM-020",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about `Promise.race` are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "If the first input to settle rejects, `race` rejects, even if other inputs would fulfil later",
+        "why": "`race` copies the first settlement of either kind."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`Promise.race([])` stays pending forever",
+        "why": "With no inputs, nothing can ever settle it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`Promise.race` cancels the inputs that lose the race",
+        "why": "Promises have no cancellation; the losing operations keep running."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`Promise.race([])` fulfils with `undefined` right away",
+        "why": "That would need an input to settle, and there are none."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`race` waits for every input and then returns the fastest one's value",
+        "why": "It settles as soon as the first input settles, without waiting for the rest."
+      }
+    ],
+    "explanation": "`Promise.race` settles exactly like the first input that settles. A rejection wins just as easily as a fulfilment, which is why timeout patterns use `race`. An empty array never settles. Losing inputs are not cancelled, so a timeout made with `race` does not stop the underlying work.",
+    "reference": "MDN: Promise.race()"
+  },
+  {
+    "id": "JSM-PRM-021",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "An input to `Promise.allSettled` rejects. Its entry in the result array is an object with a `status` property. Type the exact string value of that `status`.",
+    "options": [],
+    "explanation": "Each entry of the `allSettled` result is `{ status: \"fulfilled\", value }` or `{ status: \"rejected\", reason }`. Filtering on `status` is the usual way to split successes from failures.",
+    "reference": "MDN: Promise.allSettled()",
+    "accepted": [
+      "rejected",
+      "\"rejected\"",
+      "'rejected'"
+    ]
+  },
+  {
+    "id": "JSM-PRM-022",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the log lines in the order they appear.\n\n```js\nasync function f() {\n  console.log('f start');\n  await null;\n  console.log('f resumed');\n}\nconsole.log('script start');\nf();\nconsole.log('script end');\n```",
+    "options": [
+      {
+        "id": "A",
+        "text": "`f resumed`"
+      },
+      {
+        "id": "B",
+        "text": "`script start`"
+      },
+      {
+        "id": "C",
+        "text": "`script end`"
+      },
+      {
+        "id": "D",
+        "text": "`f start`"
+      }
+    ],
+    "explanation": "An async function runs synchronously until its first `await`. So `script start` prints, then `f start` prints during the call. At `await null` the function suspends and returns a pending promise to the caller, which logs `script end`. The rest of `f` resumes in a microtask once the synchronous script finishes.",
+    "reference": "MDN: async function",
+    "answerOrder": [
+      "B",
+      "D",
+      "C",
+      "A"
+    ]
+  },
+  {
+    "id": "JSM-PRM-023",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A component calls `fetch(url, { signal: controller.signal })` and later calls `controller.abort()` while the request is still in flight. What happens to the promise returned by `fetch`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "It rejects with a `DOMException` named `AbortError`",
+        "why": "Aborting rejects the pending fetch with the signal's reason, which defaults to an `AbortError`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It fulfils with a `Response` whose `status` is 0",
+        "why": "Status 0 belongs to opaque or network-error responses, not to aborts."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It stays pending forever, because the request has been cancelled",
+        "why": "Aborting settles the promise so that awaiting code can continue."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It fulfils with `undefined`",
+        "why": "An abort is reported as an error, never as an empty success."
+      }
+    ],
+    "explanation": "An aborted fetch rejects with the signal's abort reason: a `DOMException` named `AbortError` by default, or whatever was passed to `abort(reason)`. Code that cancels on purpose should check `err.name === \"AbortError\"` so it doesn't report the cancellation as a failure.",
+    "reference": "MDN: AbortController"
+  },
+  {
+    "id": "JSM-PRM-024",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "This code runs in Node.js 20 with default settings. `fetchUser()` fulfils after 2 seconds, and `fetchPosts()` rejects after 100 ms. What happens?\n\n```js\nasync function load() {\n  const pUser = fetchUser();\n  const pPosts = fetchPosts();\n  const user = await pUser;\n  const posts = await pPosts;\n  return { user, posts };\n}\nload().catch((e) => console.log('caught', e.message));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "After 2 seconds the function rejects and logs `caught`, because the single `catch` on `load()` covers every promise created inside it",
+        "why": "The `catch` handles `load()`'s promise, which isn't affected until `await pPosts` runs at 2 s."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "At about 100 ms `pPosts` has no handler, so Node reports an unhandled rejection and exits before `caught` logs",
+        "why": "Nothing is listening to `pPosts` until the function reaches `await pPosts`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It fails at about 100 ms and logs `caught`, because both promises were created inside `load`",
+        "why": "Creating a promise inside the function doesn't subscribe to it; only `await` or `then` does."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It logs `caught` at 100 ms, then crashes at 2 s when `pUser` fulfils with no handler",
+        "why": "Fulfilment never needs a handler, and the rejection is what goes unhandled."
+      }
+    ],
+    "explanation": "Starting both requests early is a good idea, but `pPosts` gets no rejection handler until `await pPosts` runs, about 2 seconds later. When it rejects at 100 ms, Node sees an unhandled rejection after the microtask queue drains and, in the default `throw` mode, crashes. Browsers log \"Uncaught (in promise)\" and only later fire `rejectionhandled`. Fix it with `const [user, posts] = await Promise.all([fetchUser(), fetchPosts()])`.",
+    "reference": "Node.js docs: unhandledRejection event"
+  },
+  {
+    "id": "JSM-PRM-025",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "In what order are the lines logged?\n\n```js\nPromise.resolve()\n  .then(() => {\n    console.log('a1');\n    return Promise.resolve();\n  })\n  .then(() => console.log('a2'));\n\nPromise.resolve()\n  .then(() => console.log('b1'))\n  .then(() => console.log('b2'))\n  .then(() => console.log('b3'))\n  .then(() => console.log('b4'));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`a1 b1 a2 b2 b3 b4`",
+        "why": "This assumes returning a promise costs no extra ticks, but adopting it takes two."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`a1 b1 b2 a2 b3 b4`",
+        "why": "This counts one extra tick; resolving with a native promise costs two."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`a1 b1 b2 b3 a2 b4`",
+        "why": "Adopting the returned promise needs a thenable job and then a reaction job, delaying `a2` by two ticks."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`a1 a2 b1 b2 b3 b4` (each chain runs to completion first)",
+        "why": "Each chain advances one step per microtask, so the chains interleave instead of running one after the other."
+      }
+    ],
+    "explanation": "Tick 1 logs `a1` and `b1`. Because `a1`'s callback returned a promise, resolving the next promise queues a NewPromiseResolveThenableJob instead of fulfilling it directly. Tick 2 runs that job, which calls `.then` on the returned promise and queues a reaction; `b2` logs. Tick 3 runs the reaction, which finally queues `a2`; `b3` logs. Tick 4 logs `a2` and `b4`. Returning a promise from `then` costs two extra microtasks.",
+    "reference": "ECMAScript: NewPromiseResolveThenableJob"
+  },
+  {
+    "id": "JSM-PRM-026",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this code log?\n\n```js\nPromise.any([\n  Promise.reject(new Error('a')),\n  Promise.reject(new Error('b')),\n]).catch((e) => console.log(e.constructor.name, e.errors.map((x) => x.message)));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`Error [ 'b' ]`, the last rejection reason",
+        "why": "`Promise.any` collects every reason instead of passing one on."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`Error [ 'a' ]`, the first rejection reason",
+        "why": "That is closer to `Promise.all`; `any` only rejects after all inputs fail."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`AggregateError [ 'a', 'b' ]`",
+        "why": "When every input rejects, `any` rejects with an `AggregateError` whose `errors` keep input order."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`AggregateError [ 'b', 'a' ]`, ordered by when each input rejected",
+        "why": "`errors` follows the order of the inputs, not the order of settling."
+      }
+    ],
+    "explanation": "`Promise.any` rejects only when all inputs have rejected. It uses an `AggregateError` with an `errors` array indexed like the input. The handler therefore logs `AggregateError [ 'a', 'b' ]`.",
+    "reference": "MDN: AggregateError"
+  },
+  {
+    "id": "JSM-PRM-027",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which statements about combinators called with an empty array are true? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`Promise.all([])` fulfils with `[]`",
+        "why": "Every one of zero inputs has fulfilled, so the result is an empty array."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`Promise.allSettled([])` fulfils with `[]`",
+        "why": "There are no outcomes to report, so the result is an empty array."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`Promise.any([])` rejects with an `AggregateError`",
+        "why": "No input can ever fulfil, so `any` rejects at once with an empty `errors` list."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`Promise.race([])` fulfils with `undefined`",
+        "why": "With no inputs, nothing can settle the race, so it stays pending forever."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`Promise.any([])` stays pending forever",
+        "why": "The spec rejects it straight away, because success has become impossible."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "`Promise.all([])` stays pending forever",
+        "why": "It fulfils at once; there is nothing to wait for."
+      }
+    ],
+    "explanation": "The empty cases follow from each combinator's goal. \"All succeeded\" and \"all settled\" are vacuously true, so both fulfil with `[]`. \"At least one succeeds\" is impossible, so `any` rejects. \"The first to settle\" never happens, so `race` stays pending. Guard against empty input before using `race` for a timeout.",
+    "reference": "ECMAScript: Promise.any"
+  },
+  {
+    "id": "JSM-PRM-028",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A team adds this timeout helper and calls `await withTimeout(fetch(url), 5000)`. Which statement about it is accurate?\n\n```js\nfunction withTimeout(p, ms) {\n  return Promise.race([\n    p,\n    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),\n  ]);\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "When the fetch wins, the timer's later rejection is reported as an unhandled rejection",
+        "why": "`race` attached a handler to the timer promise, so its late rejection counts as handled."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "On a timeout the request keeps running, and on success the pending timer can keep a Node process alive for up to 5 s",
+        "why": "`race` stops nobody: neither the fetch nor the timer is cancelled."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "On a timeout, `race` aborts the fetch, which frees the connection and its socket at once so the next request can reuse them",
+        "why": "Promises can't be cancelled; only an `AbortSignal` passed to `fetch` can stop the request."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It works perfectly, because the losing promise is garbage-collected at once",
+        "why": "The timer and the request stay alive until they finish, whatever happens to the race."
+      }
+    ],
+    "explanation": "Racing against a timer changes what the caller waits for, not what the system does. After a timeout the fetch still downloads, and after a success the timer still fires. Its rejection is handled by `race`, so nothing is reported, but in Node.js it keeps the event loop alive. Prefer `fetch(url, { signal: AbortSignal.timeout(5000) })`, or clear the timer and abort the request yourself.",
+    "reference": "MDN: AbortSignal.timeout()"
+  },
+  {
+    "id": "JSM-PRM-029",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A request is cancelled by either the user or a 5-second limit:\n\n```js\nconst signal = AbortSignal.any([userController.signal, AbortSignal.timeout(5000)]);\ntry {\n  await fetch(url, { signal });\n} catch (e) {\n  // report timeouts, ignore user cancellations\n}\n```\nHow can the `catch` block tell the two cases apart?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A timeout rejects with a `DOMException` named `TimeoutError`, and a plain `abort()` with one named `AbortError`",
+        "why": "The fetch rejects with the signal's abort reason, and the two sources set different reasons."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It can't: both cases reject with an identical `AbortError`",
+        "why": "`AbortSignal.timeout` deliberately uses a different error name."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Check `e.response.status` for 408 Request Timeout",
+        "why": "No response exists; the client stopped the request, and fetch errors don't carry one."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A timeout fulfils with `undefined`, while a user abort rejects",
+        "why": "Both cases reject; neither one fulfils."
+      }
+    ],
+    "explanation": "Aborting rejects `fetch` with `signal.reason`. `AbortSignal.timeout(ms)` aborts with a `TimeoutError` DOMException, and `controller.abort()` with no argument uses an `AbortError`. `AbortSignal.any` forwards the reason of whichever source fired first, so `e.name` tells you which one it was.",
+    "reference": "MDN: AbortSignal.any()"
+  },
+  {
+    "id": "JSM-PRM-030",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "`fetchJson()` returns a promise that rejects. What does `getData()` produce?\n\n```js\nasync function getData() {\n  try {\n    return fetchJson();\n  } catch (e) {\n    return 'fallback';\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A promise that fulfils with `\"fallback\"`",
+        "why": "The `catch` block only sees errors raised while the `try` block runs, and none is raised there."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A promise that rejects with `fetchJson`'s error, because the `try` block finished before the rejection",
+        "why": "Returning the promise without `await` leaves the `try` immediately; the rejection happens later."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A promise that fulfils with the rejected promise itself",
+        "why": "An async function adopts a returned promise; it never fulfils with one."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A synchronous exception that escapes from `getData()`",
+        "why": "Async functions report every failure through their returned promise."
+      }
+    ],
+    "explanation": "`return fetchJson()` hands the pending promise back as the async function's result and leaves the `try` block at once. The later rejection flows into `getData()`'s promise and bypasses `catch`. Writing `return await fetchJson()` keeps the function suspended inside the `try`, so the rejection is thrown there and caught. This is the main case where `return await` is required.",
+    "reference": "MDN: async function (return await)"
+  },
+  {
+    "id": "JSM-PRM-031",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 3,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Calling `resolve(thenable)` inside a promise executor invokes `thenable.then(...)` synchronously, before `resolve` returns.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "It feels natural for adoption to happen right away, but the spec defers it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: `resolve` queues a NewPromiseResolveThenableJob, and `then` is called later in a microtask."
+      }
+    ],
+    "explanation": "When `resolve` receives an object with a callable `then`, it schedules a job that calls `then` asynchronously. That protects the caller from re-entrant code in a foreign thenable, and it is the source of the extra microtask ticks when a promise is resolved with another promise.",
+    "reference": "ECMAScript: Promise Resolve Functions"
+  },
+  {
+    "id": "JSM-PRM-032",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Which statement about this concurrency-limited map is correct?\n\n```js\nasync function mapLimit(items, limit, fn) {\n  const results = [];\n  let i = 0;\n  async function worker() {\n    while (i < items.length) {\n      const idx = i++;\n      results[idx] = await fn(items[idx]);\n    }\n  }\n  await Promise.all(Array.from({ length: limit }, worker));\n  return results;\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Two workers can read the same `i` at once, so some items are processed twice",
+        "why": "JavaScript runs one piece of code at a time; `const idx = i++` can't be interleaved."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`results` ends up in completion order, not input order",
+        "why": "Each result is stored at its own index, so input order is kept."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "It runs at most `limit` calls at once and keeps input order, but one rejection rejects the call while other workers keep going",
+        "why": "The design is sound, but `Promise.all` fails fast and doesn't stop the remaining workers."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It starts every item at once, because `Array.from` calls `worker` for each element of `items`",
+        "why": "`Array.from({ length: limit }, ...)` calls `worker` exactly `limit` times."
+      }
+    ],
+    "explanation": "Each worker claims the next index synchronously, then awaits; while it waits, other workers claim other indexes. Because JavaScript is single-threaded between `await`s, claiming the index is race-free. Writing to `results[idx]` keeps input order. If `fn` rejects, `Promise.all` rejects at once, but the other workers carry on with the remaining items. Add a shared \"stop\" flag or an AbortSignal if that matters.",
+    "reference": "MDN: Promise.all()"
+  },
+  {
+    "id": "JSM-PRM-033",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A helper should retry a flaky request up to 3 times, and it is called as `retry(fetchReport(), 3)`. Why doesn't it ever succeed after the first failure?\n\n```js\nasync function retry(promise, attempts) {\n  try {\n    return await promise;\n  } catch (e) {\n    if (attempts <= 1) throw e;\n    return retry(promise, attempts - 1);\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`return await` inside a `try` block swallows the error, so the helper never retries",
+        "why": "`return await` is exactly what lets the `catch` block see the rejection."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A promise is a settled result, not a task: awaiting the same rejected promise again just gives the same error",
+        "why": "Retrying needs a function such as `() => fetchReport()` that starts a new request each time."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The recursion overflows the stack, because each retry runs synchronously",
+        "why": "Each retry awaits first, so the call stack unwinds between attempts."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The retry runs too quickly; adding a delay between attempts would make it work",
+        "why": "A delay doesn't help when the promise being retried has already failed for good."
+      }
+    ],
+    "explanation": "Once rejected, a promise stays rejected, so every retry immediately awaits the same failure. Retrying an operation means calling something that starts it again: `retry(() => fetchReport(), 3)`, with `await fn()` inside. Add exponential backoff with jitter between attempts, and only retry errors that are worth retrying.",
+    "reference": "MDN: Using promises"
+  },
+  {
+    "id": "JSM-PRM-034",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about rejected promises in browsers are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Calling `event.preventDefault()` in an `unhandledrejection` listener suppresses the default console report",
+        "why": "The event is cancelable, so apps can route rejections to their own error reporting."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Attaching a handler to a promise after it was reported as unhandled fires a `rejectionhandled` event",
+        "why": "Browsers let tracking code withdraw an earlier report."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "An unhandled rejection stops all further scripts on the page, like a fatal crash",
+        "why": "The page keeps running; the rejection is only reported."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A rejection counts as unhandled as soon as `reject` is called, even if `.catch` is attached in the same synchronous block",
+        "why": "Tracking happens after the current task's microtasks, so a handler added synchronously counts."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Wrapping `Promise.reject(err)` in a synchronous `try/catch` catches the rejection",
+        "why": "Creating a rejected promise throws nothing; only `await` or a handler observes the rejection."
+      }
+    ],
+    "explanation": "HTML tracks rejections that still have no handler at the end of the current task's microtask checkpoint and fires `unhandledrejection` for them. If a handler is attached later, `rejectionhandled` follows. Neither event halts the page. A synchronous try/catch never sees a rejection, because no exception is thrown.",
+    "reference": "HTML spec: unhandled promise rejections"
+  },
+  {
+    "id": "JSM-PRM-035",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "What number does this log? Type the number.\n\n```js\nconst results = await Promise.allSettled([\n  Promise.resolve(1),\n  Promise.reject(new Error('x')),\n  new Promise((r) => setTimeout(r, 10, 3)),\n]);\nconsole.log(\n  results\n    .filter((r) => r.status === 'fulfilled')\n    .map((r) => r.value)\n    .reduce((a, b) => a + b, 0),\n);\n```",
+    "options": [],
+    "explanation": "`allSettled` waits for all three. The first fulfils with 1, and the second rejects, so the filter drops it. In the third, `setTimeout(r, 10, 3)` passes 3 as the argument to `r`, so it fulfils with 3. The sum of fulfilled values is 1 + 3 = 4.",
+    "reference": "MDN: Promise.allSettled()",
+    "accepted": [
+      "4"
+    ]
+  },
+  {
+    "id": "JSM-PRM-036",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "In what order are the letters logged?\n\n```js\nasync function a() { return Promise.resolve('A'); }\nasync function b() { return 'B'; }\n\na().then(console.log);\nb().then(console.log);\nPromise.resolve()\n  .then(() => console.log('C'))\n  .then(() => console.log('D'))\n  .then(() => console.log('E'));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`A B C D E` (calls and chains run in source order)",
+        "why": "This ignores that `a`'s returned promise must be adopted, which takes extra microtasks."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`B A C D E`",
+        "why": "`A` can't log in the first tick; its value is still being unwrapped."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`B C A D E`",
+        "why": "This counts one extra tick, but adopting a returned native promise costs two."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "`B C D A E`",
+        "why": "`b` fulfils at once, while `a` needs a thenable job and a reaction job before its handler is even queued."
+      }
+    ],
+    "explanation": "When `b` returns a plain value, its promise fulfils synchronously, so `log B` is queued first. `a` returns a promise, so its result promise is resolved with a thenable, which queues a thenable job. Initial queue: [thenable job, log B, log C]. Tick 1: the job calls `.then` on the inner promise, which queues a reaction; `B` and `C` print, and `D` is queued. Tick 2: the reaction fulfils `a()`'s promise, which queues `log A`; `D` prints, and `E` is queued. Tick 3: `A`, then `E`. Result: `B C D A E`.",
+    "reference": "ECMAScript: AsyncFunctionStart and Promise Resolve Functions"
+  },
+  {
+    "id": "JSM-PRM-037",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "What is logged, in order?\n\n```js\nconst thenable = {\n  then(resolve) {\n    console.log('then called');\n    resolve(42);\n    resolve(99);\n  },\n};\n(async () => {\n  console.log('before');\n  const v = await thenable;\n  console.log(v);\n})();\nconsole.log('sync end');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`before`, `then called`, `sync end`, `42` (await calls `then` immediately)",
+        "why": "`await` does not call `then` synchronously; it schedules a job for it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`before`, `sync end`, `then called`, `42`",
+        "why": "The thenable's `then` runs in a later microtask, and the second `resolve` is ignored."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`before`, `sync end`, `then called`, `99`",
+        "why": "Only the first `resolve` call counts; later calls are no-ops."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`before`, `sync end`, `42`, `then called`",
+        "why": "`42` can only be logged after `then` has been called and has resolved the value."
+      }
+    ],
+    "explanation": "`await thenable` wraps the object in a new promise, and resolving that promise with a thenable queues a NewPromiseResolveThenableJob. The synchronous code finishes first (`sync end`). The job then calls `thenable.then(resolve, reject)`, which logs `then called`. `resolve(42)` settles the wrapper, and the second call is ignored. The async function resumes and logs `42`.",
+    "reference": "ECMAScript: Await"
+  },
+  {
+    "id": "JSM-PRM-038",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "Consider this polling loop:\n\n```js\nasync function* poll() {\n  try {\n    while (true) {\n      yield await fetchStatus();\n      await sleep(1000);\n    }\n  } finally {\n    console.log('cleanup');\n  }\n}\n\nfor await (const status of poll()) {\n  if (status === 'done') break;\n}\n```\nWhich statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`break` calls the generator's `return()`, so its `finally` block runs and `cleanup` is logged",
+        "why": "Leaving a `for await` loop early closes the iterator, which resumes the generator with a return."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "If the loop body threw an error instead of breaking, `cleanup` would still be logged",
+        "why": "Any abrupt exit from the loop closes the iterator, so `finally` still runs."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The `finally` block runs only if the generator's loop ends by itself",
+        "why": "A generator suspended at `yield` also runs `finally` when `return()` is called."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`break` aborts an in-flight `fetchStatus()` request",
+        "why": "When the body runs, the generator is paused at `yield`, with no fetch in flight. And nothing aborts requests automatically."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`for await` fetches the next status while the loop body is still running",
+        "why": "The loop asks for the next value only after the body finishes, so iterations never overlap."
+      }
+    ],
+    "explanation": "`for await...of` calls `next()`, awaits the result, runs the body, and repeats. On `break`, `return` or `throw` it calls the iterator's `return()` method. For an async generator paused at `yield`, that resumes it as if `return` were written there, so `finally` blocks run. Put cleanup such as closing sockets in `finally`.",
+    "reference": "MDN: for await...of"
+  },
+  {
+    "id": "JSM-PRM-039",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An Express handler fails with an error thrown deep inside `db.query()`. One version of the handler uses `await` throughout, and its stack trace in Node shows `at async getUser` and `at async handler`. Another version, built from `.then()` chains, shows only the frames inside `db.query`. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "V8 rebuilds async stack traces across `await` in async functions, but it can't do the same through plain `.then()` callbacks",
+        "why": "Zero-cost async stack traces follow the chain of suspended async functions."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The `.then()` version was run without source maps, which removes the earlier frames",
+        "why": "Source maps change file positions, not which frames appear."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`Error.captureStackTrace` must be called by hand inside every `.then()` callback",
+        "why": "That only records the current synchronous stack; it can't recover earlier async frames."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Async functions run on the same call stack as their caller, so the frames really are there",
+        "why": "After an `await`, the caller has already returned; V8 rebuilds those frames from the awaiting promises."
+      }
+    ],
+    "explanation": "When an async function is suspended at `await`, V8 can follow the awaiting promise back to the async function that is waiting on it. It uses that to append `at async ...` frames at no runtime cost. A `.then()` callback holds no such link to the code that registered it, so those traces stop at the current microtask. This is a practical reason to prefer `async`/`await` in server code.",
+    "reference": "V8 blog: Faster async functions and promises (zero-cost async stack traces)"
+  },
+  {
+    "id": "JSM-PRM-040",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "What is wrong with this async queue?\n\n```js\nfunction createQueue() {\n  const waiting = [];\n  return {\n    next() {\n      const { promise, resolve } = Promise.withResolvers();\n      waiting.push(resolve);\n      return promise;\n    },\n    push(value) {\n      waiting.shift()?.(value);\n    },\n  };\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`Promise.withResolvers` returns resolvers that can only be called inside `next`",
+        "why": "The resolvers work from anywhere, which is the point of `withResolvers`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Values pushed while no consumer is waiting are silently dropped; it also needs a buffer of pending values",
+        "why": "`push` with an empty `waiting` array calls nothing, so the value is lost."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Consumers can receive values in the wrong order, because `shift` takes from the end of the array",
+        "why": "`shift` takes from the front, so waiting consumers are served first-in, first-out."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Calling `resolve` from a different function makes the promise reject",
+        "why": "Resolve functions fulfil the promise from wherever they are called."
+      }
+    ],
+    "explanation": "This is the \"deferred\" pattern: `withResolvers` gives you `resolve` and `reject` outside the executor. A correct async queue must handle both orders of arrival: consumers waiting before values arrive (the resolver queue) and values arriving before consumers (a value buffer that `next()` drains first). Without the second queue, early values vanish.",
+    "reference": "MDN: Promise.withResolvers()"
+  },
+  {
+    "id": "JSM-PRM-041",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "Module `config.js` contains `export const config = await loadConfig();`. Which statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Modules that import `config.js`, directly or indirectly, don't run until `loadConfig()` settles",
+        "why": "A module with top-level await finishes evaluating only when its awaits settle, and its importers wait."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Writing the same top-level `await` in a CommonJS file is a syntax error",
+        "why": "Top-level await is allowed only in ES modules."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It blocks every module in the app, including ones that never import `config.js`",
+        "why": "Sibling modules that don't depend on it can evaluate while it waits."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`await import(\"./config.js\")` fulfils before `loadConfig()` settles, with `config` still undefined",
+        "why": "Dynamic import waits for the module to finish evaluating, top-level await included."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "If `loadConfig()` rejects, importing modules run anyway with `config` set to `undefined`",
+        "why": "A rejection makes the module's evaluation fail, and importers fail with that error."
+      }
+    ],
+    "explanation": "Top-level await turns a module's evaluation into an asynchronous step in the module graph. Its dependants wait, but independent branches can still run. A rejection propagates as an evaluation error to every importer, including `import()` calls. Use it for genuine startup dependencies, and avoid long awaits in widely imported modules.",
+    "reference": "MDN: await (top-level await)"
+  },
+  {
+    "id": "JSM-PRM-042",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "What is `total`, and roughly how long does this take? `sleep(ms)` returns a promise that fulfils after `ms` milliseconds.\n\n```js\nconst total = await [1, 2, 3].reduce(async (accP, x) => {\n  await sleep(100);\n  const acc = await accP;\n  return acc + x;\n}, 0);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`6`, after about 300 ms, because each step waits for the previous one",
+        "why": "Each step awaits the previous one only after its own sleep, and all three sleeps start together."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`6`, after about 100 ms, because `reduce` starts all three callbacks synchronously and their sleeps overlap",
+        "why": "Every callback begins its 100 ms sleep at once; afterwards the chained awaits resolve almost instantly."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`\"[object Promise]3\"`, because the accumulator is a promise",
+        "why": "`await accP` unwraps the accumulator before adding, so the arithmetic is on numbers."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`NaN`, because the initial value `0` is not a promise and can't be awaited",
+        "why": "`await 0` is fine; awaiting a non-promise just gives back the value."
+      }
+    ],
+    "explanation": "`reduce` calls the async callback three times in one synchronous pass. Each call returns a promise immediately, which becomes the next `accP`. All three sleeps therefore start at about the same moment. After roughly 100 ms each callback awaits the previous one, which is already done or nearly done, so the total is 0 + 1 + 2 + 3 = 6 after about 100 ms. Swap the two `await` lines and the steps become sequential, taking about 300 ms.",
+    "reference": "MDN: Array.prototype.reduce()"
+  },
+  {
+    "id": "JSM-PRM-043",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "You write `async function importAll(files, signal)`, which loops over files: it reads each one, parses it and writes rows to a database. Which changes make `controller.abort()` actually stop the work? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Call `signal.throwIfAborted()` between steps, so the loop stops at the next safe point",
+        "why": "Your own code must check the signal; nothing interrupts a running async function."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Pass `signal` on to every API that accepts one, such as `fetch` and file and stream reads",
+        "why": "Those APIs can stop their own I/O and reject promptly."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Nothing extra: aborting the controller stops any async function that received the signal",
+        "why": "An `AbortSignal` is only an event source. It can't pre-empt running code."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Check whether `signal.aborted` has become a rejected promise before each await",
+        "why": "`signal.aborted` is a boolean flag, not a promise."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Wrap the loop in `Promise.race([work, abortPromise])`, which stops the loop when the abort promise wins",
+        "why": "The race settles early, but the loop keeps reading and writing in the background."
+      }
+    ],
+    "explanation": "Cancellation in JavaScript is cooperative. An `AbortSignal` tells interested code that cancellation was requested. Built-in APIs that accept a signal stop their own operations, and your code must check `signal.aborted` or call `throwIfAborted()` at safe points. Racing against an abort promise only stops the caller from waiting; the work itself carries on.",
+    "reference": "MDN: AbortSignal.throwIfAborted()"
+  },
+  {
+    "id": "JSM-PRM-044",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 4,
+    "type": "order",
+    "select": 1,
+    "stem": "An async function reaches `const v = await p;`, where `p` is a native promise that is still pending. Put what happens in order.",
+    "options": [
+      {
+        "id": "A",
+        "text": "The function resumes in a microtask, and `v` receives the value (or the reason is thrown)"
+      },
+      {
+        "id": "B",
+        "text": "`p` is passed through `PromiseResolve`, which returns it unchanged because it is a native promise"
+      },
+      {
+        "id": "C",
+        "text": "The function is suspended, and control returns to its caller with the function's pending result promise"
+      },
+      {
+        "id": "D",
+        "text": "`p` settles, and a reaction job to resume the function is queued as a microtask"
+      },
+      {
+        "id": "E",
+        "text": "Reactions to resume the function are registered on `p`"
+      }
+    ],
+    "explanation": "`await` first converts its operand with `PromiseResolve`; a native promise is returned as is. It then registers resume reactions with `PerformPromiseThen`, suspends the function and returns to the caller. When `p` settles, the reaction is queued, and when that microtask runs the function continues with the value or throws the reason. Since a 2019 spec change, awaiting a native promise costs a single microtask tick instead of three.",
+    "reference": "ECMAScript: Await",
+    "answerOrder": [
+      "B",
+      "E",
+      "C",
+      "D",
+      "A"
+    ]
+  },
+  {
+    "id": "JSM-PRM-045",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 4,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each chain with how it behaves. `p` is a promise, `f` and `g` are callbacks.",
+    "options": [
+      {
+        "id": "A",
+        "text": "`g` handles rejections of `p` only; an error thrown in `f` is not caught by `g`"
+      },
+      {
+        "id": "B",
+        "text": "`g` handles rejections of `p` and also errors thrown inside `f`"
+      },
+      {
+        "id": "C",
+        "text": "`f` runs after `g` has recovered from a rejection, and receives `g`'s return value"
+      },
+      {
+        "id": "D",
+        "text": "`g` runs either way, and `f` receives `p`'s original value when `p` fulfils"
+      }
+    ],
+    "explanation": "Handler placement decides what each handler can see. A rejection handler in the same `then` as `f` only covers `p`. A `catch` after `f` covers both `p` and `f`. A `catch` before `f` recovers first and feeds `f`. `finally` runs on both paths and passes `p`'s outcome through unless it throws.",
+    "reference": "MDN: Promise.prototype.then()",
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`p.then(f, g)`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`p.then(f).catch(g)`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`p.catch(g).then(f)`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`p.finally(g).then(f)`",
+        "answer": "D"
+      }
+    ]
+  }
+]
