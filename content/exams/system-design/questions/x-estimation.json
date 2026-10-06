@@ -1,0 +1,1270 @@
+[
+  {
+    "id": "SD-EST-011",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "An orders table uses a signed 32-bit integer (`INT`) auto-increment primary key. Roughly how many rows can be inserted before the key overflows?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "About 2.1 billion",
+        "why": "A signed 32-bit integer tops out at 2^31 − 1 = 2,147,483,647."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "About 4.3 billion, the full range of 32 bits",
+        "why": "2^32 ≈ 4.3 billion is the unsigned range. A signed type spends one bit on the sign, which halves the positive range."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "About 2.1 million, which is why big tables need 64-bit keys",
+        "why": "That is off by a factor of 1,000. 2^31 is billions, not millions."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 9.2 quintillion, so overflow is never a practical concern",
+        "why": "9.2 × 10^18 is the limit of a signed 64-bit `BIGINT`, not a 32-bit `INT`."
+      }
+    ],
+    "explanation": "2^10 ≈ 10^3, so 2^31 = 2 × 2^30 ≈ 2 × 10^9. A service inserting 1,000 rows per second exhausts that in about 2.1 × 10^9 / (1,000 × 86,400) ≈ 25 days. Many real outages came from exactly this, so high-volume tables use `BIGINT` keys from day one, and migrating a live key column later is slow and risky.",
+    "reference": "PostgreSQL docs: Numeric Types"
+  },
+  {
+    "id": "SD-EST-012",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A product reports usage per month, but capacity planning needs per-second rates. About how many seconds are in a 30-day month?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 260,000 seconds, so divide monthly totals by 2.6 × 10^5",
+        "why": "That drops a factor of 10: 86,400 × 30 is 2.59 million, not 259,000."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "About 2.6 million seconds",
+        "why": "86,400 seconds per day × 30 days = 2,592,000 ≈ 2.6 × 10^6."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "About 31.5 million seconds, the usual divisor for rates",
+        "why": "31.5 million (3.15 × 10^7) is the number of seconds in a year, not a month."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 864,000 seconds, ten times the length of a day",
+        "why": "864,000 seconds is 10 days. A month is about three times that."
+      }
+    ],
+    "explanation": "Useful anchors: a day is 86,400 s (≈ 10^5), a month is ≈ 2.6 × 10^6 s, and a year is ≈ 3.15 × 10^7 s. So 100 million events per month is about 100 × 10^6 / 2.6 × 10^6 ≈ 40 per second on average.",
+    "reference": "Alex Xu, System Design Interview, ch. 2"
+  },
+  {
+    "id": "SD-EST-013",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "A fully dedicated 1 Gbps network link can copy a 1 GB file in about one second.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "This confuses bits with bytes. 1 Gbps is a billion bits per second, which is only 125 megabytes per second."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "1 GB is 8 gigabits, so even at full line rate the copy takes about 8 seconds, and protocol overhead makes it a little longer."
+      }
+    ],
+    "explanation": "Network speeds are quoted in bits per second; file and disk sizes in bytes. Divide link speed by 8: 1 Gbps ≈ 125 MB/s, 10 Gbps ≈ 1.25 GB/s. Mixing the two is the most common estimation slip, and it is always off by exactly 8×.",
+    "reference": "Latency and bandwidth numbers (Jeff Dean)"
+  },
+  {
+    "id": "SD-EST-014",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A checkout page in Europe calls a fraud service hosted in California four times, one call after another, over an already-open connection. The round-trip time between the regions is about 150 ms and the service itself responds instantly. What is the minimum time those calls add to the page?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 150 ms, because the round trips overlap on the open connection",
+        "why": "That would only be true if the calls ran in parallel. Sequential calls each wait for the previous answer."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "About 2 ms, since each call is only a small request and response",
+        "why": "Payload size barely matters here. Distance sets the floor, and 2 ms is a same-region round trip."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "About 600 ms",
+        "why": "Four sequential round trips at 150 ms each is 4 × 150 = 600 ms before any processing time."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 1.2 s, because each call travels there and back once more",
+        "why": "The 150 ms figure is already a round trip, so it should not be doubled."
+      }
+    ],
+    "explanation": "Cross-continent round trips are bounded by the speed of light in fibre, so they can't be optimised away, only avoided. Batch the four calls into one, run them in parallel, or move the service closer: any of these cuts the cost to roughly one round trip.",
+    "reference": "Latency numbers every programmer should know"
+  },
+  {
+    "id": "SD-EST-015",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "A service has 100 million users, and each user has a 1 KB profile record (use 1 KB = 1,000 bytes). About how many gigabytes do all the profiles take before replication? Type the number of gigabytes.",
+    "options": [],
+    "accepted": [
+      "100",
+      "100 GB",
+      "100GB",
+      "100 gigabytes"
+    ],
+    "explanation": "100 × 10^6 users × 10^3 bytes = 10^11 bytes = 100 GB. That fits in the memory of one large server, which is often the key insight: the whole user table can be cached. With 3× replication the stored total is 300 GB.",
+    "reference": "Alex Xu, System Design Interview, ch. 2"
+  },
+  {
+    "id": "SD-EST-016",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A video plays at a steady 4 Mbps. About how much data does one viewer download in one hour of watching?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 14.4 GB, since 4 × 3,600 is 14,400",
+        "why": "14,400 is megabits, not megabytes. Dividing by 8 is the missing step."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "About 1.8 GB",
+        "why": "4 Mb/s × 3,600 s = 14,400 Mb, and 14,400 / 8 = 1,800 MB ≈ 1.8 GB."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "About 30 MB, the amount moved during one minute",
+        "why": "4 × 60 / 8 = 30 MB is a single minute of playback, not an hour."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 225 MB, after converting from bits to bytes",
+        "why": "That divides by 8 twice (14,400 / 64). The conversion only applies once."
+      }
+    ],
+    "explanation": "Work in one unit throughout: rate × time gives megabits, then divide by 8 for megabytes. 1.8 GB per viewer-hour is also why streaming services measure CDN egress in petabytes per day.",
+    "reference": "Latency and bandwidth numbers (Jeff Dean)"
+  },
+  {
+    "id": "SD-EST-017",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A back-of-the-envelope estimate shows an API averages 3,000 requests per second over a day. Which number should drive how many servers you provision?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The 3,000 average itself, since autoscaling will add capacity for any surge",
+        "why": "Autoscaling reacts in minutes, and a daily average hides the busy hours entirely."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The daily request total divided by 24, giving the requests handled per hour",
+        "why": "That is the same average expressed per hour. It still says nothing about the peak."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The median request latency, which tells you how long each server is occupied",
+        "why": "Latency matters for concurrency, but it does not tell you how much traffic arrives at the busiest time."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "The expected peak rate, often 2–3× the average or more, plus headroom",
+        "why": "Systems fail at peak, not on average, so capacity is sized for the busiest period with spare room for failures."
+      }
+    ],
+    "explanation": "Traffic follows daily cycles, launches and events, so peaks of 2–3× the daily average are normal, and much higher for events. Size for peak, then add headroom for a lost zone or instance and for traffic growth.",
+    "reference": "Google SRE Book, ch. 21 Handling Overload"
+  },
+  {
+    "id": "SD-EST-018",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which simplifications are standard and acceptable in an interview estimate? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Rounding the 86,400 seconds in a day to about 10^5",
+        "why": "It keeps the arithmetic mental and errs by only about 14%, which you can mention and move on from."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Treating 2^10 (1,024) as 10^3, so 2^30 is about a billion",
+        "why": "The error is under 10% per step and makes powers of two easy to convert."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Leaving out the replication factor because it is an implementation detail",
+        "why": "Replication multiplies storage and write bandwidth by 3× or more, which is far too large to ignore."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Sizing servers on the daily average rate, since peaks smooth out over time",
+        "why": "Capacity must cover the peak, which is commonly 2–3× the average."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Treating Mbps and MB/s as the same unit, because both describe bandwidth",
+        "why": "They differ by a factor of 8, which can turn a comfortable plan into an overloaded one."
+      }
+    ],
+    "explanation": "Good estimates round aggressively where the error is small and say so, but keep every multiplier that changes the answer by an order of magnitude: peak factor, replication, bits versus bytes, and retention.",
+    "reference": "Alex Xu, System Design Interview, ch. 2"
+  },
+  {
+    "id": "SD-EST-019",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 1,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the steps of a typical capacity estimate in the order you would work through them in an interview.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Agree the scale assumptions: daily active users and actions per user"
+      },
+      {
+        "id": "B",
+        "text": "Turn daily actions into an average requests-per-second figure"
+      },
+      {
+        "id": "C",
+        "text": "Apply a peak factor to get the rate the system must handle at its busiest"
+      },
+      {
+        "id": "D",
+        "text": "Multiply item size by volume, retention and replication to get storage"
+      },
+      {
+        "id": "E",
+        "text": "Divide peak load and storage by per-machine capacity to get a server count"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "Each step feeds the next: assumptions give daily volume, volume gives average QPS, the peak factor gives design load, and size × retention × replication gives storage. Only then can you divide by what one machine handles. State the assumptions out loud so the interviewer can correct them early.",
+    "reference": "Alex Xu, System Design Interview, ch. 2"
+  },
+  {
+    "id": "SD-EST-020",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A messaging app has 500 million daily active users. Each sends 40 messages per day, and a stored message averages 100 bytes. About how much new message data arrives per day, and what is the average send rate?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 2 TB per day at an average of roughly 23,000 messages per second",
+        "why": "The storage is right, but 20 billion / 86,400 is about 231,000, not 23,000. A zero went missing."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "About 20 TB per day at an average of roughly 230,000 messages per second",
+        "why": "20 TB assumes 1 KB per message. The stem says 100 bytes."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "About 2 TB per day at an average of roughly 230,000 messages per second",
+        "why": "500M × 40 = 20 billion messages × 100 B = 2 TB, and 2 × 10^10 / 86,400 ≈ 231,000 per second."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 200 GB per day at an average of roughly 2.3 million messages per second",
+        "why": "Both numbers are off by 10× in opposite directions, a sign of a slipped exponent."
+      }
+    ],
+    "explanation": "Messages per day: 5 × 10^8 × 40 = 2 × 10^10. Storage: 2 × 10^10 × 100 B = 2 × 10^12 B = 2 TB per day, about 730 TB per year before replication. Rate: 2 × 10^10 / 8.64 × 10^4 ≈ 2.3 × 10^5 per second on average, with peaks several times higher.",
+    "reference": "Alex Xu, System Design Interview, ch. 12 (chat system)"
+  },
+  {
+    "id": "SD-EST-021",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A photo-sharing service receives 2 million uploads per day. Each original averages 2 MB, and the resized thumbnails for it add 0.5 MB more. Everything is stored with 3× replication. About how much storage does one year of uploads need?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 1.8 PB, counting both originals and thumbnails",
+        "why": "That is 2.5 MB × 2M × 365 with no replication. The 3× copies are missing."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "About 4.4 PB, counting originals with replication",
+        "why": "That leaves out the 0.5 MB of thumbnails per photo: 2 MB × 3 × 2M × 365."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "About 5.5 PB",
+        "why": "2.5 MB × 3 = 7.5 MB per photo, × 2M = 15 TB per day, × 365 ≈ 5.5 PB."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 1.5 PB, counting originals at 2 MB each",
+        "why": "That counts only originals and no replication: 2 MB × 2M × 365 = 1.46 PB."
+      }
+    ],
+    "explanation": "Per photo: (2 + 0.5) MB × 3 replicas = 7.5 MB. Per day: 7.5 MB × 2 × 10^6 = 15 × 10^6 MB = 15 TB. Per year: 15 TB × 365 = 5,475 TB ≈ 5.5 PB. Erasure coding or tiering older photos to cold storage are the usual ways to bring this down.",
+    "reference": "Alex Xu, System Design Interview, ch. 2"
+  },
+  {
+    "id": "SD-EST-022",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "A thread-per-request server has a pool of 200 worker threads. Each request holds a thread for 40 ms on average. What is the maximum throughput the pool can sustain, in requests per second? Type the number only.",
+    "options": [],
+    "accepted": [
+      "5000",
+      "5,000",
+      "5000 rps",
+      "5,000 rps"
+    ],
+    "explanation": "By Little's Law, concurrency = throughput × time in system, so throughput = 200 / 0.040 s = 5,000 requests per second. Beyond that, requests queue for a free thread and latency climbs. Halving the time a request holds a thread doubles the ceiling without adding threads.",
+    "reference": "Little's Law (Little, 1961)"
+  },
+  {
+    "id": "SD-EST-023",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A ride-hailing app has 1 million drivers online at peak. Each driver's phone sends a location update every 4 seconds, and an update is about 100 bytes. What are the peak write rate and the data volume over a day if peak load lasted all day?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 4 million writes per second and about 34.6 TB per day",
+        "why": "That multiplies by the 4-second interval instead of dividing by it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "About 250,000 writes per second and about 2.2 TB per day",
+        "why": "1M / 4 s = 250,000 per second × 100 B = 25 MB/s, and 25 MB/s × 86,400 s ≈ 2.16 TB."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "About 250,000 writes per second and about 21.6 TB per day",
+        "why": "The rate is right, but 25 MB/s × 86,400 is 2.16 million MB (2.16 TB), not 21.6 TB."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 250,000 writes per second and about 2.2 GB per day",
+        "why": "2.16 million megabytes is 2.16 terabytes. The unit was downgraded by 1,000."
+      }
+    ],
+    "explanation": "Rate: 10^6 / 4 = 2.5 × 10^5 updates per second. Bandwidth: 2.5 × 10^5 × 100 B = 2.5 × 10^7 B/s = 25 MB/s. Daily volume: 25 MB/s × 86,400 s ≈ 2.16 × 10^6 MB ≈ 2.2 TB. The write rate, not the volume, is the hard part, which is why location services keep the latest position in memory and sample history.",
+    "reference": "Grokking the System Design Interview: Uber"
+  },
+  {
+    "id": "SD-EST-024",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A social network uses fan-out-on-write: when someone posts, the post's 8-byte ID is pushed into the cached home timeline of every follower. An account with 50 million followers posts once. Which statements are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "That single post triggers 50 million timeline inserts, about 400 MB of IDs",
+        "why": "One insert per follower: 5 × 10^7 × 8 B = 4 × 10^8 B = 400 MB."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "At 1 million inserts per second across the cluster, delivery takes about 50 seconds",
+        "why": "5 × 10^7 / 10^6 = 50 s, which is why celebrity posts are usually merged in at read time instead."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The fan-out writes about 4 GB of IDs, so it needs a dedicated storage cluster",
+        "why": "That is 10× too high: 50 million × 8 bytes is 400 MB."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "With fan-out-on-read the same post would cost 50 million reads as soon as it is published",
+        "why": "Fan-out-on-read does no work at publish time. Each reader pulls the post when they open their timeline."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Fan-out-on-write makes posts from huge accounts cheaper than posts from small accounts",
+        "why": "Write cost grows with follower count, so huge accounts are the most expensive case."
+      }
+    ],
+    "explanation": "Fan-out-on-write makes reads cheap but makes the write cost proportional to follower count. Systems such as Twitter's timeline use a hybrid: push for ordinary accounts, pull for accounts above a follower threshold, then merge at read time.",
+    "reference": "Alex Xu, System Design Interview, ch. 11 (news feed)"
+  },
+  {
+    "id": "SD-EST-025",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "You plan to keep 100 million session entries in Redis. Each key is about 20 bytes and each value about 100 bytes, so the raw data is 100M × 120 B = 12 GB. How much memory should you plan for?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Less than 12 GB, because Redis compresses string values in memory by default",
+        "why": "Redis doesn't compress string values. Compact encodings apply only to small hashes, lists and sets, and they don't shrink plain keys."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Noticeably more than 12 GB, often 1.5–2×, then check it with a sample load",
+        "why": "Each entry carries fixed overhead (hash-table slot, object and string headers, pointers), and the allocator adds fragmentation."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Exactly 12 GB, since Redis stores keys and values as raw bytes with no extra cost",
+        "why": "Every key also needs dictionary and object metadata, tens of bytes per entry, which is significant for small values."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 120 GB, because Redis Cluster stores each key on every one of its shards",
+        "why": "Redis Cluster places each key on exactly one shard. Replicas are separate copies you size on top."
+      }
+    ],
+    "explanation": "For small values, per-key overhead dominates: tens of bytes of bookkeeping per entry on a 120-byte payload is easily +50%, and allocator fragmentation adds more. Load a sample, measure with `INFO memory` or `MEMORY USAGE`, and extrapolate. Replicas then double or triple the total.",
+    "reference": "Redis docs: Memory optimization"
+  },
+  {
+    "id": "SD-EST-026",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In a single-leader database, going from one to two asynchronous replicas roughly doubles both the read capacity and the write capacity of the system.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Reads can spread over replicas, but every write still goes through the one leader and is then copied to every replica."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Replicas add read capacity only. Write capacity is bounded by the leader, and each replica must apply every write too."
+      }
+    ],
+    "explanation": "Replication scales reads; partitioning (sharding) scales writes. When an estimate shows write load beyond one leader's capacity, adding replicas won't help: you need to split the data so different leaders own different keys.",
+    "reference": "Kleppmann, DDIA, ch. 5–6"
+  },
+  {
+    "id": "SD-EST-027",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 2,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each quantity with its approximate size.",
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Seconds in a year",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "2^32, the range of an unsigned 32-bit integer",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Bytes in one tebibyte (2^40)",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Requests per day at a steady 1,000 requests per second",
+        "answer": "D"
+      }
+    ],
+    "options": [
+      {
+        "id": "A",
+        "text": "About 3.2 × 10^7"
+      },
+      {
+        "id": "B",
+        "text": "About 4.3 × 10^9"
+      },
+      {
+        "id": "C",
+        "text": "About 1.1 × 10^12"
+      },
+      {
+        "id": "D",
+        "text": "About 8.6 × 10^7"
+      },
+      {
+        "id": "E",
+        "text": "About 1.1 × 10^15"
+      }
+    ],
+    "explanation": "365 × 86,400 ≈ 3.15 × 10^7. 2^32 = 4,294,967,296 ≈ 4.3 × 10^9. 2^40 = 1,099,511,627,776 ≈ 1.1 × 10^12 (2^50 would be about 1.1 × 10^15). 1,000 × 86,400 = 8.64 × 10^7. Knowing these anchors lets you move between per-second, per-day and per-year figures without a calculator.",
+    "reference": "Alex Xu, System Design Interview, ch. 2"
+  },
+  {
+    "id": "SD-EST-028",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A video platform receives about 500 hours of new video every minute. Uploaded source files average about 1 GB per hour of video. What ingest bandwidth does upload traffic need on average?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 8.3 Gbps, since 500 GB per minute is 8.3 GB per second",
+        "why": "8.3 is gigabytes per second. In bits that is about 67 gigabits per second."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "About 0.14 GB per second, spreading 500 GB across an hour",
+        "why": "500 GB arrives every minute, so divide by 60 seconds, not 3,600."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "About 67 Gbps",
+        "why": "500 GB per minute / 60 = 8.33 GB/s, and × 8 bits ≈ 66.7 Gbps."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 4,000 Gbps, which needs dozens of 100G links",
+        "why": "That treats 500 GB as arriving every second instead of every minute (500 × 8 = 4,000)."
+      }
+    ],
+    "explanation": "500 h/min × 1 GB/h = 500 GB/min. Per second: 500 / 60 ≈ 8.33 GB/s. In bits: 8.33 × 8 ≈ 67 Gbps on average. Transcoding into several resolutions then multiplies the stored bytes, and viewing egress is orders of magnitude larger than ingest.",
+    "reference": "Alex Xu, System Design Interview, ch. 14 (YouTube)"
+  },
+  {
+    "id": "SD-EST-029",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A search typeahead serves 10 million daily users who each run 5 searches a day, typing about 8 characters per search. The client debounces keystrokes, which halves the number of requests sent. The busiest hour runs at 2× the daily average. What peak request rate should the typeahead service handle?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 9,300 requests per second at peak",
+        "why": "That ignores the debounce: 400M keystrokes / 86,400 × 2 ≈ 9,260."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "About 1,160 requests per second at peak",
+        "why": "That counts one request per search, but typeahead fires as the user types, not just once per search."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "About 2,300 requests per second at peak",
+        "why": "That is the daily average after debouncing. The 2× peak factor was left out."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "About 4,600 requests per second at peak",
+        "why": "10M × 5 × 8 × 0.5 = 200M requests per day, / 86,400 ≈ 2,315 on average, × 2 ≈ 4,630."
+      }
+    ],
+    "explanation": "Typeahead traffic scales with keystrokes, not searches: 10^7 × 5 × 8 = 4 × 10^8 keystrokes, halved by debouncing to 2 × 10^8 requests. That is 2 × 10^8 / 86,400 ≈ 2,315 per second on average and about 4,630 at a 2× peak. Browser caching of prefixes cuts it further.",
+    "reference": "Alex Xu, System Design Interview, ch. 13 (autocomplete)"
+  },
+  {
+    "id": "SD-EST-030",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A logging pipeline collects from 2,000 servers. Each emits 500 log lines per second of about 200 bytes. Lines go to Kafka with replication factor 3 and 7-day retention. About how much Kafka disk does retention need across the cluster?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "About 360 TB",
+        "why": "1M lines/s × 200 B = 200 MB/s, × 604,800 s ≈ 121 TB, × 3 replicas ≈ 363 TB."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "About 121 TB, which is seven days of 200 MB/s ingest",
+        "why": "That is one copy. With replication factor 3, every byte is stored three times."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "About 52 TB, which is one day of ingest with all three replicas",
+        "why": "That covers one day. Retention is seven days, so multiply by 7."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 2.9 PB, converting the 200 MB/s ingest rate into bits",
+        "why": "Disk is sized in bytes. Multiplying by 8 here is a bits-versus-bytes slip."
+      }
+    ],
+    "explanation": "Ingest: 2,000 × 500 = 10^6 lines/s × 200 B = 200 MB/s. Seven days is 604,800 s, so 200 MB/s × 604,800 ≈ 1.21 × 10^8 MB ≈ 121 TB per copy, and 363 TB with three replicas. Add headroom (disks should not run near full) and compression savings, which for logs are often 5–10×.",
+    "reference": "Apache Kafka docs: Replication; retention.ms"
+  },
+  {
+    "id": "SD-EST-031",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "An API must handle 50,000 requests per second at peak. Each request uses 20 ms of CPU time, servers have 16 cores, and the team targets 50% CPU at peak. Traffic is spread over three availability zones, and the service must survive losing one zone. Which statements are correct? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "One server can process about 800 requests per second at 100% CPU",
+        "why": "Each core handles 1,000 ms / 20 ms = 50 requests per second, and 16 cores × 50 = 800."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "At the 50% CPU target, peak traffic needs about 125 servers",
+        "why": "50% of 800 is 400 per server, and 50,000 / 400 = 125."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "To survive a zone loss, provision about 188 servers, 63 in each zone",
+        "why": "The two surviving zones must carry all 125 servers' worth of load, so each zone needs 62.5: 1.5 × 125 ≈ 188 in total."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 63 servers are enough, since 50,000 / 800 = 62.5",
+        "why": "That runs every server at 100% CPU with no headroom and no zone redundancy."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "One server handles about 8,000 requests per second, because 16 × 1,000 / 20 = 800 per core",
+        "why": "16 × 1,000 / 20 is 800 for the whole server, not per core. The answer is off by 10×."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "A 20 ms request means each server handles only 50 requests per second",
+        "why": "That is the throughput of one core. It forgets that the server runs 16 requests in parallel."
+      }
+    ],
+    "explanation": "CPU-bound capacity: cores × (1 s / CPU time per request) = 16 × 50 = 800 rps. A 50% target leaves room for spikes and slower requests: 400 rps per server, so 125 servers. With N zones and N − 1 surviving, provision N/(N − 1) of that: 125 × 3/2 ≈ 188.",
+    "reference": "Google SRE Workbook, ch. 11 Managing Load"
+  },
+  {
+    "id": "SD-EST-032",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A service runs on 20 instances, each with a database connection pool capped at 10. At its peak of 3,000 requests per second, each request holds a connection for 15 ms. During a database slowdown, queries take 150 ms instead, and traffic stays at 3,000 requests per second. What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing changes: about 45 connections are in use, well under the 200 available",
+        "why": "45 is the normal figure (3,000 × 0.015). The slowdown multiplies hold time by 10."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "About 450 connections are needed but only 200 exist, so throughput caps near 1,300 rps and the rest queue",
+        "why": "3,000 × 0.15 = 450 needed, and 200 connections / 0.15 s ≈ 1,333 rps is the most the pools can carry."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "About 450 connections are needed, and each pool grows to absorb the slowdown",
+        "why": "A capped pool doesn't grow. Requests wait for a connection or time out."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 4,500 connections are needed, so the database rejects new connections",
+        "why": "That slips a factor of 10: 3,000 × 0.15 is 450."
+      }
+    ],
+    "explanation": "Little's Law gives the connections in use: L = λ × W. Normally 3,000 × 0.015 = 45. During the slowdown 3,000 × 0.15 = 450, but the cap is 20 × 10 = 200, so throughput is limited to 200 / 0.15 ≈ 1,333 rps and requests pile up waiting for connections. A slower dependency raises the concurrency needed at the same traffic, which is why timeouts and load shedding matter.",
+    "reference": "Little's Law; HikariCP: About Pool Sizing"
+  },
+  {
+    "id": "SD-EST-033",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A URL shortener issues codes from the alphabet `[a-zA-Z0-9]` (62 characters). It must support 1,000 new links per second for 10 years without ever reusing a code. What is the shortest fixed code length that is enough?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "6 characters, since 62^6 is about 57 billion codes",
+        "why": "57 billion covers about one year at 1,000 per second (3.2 × 10^10), but ten years needs 3.2 × 10^11."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "7 characters",
+        "why": "Ten years is 3.15 × 10^11 links, and 62^7 ≈ 3.5 × 10^12 covers that with about 10× to spare."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "8 characters, to leave room for a checksum character",
+        "why": "Eight is more than the requirement asks for. 62^7 already covers ten years about ten times over."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "11 characters, the length of a 64-bit number written in base 62",
+        "why": "A 64-bit ID needs 11 base-62 characters, but the requirement only needs about 3 × 10^11 codes."
+      }
+    ],
+    "explanation": "Links needed: 1,000 × 86,400 × 365 × 10 ≈ 3.15 × 10^11. Capacity: 62^6 ≈ 5.7 × 10^10 (too small), 62^7 ≈ 3.5 × 10^12 (enough). A common slip is sizing for one year instead of the full retention period.",
+    "reference": "Alex Xu, System Design Interview, ch. 8 (URL shortener)"
+  },
+  {
+    "id": "SD-EST-034",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "Put these data volumes in order from smallest to largest (use decimal units: 1 GB = 10^9 bytes).",
+    "options": [
+      {
+        "id": "A",
+        "text": "One fully used 1 Gbps link running for one day"
+      },
+      {
+        "id": "B",
+        "text": "2^40 bytes"
+      },
+      {
+        "id": "C",
+        "text": "100 million user records of 1 KB each"
+      },
+      {
+        "id": "D",
+        "text": "One year of logs written at 1,000 lines per second, 1 KB per line"
+      },
+      {
+        "id": "E",
+        "text": "One hour of a 5 Mbps video stream"
+      }
+    ],
+    "answerOrder": [
+      "E",
+      "C",
+      "B",
+      "A",
+      "D"
+    ],
+    "explanation": "5 Mbps × 3,600 s / 8 = 2.25 GB. 10^8 × 1 KB = 100 GB. 2^40 ≈ 1.1 TB. 1 Gbps = 125 MB/s × 86,400 s ≈ 10.8 TB. 1,000 × 1 KB = 1 MB/s × 3.15 × 10^7 s ≈ 31.5 TB. Steady small streams add up: a modest log rate outgrows a saturated network link over a year.",
+    "reference": "Latency and bandwidth numbers (Jeff Dean)"
+  },
+  {
+    "id": "SD-EST-035",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A storage system holds 1 PB of logical data. It can use either 3× replication or Reed–Solomon erasure coding with 10 data and 4 parity fragments, RS(10,4). For RS(10,4), how much raw capacity is needed, and how many lost fragments of a stripe can it tolerate?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "1.4 PB of raw capacity, and any 4 of the 14 fragments can be lost",
+        "why": "Overhead is 14/10 = 1.4×, and any 10 of the 14 fragments rebuild the data."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "1.4 PB of raw capacity, but it tolerates only one lost fragment",
+        "why": "Single-fault tolerance describes simple parity like RAID 5. Four parity fragments tolerate four losses."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "About 0.71 PB of raw capacity, since only 10 of 14 parts store data",
+        "why": "That inverts the ratio. Parity adds capacity on top of the data, so raw exceeds logical."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "14 PB of raw capacity, because each fragment is a full copy of the data",
+        "why": "Each fragment holds 1/10 of a stripe, not a full copy."
+      }
+    ],
+    "explanation": "RS(k, m) splits data into k fragments plus m parity fragments, and any k of the k + m rebuild it. RS(10,4) stores 1.4× the data and survives 4 losses, while 3× replication stores 3× and survives 2. The price is rebuild cost and latency: reconstructing one fragment reads 10 others, which is why hot data often stays replicated.",
+    "reference": "Huang et al., Erasure Coding in Windows Azure Storage (USENIX ATC 2012)"
+  },
+  {
+    "id": "SD-EST-036",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A news site averages 2,000 requests per second. A breaking story can drive traffic to 10× within two minutes, but adding capacity through autoscaling takes about five minutes. A CDN serves 95% of requests from cache when the content is cacheable. Which statements are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The spike arrives before scaling finishes, so the origin needs pre-provisioned headroom or load shedding",
+        "why": "Traffic reaches 20,000 requests per second in two minutes, three minutes before new capacity is ready."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "With a 95% CDN hit ratio, origin load at the 20,000 requests-per-second peak is about 1,000",
+        "why": "Only the 5% of misses reach the origin: 20,000 × 0.05 = 1,000."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Autoscaling on 15-minute average CPU will react in time to protect the origin",
+        "why": "A 15-minute average barely moves in two minutes, so scaling would start far too late."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Provisioning for 2× the average is enough, because clients retry failed requests",
+        "why": "Retries add load during the spike. 2× covers 4,000 of the 20,000 requests per second."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The origin still sees all 20,000 requests per second, because CDNs only cache static images",
+        "why": "CDNs cache any cacheable response, including HTML pages with suitable headers."
+      }
+    ],
+    "explanation": "Size for the shape of the spike, not just its height: if the ramp is faster than scaling, you need standing headroom, edge caching or load shedding. Keeping a high CDN hit ratio, through short TTLs with stale-while-revalidate and request coalescing, turns a 20,000 rps spike into about 1,000 rps at the origin.",
+    "reference": "Google SRE Book, ch. 22 Addressing Cascading Failures"
+  },
+  {
+    "id": "SD-EST-037",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 3,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "If a fleet's average CPU utilization at peak is 50%, the fleet can safely absorb a doubling of peak traffic.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "At 100% utilization queues grow without bound, and load is never perfectly even across hosts."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Queueing delay rises steeply as utilization nears 100%, and the busiest hosts hit their limit well before the average does."
+      }
+    ],
+    "explanation": "Latency scales roughly with 1 / (1 − utilization), so going from 50% to near 100% multiplies queueing delay many times over. Imbalance between hosts, garbage-collection pauses and slower dependencies all eat into nominal headroom. That is why teams set a utilization ceiling well below 100% and load-test the real limit.",
+    "reference": "Google SRE Workbook, ch. 11 Managing Load"
+  },
+  {
+    "id": "SD-EST-038",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A single-threaded service has a mean service time of 10 ms, with random arrivals and service times (model it as M/M/1). Traffic grows from 50% to 90% utilization, an increase of 1.8×. How does the mean response time change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It grows in step with load, from about 20 ms to about 36 ms",
+        "why": "Queueing delay is not linear in load. It grows with 1 / (1 − ρ)."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It stays at about 10 ms until the server reaches 100% utilization",
+        "why": "Random arrivals collide long before 100%, so requests wait in a queue at any utilization."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "It goes from 20 ms to 100 ms, five times higher",
+        "why": "M/M/1 mean response time is S / (1 − ρ): 10 / 0.5 = 20 ms and 10 / 0.1 = 100 ms."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It doubles from 20 ms to 40 ms, because the queue is roughly twice as long",
+        "why": "At 90% the mean queue length is ρ / (1 − ρ) = 9 versus 1 at 50%, nine times longer."
+      }
+    ],
+    "explanation": "For M/M/1, R = S / (1 − ρ). At ρ = 0.5, R = 2S = 20 ms; at ρ = 0.9, R = 10S = 100 ms; at ρ = 0.95, R = 200 ms. A 1.8× rise in load gives a 5× rise in latency. The curve's hockey-stick shape is the reason for the utilization ceilings in capacity planning.",
+    "reference": "Harchol-Balter, Performance Modeling and Design of Computer Systems"
+  },
+  {
+    "id": "SD-EST-039",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A batch job sorts 10 TB of records on 100 machines. Data starts evenly spread. Each record is read from local disk once, sent over the network once, and written to local disk once. Each machine has one disk that sustains 200 MB/s, shared between reads and writes, and a 10 Gbps full-duplex NIC; network transfers overlap fully with disk I/O. Roughly how long does the job take?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 80 seconds, because each machine sends 100 GB at 1.25 GB/s",
+        "why": "That is only the network time, which is hidden behind the much slower disk."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "About 8 minutes, because each machine reads 100 GB at 200 MB/s",
+        "why": "That forgets the write, which shares the same disk bandwidth."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "About 17 minutes, because each disk moves 200 GB (read plus write) at 200 MB/s",
+        "why": "Disk is the bottleneck: 200 GB ÷ 0.2 GB/s = 1,000 s."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 14 hours, because 10 TB at 200 MB/s takes 50,000 seconds",
+        "why": "That assumes a single disk; the work is spread across 100 machines."
+      }
+    ],
+    "explanation": "Each machine holds 10 TB ÷ 100 = 100 GB. It must read 100 GB and write 100 GB on the same 200 MB/s disk: 200 GB ÷ 0.2 GB/s = 1,000 s ≈ 17 minutes. Its network share is 100 GB ÷ 1.25 GB/s = 80 s, which overlaps with disk I/O. To speed up the sort, add disks or machines; a faster network won't help. Find the slowest resource per machine and divide the bytes it must move by its bandwidth.",
+    "reference": "Dean, Numbers Everyone Should Know; MapReduce (OSDI 2004)"
+  },
+  {
+    "id": "SD-EST-040",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "An analytics service must report the number of distinct users per day, and each day sees about 1 billion distinct 64-bit user IDs. Which statements are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "An exact count with a set of 64-bit IDs needs at least 8 GB per day before data-structure overhead",
+        "why": "10^9 IDs × 8 bytes = 8 GB, and a hash set's pointers and empty slots typically add 2× or more."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A Redis HyperLogLog uses about 12 KB per counter with a standard error of about 0.81%, whatever the cardinality",
+        "why": "HyperLogLog's memory is fixed by its register count, not by the number of distinct items."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "HyperLogLog counters for different days can't be combined, so weekly uniques need a separate pass",
+        "why": "HLLs merge losslessly (Redis `PFMERGE`), so a weekly count is the merge of seven daily ones."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A bitmap with one bit per possible 64-bit ID is the cheapest exact option",
+        "why": "2^64 bits is about 2 exabytes. Bitmaps work only for dense, small ID ranges."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "HyperLogLog error grows in proportion to the cardinality, so it suits only small sets",
+        "why": "Its relative error is constant (about 1.04 / √m), so it suits huge sets best."
+      }
+    ],
+    "explanation": "Exact distinct counts cost memory in proportion to cardinality: 8 GB per day of raw IDs, and more for a hash set. HyperLogLog trades a fixed ~0.81% relative error for a fixed 12 KB per counter, and counters merge for any union of days, segments or regions.",
+    "reference": "Redis docs: HyperLogLog; Flajolet et al. (2007)"
+  },
+  {
+    "id": "SD-EST-041",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Kafka cluster spans three availability zones, with partition leaders and producers spread evenly across them. Producers write 200 MB/s in total, the replication factor is 3 with one replica per zone, and three consumer groups each read the full stream from partition leaders. About how much cross-zone traffic does this create, and what removes the most of it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 400 MB/s, all from replication; consumers and producers always stay within their own zone",
+        "why": "Producers and consumers reach the leader, which is in another zone two-thirds of the time."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "About 1.8 GB/s, because every byte is sent to all three zones by every party",
+        "why": "That double-counts. Each path crosses zones only when the two ends are in different zones."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "About 930 MB/s, and lowering the replication factor to 2 removes the most of it",
+        "why": "Replication factor 2 saves 200 MB/s but loses zone fault tolerance. Fetching from same-zone followers saves twice as much."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "About 930 MB/s, and letting consumers fetch from same-zone followers removes about 400 MB/s",
+        "why": "133 MB/s producing + 400 MB/s replicating + 400 MB/s consuming, and rack-aware follower fetching eliminates the consumer share."
+      }
+    ],
+    "explanation": "Producers: 200 MB/s, with 2/3 landing in another zone, gives 133 MB/s. Replication: each leader sends two copies to followers in the other zones, 400 MB/s. Consumers: 3 × 200 = 600 MB/s, 2/3 cross-zone, 400 MB/s. Total ≈ 933 MB/s. Follower fetching (KIP-392, `client.rack`) serves consumers from a replica in their own zone, cutting cross-zone traffic by about 400 MB/s. Cloud providers bill cross-zone transfer, so this is often a large share of the cluster's cost.",
+    "reference": "Apache Kafka KIP-392: Allow consumers to fetch from closest replica"
+  },
+  {
+    "id": "SD-EST-042",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A storage node with a full 12 TB disk fails. Rebuild option one copies the disk's contents from a single peer at 200 MB/s. Option two places data in small chunks spread over 100 peers, each contributing a throttled 50 MB/s to the rebuild. Roughly how long does each option leave data with reduced redundancy?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 1.7 hours from one peer, and about 4 minutes from 100 peers",
+        "why": "Both figures are 10× too small: 12 TB / 200 MB/s is 60,000 seconds."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "About 17 hours from one peer, and about 10 minutes from 100 peers",
+        "why": "10 minutes assumes each peer gives the full 200 MB/s. At the throttled 50 MB/s it is 40 minutes."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "About 17 hours from one peer, and about 40 minutes from 100 peers",
+        "why": "12 × 10^12 / 2 × 10^8 = 60,000 s ≈ 16.7 h, and 12 × 10^12 / (100 × 5 × 10^7) = 2,400 s = 40 min."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 17 hours either way, because the rebuild must write to a single new disk",
+        "why": "With chunked placement, many nodes each re-replicate a slice of the lost data, so no single disk is the bottleneck."
+      }
+    ],
+    "explanation": "Single source: 12 TB / 200 MB/s = 60,000 s ≈ 16.7 hours with one copy short, during which a second failure could lose data. Declustered placement (as in HDFS, Ceph or GFS) spreads the work: 100 × 50 MB/s = 5 GB/s, so 2,400 s ≈ 40 minutes. A shorter window of vulnerability directly lowers the probability of data loss.",
+    "reference": "Ghemawat et al., The Google File System (SOSP 2003)"
+  },
+  {
+    "id": "SD-EST-043",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 4,
+    "type": "fill",
+    "select": 1,
+    "stem": "A disk serves random reads with a mean service time of 5 ms. Model it as an M/M/1 queue, where mean response time = service time / (1 − utilization). What is the highest utilization, in percent, that keeps the mean response time at or below 25 ms? Type the number only.",
+    "options": [],
+    "accepted": [
+      "80",
+      "80%",
+      "0.8",
+      "80 percent"
+    ],
+    "explanation": "25 = 5 / (1 − ρ), so 1 − ρ = 0.2 and ρ = 0.8, or 80%. With 5 ms per read that is 160 reads per second (0.8 × 200). Above 80% latency climbs steeply: at 90% the mean is 50 ms.",
+    "reference": "Harchol-Balter, Performance Modeling and Design of Computer Systems"
+  },
+  {
+    "id": "SD-EST-044",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Ten API servers each report their p99 latency every minute, and a dashboard averages the ten values into a fleet p99. Nine servers report about 80 ms. One server has a slow disk and reports a p99 of 280 ms, so the dashboard shows (9 × 80 + 280) / 10 = 100 ms. What is wrong with the dashboard number?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "None, because averaging the per-host p99s gives the fleet p99 when hosts are equally weighted",
+        "why": "Percentiles don't average. Even with equal traffic, the mean of percentiles is not the percentile of the combined data."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It should take the maximum of the ten p99s, since the fleet p99 is always the worst host's",
+        "why": "The worst host's p99 bounds only that host. The fleet p99 depends on how much traffic each host serves."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It should use the median of the ten values, which ignores outliers such as the slow host",
+        "why": "Hiding the slow host is the opposite of what a tail metric is for."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Percentiles can't be averaged; merge the per-host latency histograms or sketches, then take the p99",
+        "why": "Only the combined distribution, weighted by each host's traffic, gives a correct fleet percentile."
+      }
+    ],
+    "explanation": "A percentile of combined traffic depends on the whole latency distribution and on how much traffic each host serves, so it cannot be recovered from per-host percentiles by averaging, taking the max or taking the median. The fix is to export histograms (Prometheus buckets, HdrHistogram) or mergeable sketches (t-digest, DDSketch) and compute quantiles over the merged data.",
+    "reference": "Gil Tene, How NOT to Measure Latency; Prometheus docs: Histograms and summaries"
+  },
+  {
+    "id": "SD-EST-045",
+    "domain": 1,
+    "skill": "estimation",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A social app has 300 million daily active users. Each opens their home timeline 10 times a day, and each open shows 20 posts. Each post must be fetched from a cache as a 300-byte record. The busiest hour runs at 2× the daily average. Which statements are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Peak timeline reads are about 70,000 per second",
+        "why": "300M × 10 = 3 billion per day, / 86,400 ≈ 34,700 on average, × 2 ≈ 69,400."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "At peak the cache serves about 1.4 million post lookups and about 420 MB per second",
+        "why": "69,400 × 20 ≈ 1.39 million lookups, and × 300 B ≈ 417 MB/s."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Peak timeline reads are about 700,000 per second",
+        "why": "That slips a factor of 10 when dividing 3 billion by 86,400."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "At peak the cache moves about 4.2 GB of post records every second",
+        "why": "1.39 million × 300 bytes is about 417 MB, not 4.2 GB."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Peak timeline reads are about 35,000 per second",
+        "why": "That is the daily average. The 2× busy-hour factor was not applied."
+      }
+    ],
+    "explanation": "Opens: 3 × 10^8 × 10 = 3 × 10^9 per day ≈ 34,700 per second on average, about 69,400 at peak. Each open hydrates 20 posts: ≈ 1.39 × 10^6 cache lookups per second, × 300 B ≈ 417 MB/s. Read amplification (posts per page) usually matters more than the page count, so batching lookups (multi-get) is essential.",
+    "reference": "Alex Xu, System Design Interview, ch. 11 (news feed)"
+  }
+]

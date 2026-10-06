@@ -1,0 +1,1319 @@
+[
+  {
+    "id": "SD-CAS-011",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "In the ride-hailing app, how many driver location updates per second must the system absorb at peak? Type a whole number.",
+    "options": [],
+    "accepted": [
+      "250000",
+      "250,000",
+      "250k",
+      "250 000"
+    ],
+    "explanation": "1,000,000 drivers ÷ one update every 4 seconds = 250,000 updates per second. Each one is an indexed UPDATE on a single primary, which also has to maintain two B-tree indexes per write. That alone explains the saturation. The data is also ephemeral: a position is useless a few seconds later, so it doesn't need a durable relational write.",
+    "reference": "Back-of-the-envelope estimation",
+    "caseId": "S5"
+  },
+  {
+    "id": "SD-CAS-012",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "The wallet team wants every balance to be explainable and the books to provably balance. What is the standard data model for this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Record each money movement as immutable ledger entries that sum to zero, and derive balances from them",
+        "why": "Double-entry bookkeeping makes every balance the sum of its history and makes the zero-sum invariant checkable at any time."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep the balance column and add `updated_at` and `last_changed_by` columns to every account row",
+        "why": "That records only the latest change; every earlier movement is still overwritten and lost."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Store balances as floating-point numbers rounded to two decimals so that no rounding drift builds up",
+        "why": "Floats are exactly what causes drift; money belongs in integer minor units. It also does nothing for auditability."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Copy every balance into a nightly snapshot table so support can compare yesterday's value with today's",
+        "why": "Snapshots show a net daily change, not the individual movements, and can't prove that the books balance."
+      }
+    ],
+    "explanation": "In double-entry bookkeeping every transfer writes at least two entries, a debit and a credit, that sum to zero. Entries are append-only, a balance is the sum of an account's entries (often cached), and the sum over all accounts must always be zero. That one invariant is what lets finance prove that no money was created or destroyed.",
+    "reference": "Fowler, Accounting Patterns",
+    "caseId": "S6"
+  },
+  {
+    "id": "SD-CAS-013",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "You are designing Pastebin: users paste text of up to 10 MB, get a short link, and anyone with the link can read it. Which storage layout is the standard choice?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Store the full paste text in a `TEXT` column of the main relational table, alongside the key and owner",
+        "why": "It works at small scale, but large blobs bloat the database, its backups and its replicas."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Put the paste body in object storage under its key, and keep only metadata (key, owner, expiry, size) in the database",
+        "why": "Object storage is cheap and durable for blobs, and the database stays small and fast."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Keep pastes only in a Redis cache with a TTL, because reads are far more common than writes",
+        "why": "A cache is not durable storage. An eviction or restart would lose the pastes."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Write each paste as a file on the local disk of whichever web server handled the upload",
+        "why": "Other servers can't read it, and the paste is lost if that server dies."
+      }
+    ],
+    "explanation": "Separating large immutable blobs from small, queryable metadata is the standard pattern for Pastebin, image hosting and file sharing. The blob goes to object storage (such as S3) and can be served through a CDN. The metadata row holds the key, owner, size, content type and expiry, so listing, expiring and access checks stay cheap.",
+    "reference": "System Design Interview (Xu): Pastebin and blob storage"
+  },
+  {
+    "id": "SD-CAS-014",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each news-feed situation with the fan-out approach that fits it best.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Fan-out on write: push the new post's ID into every follower's precomputed feed"
+      },
+      {
+        "id": "B",
+        "text": "Fan-out on read: fetch and merge the author's recent posts when a follower opens the feed"
+      },
+      {
+        "id": "C",
+        "text": "Hybrid: push for most authors and pull the posts of very large accounts at read time"
+      },
+      {
+        "id": "D",
+        "text": "Email every follower a daily digest instead of maintaining a feed"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "A typical user with 300 followers posts, and followers' feeds must open instantly",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "An account with 80 million followers posts",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "A platform of mostly ordinary users plus a few celebrities",
+        "answer": "C"
+      }
+    ],
+    "explanation": "Pushing makes reads cheap but costs one write per follower, which is fine at 300 and ruinous at 80 million. Pulling makes writes free but makes every feed open do work. Large social networks use a hybrid: precompute feeds for ordinary authors and merge in celebrity posts at read time. A digest is a notification feature, not a feed design.",
+    "reference": "System Design Interview, news feed"
+  },
+  {
+    "id": "SD-CAS-015",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "An autocomplete service must return the 5 most popular completions for any typed prefix within a few milliseconds, at very high request rates. Which approach is standard?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A trie that walks every descendant of the prefix node per request and sorts them by popularity",
+        "why": "Short prefixes such as \"a\" have millions of descendants, so each keystroke would do a huge traversal."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A trie in which every node stores its precomputed top-5 completions",
+        "why": "A lookup only walks the prefix's characters and returns the stored list, so it costs O(prefix length)."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A SQL query `WHERE q LIKE 'prefix%' ORDER BY count DESC LIMIT 5` on the query log",
+        "why": "The index finds the range, but sorting every match for short prefixes on each keystroke is far too slow."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A hash map from complete query to count, scanned for keys beginning with the prefix",
+        "why": "Hash maps have no prefix order, so every request becomes a full scan."
+      }
+    ],
+    "explanation": "The classic typeahead design caches the top-k at every trie node. Reads are trivial; the cost moves to building the trie offline from aggregated query logs. The trie is then sharded by prefix and replicated, and clients debounce keystrokes and cache recent results.",
+    "reference": "System Design Interview, search autocomplete"
+  },
+  {
+    "id": "SD-CAS-016",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 1,
+    "type": "order",
+    "select": 1,
+    "stem": "Put these steps for processing one URL in a polite, de-duplicating web crawler in the order they happen.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Take the next URL from the queue of a host whose crawl delay has passed"
+      },
+      {
+        "id": "B",
+        "text": "Download the page"
+      },
+      {
+        "id": "C",
+        "text": "Fingerprint the content and skip the page if identical content was already seen"
+      },
+      {
+        "id": "D",
+        "text": "Extract the links and normalize them (lowercase host, drop fragments, resolve relative paths)"
+      },
+      {
+        "id": "E",
+        "text": "Drop links whose normalized URL is already in the seen-URL set"
+      },
+      {
+        "id": "F",
+        "text": "Add the remaining URLs to their hosts' queues in the frontier"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "explanation": "Politeness lives in the frontier: one queue per host, and a host is only eligible again once its delay (and robots.txt rules) allow. Content fingerprints catch mirrors and duplicate pages under different URLs. URL normalization plus a seen set stops the same page from being queued again and again.",
+    "reference": "Manning et al., Introduction to Information Retrieval, ch. 20"
+  },
+  {
+    "id": "SD-CAS-017",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A game needs a live leaderboard for 10 million players: update a score instantly, show the top 10, and show any player's current rank. Which store fits best?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A relational table indexed on score, computing each rank with `COUNT(*) WHERE score > mine`",
+        "why": "The index helps the top 10, but counting millions of rows for each rank request is slow at game traffic."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A fully sorted copy of the leaderboard, rebuilt from the database by an hourly batch job",
+        "why": "Ranks would be up to an hour old, which fails the live requirement."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "A Redis sorted set using ZADD, ZREVRANGE and ZREVRANK",
+        "why": "A skip list keeps members ordered by score, so updates, top-N reads and rank lookups are all O(log n)."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A map of player to score in each app server's memory, sorted on demand for each rank request",
+        "why": "Sorting 10 million entries per request is O(n log n), and each server would hold a different, partial view."
+      }
+    ],
+    "explanation": "Sorted sets are the textbook leaderboard structure. `ZADD` updates a score, `ZREVRANGE 0 9` returns the top 10, and `ZREVRANK` returns a player's 0-based rank, each in O(log n). Ten million members fit comfortably in memory on one node. Persistence and replicas handle durability.",
+    "reference": "Redis docs: Sorted sets"
+  },
+  {
+    "id": "SD-CAS-018",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "In a photo-sharing app like Instagram, match each kind of data or traffic with where it should live.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Object storage (S3-style)"
+      },
+      {
+        "id": "B",
+        "text": "A CDN"
+      },
+      {
+        "id": "C",
+        "text": "A sharded metadata database"
+      },
+      {
+        "id": "D",
+        "text": "An in-memory store such as Redis"
+      },
+      {
+        "id": "E",
+        "text": "The app servers' local disks"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "The original uploaded photo files",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Resized images served to viewers worldwide",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Photo owner, caption, timestamp and like counts",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Each user's precomputed home feed",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Blobs go to durable, cheap object storage, and the CDN serves them close to viewers. Structured, queryable metadata goes in a database sharded by user or photo ID. Hot, recomputable data such as feeds sits in memory. Local disks on stateless app servers are the classic wrong answer: they vanish on scale-in and can't be shared.",
+    "reference": "Instagram Engineering: sharding and IDs"
+  },
+  {
+    "id": "SD-CAS-019",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A URL shortener's product team wants to count every click on every short link. Which HTTP redirect should the service return?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "301 Moved Permanently, since it is faster and every click still reaches the service",
+        "why": "Browsers cache 301s, so repeat clicks go straight to the destination and are never counted."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "302 Found (or 307), which browsers don't cache by default",
+        "why": "Without caching, every click comes back to the shortener, which can log it before redirecting."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "200 OK, proxying the destination page's HTML through the shortener itself",
+        "why": "Proxying breaks the destination site's links, cookies and scripts and multiplies bandwidth costs."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "308 Permanent Redirect, because it keeps the method and browsers never cache it",
+        "why": "308 is permanent like 301 and is cacheable by default, so it has the same analytics problem."
+      }
+    ],
+    "explanation": "This is a real trade-off. A 301 lets browsers cache the redirect, cutting load and latency but losing per-click analytics. A 302 or 307 sends every click through the service. Under RFC 9110, 301 and 308 responses are cacheable by default; 302 and 307 are cached only if explicit freshness headers say so.",
+    "reference": "RFC 9110, §15.4"
+  },
+  {
+    "id": "SD-CAS-020",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "In the video platform, which change most directly fixes the buffering on mobile and slow networks?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Adaptive bitrate streaming (HLS or DASH): short segments per rendition listed in a manifest",
+        "why": "The player measures throughput and switches renditions segment by segment, dropping quality instead of stalling."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep a single MP4 but encode it at 720p for everyone, so every viewer downloads less data each second",
+        "why": "It penalizes fast connections and still can't adapt when a viewer's bandwidth drops mid-video."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Have the player download the whole MP4 before it starts playing, so that playback never has to pause",
+        "why": "For a 2-hour video that means minutes of waiting before anything plays, which is worse than buffering."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Serve the same MP4 over HTTP/2 instead of HTTP/1.1, so more of the file is multiplexed at once",
+        "why": "The protocol doesn't change the mismatch between a fixed 1080p bitrate and the viewer's bandwidth."
+      }
+    ],
+    "explanation": "Buffering happens when the video's bitrate exceeds the available bandwidth. HLS and DASH cut each rendition into segments of a few seconds and publish a manifest, so the player can move up or down a bitrate ladder at every segment boundary. Segments are also ordinary cacheable HTTP objects, which matters for the CDN.",
+    "reference": "Apple HLS / MPEG-DASH specifications",
+    "caseId": "S4"
+  },
+  {
+    "id": "SD-CAS-021",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "In the ride-hailing app, why are nearby-driver searches slow even though `lat` and `lng` are both indexed, and what is the standard fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Constant updates fragment both B-tree indexes; a nightly REINDEX keeps them compact and restores fast searches",
+        "why": "Bloat can add cost, but even perfectly compact one-dimensional indexes can't answer a 2-D box query efficiently."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Each index narrows only one dimension, so a search scans a long strip; index by geospatial cell instead",
+        "why": "Geohash, S2, H3 or a quadtree map nearby points to nearby cell keys, so a lookup touches only a few cells."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "PostgreSQL can't use a B-tree index for BETWEEN predicates at all, so every search is a full table scan",
+        "why": "B-trees support range predicates. The problem is that one range on latitude still matches a whole band around the planet."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Searches are slow only because of write load, so running them on a read replica with the same indexes fixes it",
+        "why": "A replica scans the same long strips and would lag by seconds under 250,000 updates per second."
+      }
+    ],
+    "explanation": "`lat BETWEEN` selects a band around the whole globe, and `lng BETWEEN` another band. The database uses one index (or intersects two large sets) and filters the rest. Spatial indexing turns 2-D proximity into a small number of 1-D key lookups: geohash prefixes, S2 or H3 cell IDs, or R-tree/GiST indexes (PostGIS) when you stay in the database.",
+    "reference": "Uber Engineering: H3 hexagonal index",
+    "caseId": "S5"
+  },
+  {
+    "id": "SD-CAS-022",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In the wallet's new double-entry ledger, if an entry was posted with the wrong amount, the right fix is to edit that entry's amount in place, as long as the balances end up correct.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Editing history destroys the audit trail that the ledger exists to provide, and breaks any reports already built on it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Ledger entries are immutable: post a reversing entry that cancels the mistake, then post the correct entry."
+      }
+    ],
+    "explanation": "Accounting ledgers are append-only. A correction is itself a transaction, linked to the original, so anyone can see what happened, when and why. The same principle (immutable events plus compensating events) underlies event sourcing.",
+    "reference": "Fowler, Accounting Patterns: Reversal Adjustment",
+    "caseId": "S6"
+  },
+  {
+    "id": "SD-CAS-023",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A limit of 100 requests per minute per user is enforced by a token bucket held in memory on each of 20 API servers behind a round-robin load balancer. Roughly how many requests per minute can one user actually get accepted, and what is the usual fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Exactly 100, because round robin spreads a user's requests evenly and every server enforces the limit",
+        "why": "Each server enforces its own 100, so together they admit up to 20 × 100."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Up to about 2,000; fix it by dividing the limit by 20, so each server allows only 5 per minute",
+        "why": "That only works if traffic is perfectly even, rejects legitimate bursts that land on one server, and breaks whenever servers are added or removed."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Up to about 2,000; keep each user's counter in a shared store and update it atomically",
+        "why": "One counter per user, for example in Redis updated by a Lua script, enforces the limit no matter which server handles the request."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 100, but only once each server's bucket has synchronized with the others at the end of every minute",
+        "why": "Nothing synchronizes independent in-memory buckets, so each one keeps admitting its own 100."
+      }
+    ],
+    "explanation": "Local limiters multiply the limit by the number of servers. Centralizing the state (Redis with INCR plus EXPIRE, or a Lua token-bucket script) makes the limit global, at the cost of a network hop. At very large scale, systems combine local buckets with periodic synchronization and accept some approximation.",
+    "reference": "Stripe Engineering: Scaling your API with rate limiters"
+  },
+  {
+    "id": "SD-CAS-024",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "A web crawler keeps its seen-URL set in a Bloom filter. Because Bloom filters can return false positives, this can cause the crawler to download the same URL twice.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "A false positive says \"seen\" for a URL that wasn't. That makes the crawler skip a page, not fetch one twice."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Bloom filters have no false negatives, so a URL that was added is always reported as seen and is never queued again."
+      }
+    ],
+    "explanation": "The trade-off is coverage, not duplication: at a 1% false-positive rate, about 1 in 100 genuinely new URLs is wrongly skipped. In exchange, billions of URLs fit in a few gigabytes. Size the filter (bits per element and number of hash functions) for the miss rate you can accept.",
+    "reference": "Bloom, Space/Time Trade-offs in Hash Coding (1970)"
+  },
+  {
+    "id": "SD-CAS-025",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "A notification service must send a breaking-news push to 2,000,000 users. The push provider accepts one notification per request. You run 50 sender workers, and each sustains 100 requests per second. Ignoring retries, how many seconds does the send take? Type a number.",
+    "options": [],
+    "accepted": [
+      "400",
+      "400 s",
+      "400 seconds"
+    ],
+    "explanation": "Total throughput = 50 × 100 = 5,000 notifications per second. 2,000,000 ÷ 5,000 = 400 seconds, about 6.7 minutes. If the product needs delivery within a minute, you need about 7× the senders (or a provider batch API), and you should queue sends by priority so that breaking news is not stuck behind marketing pushes.",
+    "reference": "System Design Interview (Xu): Notification system"
+  },
+  {
+    "id": "SD-CAS-026",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 3,
+    "stem": "You are designing a notification service that sends push, SMS and email on behalf of many product teams. Which design choices are standard? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Put a separate queue per channel between the API and the senders, so a slow SMS provider can't delay push",
+        "why": "Per-channel queues isolate providers with very different speeds and outages, a bulkhead for each channel."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Check each user's opt-outs and quiet hours in one central place before anything is sent",
+        "why": "Centralizing preferences keeps every team compliant and stops users being spammed by many teams at once."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Give every notification an ID and deduplicate on it, since upstream retries can deliver the same event twice",
+        "why": "Producers retry at least once, so without deduplication users receive the same SMS twice."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Call the SMS and email providers synchronously inside the API request, so callers learn delivery status at once",
+        "why": "Provider latency and outages then hit every caller, and real delivery receipts arrive asynchronously anyway."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Retry each failed provider call immediately, in a tight loop, until it succeeds so nothing is ever lost",
+        "why": "Tight retry loops hammer a provider that is already failing. Use backoff with jitter and a dead-letter queue."
+      }
+    ],
+    "explanation": "A notification platform is a fan-in of producers and a fan-out to providers. The core pieces are an async API, preference and rate-limit checks, templating, per-channel queues and workers, retries with backoff, deduplication by notification ID, and delivery tracking from provider callbacks.",
+    "reference": "System Design Interview, notification system"
+  },
+  {
+    "id": "SD-CAS-027",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "In a WhatsApp-style messenger, the recipient is offline when a message is sent and comes back online a minute later. Put these events in the order they happen.",
+    "options": [
+      {
+        "id": "A",
+        "text": "The sender's app uploads the message to the chat server"
+      },
+      {
+        "id": "B",
+        "text": "The server stores the message durably and acknowledges it; the sender sees one tick (sent)"
+      },
+      {
+        "id": "C",
+        "text": "The recipient's device reconnects and the server delivers the stored message"
+      },
+      {
+        "id": "D",
+        "text": "The recipient's device acknowledges receipt to the server"
+      },
+      {
+        "id": "E",
+        "text": "The server tells the sender, whose app now shows two ticks (delivered)"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "Each tick is an acknowledgement from a different hop. The server acknowledges only after it persists the message, so a crash can't lose it. It keeps undelivered messages until the device acknowledges them, and then can delete them. Client-generated message IDs let both sides deduplicate retries on flaky mobile networks.",
+    "reference": "System Design Interview, chat system"
+  },
+  {
+    "id": "SD-CAS-028",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A team adds a `user_id` label to an HTTP request counter in a Prometheus-style monitoring system. The service has 20 endpoints, 5 status codes and 1 million active users. How many time series can this single metric now create, and what is the problem?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 1 million series, one for each user, which a modern time-series database handles comfortably",
+        "why": "Every label multiplies the others: each endpoint, status and user combination is its own series."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Up to 100 million series, which blows up memory and query cost; per-user detail belongs in logs or traces",
+        "why": "20 × 5 × 1,000,000 = 100 million series, and each one carries index and memory overhead."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Exactly 100 series, because label values are stored on samples and don't create any new series at all",
+        "why": "In Prometheus-style systems every distinct label set is a separate series."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Up to 100 million series, which is fine because each sample compresses down to only a couple of bytes",
+        "why": "Compression shrinks samples, but the cost is per series: index entries, head memory and query fan-out."
+      }
+    ],
+    "explanation": "Cardinality is the product of each label's distinct values. Unbounded labels (user IDs, request IDs, full URLs) are the most common way to take down a metrics system. Keep labels low-cardinality and put high-cardinality context in logs, traces or exemplars.",
+    "reference": "Prometheus docs: Instrumentation, use labels"
+  },
+  {
+    "id": "SD-CAS-029",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "In the video platform, the team splits each upload into 20-second chunks at keyframe boundaries and transcodes the chunks in parallel on a pool of 120 workers. Producing all five renditions of one chunk takes a worker 30 seconds. Ignoring splitting and upload time, roughly how long does a 2-hour video now take to transcode if it has the pool to itself?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 30 seconds, because every chunk is transcoded at the same moment",
+        "why": "There are 360 chunks but only 120 workers, so the chunks need several rounds."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "About 90 seconds: 360 chunks run in 3 rounds of 120, each taking 30 seconds",
+        "why": "7,200 s ÷ 20 s = 360 chunks; 360 ÷ 120 = 3 rounds; 3 × 30 s = 90 s."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "About 3 hours, because the total amount of transcoding work hasn't changed",
+        "why": "The total work is still 360 × 30 s = 3 hours, but it is now spread across 120 workers."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 15 minutes, because each rendition has to wait for the one before it",
+        "why": "In this design a worker produces all five renditions of a chunk at once, and chunks are independent."
+      }
+    ],
+    "explanation": "Splitting at keyframes (closed GOPs) makes each chunk independently encodable, which turns a 3-hour serial job into a parallel DAG: split, transcode chunks, then assemble manifests. The total CPU work is unchanged (360 × 30 s = 10,800 s = 3 h), but wall-clock time drops to about 90 s. Platforms often publish the low renditions first so a video becomes playable even sooner.",
+    "reference": "Netflix Tech Blog: video encoding at scale",
+    "caseId": "S4"
+  },
+  {
+    "id": "SD-CAS-030",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "The video platform moves delivery to a CDN. Popular videos now load fast everywhere, but the origin still serves heavy traffic for the long tail of rarely watched videos. Which changes reduce origin load the most? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Add a tiered cache (origin shield), so edge misses for the same segment are collapsed at a regional cache first",
+        "why": "Long-tail objects miss at many edges; a shield turns many edge misses into one origin fetch."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Give segments immutable, versioned URLs with a long `max-age`, so cached copies never need revalidation",
+        "why": "Segments never change once encoded, so the edge can keep serving them without asking the origin again."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add `Vary: User-Agent`, so that each device type gets its own cached copy of every video segment",
+        "why": "That splits each segment into thousands of cache variants, so hit rates fall and origin traffic rises."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lower segment TTLs to 60 seconds, so that edges always serve the freshest copy of each video segment",
+        "why": "Segments never change, so short TTLs only force more misses and revalidations at the origin."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Pre-push every video in the catalog to every edge location as soon as it has finished uploading",
+        "why": "Millions of long-tail videos times hundreds of edges costs enormous storage for content most edges never serve."
+      }
+    ],
+    "explanation": "Long-tail content has low per-edge hit rates, because each edge sees each object rarely. Tiered caching pools demand from many edges into a few shield caches, which raises the effective hit rate. Immutable, content-addressed URLs remove revalidation traffic entirely. Popular content is the easy case; the tail is where origin cost lives.",
+    "reference": "RFC 9111; CDN tiered caching docs",
+    "caseId": "S4"
+  },
+  {
+    "id": "SD-CAS-031",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "In the ride-hailing app, driver positions are now indexed by geohash cells of about 1.2 km × 0.6 km (precision 6). A rider stands near the edge of a cell. The nearest available driver is 200 m away, but in the adjacent cell. What should the nearby-driver search do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Search only the rider's own cell, since a driver in another cell must be farther away than any driver inside it",
+        "why": "Cell boundaries are arbitrary: a point just across a boundary can be closer than most points in the same cell."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Use a longer geohash, so that the cells are smaller and the boundary problem simply goes away",
+        "why": "Smaller cells put riders near a boundary more often, not less, and a 2 km radius then spans even more cells."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Look up every cell the search circle overlaps, not just the rider's own, then filter by true distance",
+        "why": "Covering the radius with cells (the cell, its neighbours, and more rings as needed) finds every candidate; exact distance does the rest."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use a much shorter geohash (precision 4, about 39 km cells) so rider and driver almost always share a cell",
+        "why": "Boundaries still exist, and each lookup now returns every driver in a huge area to filter."
+      }
+    ],
+    "explanation": "Any grid has edges. Proximity search computes the set of cells that covers the query circle, here the rider's cell plus enough surrounding rings for 2 km, fetches their candidates and ranks them by real distance. Geohash has an extra trap: adjacent cells can have completely different prefixes (for example across the equator or the prime meridian), so prefix matching alone is not a neighbourhood search.",
+    "reference": "Geohash; Uber H3 k-ring docs",
+    "caseId": "S5"
+  },
+  {
+    "id": "SD-CAS-032",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "The wallet now records a pending top-up before calling the card processor and marks it complete when the processor's webhook arrives. Which problem will only the daily reconciliation against the processor's settlement file catch?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A card was charged but the webhook never arrived, so the top-up is stuck as pending",
+        "why": "Only an external record of what actually settled can reveal money that moved without the wallet being told."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Two payments raced on the same balance at the same moment, so one account briefly went negative",
+        "why": "That is an internal concurrency bug; ledger constraints and internal checks catch it, not the processor's file."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A user typed an amount they didn't mean to, and the processor charged exactly the amount they had entered",
+        "why": "Both sides agree on what happened, so reconciliation finds nothing. It is a support issue, not a mismatch."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The processor delivered the same webhook twice and the wallet correctly credited the top-up only once",
+        "why": "That is correct idempotent handling, and both records match, so there is nothing to reconcile."
+      }
+    ],
+    "explanation": "Webhooks are at-least-once at best and can be lost entirely. Reconciliation compares the internal ledger with the external source of truth (settlement files or the provider's API) and sorts mismatches into missing internally, missing externally, and amount mismatches. A pending-state timeout that asks the provider by idempotency key resolves most cases before the daily run.",
+    "reference": "Payments engineering: reconciliation",
+    "caseId": "S6"
+  },
+  {
+    "id": "SD-CAS-033",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A social app has 100 million users. Each follows 200 accounts on average, posts once a day and opens the home feed 10 times a day. Ignoring celebrities, compare the daily work of fan-out on write (insert each new post into every follower's feed) with fan-out on read (gather recent posts from every followed account at each feed open).",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Write: about 200 billion inserts a day; read: about 20 billion lookups, so pulling is about 10× less work",
+        "why": "The multipliers are swapped: posts are the rarer event, and each one goes to about 200 followers."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Write: about 20 billion inserts a day; read: about 1 billion lookups, so pulling is the far cheaper option",
+        "why": "Each of the 1 billion feed opens must read from about 200 followed accounts, not just one."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Write: about 20 billion inserts a day; read: about 200 billion lookups, so pushing is about 10× less work",
+        "why": "Posts: 100M × 200 followers = 20B. Opens: 100M × 10 × 200 accounts = 200B."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Both come to about 20 billion operations a day, so the choice should depend only on storage cost",
+        "why": "Feeds are opened 10 times as often as users post, which makes reading the larger side by 10×."
+      }
+    ],
+    "explanation": "In a follow graph the average follower count equals the average following count (here 200), because every edge has one end of each kind. Pushing costs posts × followers = 20 billion writes; pulling costs opens × followees = 200 billion reads, and on the latency-critical path. Pushing wins for ordinary users, but a 50-million-follower account breaks it, which is why real systems are hybrid. Pushing also wastes work on feeds of inactive users.",
+    "reference": "System Design Interview, news feed"
+  },
+  {
+    "id": "SD-CAS-034",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A Snowflake-style ID generator builds each ID from the current millisecond, its machine ID and a per-millisecond sequence. After an NTP correction, the machine's clock jumps back 50 ms. What should the generator do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Keep issuing IDs normally; the sequence counter resets every millisecond, so the IDs remain unique anyway",
+        "why": "Milliseconds it already used come round again with the sequence reset, so earlier IDs can be produced a second time."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Switch to a random 12-bit sequence for the next 50 ms, which makes a collision with earlier IDs impossible",
+        "why": "Random choices make a collision less likely, but with 4,096 values per millisecond it is far from impossible."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Keep using the wall clock, and ask downstream systems to deduplicate any IDs that turn out to collide",
+        "why": "IDs are used as primary keys; a duplicate overwrites or rejects real data long before anyone could deduplicate it."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Refuse to issue IDs, or wait, until the clock passes the last timestamp it used",
+        "why": "Tracking the last timestamp and never going below it guarantees each (millisecond, sequence) pair is used at most once."
+      }
+    ],
+    "explanation": "Twitter's original Snowflake throws an error when the clock moves backwards and refuses to generate IDs until it catches up. Clock-based IDs need a monotonic timestamp source: remember the last value and block or fail on regression. Running NTP in slew mode rather than step mode also avoids most backward jumps.",
+    "reference": "twitter-archive/snowflake source"
+  },
+  {
+    "id": "SD-CAS-035",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A file-sync client splits files into fixed 4 MB chunks, hashes each chunk and uploads only chunks the server doesn't already have. A user inserts one paragraph near the start of a 400 MB file. Roughly how much does the client re-upload, and what fixes it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Just one 4 MB chunk, because only the chunk holding the new paragraph has different contents",
+        "why": "The insertion shifts every later byte, so every following chunk boundary now cuts different bytes."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Nearly all 400 MB, since every later boundary shifts; content-defined chunking keeps boundaries in place",
+        "why": "A rolling hash sets boundaries from the content itself, so after an insertion they resynchronize within a chunk or two."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Nearly all 400 MB; the fix is smaller fixed chunks of 64 KB so that less data changes per edit",
+        "why": "Smaller fixed chunks still shift after the insertion point, so almost the whole file is re-uploaded."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Only two chunks: the one that was edited and the last one, because the file grew by a paragraph",
+        "why": "That is only true for appends at the end. An insertion near the start shifts everything after it."
+      }
+    ],
+    "explanation": "Fixed-size chunking is fragile to insertions and deletions. Content-defined chunking (Rabin fingerprints, or gear hashes as in FastCDC) cuts wherever the rolling hash of a small window matches a pattern, so boundaries move with the content. Most chunks keep their hashes and deduplicate. LBFS introduced the technique for low-bandwidth file systems.",
+    "reference": "Muthitacharoen et al., LBFS (SOSP 2001)"
+  },
+  {
+    "id": "SD-CAS-036",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A job scheduler runs on 3 instances for availability. Every second, each instance runs `SELECT * FROM jobs WHERE run_at <= now() AND status = 'pending'` and executes whatever it finds. Some jobs now run three times. Which fix is correct?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add a random 0–500 ms delay before each instance's query, so the instances rarely look at the same moment",
+        "why": "That makes overlaps rarer but not impossible, and anything slower than the jitter still runs twice."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Claim each job atomically (`FOR UPDATE SKIP LOCKED`, or a conditional update to `running` with a lease) and make jobs idempotent",
+        "why": "Only one instance can win each claim; the lease recovers jobs from crashed workers, and idempotency covers the resulting retries."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Order the query results by `id`, so that every instance processes the due jobs in the same, fully predictable sequence on every single tick of the scheduler",
+        "why": "The same order on every instance means they all pick the same jobs, so duplicates continue."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Have each instance pick one of the three at random on startup to be the only one that runs queries",
+        "why": "Each instance picks on its own, so several can choose themselves; real leader election needs a coordinator or a lease."
+      }
+    ],
+    "explanation": "Reading pending work without claiming it is check-then-act across processes. Make the claim atomic in the store: `SELECT ... FOR UPDATE SKIP LOCKED`, or `UPDATE ... SET status = 'running', lease_until = now() + 30s WHERE id = ? AND status = 'pending'` and check that one row changed. A worker can crash after claiming, so leases expire and jobs are retried. That is at-least-once execution, so jobs must be idempotent.",
+    "reference": "PostgreSQL docs: SELECT ... SKIP LOCKED"
+  },
+  {
+    "id": "SD-CAS-037",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A search engine's inverted index no longer fits on one machine. Compare partitioning by document (each shard indexes a subset of documents for all terms) with partitioning by term (each shard holds the full posting lists for a subset of terms). Which statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Document partitioning sends every query to all shards, but each shard does a similar, bounded amount of work",
+        "why": "Shards are balanced by document count, and adding a document touches only one shard."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Term partitioning lets a one-word query hit one shard, but popular terms create hot shards",
+        "why": "Hot terms concentrate load, and multi-word queries must ship large posting lists between machines to intersect them."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Term partitioning makes indexing a new document cheap, because all of its terms go to the same shard",
+        "why": "A document's terms are spread over many term shards, so one new document updates many machines."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Document partitioning can't rank results globally, because each shard only sees its own term statistics",
+        "why": "Global statistics can be shared or approximated, and the aggregator merges top-k lists. It is a solvable detail, not a blocker."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Both schemes force every query to visit every shard, so the choice only changes how storage is balanced",
+        "why": "Term partitioning routes a query only to the shards that own its terms."
+      }
+    ],
+    "explanation": "Large web search engines and Elasticsearch-style systems mostly use document partitioning. Scatter-gather to all shards is predictable, parallel and easy to replicate, and tail latency is handled with replicas and hedging. Term partitioning reduces fan-out but suffers from skew and expensive cross-shard intersections.",
+    "reference": "Barroso, Dean & Hölzle, Web Search for a Planet (2003)"
+  },
+  {
+    "id": "SD-CAS-038",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "In the ride-hailing app, which changes together fix both the saturated primary and the drivers matched to two riders at once? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Keep live positions in an in-memory geospatial store sharded by region, with a short TTL per driver, and log history asynchronously",
+        "why": "Positions are ephemeral, high-rate data; memory absorbs 250,000 updates/s, TTLs drop vanished drivers, and history goes to cheap append-only storage."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Claim a driver with an atomic compare-and-set on their status (available → offered) before sending the offer, releasing it on timeout",
+        "why": "The claim makes \"offer this driver\" a single winner-takes-all step, so two riders can't hold the same driver."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Keep positions in PostgreSQL but batch each driver's updates, so each driver's row is written only once a minute",
+        "why": "A driver can travel about a kilometre in a minute, so matching on minute-old positions gives poor matches."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Send each ride request to the five nearest drivers at once and let every one of them accept it",
+        "why": "Several acceptances for one ride, and drivers offered several rides, make double matching worse without an atomic claim."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Add read replicas for the nearby-driver search and keep the current matching logic exactly as it is",
+        "why": "Replicas lag under this write rate, the primary still takes every write, and the matching race is untouched."
+      }
+    ],
+    "explanation": "Split the problem by data type. Live location is ephemeral, high-rate and fine to lose, so an in-memory geo-index sharded by city or cell fits (Uber has used H3 cells with in-memory dispatch services). Assignment is a small, strongly consistent decision: one atomic state transition per driver with a timeout so that declined or unanswered offers release the driver. Durable trip records stay in the database.",
+    "reference": "Uber Engineering: dispatch system and H3",
+    "caseId": "S5"
+  },
+  {
+    "id": "SD-CAS-039",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "The wallet moves to a double-entry ledger, still sharded by `account_id`. A transfer between accounts on different shards can't commit in one local transaction, and the team won't run distributed transactions. Which design keeps the books balanced (all entries summing to zero) at every moment a reader could observe?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Debit the sender on its own shard first, then call the receiver's shard to credit them, and keep retrying that second call, with backoff, until it eventually succeeds",
+        "why": "Between the two steps the money exists nowhere, so the books are out of balance, and blind retries can credit twice."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Credit the receiver first and then debit the sender, so the only visible risk is a brief surplus rather than a loss",
+        "why": "The books are still unbalanced between the steps, and the sender may turn out not to have the funds."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Each shard pairs every entry with its own clearing account: debit sender and credit clearing, then (via an outbox, idempotently) credit receiver and debit clearing",
+        "why": "Every local transaction sums to zero on its own, so the global total stays zero while the transfer is in flight."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Run the two shard updates in parallel rather than one after another, to shrink the window in which the books are unbalanced",
+        "why": "A smaller window is still a window, and if one side fails the imbalance becomes permanent."
+      }
+    ],
+    "explanation": "The trick is that every single-shard transaction must itself balance. Step 1 on the sender's shard debits the sender and credits that shard's clearing (in-transit) account, and writes an outbox event in the same transaction. Step 2 on the receiver's shard credits the receiver and debits its clearing account, deduplicated by transfer ID. The clearing accounts hold offsetting amounts that are netted and settled periodically. Money is always somewhere identifiable, so the zero-sum invariant holds at every instant.",
+    "reference": "Double-entry bookkeeping; transactional outbox pattern",
+    "caseId": "S6"
+  },
+  {
+    "id": "SD-CAS-040",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "You are building Google-Docs-style real-time collaborative editing. Which statements about operational transformation (OT) and CRDTs are accurate? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Production OT systems such as Google Docs typically rely on a central server to put operations in one order",
+        "why": "With one server-defined order, each client only transforms against that order, which keeps the hard transformation properties manageable."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Sequence CRDTs converge without a central coordinator, but per-character IDs and tombstones add metadata",
+        "why": "Unique identifiers let replicas merge in any order; the cost is extra metadata that grows with editing history unless compacted."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "CRDTs guarantee that concurrent edits always merge into exactly the result each user intended",
+        "why": "CRDTs guarantee convergence, not intention: concurrent inserts can interleave in ways no user meant."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "OT needs no server at all, because any two concurrent operations can always be transformed in any order",
+        "why": "Peer-to-peer OT needs extra transformation properties (TP2) that are notoriously hard to get right; several published algorithms were wrong."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "With either approach, clients must lock a paragraph before editing it, or else concurrent edits would be lost",
+        "why": "Both are optimistic: users edit locally right away, and changes are merged rather than serialized by locks."
+      }
+    ],
+    "explanation": "OT (the Jupiter approach used by Google Docs and Wave) transforms concurrent operations against a server-ordered history. CRDTs such as RGA, Yjs and Automerge give each element a unique, ordered ID, so merges commute and need no coordinator, which suits offline and peer-to-peer editing. The costs are metadata, tombstones and occasional odd interleavings. Both converge; neither guarantees intent.",
+    "reference": "Kleppmann et al., Interleaving anomalies in collaborative text editors (2019)"
+  },
+  {
+    "id": "SD-CAS-041",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A top-K pipeline counts N = 1 billion search queries a day in a count-min sketch of width w = 2,718 and depth d = 5. Each estimate overcounts by at most εN with probability at least 1 − δ, where ε = e/w and δ = e^−d. Which statement about one query's estimated count is correct?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It is within ±1 million of the true count with about 99.3% probability, because the error can go either way",
+        "why": "Count-min only ever adds colliding counts, so an estimate can be too high but never too low."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It never overcounts by more than about 1,000, because the error is bounded by ε alone, regardless of N",
+        "why": "The bound is εN: with ε ≈ 0.001 and N = 10⁹, that is about 1,000,000."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "It is never below the true count, and with about 99.3% probability it is at most about 1 million too high",
+        "why": "ε = e/2,718 ≈ 0.001, so εN ≈ 10⁶; δ = e^−5 ≈ 0.0067, so the bound holds with about 99.3% probability."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It is exact for the 5 most frequent queries, because each of them is assigned a dedicated row of the sketch",
+        "why": "Rows are independent hash functions over all keys; no key owns a row, and frequent keys collide too."
+      }
+    ],
+    "explanation": "A count-min sketch takes the minimum over d hashed counters. Collisions only add, so estimates never undercount. Here the sketch is just 2,718 × 5 = 13,590 counters (about 54 KB with 4-byte counters) for a billion events. A 1-million error is irrelevant for heavy hitters with tens of millions of hits but swamps rare queries, so pair the sketch with a heap of the current top K, and use exact counts offline if precision matters.",
+    "reference": "Cormode & Muthukrishnan, Count-Min Sketch (2005)"
+  },
+  {
+    "id": "SD-CAS-042",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Why do stock-exchange matching engines usually process each instrument's orders on a single thread, in an order fixed by a sequencer, with standby replicas replaying the same input log, instead of a multi-threaded engine using database transactions?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Multi-threaded engines can't use modern CPUs efficiently, so a single thread is always faster for any workload",
+        "why": "That overgeneralizes. The single thread here comes from ordering and determinism needs, not a universal speed rule."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A single thread removes any need to persist incoming orders, because the order book can always be rebuilt afterwards from the public market-data feed it publishes",
+        "why": "The sequenced input log must be persisted. Market data is an output and lacks private order details."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Regulators require every instrument's orders to be processed on exactly one CPU core in a certified exchange",
+        "why": "No such rule exists. Regulators care about fairness and auditability, which the design supports but doesn't mandate this way."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Price-time priority needs one total order per book, and replaying a sequenced log deterministically gives fast, identical failover",
+        "why": "A sequencer fixes the order; a deterministic engine fed the same log reaches the same state, so a hot standby can take over instantly."
+      }
+    ],
+    "explanation": "Fairness means orders at the same price fill in arrival order, so each order book needs a single total order. A deterministic, single-threaded engine over an in-memory book has no locks, gives microsecond latency, and makes state a pure function of the input log. Replicas apply the same log (state machine replication) and can take over without losing state. The LMAX architecture is the well-known write-up.",
+    "reference": "Fowler, The LMAX Architecture (2011)"
+  },
+  {
+    "id": "SD-CAS-043",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "An ad-click pipeline sums clicks per ad in 1-minute tumbling windows by event time, and the totals are billed to advertisers. Mobile clients buffer clicks while offline, so about 2% of clicks arrive more than 10 minutes late. The stream job finalizes each window once the watermark passes its end plus 1 minute. Which changes give correct bills without holding every window open for hours? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Route late clicks to a side output and apply them as corrections to already-emitted totals, keyed so replays are idempotent",
+        "why": "Windows close on time for fast dashboards, and late data still lands in the right minute through idempotent upserts."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Run a periodic batch reconciliation over the raw click log and bill from its totals, using the stream for fast estimates",
+        "why": "Batch over the complete log is the billing source of truth; the stream keeps dashboards fresh."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Switch the windows from event time to processing time, so that every click lands in a window that is still open",
+        "why": "Clicks would be counted in the minute they arrived rather than when they happened, and results would change on replay."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Drop clicks that arrive after the watermark, since 2% is within the normal error margin for advertising",
+        "why": "These numbers are billed, so silently dropping 2% under-bills every advertiser."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Raise the allowed lateness to 10 minutes, which guarantees that every one of the late clicks is counted",
+        "why": "The 2% arrive more than 10 minutes late, so they are still dropped, and every window stays open ten times longer."
+      }
+    ],
+    "explanation": "Watermarks trade completeness for latency; no setting is right for every click. Billing-grade pipelines either emit corrections (Beam and Flink allowed lateness plus side outputs, with idempotent sinks) or reconcile with batch processing over the immutable raw log, as in Lambda or Kappa architectures. The dangerous answers are the ones that look like configuration tweaks but quietly change billing.",
+    "reference": "Akidau et al., The Dataflow Model (VLDB 2015)"
+  },
+  {
+    "id": "SD-CAS-044",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A live video stream has 1 million concurrent viewers, and they post about 20,000 comments per second. The first design pushes every comment to every viewer over WebSockets through 500 edge servers. Which design keeps the comment feed useful and the system stable?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Keep pushing every comment, but first add enough edge servers and bandwidth to fan out all 20,000 per second to each viewer",
+        "why": "That is 20 billion deliveries a second, and no viewer can read 20,000 comments a second anyway."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Have edges subscribe per stream, then sample or rank comments to a readable rate per viewer, always including friends and the viewer's own",
+        "why": "Delivery drops to a few comments per second per viewer, and the edge does the fan-out locally."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Store comments in a database and have every client poll it for new rows once per second",
+        "why": "A million polls per second against the comment store is a self-inflicted DDoS, and it still returns too many rows."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Shard the stream's comments across many Kafka partitions and give each viewer a consumer of their own",
+        "why": "A million consumers in one group is not workable, and it still delivers every comment to everyone."
+      }
+    ],
+    "explanation": "Full fan-out is 20,000 × 1,000,000 = 2 × 10^10 messages per second, and a human reads perhaps 5 to 10 comments a second. Systems like Facebook Live therefore fan out once per edge server: each edge subscribes to the stream's channel, not each viewer. They then down-sample: show a rate-limited, ranked subset, and always include comments from the viewer's friends and the viewer's own (so posting feels instant). The design target is a readable experience, not complete delivery.",
+    "reference": "Facebook Engineering: Scaling Facebook Live"
+  },
+  {
+    "id": "SD-CAS-045",
+    "domain": 5,
+    "skill": "case-designs",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A hotel booking service keeps one inventory row per (hotel, room type, night). A multi-night booking runs one transaction that decrements each night's row with `UPDATE ... SET available = available - 1 WHERE ... AND available > 0`, in the order the nights appear in the request, then charges the card. Under load the database reports deadlocks, and some guests were charged even though one of their nights had sold out. Which fix addresses both problems?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Run each night's decrement in its own short transaction, so no transaction ever holds locks on more than one row",
+        "why": "That avoids deadlocks but allows partial bookings: some nights reserved, others not."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Update the nights in a fixed order (by date), check that each UPDATE changed one row, and roll back before charging if any didn't",
+        "why": "A global lock order prevents deadlock cycles, and checking rows affected catches sold-out nights before any money moves."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Raise the isolation level to SERIALIZABLE for the booking transaction, which prevents both the deadlocks and the partially reserved bookings automatically, with no code changes",
+        "why": "Serializable adds serialization failures and doesn't stop lock-order deadlocks; the code still ignores zero-row updates."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lock the entire inventory table for each booking, so that only one booking anywhere can run at any time",
+        "why": "It removes deadlocks by removing all concurrency, and still charges guests because the zero-row updates go unchecked."
+      }
+    ],
+    "explanation": "Two requests for the same nights in a different order (Fri then Sat, against Sat then Fri) each lock one row and wait for the other, which is a classic deadlock. Acquiring locks in a canonical order removes the cycle. The conditional UPDATE is correct, but when it matches zero rows that night is sold out, and code that ignores the row count goes on to charge the card. Reserve every night, verify, then charge.",
+    "reference": "PostgreSQL docs: Explicit locking, deadlocks"
+  }
+]

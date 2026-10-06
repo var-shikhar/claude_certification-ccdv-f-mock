@@ -1,0 +1,439 @@
+[
+  {
+    "id": "SD-CRD-011", "domain": 4, "skill": "coordination", "difficulty": 1, "type": "single", "select": 1,
+    "stem": "Raft and Paxos commit a value only once a majority of the cluster has accepted it. What is the main reason they require a majority rather than some other fixed number of nodes?",
+    "options": [
+      { "id": "A", "correct": true, "text": "Any two majorities of the same cluster share at least one node, so two conflicting decisions can never both gather a quorum", "why": "The overlapping node carries knowledge of the earlier decision into any later quorum, which is what keeps decisions safe." },
+      { "id": "B", "correct": false, "text": "A majority is the largest group of nodes that can still reply quickly enough to meet the leader's heartbeat deadline", "why": "Quorum size is about overlap for safety, not about network speed or heartbeat timing." },
+      { "id": "C", "correct": false, "text": "Waiting for every node would be safer, but a majority is a performance shortcut that accepts a small risk of losing data", "why": "Majority quorums are fully safe, not a risky shortcut. Waiting for all nodes would only cost availability." },
+      { "id": "D", "correct": false, "text": "A majority guarantees that the leader writes the value to its own disk before any follower is allowed to see it", "why": "Quorum size says nothing about the order of disk writes between the leader and its followers." }
+    ],
+    "explanation": "With N nodes, two sets that each hold more than N/2 members must overlap. In Raft that overlap means any new leader's voters include at least one node holding every committed entry, and the up-to-date check during voting ensures the winner has those entries. A smaller fixed quorum would let two disjoint groups decide differently during a partition.",
+    "reference": "Ongaro & Ousterhout, In Search of an Understandable Consensus Algorithm (Raft, 2014)"
+  },
+  {
+    "id": "SD-CRD-012", "domain": 4, "skill": "coordination", "difficulty": 1, "type": "fill", "select": 1,
+    "stem": "In Raft, time is divided into numbered periods that each begin with an election. Every message carries this number, so servers can detect and reject a stale leader. What is this number called? Type one word.",
+    "options": [],
+    "accepted": ["term", "terms", "term number"],
+    "explanation": "Terms act as a logical clock. A server that sees a higher term adopts it and steps down if it was a leader or candidate, and requests carrying a lower term are rejected. At most one leader can be elected in any given term.",
+    "reference": "Raft paper, section 5.1"
+  },
+  {
+    "id": "SD-CRD-013", "domain": 4, "skill": "coordination", "difficulty": 1, "type": "truefalse", "select": 1,
+    "stem": "Growing a Raft cluster from 3 voting members to 4 lets it survive two simultaneous member failures instead of one.",
+    "options": [
+      { "id": "A", "correct": false, "text": "True", "why": "With 4 members the majority is 3, so losing 2 leaves only 2 and the cluster can no longer commit." },
+      { "id": "B", "correct": true, "text": "False", "why": "Correct: 4 members still tolerate only one failure, the same as 3, while every write now needs one more acknowledgement." }
+    ],
+    "explanation": "A cluster of N voters tolerates floor((N - 1) / 2) failures: 3 tolerates 1, 4 tolerates 1, 5 tolerates 2. An even member count adds cost and latency without adding fault tolerance, which is why consensus clusters are usually 3, 5 or 7 members.",
+    "reference": "etcd FAQ: What is failure tolerance?"
+  },
+  {
+    "id": "SD-CRD-014", "domain": 4, "skill": "coordination", "difficulty": 1, "type": "single", "select": 1,
+    "stem": "A worker creates an ephemeral znode `/workers/w-17` in ZooKeeper when it starts. Later the worker's process is killed with `kill -9`. What happens to the znode?",
+    "options": [
+      { "id": "A", "correct": true, "text": "ZooKeeper deletes it once the worker's session times out, so watchers learn the worker is gone", "why": "Ephemeral nodes are tied to the client session, which ends when heartbeats stop for longer than the session timeout." },
+      { "id": "B", "correct": false, "text": "It stays until an operator removes it, because the worker had no chance to delete it during shutdown", "why": "That is how persistent znodes behave. Ephemeral ones are removed automatically when the session ends." },
+      { "id": "C", "correct": false, "text": "ZooKeeper deletes it at the very instant the process dies, before any session timeout has passed", "why": "ZooKeeper can't see the process die. It only notices missing heartbeats once the session timeout elapses." },
+      { "id": "D", "correct": false, "text": "It is converted into a persistent znode so that the worker can reclaim it after it restarts", "why": "ZooKeeper never converts node types, and a restarted worker gets a brand-new session anyway." }
+    ],
+    "explanation": "Ephemeral znodes live exactly as long as the session that created them. When a client stops heartbeating, the ensemble expires its session after the negotiated timeout, deletes its ephemeral nodes and fires any watches on them. That makes them the building block for membership lists, service discovery and leader election.",
+    "reference": "ZooKeeper Programmer's Guide: Ephemeral Nodes"
+  },
+  {
+    "id": "SD-CRD-015", "domain": 4, "skill": "coordination", "difficulty": 1, "type": "single", "select": 1,
+    "stem": "A primary database and its standby lose the network link between them, but both can still reach clients. Each concludes the other has died, and both start accepting writes. What is this failure called?",
+    "options": [
+      { "id": "A", "correct": true, "text": "Split brain", "why": "Two nodes both act as the single authority, so their data diverges and conflicting writes must later be reconciled." },
+      { "id": "B", "correct": false, "text": "Thundering herd", "why": "That is many clients waking up and hitting one resource at once, not two nodes both acting as primary." },
+      { "id": "C", "correct": false, "text": "Byzantine failure", "why": "Byzantine nodes behave arbitrarily or maliciously. Here both nodes follow the protocol honestly, just with partial information." },
+      { "id": "D", "correct": false, "text": "Head-of-line blocking", "why": "That describes one slow item holding up a queue, not two competing primaries." }
+    ],
+    "explanation": "Split brain happens when failure detection can't tell a dead peer from an unreachable one. The cures are a quorum (a node may act as primary only with a majority's agreement) and fencing (forcibly cutting off the old primary before the new one takes over).",
+    "reference": "DDIA, chapter 8: The Trouble with Distributed Systems"
+  },
+  {
+    "id": "SD-CRD-016", "domain": 4, "skill": "coordination", "difficulty": 1, "type": "match", "select": 1,
+    "stem": "Match each coordination mechanism with what it is used for.",
+    "options": [
+      { "id": "A", "text": "A periodic message that shows a node is still alive" },
+      { "id": "B", "text": "Ownership of a resource that expires on its own after a set time" },
+      { "id": "C", "text": "A number that rises with every lock grant, so storage can reject stale holders" },
+      { "id": "D", "text": "Nodes repeatedly share state with random peers until it reaches everyone" },
+      { "id": "E", "text": "A signed log entry proving that a write reached every node" }
+    ],
+    "prompts": [
+      { "id": "P1", "text": "Heartbeat", "answer": "A" },
+      { "id": "P2", "text": "Lease", "answer": "B" },
+      { "id": "P3", "text": "Fencing token", "answer": "C" },
+      { "id": "P4", "text": "Gossip protocol", "answer": "D" }
+    ],
+    "explanation": "Heartbeats feed failure detectors, leases turn ownership into something that times out safely when a holder dies, fencing tokens let the protected resource reject a holder whose lease has expired, and gossip spreads membership and state without a central coordinator. None of them provides a signed proof of replication.",
+    "reference": "DDIA, chapters 8 and 9"
+  },
+  {
+    "id": "SD-CRD-017", "domain": 4, "skill": "coordination", "difficulty": 1, "type": "single", "select": 1,
+    "stem": "A travel saga books a flight, then a hotel, then a rental car, each in a different service with its own database. The flight and hotel are booked, but the car rental fails for good. What does the saga do next?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Rolls back all three local database transactions together by sending a distributed abort message", "why": "The flight and hotel transactions already committed. A saga can't roll them back, only undo them with new actions." },
+      { "id": "B", "correct": true, "text": "Runs compensating actions in reverse order: cancel the hotel, then cancel the flight", "why": "Each completed step has a compensating action that semantically undoes it, run newest first." },
+      { "id": "C", "correct": false, "text": "Keeps the flight and hotel booked and retries the car rental forever until it eventually succeeds", "why": "A step that fails for good must lead to undoing the earlier steps, not endless retries." },
+      { "id": "D", "correct": false, "text": "Waits for the hotel and flight services to let their reservations time out on their own", "why": "Sagas undo work explicitly. Relying on timeouts leaves customers charged and inventory blocked." }
+    ],
+    "explanation": "A saga is a sequence of local transactions, each committed on its own. If a later step fails, the saga runs compensating transactions for the steps that succeeded, normally in reverse order. Compensation is semantic (a cancellation, a refund), not a database rollback, so other users may briefly see the intermediate state.",
+    "reference": "Garcia-Molina & Salem, Sagas (1987)"
+  },
+  {
+    "id": "SD-CRD-018", "domain": 4, "skill": "coordination", "difficulty": 1, "type": "single", "select": 1,
+    "stem": "Services register themselves in Consul, and clients look up healthy instances before each call. One instance's VM loses power, so it never deregisters. What makes Consul stop sending clients to it?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Clients report their connection errors to Consul, which removes an instance after its first failed request", "why": "Consul's view of health doesn't come from client error reports. It comes from health checks." },
+      { "id": "B", "correct": true, "text": "Its health check or TTL check fails, so Consul marks it critical and leaves it out of healthy results", "why": "Health checks run independently of the instance's shutdown path, so a dead instance is caught without deregistering." },
+      { "id": "C", "correct": false, "text": "DNS caching on each client expires the dead address after its one-day TTL, after which no client resolves it again", "why": "Waiting out a long DNS TTL would send traffic to a dead node for far too long. Consul's own DNS uses short or zero TTLs." },
+      { "id": "D", "correct": false, "text": "The load balancer in front of Consul notices the VM is missing and deletes its registration itself", "why": "No such load balancer is involved. Registry entries are managed by agents and their health checks." }
+    ],
+    "explanation": "A registry can't rely on graceful deregistration, because crashes skip it. Consul agents run health checks (HTTP, TCP, script or TTL heartbeats), and a failing check marks the service critical so it drops out of healthy queries. ZooKeeper gets the same effect with ephemeral nodes, and etcd with keys attached to leases.",
+    "reference": "Consul docs: Health checks"
+  },
+  {
+    "id": "SD-CRD-019", "domain": 4, "skill": "coordination", "difficulty": 1, "type": "single", "select": 1,
+    "stem": "A process uses Lamport timestamps. Its counter is 3 when it receives a message stamped 7. What does it set its counter to when it processes the receive?",
+    "options": [
+      { "id": "A", "correct": false, "text": "4", "why": "That increments the local counter but ignores the larger timestamp on the message, which breaks causal order." },
+      { "id": "B", "correct": false, "text": "7", "why": "Taking the maximum is right, but the receive is itself an event, so the counter must also go up by one." },
+      { "id": "C", "correct": true, "text": "8", "why": "The rule is max(local, received) + 1 = max(3, 7) + 1 = 8." },
+      { "id": "D", "correct": false, "text": "10", "why": "Timestamps are never added together. The receiver takes the maximum and adds one." }
+    ],
+    "explanation": "Lamport clocks guarantee that if event a happened before event b, then L(a) < L(b). Taking the maximum on receive orders the receive after the send. The converse does not hold: a smaller timestamp doesn't prove that an event happened first, only that it didn't happen after.",
+    "reference": "Lamport, Time, Clocks, and the Ordering of Events in a Distributed System (1978)"
+  },
+  {
+    "id": "SD-CRD-020", "domain": 4, "skill": "coordination", "difficulty": 2, "type": "single", "select": 1,
+    "stem": "Raft followers start an election if they hear nothing from a leader within an election timeout. Why does Raft choose each server's timeout at random from a range (such as 150 to 300 ms) instead of using one fixed value?",
+    "options": [
+      { "id": "A", "correct": false, "text": "So that slower servers wait longer, and the fastest machine in the cluster reliably ends up as the leader", "why": "The randomness isn't tied to machine speed, and Raft doesn't try to pick the fastest node." },
+      { "id": "B", "correct": true, "text": "So that one server usually times out first and wins before others compete, avoiding repeated split votes", "why": "With a fixed timeout every follower would become a candidate at once, split the vote and retry indefinitely." },
+      { "id": "C", "correct": false, "text": "So the cluster tolerates clock drift, because a random timeout doesn't depend on synchronized wall clocks", "why": "Election timeouts are measured locally and never need synchronized clocks. The randomness serves another purpose." },
+      { "id": "D", "correct": false, "text": "So that an attacker can't predict when elections happen and steer a malicious node into the leadership", "why": "Raft assumes crash faults, not adversaries. Randomized timeouts are about liveness, not security." }
+    ],
+    "explanation": "Randomized timeouts spread out candidacies. Usually one follower times out well before the others, requests votes and wins in a single round. If a vote does split, each candidate picks a fresh random timeout, so the race is unlikely to repeat. Raft's safety never depends on timing, only its liveness does.",
+    "reference": "Raft paper, section 5.2: Leader election"
+  },
+  {
+    "id": "SD-CRD-021", "domain": 4, "skill": "coordination", "difficulty": 2, "type": "multi", "select": 3,
+    "stem": "A team guards a nightly job with a Redis lock: `SET job-lock <value> NX PX 30000` to acquire it and `DEL job-lock` to release it. Redis runs as a primary with an asynchronous replica and automatic failover. Which statements are true? (Choose three.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "If the job runs longer than 30 seconds, the key expires and a second worker can acquire the lock while the first is still running", "why": "A TTL protects against crashed holders, but it also expires under holders that are alive and merely slow." },
+      { "id": "B", "correct": true, "text": "A plain `DEL` can remove a lock that another worker acquired after ours expired; release should compare the value and delete atomically, for example in a Lua script", "why": "Storing a unique random value and checking it before deleting ensures each worker only releases its own lock." },
+      { "id": "C", "correct": true, "text": "If the primary fails before replicating the key, the promoted replica has no lock and another worker can acquire it", "why": "Replication is asynchronous, so a lock the client was told it holds can vanish on failover." },
+      { "id": "D", "correct": false, "text": "`SET` with `NX` and `PX` runs as two separate steps, so two workers racing at the same instant can both succeed", "why": "SET with NX and PX is a single atomic command. The races lie elsewhere." },
+      { "id": "E", "correct": false, "text": "Because the key has a TTL, the lock alone guarantees the job never runs twice, so the job itself needs no idempotency", "why": "Expiry, pauses and failover all allow two holders, so correctness needs fencing or idempotent work." },
+      { "id": "F", "correct": false, "text": "A worker that crashes while holding the lock blocks every later run until an operator deletes the key by hand", "why": "The PX expiry releases the lock automatically after 30 seconds." }
+    ],
+    "explanation": "A single-instance Redis lock is fine for efficiency (avoiding duplicate work most of the time) but not for correctness. Expiry under slow holders, release races and failover each allow overlap. Use a unique value with compare-and-delete, size or renew the TTL with care, and make the protected work idempotent or fenced.",
+    "reference": "Redis docs: Distributed Locks with Redis"
+  },
+  {
+    "id": "SD-CRD-022", "domain": 4, "skill": "coordination", "difficulty": 2, "type": "order", "select": 1,
+    "stem": "Put the steps of ZooKeeper's standard lock recipe in order, as a client acquires the lock without causing a herd effect.",
+    "options": [
+      { "id": "A", "text": "Create an ephemeral sequential znode under `/lock`, such as `/lock/n-0000000042`" },
+      { "id": "B", "text": "List the children of `/lock`" },
+      { "id": "C", "text": "If its own node has the lowest sequence number, it holds the lock" },
+      { "id": "D", "text": "Otherwise, set a watch only on the node with the next lower sequence number" },
+      { "id": "E", "text": "When that watch fires, list the children again and recheck" }
+    ],
+    "answerOrder": ["A", "B", "C", "D", "E"],
+    "explanation": "Watching only the predecessor means a release wakes exactly one waiter instead of all of them (the herd effect). Ephemeral nodes free the lock automatically if a holder's session dies, and sequence numbers give first-come ordering. The recheck after a watch fires matters because the predecessor may have left without ever holding the lock.",
+    "reference": "ZooKeeper Recipes and Solutions: Locks"
+  },
+  {
+    "id": "SD-CRD-023", "domain": 4, "skill": "coordination", "difficulty": 2, "type": "single", "select": 1,
+    "stem": "Three replicas track updates to one key with vector clocks ordered [A, B, C]. Version X has clock [2, 1, 0] and version Y has clock [1, 2, 0]. How are X and Y related?",
+    "options": [
+      { "id": "A", "correct": false, "text": "X happened before Y, because X's first entry is larger and replica A is listed first in the clock", "why": "Order isn't decided by the first entry. One clock must be less than or equal to the other in every entry." },
+      { "id": "B", "correct": false, "text": "Y happened before X, because the entries of both clocks add up to the same total and Y was written later", "why": "Sums don't define causality, and nothing here says when Y was written." },
+      { "id": "C", "correct": true, "text": "They are concurrent: each has an entry larger than the other's, so neither saw the other", "why": "X <= Y fails on A (2 > 1) and Y <= X fails on B (2 > 1), so neither causally precedes the other." },
+      { "id": "D", "correct": false, "text": "They are identical versions, because both clocks contain exactly the same set of counter values", "why": "Vector clocks compare position by position. The same numbers in different positions mean different histories." }
+    ],
+    "explanation": "Clock V1 happened before V2 when every entry of V1 is less than or equal to the matching entry of V2 and at least one is strictly smaller. If neither clock dominates, the updates are concurrent, and a store such as Dynamo keeps both as siblings for the application or a merge rule to reconcile.",
+    "reference": "DDIA, chapter 5: Detecting Concurrent Writes"
+  },
+  {
+    "id": "SD-CRD-024", "domain": 4, "skill": "coordination", "difficulty": 2, "type": "single", "select": 1,
+    "stem": "A billing service runs on three instances and uses leader election so that only the leader runs the hourly `generate-invoices` job. During a 20-second network blip, the old leader keeps running the job while a new leader is elected and starts the same hour's run. Which change makes the job safe?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Shorten the election timeout so that the new leader is chosen sooner and the overlap window shrinks", "why": "A shorter timeout narrows the window but can't close it. Brief dual leadership is still possible." },
+      { "id": "B", "correct": true, "text": "Key each run by its schedule slot (such as `invoices:2026-10-06T10`) and make the work idempotent on that key", "why": "Duplicate runs then collapse into one outcome, however many nodes think they are leader." },
+      { "id": "C", "correct": false, "text": "Run the job on all three instances and let the database's unique constraints quietly drop the duplicates", "why": "Unless the job is designed for it, other side effects such as emails or payments still repeat." },
+      { "id": "D", "correct": false, "text": "Move leader election to ZooKeeper, which guarantees that two processes can never both believe they are the leader at once", "why": "No election service can stop a paused or partitioned process from still believing it leads." }
+    ],
+    "explanation": "Leader election gives at most one leader per term from the coordinator's point of view, but an old leader can't learn instantly that it has lost. A job that must take effect exactly once needs idempotency keyed by the logical run (its schedule slot), or fencing tokens checked by the systems it writes to.",
+    "reference": "DDIA, chapter 8: The Leader and the Lock"
+  },
+  {
+    "id": "SD-CRD-025", "domain": 4, "skill": "coordination", "difficulty": 2, "type": "order", "select": 1,
+    "stem": "An orchestrated saga runs three steps in order: reserve stock, reserve the customer's credit, then book a courier. The courier booking fails. Put the events in the order a correct orchestrator processes them.",
+    "options": [
+      { "id": "A", "text": "Reserve stock" },
+      { "id": "B", "text": "Reserve the customer's credit" },
+      { "id": "C", "text": "The courier booking fails" },
+      { "id": "D", "text": "Release the credit reservation" },
+      { "id": "E", "text": "Release the stock reservation" }
+    ],
+    "answerOrder": ["A", "B", "C", "D", "E"],
+    "explanation": "Compensations run in reverse order of the completed steps, like unwinding a stack, so each undo sees the state its forward step created. The orchestrator persists its progress before each action so it can resume after a crash, and every compensation must be idempotent because it may be retried.",
+    "reference": "Richardson, Microservices Patterns, chapter 4: Sagas"
+  },
+  {
+    "id": "SD-CRD-026", "domain": 4, "skill": "coordination", "difficulty": 2, "type": "single", "select": 1,
+    "stem": "In the SWIM membership protocol, node A pings node B and gets no reply in time. Before marking B as suspect, A asks k other random members to ping B on its behalf (`ping-req`). What problem does this indirect probing solve?",
+    "options": [
+      { "id": "A", "correct": false, "text": "It spreads probing work evenly across the cluster, so that no member ever sends more than one ping per round", "why": "SWIM already keeps load constant per member. Indirect probes are about accuracy, not load." },
+      { "id": "B", "correct": true, "text": "A congested or broken link between A and B alone would otherwise make A wrongly suspect a healthy B", "why": "Other members reach B over different paths, so B is suspected only if several of them can't reach it." },
+      { "id": "C", "correct": false, "text": "It lets B's state spread through the cluster in logarithmic time by piggybacking updates on each extra ping", "why": "Piggybacking on protocol messages handles dissemination. Ping-req exists to cut false positives." },
+      { "id": "D", "correct": false, "text": "It guarantees that B is truly dead before removal, so that a healthy member is never expelled from the cluster", "why": "No failure detector in an asynchronous network can guarantee that. SWIM reduces false positives, it can't eliminate them." }
+    ],
+    "explanation": "A direct ping that fails could mean B is dead, B is overloaded, or only the path between A and B is bad. Asking several peers to probe B separates the last case from the others. SWIM adds a suspicion phase before declaring death and spreads membership changes by piggybacking on pings, which keeps both load and detection time steady as the cluster grows.",
+    "reference": "Das, Gupta & Motivala, SWIM (2002)"
+  },
+  {
+    "id": "SD-CRD-027", "domain": 4, "skill": "coordination", "difficulty": 2, "type": "truefalse", "select": 1,
+    "stem": "In a fully asynchronous system, where message delays have no upper bound and even one process may crash, no deterministic consensus protocol can guarantee that it always reaches a decision.",
+    "options": [
+      { "id": "A", "correct": true, "text": "True", "why": "Correct: this is the FLP impossibility result of Fischer, Lynch and Paterson (1985)." },
+      { "id": "B", "correct": false, "text": "False", "why": "FLP proves that termination can't be guaranteed. Practical protocols get around it by assuming the network is eventually well behaved." }
+    ],
+    "explanation": "FLP doesn't make consensus useless. Raft and Paxos are always safe, and they rely on timeouts, which assume timing bounds hold eventually (partial synchrony), only for liveness. During bad periods they may stall, but they never decide two different values.",
+    "reference": "Fischer, Lynch & Paterson, Impossibility of Distributed Consensus with One Faulty Process (1985)"
+  },
+  {
+    "id": "SD-CRD-028", "domain": 4, "skill": "coordination", "difficulty": 2, "type": "multi", "select": 2,
+    "stem": "A Snowflake-style ID is a 64-bit number made of a 41-bit millisecond timestamp, a 10-bit worker ID and a 12-bit per-millisecond sequence. Which statements are true? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "One worker can issue at most 4,096 IDs in a single millisecond before it must wait for the next one", "why": "12 bits give 2^12 = 4,096 sequence values per millisecond." },
+      { "id": "B", "correct": true, "text": "If the worker's clock jumps backwards, it must wait or refuse to issue IDs, or it may repeat earlier ones", "why": "A repeated timestamp with a reset sequence can produce an ID that was already issued." },
+      { "id": "C", "correct": false, "text": "IDs from different workers are strictly ordered by creation time across the whole cluster", "why": "Clock skew between workers means IDs are only roughly time-ordered (k-sorted) across workers." },
+      { "id": "D", "correct": false, "text": "Each ID needs a round trip to a central coordinator, which is why throughput is capped at 4,096 per millisecond", "why": "The point of the scheme is that workers issue IDs locally. Coordination is only needed to hand out worker IDs." },
+      { "id": "E", "correct": false, "text": "The 41-bit timestamp runs out about 7 years after the chosen epoch, so IDs must be rebased regularly", "why": "2^41 ms is about 2.2 x 10^12 ms, roughly 69.7 years." },
+      { "id": "F", "correct": false, "text": "Two live workers can safely share a worker ID as long as both of their clocks are synchronized with NTP", "why": "Two workers with the same ID in the same millisecond can produce identical IDs, and NTP doesn't prevent that." }
+    ],
+    "explanation": "Snowflake avoids per-ID coordination by giving each worker a unique ID (assigned through ZooKeeper, configuration or a lease) and combining it with time and a sequence. Its two dangers are duplicate worker IDs and clocks moving backwards, so implementations remember the last timestamp they used and wait or fail if time goes backwards.",
+    "reference": "Twitter Engineering: Announcing Snowflake (2010)"
+  },
+  {
+    "id": "SD-CRD-029", "domain": 4, "skill": "coordination", "difficulty": 3, "type": "single", "select": 1,
+    "stem": "A client asks a lock server for a 10-second lease. It records its own monotonic time t0 just before sending the request. The grant arrives 3 seconds later (at t0 + 3 s) and says only 'lease granted for 10 seconds'. Clock rates on both machines may drift slightly. Until when may the client safely act as the lease holder?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Until t0 + 13 s, because the 10 seconds start counting when the grant reaches the client", "why": "The server may have started the 10 seconds as soon as it received the request, so counting from arrival overshoots by up to 3 s." },
+      { "id": "B", "correct": true, "text": "Until a little before t0 + 10 s: count from when it sent the request, minus a margin for drift", "why": "The server can't have started the lease before the request was sent, so t0 is a safe lower bound on its start." },
+      { "id": "C", "correct": false, "text": "Until t0 + 11.5 s, assuming that the grant was sent halfway through the 3-second round trip", "why": "The delay in each direction is unknown and can be very lopsided, so assuming the midpoint isn't safe." },
+      { "id": "D", "correct": false, "text": "For a full 10 seconds after any later moment it picks, since a lease depends only on the client's own clock", "why": "The lease is the server's promise and runs on the server's timeline. The client can only bound it conservatively." }
+    ],
+    "explanation": "Lease safety needs the holder's idea of expiry to be no later than the server's. The server granted the lease at some point between t0 and t0 + 3 s, so the client must assume the earliest start, t0, and also subtract a margin for clock-rate drift. The 3 seconds of delay are simply lost lease time. Symmetrically, the server must wait the full lease plus a margin before granting it to anyone else.",
+    "reference": "Gray & Cheriton, Leases: An Efficient Fault-Tolerant Mechanism (1989)"
+  },
+  {
+    "id": "SD-CRD-030", "domain": 4, "skill": "coordination", "difficulty": 3, "type": "multi", "select": 2,
+    "stem": "Redlock acquires a lock by writing a key with a TTL to a majority (3 of 5) of independent Redis primaries. Which two statements reflect Martin Kleppmann's well-known critique of using it to protect correctness? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "Its safety depends on timing assumptions, such as bounded process pauses, network delays and clock drift", "why": "A GC pause or a clock jump longer than the TTL lets two clients hold the lock at the same time." },
+      { "id": "B", "correct": true, "text": "It provides no monotonically increasing fencing token, so storage can't reject a write from a stale holder", "why": "Without a token that the resource checks, an expired holder's late writes go straight through." },
+      { "id": "C", "correct": false, "text": "Acquiring the lock requires all five Redis primaries to acknowledge, so one slow node blocks every client", "why": "Redlock needs only a majority. It tolerates a minority of nodes being unavailable." },
+      { "id": "D", "correct": false, "text": "Even for efficiency locks, where an occasional duplicate run is harmless, it is less safe than using no lock at all", "why": "For efficiency locks Kleppmann suggests a single Redis node is enough. The critique is about correctness." },
+      { "id": "E", "correct": false, "text": "Switching to ZooKeeper removes the need for fencing, because a ZooKeeper lock can never be held by two clients", "why": "A paused client can still act on an expired ZooKeeper lock, so fencing (for example with the zxid) is still needed." }
+    ],
+    "explanation": "The critique splits locks into two kinds. Efficiency locks only reduce duplicate work, so a simple single-node lock will do. Correctness locks must never let two holders write, and no lease-based lock can promise that on its own when processes pause and clocks jump. The resource has to take part, by checking a fencing token or a version on every write.",
+    "reference": "Kleppmann, How to do distributed locking (2016)"
+  },
+  {
+    "id": "SD-CRD-031", "domain": 4, "skill": "coordination", "difficulty": 3, "type": "single", "select": 1,
+    "stem": "A Dynamo-style store keeps a shopping cart with vector clocks. Two devices both read the cart at version [A:1]. One adds a book and writes through replica A, producing [A:2]. The other adds a lamp and writes through replica B, producing [A:1, B:1]. What should the store do on the next read?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Return [A:2] only, because its A counter is higher and replica A coordinated the original write", "why": "[A:2] lacks B's entry, so it doesn't dominate [A:1, B:1]. Dropping it loses the lamp." },
+      { "id": "B", "correct": false, "text": "Return whichever version has the later wall-clock timestamp and discard the other one (last write wins)", "why": "Last write wins silently drops one of two concurrent updates, here a cart item." },
+      { "id": "C", "correct": true, "text": "Return both versions as siblings so the client can merge them, for example by taking the union of items", "why": "Neither clock dominates, so both are kept. Merging and writing back produces [A:2, B:1]." },
+      { "id": "D", "correct": false, "text": "Reject the second write with a conflict error, as a relational database would under serializable isolation", "why": "Dynamo-style stores accept writes during conflicts for availability and resolve them when reading." }
+    ],
+    "explanation": "Concurrent versions are surfaced as siblings and merged by application logic. Amazon's cart merged by union, which is why deleted items could sometimes reappear: a removal in one sibling loses to the item still present in the other, unless deletions are recorded as tombstones. The merged write carries a clock that dominates both parents.",
+    "reference": "DeCandia et al., Dynamo: Amazon's Highly Available Key-value Store (2007)"
+  },
+  {
+    "id": "SD-CRD-032", "domain": 4, "skill": "coordination", "difficulty": 3, "type": "match", "select": 1,
+    "stem": "Match each job with the kind of clock best suited to it.",
+    "options": [
+      { "id": "A", "text": "Monotonic clock" },
+      { "id": "B", "text": "Vector clock" },
+      { "id": "C", "text": "Lamport clock" },
+      { "id": "D", "text": "Hybrid logical clock (HLC)" },
+      { "id": "E", "text": "TrueTime" },
+      { "id": "F", "text": "Time-of-day clock synced by NTP" }
+    ],
+    "prompts": [
+      { "id": "P1", "text": "Measuring a request timeout on one machine", "answer": "A" },
+      { "id": "P2", "text": "Detecting whether two replica updates were concurrent", "answer": "B" },
+      { "id": "P3", "text": "A cheap total order of events that is consistent with causality", "answer": "C" },
+      { "id": "P4", "text": "Timestamps that respect causality yet stay close to physical time", "answer": "D" },
+      { "id": "P5", "text": "Commit timestamps with external consistency, from bounded clock uncertainty", "answer": "E" }
+    ],
+    "explanation": "Monotonic clocks never jump backwards, so they suit durations on one machine. Vector clocks can tell concurrency apart from causality, at the cost of one entry per node. Lamport clocks give a total order but can't detect concurrency. HLCs (as in CockroachDB) combine a physical timestamp with a logical counter. TrueTime (Spanner) exposes an uncertainty interval and waits it out. A plain NTP time-of-day clock can jump, so it fits none of these jobs reliably.",
+    "reference": "Kulkarni et al., Logical Physical Clocks (2014); Corbett et al., Spanner (2012)"
+  },
+  {
+    "id": "SD-CRD-033", "domain": 4, "skill": "coordination", "difficulty": 3, "type": "single", "select": 1,
+    "stem": "A cache ring uses consistent hashing with 4 nodes. Each node owns a single token (one arc of the ring), and the arcs are roughly equal. One node fails. What happens to the load, and how would virtual nodes change it?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Each of the three surviving nodes absorbs exactly a third of the failed node's keys, whether or not virtual nodes are used", "why": "With one token per node, the whole arc goes to a single neighbour, not to all three." },
+      { "id": "B", "correct": true, "text": "Its successor takes the whole arc and doubles its load; with many tokens per node, the arc spreads over all survivors", "why": "Virtual nodes scatter each node's ownership around the ring, so a failure's keys land on many different successors." },
+      { "id": "C", "correct": false, "text": "Every key in the ring is remapped to a new node, just as with `hash(key) % N` placement", "why": "Consistent hashing moves only the failed node's keys. That is its whole point." },
+      { "id": "D", "correct": false, "text": "Nothing moves until an operator rebalances the ring, so a quarter of all requests keep failing until then", "why": "The ring hands the arc to the next token automatically. Clients simply route to the successor." }
+    ],
+    "explanation": "With one token per node, losing a node moves its 25% of keys onto one neighbour, which now serves 50% of the keyspace and may fail in turn (a cascade). With many virtual nodes per server (Cassandra's num_tokens setting, for example), that 25% is spread across all survivors, so each gains about a third of it. Virtual nodes also let bigger machines take more tokens.",
+    "reference": "DeCandia et al., Dynamo (2007), section 4.2"
+  },
+  {
+    "id": "SD-CRD-034", "domain": 4, "skill": "coordination", "difficulty": 3, "type": "single", "select": 1,
+    "stem": "An orchestrated saga for a bank transfer debits account X, then credits account Y in another service. Between the two steps, a separate fraud check reads X's balance and acts on it. The credit then fails and the debit is compensated. What problem occurred, and what is the standard countermeasure?",
+    "options": [
+      { "id": "A", "correct": true, "text": "A dirty read of a saga's intermediate state; mark the debit as pending (a semantic lock) so other readers can handle it", "why": "Sagas lack isolation, so intermediate results are visible. Flagging them lets other transactions wait or account for them." },
+      { "id": "B", "correct": false, "text": "A lost update caused by two sagas writing X at once; fix it by running every saga step under serializable isolation in its own service", "why": "Each service's local isolation doesn't span the saga, so serializable local transactions don't hide the intermediate state." },
+      { "id": "C", "correct": false, "text": "A deadlock between the two services; fix it with a global lock manager that both services must consult first", "why": "Nothing is waiting on anything here. The issue is visibility of intermediate state, not a cycle of waits." },
+      { "id": "D", "correct": false, "text": "A breach of the saga's atomicity; the compensation should have been skipped so that X's balance stays consistent", "why": "Skipping the compensation would leave the money debited but never credited." }
+    ],
+    "explanation": "Sagas give atomicity through compensation but no isolation (the I in ACID). Countermeasures from the saga literature include semantic locks (a PENDING flag that other transactions respect), commutative updates, re-reading values before acting on them, and ordering steps so that the riskiest ones run first.",
+    "reference": "Richardson, Microservices Patterns, chapter 4: Handling the lack of isolation"
+  },
+  {
+    "id": "SD-CRD-035", "domain": 4, "skill": "coordination", "difficulty": 3, "type": "single", "select": 1,
+    "stem": "An API allows each client 1,000 requests per minute. Ten gateway nodes sit behind a layer-4 load balancer that spreads connections round-robin, so each node enforces 100 requests per minute per client on its own. One client switches to a single long-lived HTTP/2 connection, so all of its requests reach one node. What happens?",
+    "options": [
+      { "id": "A", "correct": false, "text": "The client is still limited to about 1,000 per minute, because the load balancer keeps spreading the individual requests on its connection across nodes", "why": "A layer-4 balancer pins a connection to one node, so every request on it hits the same local limiter." },
+      { "id": "B", "correct": true, "text": "The client is capped near 100 per minute, a tenth of its quota; limits need a shared counter or one owning node per client", "why": "Splitting a global limit into fixed per-node shares assumes traffic spreads evenly, and pinned connections break that." },
+      { "id": "C", "correct": false, "text": "The client can now send about 10,000 per minute, because each of the ten gateway nodes grants it its own 1,000-request allowance", "why": "Each node enforces 100, not 1,000, so the client can't exceed its quota that way here." },
+      { "id": "D", "correct": false, "text": "Nothing changes for the client, because rate limits apply per IP address and its address has not changed", "why": "The limit here is per client per node, so where its requests land changes what the client experiences." }
+    ],
+    "explanation": "Fixed per-node shares (limit / N) under-admit when traffic concentrates on fewer nodes, and over-admit if the node count changes without updating the shares. Common fixes are a central counter (for example Redis with an atomic increment or a Lua token bucket), consistent-hash routing so one node owns each client's limiter, or local buckets that sync usage periodically and accept brief overshoot.",
+    "reference": "Stripe Engineering: Scaling your API with rate limiters"
+  },
+  {
+    "id": "SD-CRD-036", "domain": 4, "skill": "coordination", "difficulty": 3, "type": "multi", "select": 2,
+    "stem": "A two-node active/passive database cluster uses a dedicated heartbeat cable. When the cable is unplugged, both nodes promote themselves and accept writes. Which two changes prevent this? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "Add a third voter, such as a quorum witness, so a node may promote itself only with a majority (2 of 3)", "why": "The isolated node can't reach a majority, so only one side can become active." },
+      { "id": "B", "correct": true, "text": "Fence the old primary before promoting, for example by powering it off through its management interface (STONITH)", "why": "Once the peer is guaranteed to be off, it can't accept writes, even if it still thinks it is primary." },
+      { "id": "C", "correct": false, "text": "Shorten the heartbeat timeout so the passive node detects the failure faster", "why": "Faster detection makes promotion happen sooner, which makes split brain more likely, not less." },
+      { "id": "D", "correct": false, "text": "Let both nodes accept writes and reconcile them with last-write-wins once the cable is fixed", "why": "That accepts split brain and silently throws away conflicting writes." },
+      { "id": "E", "correct": false, "text": "Synchronize both nodes' clocks with NTP so that their failure timers agree", "why": "Synchronized clocks don't help a node tell a dead peer from an unreachable one." },
+      { "id": "F", "correct": false, "text": "Add a second heartbeat cable so that the link between the nodes can never fail", "why": "A redundant link lowers the odds but can't rule out a partition, and both links can fail together." }
+    ],
+    "explanation": "With only two nodes, neither can tell 'my peer is dead' from 'the link is dead'. A quorum adds a tiebreaker, and fencing makes a takeover safe even when detection is wrong. Production cluster managers such as Pacemaker usually require both.",
+    "reference": "ClusterLabs Pacemaker documentation: Fencing"
+  },
+  {
+    "id": "SD-CRD-037", "domain": 4, "skill": "coordination", "difficulty": 3, "type": "fill", "select": 1,
+    "stem": "Three processes use vector clocks written [P1, P2, P3]. Every event, including sends and receives, increments the process's own entry, and a message carries the sender's clock after the send event. A receive first takes the element-wise maximum, then increments. P1 is at [2, 0, 0]. It receives a message stamped [0, 3, 1], performs one local event, and then sends a message to P3, which is at [0, 0, 4]. What is P3's clock after it receives that message? Answer in the form [a, b, c].",
+    "options": [],
+    "accepted": ["[5,3,5]", "[5, 3, 5]", "5,3,5", "5, 3, 5", "(5,3,5)"],
+    "explanation": "P1's receive: max([2, 0, 0], [0, 3, 1]) = [2, 3, 1], then increment P1 to get [3, 3, 1]. The local event makes it [4, 3, 1], and the send makes it [5, 3, 1], which the message carries. P3's receive: max([0, 0, 4], [5, 3, 1]) = [5, 3, 4], then increment P3 to get [5, 3, 5]. P3 has now seen, directly or indirectly, five P1 events and three P2 events.",
+    "reference": "Fidge (1988) and Mattern (1989), vector clocks"
+  },
+  {
+    "id": "SD-CRD-038", "domain": 4, "skill": "coordination", "difficulty": 4, "type": "single", "select": 1,
+    "stem": "Raft leader S1, in term 4, finds that an entry from term 2 at index 5, appended by an earlier leader, is now stored on a majority of servers. No entry from term 4 has been replicated yet. May S1 mark index 5 as committed because it is on a majority?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Yes: any entry stored on a majority of servers is committed, whatever term it came from", "why": "This is the trap the Raft paper warns about: an old-term entry on a majority can still be overwritten by a later leader." },
+      { "id": "B", "correct": true, "text": "No: it must first get an entry from term 4 onto a majority, which commits index 5 along with it", "why": "Raft counts replicas only for entries from the leader's current term. Earlier entries commit indirectly with them." },
+      { "id": "C", "correct": false, "text": "No: entries from earlier terms are always thrown away and proposed again by the new leader under its own term number", "why": "Raft never rewrites the term of an existing entry. It keeps the entry and commits it indirectly." },
+      { "id": "D", "correct": false, "text": "Yes, but only after every server in the cluster has stored the entry, not merely a majority of them", "why": "Waiting for every server isn't Raft's rule and would block on any single failure. Raft commits it via a current-term entry instead." }
+    ],
+    "explanation": "Figure 8 of the Raft paper shows why. A server holding a term-3 entry at index 5 could still win an election (its last log term, 3, beats 2) and overwrite the term-2 entry, even though that entry was on a majority. Once a term-4 entry is on a majority, no server lacking it can win an election, so everything before it is safe. This is why new leaders commit a no-op entry at the start of their term.",
+    "reference": "Raft paper, section 5.4.2: Committing entries from previous terms"
+  },
+  {
+    "id": "SD-CRD-039", "domain": 4, "skill": "coordination", "difficulty": 4, "type": "single", "select": 1,
+    "stem": "A Raft-based key-value store must serve linearizable reads with the lowest latency it can, without relying on any bound on clock drift. Writes already go through the log. Which approach meets both requirements?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Serve reads from any follower's local state machine, which is always at most one heartbeat interval behind the leader's state", "why": "Followers can lag by any amount and can't know what was committed recently, so their reads may be stale." },
+      { "id": "B", "correct": false, "text": "Use leader leases: the leader serves reads locally while its lease, timed from the last heartbeat that a majority acknowledged, is valid", "why": "Fast, but safe only if clock drift is bounded, which the requirement rules out." },
+      { "id": "C", "correct": true, "text": "ReadIndex: note the commit index, confirm leadership with one heartbeat round to a majority, then read once it is applied", "why": "One quorum round trip proves no newer leader exists, without writing to the log or trusting clocks." },
+      { "id": "D", "correct": false, "text": "Append every read to the replicated log as a no-op entry, and answer it only once that entry commits and is applied", "why": "That is linearizable, but it costs a log write and a disk sync per read, so it isn't the lowest-latency choice." }
+    ],
+    "explanation": "ReadIndex costs one round of heartbeats (which can be batched across many reads) and no disk writes. It needs one extra precondition: a new leader must have committed an entry from its own term before its commit index can be trusted. Lease reads skip even the heartbeat round, but they assume bounded clock drift. Follower reads can also be made linearizable by asking the leader for its read index.",
+    "reference": "Ongaro, Consensus: Bridging Theory and Practice (2014), section 6.4"
+  },
+  {
+    "id": "SD-CRD-040", "domain": 4, "skill": "coordination", "difficulty": 4, "type": "multi", "select": 2,
+    "stem": "CockroachDB timestamps transactions with hybrid logical clocks and assumes the clock offset between nodes stays below `max-offset` (500 ms by default). A read at timestamp t finds a value on another key that was written at t + 200 ms. Which statements are true? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "The value falls inside the read's uncertainty window, so the read must move its timestamp above it and retry, because the write may really have happened first", "why": "With up to 500 ms of skew, a write stamped later may have finished before the read began in real time." },
+      { "id": "B", "correct": true, "text": "A node that finds its clock too far out of sync with the others shuts itself down, because the uncertainty window would no longer be safe", "why": "The design depends on the offset bound, so a node outside it removes itself rather than risk anomalies." },
+      { "id": "C", "correct": false, "text": "The read ignores the value, because anything stamped after t lies in the read's future and is invisible under snapshot isolation", "why": "Ignoring it is safe only beyond the uncertainty window. Inside it, the real-time order is unknown." },
+      { "id": "D", "correct": false, "text": "Hybrid logical clocks remove the need for any bound on clock skew, because the logical counter resolves every ordering problem", "why": "HLCs preserve causality for messages that carry timestamps, but unrelated transactions still need the offset bound." },
+      { "id": "E", "correct": false, "text": "The read waits 500 ms before every query, like Spanner's commit wait, so uncertainty never arises in the first place", "why": "Waiting out uncertainty is Spanner's approach with TrueTime. CockroachDB uses uncertainty restarts instead." }
+    ],
+    "explanation": "Without atomic clocks, CockroachDB can't know whether a value stamped slightly after a read happened before it in real time. It treats the interval (t, t + max-offset] as uncertain and restarts reads that hit values in it at a higher timestamp, which preserves single-key linearizability. Correctness depends on the offset bound, so nodes monitor clock skew and shut down when they exceed it.",
+    "reference": "Cockroach Labs: Living Without Atomic Clocks"
+  },
+  {
+    "id": "SD-CRD-041", "domain": 4, "skill": "coordination", "difficulty": 4, "type": "single", "select": 1,
+    "stem": "Workers take a lease from a lock service before rewriting `report.json` in an object store. The store can't check fencing tokens, but it supports conditional writes (for example GCS `ifGenerationMatch`, or S3 `If-Match` with an ETag). Worker 1 reads the object at generation 41, then stalls for longer than its lease. Worker 2 takes over, reads generation 41 and writes generation 42. How do you stop worker 1's late write from clobbering worker 2's?",
+    "options": [
+      { "id": "A", "correct": true, "text": "Make every write conditional on the generation the worker read, so worker 1's write based on 41 fails", "why": "The object's version acts as the fencing token: the store rejects a write based on a state that is no longer current." },
+      { "id": "B", "correct": false, "text": "Renew the lease every second, so that a stalled worker loses its lease before it can write anything", "why": "A stall can start right after the last renewal check, so the worker can still write on an expired lease." },
+      { "id": "C", "correct": false, "text": "Have each worker check that it still holds the lease right before it calls the object store's write API", "why": "The check and the write aren't atomic, so a pause between them recreates the same race." },
+      { "id": "D", "correct": false, "text": "Write to a new object named after the worker's ID, so that the two workers never touch the same object", "why": "That avoids the overwrite but leaves readers with two conflicting reports and no rule for which is current." }
+    ],
+    "explanation": "Fencing works only when the resource itself rejects stale writes. If it can't compare tokens, a compare-and-set on the resource's own version gives the same protection for read-modify-write updates: a writer whose view is stale is refused, however long it was paused. Lease checks inside the client can never close the gap between the check and the write.",
+    "reference": "Kleppmann, How to do distributed locking (2016); GCS docs: Request preconditions"
+  },
+  {
+    "id": "SD-CRD-042", "domain": 4, "skill": "coordination", "difficulty": 4, "type": "single", "select": 1,
+    "stem": "A Raft cluster of servers A, B and C is grown to five members, A to E, by having each server switch to the new configuration as soon as it hears about it. Why is this unsafe, and what do Raft implementations do instead?",
+    "options": [
+      { "id": "A", "correct": true, "text": "Old and new majorities may not overlap: A and B (2 of the old 3) and C, D and E (3 of the new 5) could elect two leaders; use joint consensus or one-server changes", "why": "Single-server changes guarantee that old and new majorities overlap, and joint consensus requires both majorities during the transition." },
+      { "id": "B", "correct": false, "text": "New servers start with empty logs and would win the elections; they must first join as non-voting learners, after which the direct switch is safe", "why": "Catching up learners first helps availability, but it doesn't fix the problem of two majorities." },
+      { "id": "C", "correct": false, "text": "Configuration entries are not replicated through the log, so servers would disagree forever about the members; send them over a separate gossip channel", "why": "Raft does replicate configuration changes through the log. The danger is servers using different configurations at the same time." },
+      { "id": "D", "correct": false, "text": "Raft can't change membership while serving requests at all, so the cluster must be stopped, reconfigured on every server and restarted together", "why": "Raft supports online membership changes. The question is only how to make them safe." }
+    ],
+    "explanation": "Servers learn about a new configuration at different moments, so for a while some count votes against the old members and some against the new ones. If the change adds or removes several servers at once, a majority of each can be disjoint, allowing two leaders in the same term. Raft's joint consensus requires separate majorities of both configurations during the switch. The simpler alternative adds or removes one server at a time, which always keeps majorities overlapping.",
+    "reference": "Raft paper, section 6; Ongaro dissertation, chapter 4"
+  },
+  {
+    "id": "SD-CRD-043", "domain": 4, "skill": "coordination", "difficulty": 4, "type": "single", "select": 1,
+    "stem": "A controller wins leadership through etcd's election API, which stores a leader key attached to the controller's lease, and then writes its decisions to other etcd keys. A long GC pause lets its lease expire, and another instance becomes leader. When the paused controller wakes up, how can its writes be made safe?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Before each write, call the election API to confirm it is still the leader, and go ahead with the write only if the answer is yes", "why": "The check and the write are separate requests, so leadership can be lost between them." },
+      { "id": "B", "correct": true, "text": "Wrap each write in an etcd transaction that succeeds only if the leader key still has this controller's create revision", "why": "etcd evaluates the comparison and the write atomically, so a deposed leader's write fails." },
+      { "id": "C", "correct": false, "text": "Use a much longer lease TTL, such as five minutes, so that a garbage-collection pause can never outlast it", "why": "A longer TTL slows failover and still can't bound every pause or partition." },
+      { "id": "D", "correct": false, "text": "Attach the controller's lease to every key it writes, so that etcd deletes those writes once the lease expires", "why": "That deletes legitimate state on expiry and doesn't stop the stale write from landing first." }
+    ],
+    "explanation": "When the protected resource is etcd itself, etcd's multi-key transactions act as a fencing mechanism: `If(CreateRevision(leaderKey) == myRev).Then(Put(...))`. The leader key's create revision works as a fencing token, and it is checked atomically with the write. For writes to systems outside etcd, that revision has to be passed along and checked there.",
+    "reference": "etcd docs: Transactions and the concurrency (election) API"
+  },
+  {
+    "id": "SD-CRD-044", "domain": 4, "skill": "coordination", "difficulty": 4, "type": "single", "select": 1,
+    "stem": "A checkout saga has four steps: reserve stock, authorize payment, send the order to a third-party warehouse (which can't be cancelled once accepted) and email a confirmation. Where should the warehouse step go, and what must be true of the steps after it?",
+    "options": [
+      { "id": "A", "correct": true, "text": "After stock and payment, as the pivot; every later step must be retriable until it succeeds, because it can't be compensated", "why": "Steps before the pivot can be compensated, the pivot is the point of no return, and later steps must only move forward." },
+      { "id": "B", "correct": false, "text": "First, so the irreversible step is out of the way early and any later failure in stock or payment can simply be retried", "why": "If stock or payment then fails for good, there is no way to undo the warehouse order." },
+      { "id": "C", "correct": false, "text": "Last, after the email, so that the customer hears about the order before anything irreversible happens", "why": "Emailing before the outcome is known would confirm orders that might still fail." },
+      { "id": "D", "correct": false, "text": "Anywhere in the sequence, because the orchestrator can always compensate any completed step by issuing a reverse call to that service", "why": "Some actions, like this warehouse order, have no compensating action, which is exactly why placement matters." }
+    ],
+    "explanation": "Saga steps fall into three kinds: compensatable steps (stock, payment authorization), a pivot (the first step that can't be undone) and retriable steps (the email). Ordering them compensatable, then pivot, then retriable means any failure before the pivot can be rolled back, and any failure after it is pushed through with idempotent retries.",
+    "reference": "Richardson, Microservices Patterns, chapter 4: Structure of a saga"
+  },
+  {
+    "id": "SD-CRD-045", "domain": 4, "skill": "coordination", "difficulty": 4, "type": "multi", "select": 2,
+    "stem": "In a 5-node Raft cluster, server E sits behind a flaky link. It keeps missing heartbeats, times out again and again, and raises its term from 7 to 52, although it never wins an election. When the link recovers, its higher term forces the healthy leader to step down, causing a brief outage. Which two Raft extensions prevent this disruption? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "Pre-vote: before raising its term, a server asks whether a majority would vote for it, and servers still hearing from a leader say no", "why": "E's term never inflates, because its pre-votes fail while the leader is healthy." },
+      { "id": "B", "correct": true, "text": "Servers ignore vote requests that arrive within the minimum election timeout of last hearing from a current leader", "why": "Followers in contact with a live leader refuse to support or react to a disruptive candidate." },
+      { "id": "C", "correct": false, "text": "Make E the leader straight away, since a term of 52 proves it has the most up-to-date log in the cluster", "why": "Terms say nothing about log contents. E's log is probably behind, so it would lose the vote anyway." },
+      { "id": "D", "correct": false, "text": "Reset E's term to the leader's term when it rejoins, so that the higher term is simply ignored", "why": "Raft's safety depends on terms only moving forward, so ignoring a higher term breaks its invariants." },
+      { "id": "E", "correct": false, "text": "Lengthen every server's election timeout to several minutes so that E stops timing out", "why": "That slows recovery from real leader failures across the whole cluster and only postpones the problem." }
+    ],
+    "explanation": "A partitioned server can't win, but its inflated term still disrupts the cluster when it returns. Pre-vote keeps its term from rising unless it could actually win, and having followers disregard vote requests while they trust a leader stops a stray candidate from deposing it. etcd's Raft library implements both as PreVote and CheckQuorum.",
+    "reference": "Ongaro dissertation, section 9.6: Preventing disruptions when a server rejoins"
+  }
+]

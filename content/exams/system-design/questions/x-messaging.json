@@ -1,0 +1,606 @@
+[
+  {
+    "id": "SD-MSG-011",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A sign-up endpoint sends a welcome email by calling an email provider inline. When the provider slows down, sign-ups time out, and during marketing campaigns the provider rate-limits the service. What is the main benefit of putting a message queue between the sign-up endpoint and a pool of email workers?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Emails are delivered faster, because a queue adds a direct network path from the web tier to the provider", "why": "A queue adds a hop; it doesn't speed up delivery. Its value is decoupling, not lower latency." },
+      { "id": "B", "correct": true, "text": "Sign-ups no longer depend on the provider, and bursts are absorbed and drained at a rate the provider accepts", "why": "Decoupling plus load levelling: the endpoint only enqueues, and workers consume at a steady, controllable rate." },
+      { "id": "C", "correct": false, "text": "Every email is guaranteed to be sent exactly once, because a queue removes the possibility of duplicate deliveries", "why": "Most queues deliver at least once. Duplicates are still possible and need idempotent handling." },
+      { "id": "D", "correct": false, "text": "The provider's rate limit disappears, because messages arriving from a queue are exempt from the provider's quotas", "why": "The provider's limits still apply; the queue just lets you pace requests to stay under them." }
+    ],
+    "explanation": "A queue decouples the producer from a slow or flaky dependency and smooths bursts (load levelling). The user-facing request finishes once the message is durably enqueued, and the worker pool's size sets the drain rate, which you can match to the provider's quota. Delivery remains at-least-once, so the email worker should be idempotent.",
+    "reference": "AWS: Queue-based load leveling pattern"
+  },
+  {
+    "id": "SD-MSG-012",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "When an order is placed, three independent services (billing, analytics and email) each need to receive every `OrderPlaced` event and process it at their own pace. Using Kafka, how should the consumers be set up?",
+    "options": [
+      { "id": "A", "correct": false, "text": "All three services join one consumer group, so that Kafka spreads each event across the three of them", "why": "Within one group each record goes to only one member, so each service would see only a share of the events." },
+      { "id": "B", "correct": false, "text": "The producer writes each event to the topic three times, so that each copy can be picked up by one of the services", "why": "Kafka already supports many independent readers of one log; duplicating writes wastes storage and invites drift." },
+      { "id": "C", "correct": true, "text": "Each service uses its own consumer group, so each one reads every event and tracks its own offsets", "why": "Separate groups give publish-subscribe semantics: every group sees the full stream independently." },
+      { "id": "D", "correct": false, "text": "Each service reads with no group at all and deletes each event from the topic once it has finished processing it", "why": "Kafka consumers don't delete records; retention policy removes them, regardless of who has read them." }
+    ],
+    "explanation": "In Kafka, consumer groups give you both models. Members of one group share the partitions (point-to-point work sharing), while different groups each receive the whole stream (publish-subscribe). Each group keeps its own committed offsets, so a slow analytics service doesn't hold back billing.",
+    "reference": "Apache Kafka docs: Consumers"
+  },
+  {
+    "id": "SD-MSG-013",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In Kafka, a record is deleted from its partition as soon as every consumer group subscribed to the topic has read and committed it.",
+    "options": [
+      { "id": "A", "correct": false, "text": "True", "why": "That describes a traditional queue. Kafka keeps records according to the topic's retention or compaction policy, independent of consumers." },
+      { "id": "B", "correct": true, "text": "False", "why": "Correct: records stay until retention (time or size) or compaction removes them, so consumers can re-read or replay them." }
+    ],
+    "explanation": "Kafka is a log, not a queue. Reading a record only moves that consumer group's offset; the data stays until `retention.ms`/`retention.bytes` expire it or log compaction supersedes it. That is what makes replay, new consumers and reprocessing after a bug fix possible.",
+    "reference": "Apache Kafka docs: Log retention"
+  },
+  {
+    "id": "SD-MSG-014",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each Kafka topic with the `cleanup.policy` that best fits it.",
+    "options": [
+      { "id": "A", "text": "`delete` (drop segments older than the retention time)" },
+      { "id": "B", "text": "`compact` (keep at least the latest record per key, forever)" },
+      { "id": "C", "text": "`compact,delete` (keep the latest per key, but also drop anything older than the retention time)" }
+    ],
+    "prompts": [
+      { "id": "P1", "text": "Raw clickstream events, needed for 7 days of reprocessing", "answer": "A" },
+      { "id": "P2", "text": "The current shipping address of every customer, used to rebuild a cache from scratch", "answer": "B" },
+      { "id": "P3", "text": "The latest status of each IoT device, where devices silent for 30 days should disappear", "answer": "C" }
+    ],
+    "explanation": "Time-based `delete` suits event streams whose value expires. `compact` turns a topic into a durable changelog: older values for a key are removed, but the newest stays indefinitely, so a consumer can rebuild full state. Combining both keeps only the latest value per key and still ages out keys that have stopped updating.",
+    "reference": "Apache Kafka docs: Log compaction"
+  },
+  {
+    "id": "SD-MSG-015",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "In Kafka, the set of replicas of a partition that are fully caught up with the leader, and that an `acks=all` write must reach, is known by a three-letter acronym. Type the acronym.",
+    "options": [],
+    "accepted": ["ISR", "in-sync replicas", "in sync replicas"],
+    "explanation": "The ISR (in-sync replica set) is the leader plus every follower that has kept up within `replica.lag.time.max.ms`. With `acks=all`, the leader acknowledges a write only after every current ISR member has it, and `min.insync.replicas` sets how small the ISR may shrink before such writes are refused.",
+    "reference": "Apache Kafka docs: Replication"
+  },
+  {
+    "id": "SD-MSG-016",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What is the main purpose of a dead-letter queue (DLQ) in a messaging system?",
+    "options": [
+      { "id": "A", "correct": false, "text": "To store every message a second time, so that a backup copy exists if the main queue loses data", "why": "A DLQ isn't a backup; it only receives messages that failed processing." },
+      { "id": "B", "correct": false, "text": "To hold messages until a scheduled time, so that consumers process them later than they were sent", "why": "That's a delay queue or scheduler, a different feature." },
+      { "id": "C", "correct": false, "text": "To speed up the main queue by moving the oldest messages out of it when it grows past a size limit", "why": "Messages go to a DLQ because they failed repeatedly, not because they are old." },
+      { "id": "D", "correct": true, "text": "To set aside messages that keep failing, so they stop blocking other work and can be inspected or replayed", "why": "After a set number of failed attempts the message is moved aside for humans or tooling to deal with." }
+    ],
+    "explanation": "Without a DLQ a poison message (malformed data, or one that hits a bug) is retried forever, wasting capacity and sometimes blocking ordered processing. A DLQ caps the attempts, keeps the failing message for diagnosis, and lets you replay it after a fix. Alert on DLQ depth: a DLQ nobody watches is silent data loss.",
+    "reference": "AWS docs: Amazon SQS dead-letter queues"
+  },
+  {
+    "id": "SD-MSG-017",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A team switches from an Amazon SQS standard queue to a FIFO queue. Which pair of guarantees does the standard queue lack that the FIFO queue provides?",
+    "options": [
+      { "id": "A", "correct": true, "text": "Strict ordering within a message group, and deduplication of messages sent again within a 5-minute window", "why": "Standard queues give best-effort ordering and at-least-once delivery, so duplicates and reordering can happen." },
+      { "id": "B", "correct": false, "text": "Durable storage of messages across several availability zones, and encryption of every message at rest", "why": "Standard queues are also stored redundantly across AZs and support encryption at rest." },
+      { "id": "C", "correct": false, "text": "Unlimited throughput per queue, and delivery to many independent subscribers at the same time", "why": "FIFO queues have lower throughput limits than standard ones, and neither type fans out to subscribers (that's SNS)." },
+      { "id": "D", "correct": false, "text": "Automatic retries for failed messages, and the ability to attach a dead-letter queue for repeated failures", "why": "Both queue types redeliver after the visibility timeout and both support dead-letter queues." }
+    ],
+    "explanation": "SQS standard queues offer nearly unlimited throughput with at-least-once delivery and best-effort ordering. FIFO queues trade some throughput for first-in-first-out order per `MessageGroupId` and exactly-once processing within a 5-minute deduplication interval. Order across different message groups is not guaranteed.",
+    "reference": "AWS docs: Amazon SQS FIFO queues"
+  },
+  {
+    "id": "SD-MSG-018",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each requirement with the messaging technology that fits it best.",
+    "options": [
+      { "id": "A", "text": "Apache Kafka" },
+      { "id": "B", "text": "RabbitMQ" },
+      { "id": "C", "text": "Amazon SQS" },
+      { "id": "D", "text": "Redis Streams" }
+    ],
+    "prompts": [
+      { "id": "P1", "text": "Retain a high-volume event log for days so several teams can replay it independently", "answer": "A" },
+      { "id": "P2", "text": "Route each message by header or topic pattern to different queues, with per-message acknowledgements", "answer": "B" },
+      { "id": "P3", "text": "A fully managed work queue with no brokers or capacity to run", "answer": "C" },
+      { "id": "P4", "text": "A lightweight stream inside the Redis you already run, for modest volumes that fit in memory", "answer": "D" }
+    ],
+    "explanation": "Kafka is a partitioned, replicated log built for throughput, retention and replay. RabbitMQ is a broker with flexible routing (exchanges and bindings) and per-message acks, built for work distribution. SQS is serverless queueing. Redis Streams adds consumer groups to Redis, but its data lives in memory, so long retention of large volumes is expensive.",
+    "reference": "Kleppmann, DDIA ch. 11"
+  },
+  {
+    "id": "SD-MSG-019",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A dashboard shows Kafka consumer lag of 2,000,000 for one consumer group on a partition. What does that number measure?",
+    "options": [
+      { "id": "A", "correct": false, "text": "The time in milliseconds between a record being produced and the consumer group finishing processing it", "why": "Lag is counted in offsets (records), not time; you have to divide by the consume rate to estimate a time." },
+      { "id": "B", "correct": false, "text": "The number of records the broker failed to replicate to followers, which consumers can't read yet", "why": "Replication lag is a separate broker metric; consumer lag is about the group's committed position." },
+      { "id": "C", "correct": true, "text": "How many records sit between the group's committed offset and the newest offset in that partition", "why": "Lag = log-end offset minus committed offset, the backlog the group still has to work through." },
+      { "id": "D", "correct": false, "text": "The number of records the consumer has read but not yet acknowledged back to the producer that sent them", "why": "Consumers never acknowledge to producers in Kafka; producers get acks from brokers." }
+    ],
+    "explanation": "Consumer lag is the gap between the partition's log-end offset and the consumer group's committed offset. A steady lag is fine; a lag that keeps growing means consumers process slower than producers write. Turning it into time (for example records divided by records per second) gives the more meaningful \"how far behind\" figure for alerting.",
+    "reference": "Confluent docs: Monitor consumer lag"
+  },
+  {
+    "id": "SD-MSG-020",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An SNS topic publishes `OrderShipped` events. Three services need them. One proposal subscribes each service's HTTPS endpoint directly to the topic; the other subscribes one SQS queue per service to the topic and has each service poll its own queue. Why is the SNS-to-SQS design usually preferred?",
+    "options": [
+      { "id": "A", "correct": false, "text": "SQS delivers each event exactly once to each service, whereas an SNS HTTPS subscription can deliver duplicates", "why": "Standard SQS is also at-least-once; consumers still need idempotency in both designs." },
+      { "id": "B", "correct": true, "text": "Each queue buffers durably, so a slow or down service just builds a backlog and retries independently of the others", "why": "The queue decouples each subscriber's availability and pace from the publisher and from each other." },
+      { "id": "C", "correct": false, "text": "SNS can't fan out to more than one HTTPS endpoint, so each additional subscriber requires its own separate topic", "why": "SNS supports many subscriptions per topic; fan-out is exactly what it is for." },
+      { "id": "D", "correct": false, "text": "Polling SQS gives lower end-to-end latency than SNS pushing over HTTPS, because no network call is needed", "why": "Polling generally adds latency, not less; the benefit is buffering and control, not speed." }
+    ],
+    "explanation": "With direct HTTPS subscriptions, a subscriber that is down or slow depends on SNS's limited retry policy, and messages can be lost after retries run out. Putting an SQS queue per subscriber gives each one a durable buffer, its own retry and DLQ settings, and the freedom to scale consumers to its own pace.",
+    "reference": "AWS docs: Fanout to Amazon SQS queues"
+  },
+  {
+    "id": "SD-MSG-021",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A consumer reads `PointsEarned` events (each with a unique `event_id`) from an at-least-once queue and adds the points to a balance in PostgreSQL. Duplicates have doubled some balances. Which two changes make the consumer safe against redelivery? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "In one transaction, insert `event_id` into a processed-events table with a unique constraint and update the balance; skip the event on a conflict", "why": "The dedup record and the side effect commit atomically, so a redelivered event hits the constraint and changes nothing." },
+      { "id": "B", "correct": true, "text": "Store each grant as a row keyed by `event_id` with an upsert, and compute the balance as the sum of those rows", "why": "This makes the operation naturally idempotent: applying the same event twice writes the same row." },
+      { "id": "C", "correct": false, "text": "Turn on the idempotent producer setting in the publishing service so the broker drops any duplicate it receives", "why": "Producer idempotence only removes duplicates caused by producer retries; redelivery to consumers still happens." },
+      { "id": "D", "correct": false, "text": "Acknowledge each message as soon as it is received, before updating the balance, so it is never delivered twice", "why": "That turns duplicates into lost events whenever the consumer crashes before finishing the update." },
+      { "id": "E", "correct": false, "text": "Keep an in-memory set of recently seen `event_id`s in each consumer process and skip any event already in the set", "why": "The set is lost on restart and isn't shared between consumers, which is exactly when redeliveries happen." }
+    ],
+    "explanation": "At-least-once delivery means duplicates are normal, so the consumer has to make processing idempotent. The two reliable ways are a durable dedup record committed atomically with the side effect, or reshaping the write so that repeating it has no extra effect (set or upsert, rather than increment). Volatile caches and producer-side settings don't cover consumer redelivery.",
+    "reference": "Kleppmann, DDIA ch. 11: Idempotence"
+  },
+  {
+    "id": "SD-MSG-022",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A Kafka consumer calls a flaky partner API. Instead of retrying in place, the team adds non-blocking retry topics: a failed record goes to `retry-30s`, then `retry-5m`, then a dead-letter topic, while the main consumer moves on. What is the most important trade-off of this design?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Records can be lost, because Kafka deletes a record from the main topic once it has been copied into a retry topic", "why": "Copying to another topic doesn't delete the original, and the record is preserved in the retry topic." },
+      { "id": "B", "correct": false, "text": "The main partition stops while a record waits in a retry topic, so throughput drops during partner outages", "why": "That describes blocking retries; non-blocking retry topics exist precisely so the main partition keeps moving." },
+      { "id": "C", "correct": false, "text": "Each retry topic needs as many partitions as the main topic, or Kafka refuses to accept the forwarded records", "why": "Retry topics can have any partition count; Kafka imposes no such rule." },
+      { "id": "D", "correct": true, "text": "Later records for the same key can be processed before the one being retried, so per-key ordering is lost", "why": "The failed record leaves the ordered stream, while newer records for its key continue on the main topic." }
+    ],
+    "explanation": "Non-blocking retries keep the partition flowing during transient failures, which is great for independent events such as notifications. The price is ordering: a key's failed record is replayed later, after newer records for that key have been handled. Use this only when events are commutative or independent; when order matters, block the key (not the partition) instead.",
+    "reference": "Uber Engineering: Reliable reprocessing with Kafka"
+  },
+  {
+    "id": "SD-MSG-023",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "A new Kafka topic must sustain 60 MB/s. Benchmarks show one partition can take about 10 MB/s of producer writes, and one consumer instance can process about 5 MB/s from a partition. Using the common sizing rule (partitions = max of target ÷ producer rate, target ÷ consumer rate), how many partitions does the topic need at minimum? Type just the number.",
+    "options": [],
+    "accepted": ["12"],
+    "explanation": "Producer side: 60 ÷ 10 = 6 partitions. Consumer side: each partition is read by at most one consumer in a group, so you need 60 ÷ 5 = 12 partitions for 12 consumers working in parallel. Take the larger, 12. In practice add headroom for growth, because adding partitions later re-maps keys and breaks per-key ordering.",
+    "reference": "Confluent blog: How to choose the number of topics/partitions"
+  },
+  {
+    "id": "SD-MSG-024",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A topic's Avro schema is registered in a schema registry with compatibility mode `BACKWARD`. The team adds an optional field with a default value. In which order should they roll out the change, and why?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Producers first, because `BACKWARD` means old consumers are guaranteed to understand data written with the new schema", "why": "That guarantee is FORWARD compatibility. BACKWARD is about new readers handling old data." },
+      { "id": "B", "correct": false, "text": "In any order at all, because the registry rewrites old records to the new schema as soon as the new version is registered", "why": "The registry stores schemas; it never rewrites records already in the topic." },
+      { "id": "C", "correct": true, "text": "Consumers first, because `BACKWARD` guarantees that the new schema can read data written with the previous one", "why": "Upgraded consumers can read both old and new records, so producers can switch afterwards safely." },
+      { "id": "D", "correct": false, "text": "Producers and consumers in one simultaneous deploy, because no compatibility mode lets the two versions overlap", "why": "Compatibility modes exist precisely so the two versions can run side by side during a rolling deploy." }
+    ],
+    "explanation": "Under `BACKWARD`, a consumer using the new schema can read data written with the previous schema (allowed changes: delete fields, add fields with defaults). So upgrade consumers first, then producers. `FORWARD` is the mirror image (old readers can read new data, so upgrade producers first), and `FULL` allows either order.",
+    "reference": "Confluent docs: Schema evolution and compatibility"
+  },
+  {
+    "id": "SD-MSG-025",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In an Amazon SQS FIFO queue, messages that have different `MessageGroupId` values can be processed in parallel by different consumers, while order is still preserved within each group.",
+    "options": [
+      { "id": "A", "correct": true, "text": "True", "why": "Correct: ordering is per message group, so independent groups (for example one per customer) can be worked on concurrently." },
+      { "id": "B", "correct": false, "text": "False", "why": "FIFO queues don't serialize the whole queue; only messages within the same group wait for each other." }
+    ],
+    "explanation": "The message group is the unit of ordering in SQS FIFO, much like a partition key in Kafka. While a message from a group is in flight, later messages of that group are held back, but other groups proceed. Putting every message in one group serializes the whole queue, a common performance mistake.",
+    "reference": "AWS docs: Using the message group ID"
+  },
+  {
+    "id": "SD-MSG-026",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A Kafka producer uses `acks=1` on a topic with replication factor 3. The producer gets a success response for a record, then the partition leader's disk fails before any follower has copied the record. A follower becomes the new leader. What happens to the record?",
+    "options": [
+      { "id": "A", "correct": false, "text": "It survives, because replication factor 3 means each record is always written to three brokers before success is returned", "why": "With `acks=1` only the leader must have the record before the producer is told it succeeded." },
+      { "id": "B", "correct": true, "text": "It is lost, because only the old leader had it, and the new leader's log never contained the record", "why": "`acks=1` acknowledges after the leader's own write, so a leader failure before replication loses it." },
+      { "id": "C", "correct": false, "text": "It is delivered later, because the new leader fetches missing records from the failed leader's disk when it recovers", "why": "The new leader's log is authoritative; the old leader truncates to match it when it rejoins." },
+      { "id": "D", "correct": false, "text": "It is duplicated, because the producer automatically resends every record that was acknowledged before a leader change", "why": "The producer only retries requests that failed; this one succeeded, so it is never resent." }
+    ],
+    "explanation": "Replication factor sets how many copies eventually exist, but `acks` decides when the producer is told \"done\". With `acks=1`, there is a window where an acknowledged record exists only on the leader. For data you can't lose, use `acks=all` with `min.insync.replicas=2` (on RF 3), so an acknowledged write is always on at least two brokers.",
+    "reference": "Apache Kafka docs: Producer configs (acks)"
+  },
+  {
+    "id": "SD-MSG-027",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "An order service uses the transactional outbox pattern with Debezium change data capture on PostgreSQL. Put the steps in the order they happen for one new order.",
+    "options": [
+      { "id": "A", "text": "The service inserts the order row and an outbox row in one database transaction" },
+      { "id": "B", "text": "The transaction commits and its changes are written to the write-ahead log" },
+      { "id": "C", "text": "Debezium reads the outbox insert from the WAL through a logical replication slot" },
+      { "id": "D", "text": "The connector publishes the event to the Kafka topic named in the outbox row" },
+      { "id": "E", "text": "A downstream consumer processes the event, deduplicating by its event id" }
+    ],
+    "answerOrder": ["A", "B", "C", "D", "E"],
+    "explanation": "The outbox row commits atomically with the business change, so an event exists if and only if the order does. CDC tails the WAL in commit order, avoiding polling and dual writes. Debezium delivers at least once (it can replay after a restart), so consumers still deduplicate by event id.",
+    "reference": "Debezium docs: Outbox Event Router"
+  },
+  {
+    "id": "SD-MSG-028",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An event-sourced banking service rebuilds each account's state by replaying its events. Some business accounts now have 2 million events, and loading one takes 40 seconds. What is the standard fix?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Delete events older than 90 days, since the current balance already reflects everything that happened before them", "why": "Deleting history breaks auditability and replay, the main reasons to choose event sourcing." },
+      { "id": "B", "correct": false, "text": "Store the account's current balance in each event, and read only the newest event whenever the account is loaded", "why": "That doesn't cover full aggregate state and couples every event to a projection." },
+      { "id": "C", "correct": false, "text": "Move each account's events onto its own Kafka partition, so that replaying them runs fully in parallel", "why": "One aggregate's events must be applied in order, so splitting them can't parallelize the replay." },
+      { "id": "D", "correct": true, "text": "Save periodic snapshots of the aggregate state, then load the latest one and replay only the events after it", "why": "Snapshots bound replay work to the events since the last snapshot, while the full log stays intact." }
+    ],
+    "explanation": "In event sourcing, the event log is the source of truth and state is a fold over it. Snapshots (for example every 1,000 events) are a cache of that fold: load the snapshot, apply the tail. They can be rebuilt from the log at any time, so they don't compromise auditability or the ability to add new projections.",
+    "reference": "Microsoft: Event Sourcing pattern"
+  },
+  {
+    "id": "SD-MSG-029",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A topic has replication factor 3 and `min.insync.replicas=2`; producers use `acks=all`. Two of the three brokers hosting a partition crash at the same time, and the third is the leader. Which statements are true until a second broker returns? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "Producer writes to that partition fail with a not-enough-replicas error instead of being acknowledged", "why": "The ISR has shrunk to 1, below the minimum of 2, so the leader refuses `acks=all` writes." },
+      { "id": "B", "correct": true, "text": "Consumers can still read records that were committed before the failure from the surviving leader", "why": "`min.insync.replicas` only gates writes; reads of committed data continue." },
+      { "id": "C", "correct": false, "text": "Writes continue normally, and the missing copies are created later once the brokers are back", "why": "That would acknowledge writes stored on a single broker, which is what the setting is there to prevent." },
+      { "id": "D", "correct": false, "text": "The partition becomes completely unavailable for both reads and writes until an operator intervenes", "why": "The leader is alive, so reads still work; only `acks=all` writes are refused." },
+      { "id": "E", "correct": false, "text": "Producers using `acks=all` silently fall back to `acks=1` until enough replicas rejoin the ISR", "why": "Kafka never downgrades the acks setting; the producer receives an error and retries per its config." }
+    ],
+    "explanation": "`acks=all` plus `min.insync.replicas=2` means \"don't acknowledge unless at least two brokers have it\". When the ISR drops below 2, the partition stays readable but rejects those writes, choosing consistency over availability. Producers retry (up to `delivery.timeout.ms`) and then surface the error to the application.",
+    "reference": "Apache Kafka docs: min.insync.replicas"
+  },
+  {
+    "id": "SD-MSG-030",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A partition's only in-sync replica (its leader) dies permanently. The two remaining replicas are out of sync, 30 seconds behind. An operator considers setting `unclean.leader.election.enable=true` for the topic. Which two statements describe the effect? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "An out-of-sync replica can become leader, so records acknowledged under `acks=all` but not yet copied to it are lost", "why": "The new leader's log is missing the last 30 seconds, and the cluster now treats that shorter log as the truth." },
+      { "id": "B", "correct": true, "text": "The partition becomes writable again instead of staying offline until an in-sync replica returns", "why": "That's the availability you buy: no waiting for a replica that may never come back." },
+      { "id": "C", "correct": false, "text": "No data is lost, because the new leader copies the missing records from the consumers' local caches", "why": "Consumers don't hold a copy of the log that brokers can recover from." },
+      { "id": "D", "correct": false, "text": "Only consumers are affected, because producers keep writing to the dead leader until it is replaced", "why": "Producers can't write to a dead broker; they follow leadership changes through metadata." },
+      { "id": "E", "correct": false, "text": "It automatically raises `min.insync.replicas` so that the next leader election can't be unclean", "why": "The two settings are independent; enabling unclean election changes nothing else." }
+    ],
+    "explanation": "Clean election only promotes ISR members, which guarantees that committed records survive. When no ISR member is left, Kafka offers a choice: stay unavailable (the default) or promote a lagging replica and lose acknowledged data. Payments and ledgers should stay unavailable; metrics or logs may prefer availability.",
+    "reference": "Apache Kafka docs: Unclean leader election"
+  },
+  {
+    "id": "SD-MSG-031",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A consumer group of 50 instances on Kubernetes uses the default eager rebalancing. During each rolling deploy, every pod restart triggers a rebalance in which all 50 instances revoke all their partitions, and consumption stalls for minutes in total. Which change best fixes this?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Raise `max.poll.records` so each instance processes more records between the rebalances, catching up faster", "why": "More work per poll doesn't stop the stop-the-world revocations; it can even lengthen them." },
+      { "id": "B", "correct": false, "text": "Lower `session.timeout.ms` to 3 seconds so that the group notices each departing pod and rebalances sooner", "why": "That makes rebalances more frequent, triggering even on short GC pauses or network blips." },
+      { "id": "C", "correct": true, "text": "Give each pod a stable `group.instance.id` and use the cooperative-sticky assignor", "why": "Static members that return within the session timeout cause no rebalance, and cooperative rebalancing moves only the affected partitions." },
+      { "id": "D", "correct": false, "text": "Deploy all 50 pods at the same moment instead of rolling, so that the group rebalances only once per deploy", "why": "That trades many short stalls for a full outage with zero consumers." }
+    ],
+    "explanation": "Two features address rebalance storms. Static membership (KIP-345) lets a restarted consumer rejoin under the same identity without a rebalance, as long as it returns within `session.timeout.ms`. Incremental cooperative rebalancing (KIP-429) revokes only partitions that actually move, so other members keep consuming. Together they make rolling deploys almost invisible.",
+    "reference": "KIP-345 and KIP-429"
+  },
+  {
+    "id": "SD-MSG-032",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A team's Kafka cluster holds 400 TB. Traffic doubled, and adding brokers means hours of partition reassignment that copies terabytes across the network. A colleague says Apache Pulsar would handle this differently. What is the architectural reason?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Pulsar compresses every message far more than Kafka, so there is a lot less data to move during expansion", "why": "Compression ratios depend on codecs both systems share; it isn't the architectural difference." },
+      { "id": "B", "correct": true, "text": "Pulsar brokers are stateless and data lives in BookKeeper segments, so new nodes take new segments without copying old ones", "why": "Separating serving from storage means scaling either layer needs no bulk data rebalancing." },
+      { "id": "C", "correct": false, "text": "Pulsar keeps all topic data only in memory, so adding a node needs no disk copy and finishes in seconds", "why": "Pulsar persists messages durably in BookKeeper; it isn't an in-memory system." },
+      { "id": "D", "correct": false, "text": "Pulsar does not replicate data, so there is a single copy to move instead of three during expansion", "why": "Pulsar replicates each segment across several bookies, just as Kafka replicates partitions." }
+    ],
+    "explanation": "In Kafka (without tiered storage) a partition's data is tied to the brokers that host it, so rebalancing load means copying data. Pulsar splits topics into segments stored on BookKeeper nodes, and brokers only serve. A new bookie simply receives new segments, and a new broker takes over topic ownership instantly. Kafka's tiered storage (KIP-405) narrows this gap by moving old segments to object storage.",
+    "reference": "Apache Pulsar docs: Architecture overview"
+  },
+  {
+    "id": "SD-MSG-033",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A payment service sends `ChargeCard` messages to an SQS FIFO queue, setting `MessageDeduplicationId` to the order id. During an outage the service's retry loop resent one order's message 6 minutes after the first send, and the card was charged twice. Why didn't deduplication catch it?",
+    "options": [
+      { "id": "A", "correct": false, "text": "FIFO deduplication only applies to messages that also share the same `MessageGroupId`, and these two didn't", "why": "Deduplication is by deduplication id for the whole queue, whatever the message group." },
+      { "id": "B", "correct": false, "text": "Deduplication ids must be random UUIDs, and SQS ignores ids that look like sequential numbers such as an order id", "why": "Any string up to 128 characters works; SQS doesn't treat formats differently." },
+      { "id": "C", "correct": true, "text": "SQS only remembers a deduplication id for 5 minutes, so a message resent after 6 minutes is accepted as new", "why": "The deduplication interval is fixed at 5 minutes; later sends with the same id are delivered again." },
+      { "id": "D", "correct": false, "text": "Deduplication only removes duplicates that a consumer has not yet received, and the first message had already been read", "why": "Within the 5-minute window a duplicate is dropped whether or not the first message was received." }
+    ],
+    "explanation": "SQS FIFO deduplication works within a 5-minute window. Retries that can happen later (long outages, replays, manual resends) slip through. Broker-side dedup is a convenience, not a guarantee. The charge itself must be idempotent, for example by passing an idempotency key to the payment provider or recording processed order ids durably.",
+    "reference": "AWS docs: Exactly-once processing in SQS FIFO"
+  },
+  {
+    "id": "SD-MSG-034",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A service keeps a local cache of user profiles built from a compacted Kafka topic keyed by `user_id`; a deleted user is written as a tombstone (null value). `delete.retention.ms` is at its default of 24 hours. One instance was down for 3 days, then resumed from its committed offset. Days later, a user deleted during the outage still appears in its cache. What happened?",
+    "options": [
+      { "id": "A", "correct": true, "text": "Compaction removed the tombstone after 24 hours, so the resumed instance never saw the delete for that user", "why": "Tombstones are kept only for `delete.retention.ms`; a reader that is further behind misses them." },
+      { "id": "B", "correct": false, "text": "Tombstones are only delivered to consumers that read the topic from the very beginning, never to ones resuming", "why": "Tombstones are ordinary records and any consumer reading past them receives them." },
+      { "id": "C", "correct": false, "text": "Compaction rewrites a deleted user's last value into the tombstone's place, so the instance read the profile again", "why": "Compaction removes superseded values; it never restores an older value over a delete." },
+      { "id": "D", "correct": false, "text": "The committed offset was reset to the latest position, so the instance skipped all 3 days of records", "why": "Then it would have missed updates too; the symptom is specific to deletes whose tombstones expired." }
+    ],
+    "explanation": "Compaction keeps the latest value per key, and keeps a delete marker only for `delete.retention.ms`, after which the key vanishes entirely. A consumer that falls further behind than that window, while holding derived state, can never learn about the delete. Set `delete.retention.ms` above the longest plausible consumer outage, or rebuild state from scratch after a long gap.",
+    "reference": "Apache Kafka docs: Log compaction (deletes)"
+  },
+  {
+    "id": "SD-MSG-035",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A topic has 12 partitions and receives 1,000 records per second. A group of 12 consumers each processes records one at a time, and each record needs a 50 ms synchronous database call. Lag grows steadily. Per-key order must be kept. Which change actually fixes it?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Scale the group to 40 consumers, so that the extra instances take over the share of the load that the others can't keep up with", "why": "A group can't have more active consumers than partitions; the extra 28 instances would sit idle." },
+      { "id": "B", "correct": true, "text": "Process records concurrently within each consumer while keeping per-key order, or batch the database writes", "why": "12 consumers × 20 records/s = 240/s against 1,000/s; concurrency inside each partition is the cheap fix." },
+      { "id": "C", "correct": false, "text": "Raise `fetch.min.bytes` so that each poll returns bigger batches, which cuts the time spent on network requests", "why": "Fetching was never the bottleneck; the 50 ms per-record database call is." },
+      { "id": "D", "correct": false, "text": "Switch to asynchronous offset commits, so that consumers no longer wait for the broker after every record", "why": "Commit overhead is small next to 50 ms of work per record, so this barely changes throughput." }
+    ],
+    "explanation": "Throughput is 12 × (1 s ÷ 50 ms) = 240 records/s against 1,000 arriving, so the backlog grows by about 760 per second. You need about 50 concurrent units of work (1,000 × 0.05 s). Adding partitions would also work, but it re-maps keys. Keyed concurrency inside each consumer (as in Confluent's parallel consumer) or batching inserts fixes it without that.",
+    "reference": "Confluent: Parallel Consumer"
+  },
+  {
+    "id": "SD-MSG-036",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A RabbitMQ consumer keeps crashing with out-of-memory errors after a backlog of 1 million messages builds up: as soon as it connects, the broker pushes messages faster than it can process them. Which two changes fix this? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "Set a prefetch limit with `basic.qos`, for example 50 unacknowledged messages per consumer", "why": "The broker stops pushing once that many messages are in flight, giving the consumer backpressure." },
+      { "id": "B", "correct": true, "text": "Use manual acknowledgements, acking each message after it has been processed", "why": "Prefetch limits apply only to unacknowledged messages, so auto-ack would make them ineffective." },
+      { "id": "C", "correct": false, "text": "Switch the consumer to automatic acknowledgements so that messages leave the broker faster", "why": "With auto-ack the broker pushes without limit and messages are lost if the consumer crashes." },
+      { "id": "D", "correct": false, "text": "Declare more exchanges so that the backlog is spread across several routing paths", "why": "Exchanges route messages into queues; they don't control the delivery rate to a consumer." },
+      { "id": "E", "correct": false, "text": "Raise the queue's maximum length so that the broker can hold the whole backlog without dropping anything", "why": "The broker already holds the backlog; the problem is how fast it pushes into the consumer." }
+    ],
+    "explanation": "RabbitMQ pushes messages to consumers, unlike Kafka's pull model, so the consumer needs flow control. Prefetch (`basic.qos`) caps the number of unacknowledged deliveries per channel or consumer, but it only works with manual acks. Tune it to processing time and latency to keep the consumer busy without flooding it.",
+    "reference": "RabbitMQ docs: Consumer prefetch"
+  },
+  {
+    "id": "SD-MSG-037",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "A Flink job reads from Kafka and writes to Kafka with exactly-once guarantees, using checkpointing and a transactional sink. Put the steps of one checkpoint in order.",
+    "options": [
+      { "id": "A", "text": "The JobManager injects a checkpoint barrier into each source's stream and the sources record their Kafka offsets" },
+      { "id": "B", "text": "Each operator snapshots its state once the barrier has arrived on all of its inputs" },
+      { "id": "C", "text": "The sink flushes and pre-commits its open Kafka transaction, then acknowledges the checkpoint" },
+      { "id": "D", "text": "The JobManager marks the checkpoint complete after every task has acknowledged it" },
+      { "id": "E", "text": "The sink commits the pre-committed transaction, making the output visible to read_committed consumers" }
+    ],
+    "answerOrder": ["A", "B", "C", "D", "E"],
+    "explanation": "Flink's exactly-once sink is a two-phase commit driven by checkpoints. The barrier aligns state snapshots with source offsets, the sink pre-commits as part of the snapshot, and the final commit happens only after the checkpoint is globally complete. A side effect: `read_committed` consumers see output only at checkpoint boundaries, so the checkpoint interval adds to end-to-end latency.",
+    "reference": "Flink docs: End-to-end exactly-once (TwoPhaseCommitSinkFunction)"
+  },
+  {
+    "id": "SD-MSG-038",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An outbox relay polls PostgreSQL every second with `SELECT * FROM outbox WHERE id > :last_id ORDER BY id`, publishes the rows, then saves the highest `id` as `last_id`. `id` comes from a sequence. Under load, a few events are never published, although their rows exist. What is the cause?",
+    "options": [
+      { "id": "A", "correct": false, "text": "PostgreSQL sequences can hand out the same value twice under load, so two rows end up sharing an id and one gets skipped", "why": "Sequences never return a value twice; they can skip values but not repeat them." },
+      { "id": "B", "correct": true, "text": "Ids are taken at insert but commit later, so a lower id can appear after the relay has already moved past it", "why": "If transaction 101 commits after 102 is published, the next poll asks for ids above 102 and misses 101 forever." },
+      { "id": "C", "correct": false, "text": "`ORDER BY id` is not guaranteed to be stable in PostgreSQL, so some rows randomly fall outside the polled range", "why": "Ordering by a unique column is deterministic; the problem is visibility timing, not sort stability." },
+      { "id": "D", "correct": false, "text": "The relay's poll reads uncommitted rows, so it publishes events that later roll back and are then removed", "why": "PostgreSQL never exposes uncommitted rows, and the symptom is missing events, not phantom ones." }
+    ],
+    "explanation": "A sequence orders when values were allocated, not when transactions commit. A watermark of \"highest id seen\" assumes commit order equals id order, which fails with concurrent writers. Fixes: tail the WAL with CDC (commit order by construction), mark rows as published instead of using a watermark, or only advance past ids older than the longest transaction. The same trap breaks naive incremental ETL and pagination.",
+    "reference": "Debezium docs: Outbox; PostgreSQL docs: Sequences"
+  },
+  {
+    "id": "SD-MSG-039",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A legacy Kafka producer runs with `enable.idempotence=false`, `retries=10` and `max.in.flight.requests.per.connection=5`. Consumers of a partition sometimes see a customer's `AddressChanged` events out of order, although they were sent in order to the same partition. What causes it, and what is the right fix?",
+    "options": [
+      { "id": "A", "correct": false, "text": "The partitioner hashed the same key to different partitions on retries; pin the partition number in each record", "why": "The key's partition is deterministic, and the stem says the events reached the same partition." },
+      { "id": "B", "correct": false, "text": "Consumers fetch batches in parallel threads; set `max.poll.records=1` so each record is handled on its own", "why": "Within a partition, records are fetched in offset order; the offsets themselves are already out of order." },
+      { "id": "C", "correct": false, "text": "Brokers reorder batches during replication; set `acks=all` so that followers store records in the same order", "why": "Followers copy the leader's log byte for byte, so replication never reorders records." },
+      { "id": "D", "correct": true, "text": "A failed batch was retried after a later batch had succeeded; enable idempotence, which keeps order with up to 5 in flight", "why": "Idempotent producers attach sequence numbers, so the broker rejects out-of-order batches and the order holds." }
+    ],
+    "explanation": "With several requests in flight and plain retries, batch 1 can fail while batch 2 lands, and the retry of batch 1 then lands after batch 2. The old fix was `max.in.flight=1`, at a throughput cost. Idempotence (the default since Kafka 3.0) gives each batch a producer id and sequence number, so the broker keeps them in order and drops duplicates with up to 5 requests in flight.",
+    "reference": "Apache Kafka docs: enable.idempotence"
+  },
+  {
+    "id": "SD-MSG-040",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A product must send 100 million reminders, each at a user-chosen time up to 30 days ahead; many cluster at 09:00 local time. A proposal enqueues each reminder to SQS with `DelaySeconds` set to the time remaining. Which design actually works at this scale?",
+    "options": [
+      { "id": "A", "correct": false, "text": "The proposal as written, with one SQS queue per day of delay so that each queue's own delay setting stays short", "why": "SQS caps any delay at 900 seconds (15 minutes), so reminders days away can't be expressed as a delay." },
+      { "id": "B", "correct": false, "text": "A cron job every minute that selects every reminder whose time has passed, then sends them all from that one job", "why": "One sequential job can't send millions of 09:00 reminders on time, and a crash mid-run makes it unclear which were sent." },
+      { "id": "C", "correct": true, "text": "Store reminders indexed by due-time bucket, have sharded schedulers move due buckets onto a work queue, and send idempotently", "why": "Durable storage handles long horizons, bucketing spreads the 09:00 peak, and idempotent sends absorb retries." },
+      { "id": "D", "correct": false, "text": "Keep a timer in application memory for each reminder, spread across a large pool of always-on servers", "why": "Timers vanish on deploys and crashes, and 100M in-memory timers are hard to rebalance safely." }
+    ],
+    "explanation": "Delay queues suit short delays (SQS max 15 minutes). Long-horizon scheduling is a storage problem: persist each job with its due time, partition by time bucket (plus a shard key so 09:00 is spread over many workers), and let schedulers claim due buckets with leases, enqueueing the jobs for a scalable worker pool. Workers send with an idempotency key, so a re-claimed bucket doesn't send twice.",
+    "reference": "AWS docs: SQS delay queues; Uber Cherami/Cadence timers"
+  },
+  {
+    "id": "SD-MSG-041",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 3,
+    "stem": "A team adopts CQRS: commands append events to an event store, and asynchronous projectors build several read models from those events. Which three statements are true for this design? (Choose three.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "A user may not see their own change in a read model right after a successful command, unless the UI handles it explicitly", "why": "Projections are asynchronous, so read-your-writes needs extra work such as returning the new version or waiting for it." },
+      { "id": "B", "correct": true, "text": "A new read model can be added later by replaying the event history through a new projector", "why": "Read models are disposable views derived from the log, which is a key benefit of the pattern." },
+      { "id": "C", "correct": true, "text": "Projectors must handle redelivered events idempotently, for example by tracking the last event position applied", "why": "Event delivery to projectors is usually at least once, so a replayed event must not be applied twice." },
+      { "id": "D", "correct": false, "text": "Read models must use the same database engine as the event store, or their data can't be rebuilt consistently", "why": "Each read model can use whatever store fits its queries, such as search, a graph or a cache." },
+      { "id": "E", "correct": false, "text": "Old events should be edited in place when the schema changes, so projectors only ever handle one version", "why": "Events are immutable facts. Version them and upcast old versions on read instead of rewriting history." },
+      { "id": "F", "correct": false, "text": "Commands should be validated against the read models, because those are always fully up to date with the event store", "why": "Read models lag. Command validation belongs to the write side's own consistent state (the aggregate)." }
+    ],
+    "explanation": "CQRS with event sourcing separates a consistent write model from eventually consistent read models. That buys independent scaling and flexible views, and you can rebuild or add a view by replay. You pay for it in read-your-writes handling, idempotent projections, and careful event versioning (upcasting rather than mutation).",
+    "reference": "Microsoft: CQRS pattern; Fowler: CQRS"
+  },
+  {
+    "id": "SD-MSG-042",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "To go faster, a Kafka consumer hands records from one partition to a thread pool and, every second, commits the highest offset that any thread has finished. After a crash and restart, a few records are silently never processed. What is the bug?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Offsets should be committed after every single record, because committing once a second loses whatever was finished in between", "why": "Committing less often causes reprocessing after a crash, not records being skipped." },
+      { "id": "B", "correct": false, "text": "The thread pool reorders records, and Kafka refuses to commit an offset that is out of order, dropping the commit", "why": "Kafka accepts any offset commit; that is exactly why committing the wrong one is dangerous." },
+      { "id": "C", "correct": true, "text": "It commits past records still in progress: if 105 is done but 103 isn't, committing 106 skips 103 after a restart", "why": "A committed offset means everything below it is done, so only the lowest unfinished offset is safe to commit." },
+      { "id": "D", "correct": false, "text": "The consumer should use `auto.offset.reset=earliest`, so that after restarting it rereads every record in the partition", "why": "That setting applies only when no committed offset exists; here one does, and it is wrong." }
+    ],
+    "explanation": "Kafka's committed offset is a single watermark: \"everything before this is processed\". With out-of-order completion you must track completions and commit the lowest contiguous completed offset plus one. Libraries like Confluent's parallel consumer do this bookkeeping (and record finished offsets above the watermark to avoid reprocessing them).",
+    "reference": "Apache Kafka docs: Consumer offset management"
+  },
+  {
+    "id": "SD-MSG-043",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Protobuf message has `string coupon_code = 7;`. A developer removes that field, and a later release adds `int64 discount_cents = 7;` to the same message. Old consumers are still running. What happens, and what should the first change have done?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Nothing goes wrong, because Protobuf matches fields by name, so the old consumers simply ignore the new field", "why": "Protobuf identifies fields on the wire by number, not name, so field 7 means the old field to old readers." },
+      { "id": "B", "correct": true, "text": "Old readers decode field 7 as `coupon_code` and fail or misread it; the removal should have marked 7 as `reserved`", "why": "Reusing a tag number changes its meaning; `reserved 7;` makes the compiler block any reuse." },
+      { "id": "C", "correct": false, "text": "Protobuf rejects the new message at runtime, because a tag number can never appear twice across a schema's history", "why": "Protobuf has no record of history; reuse is silently allowed unless you reserve the number." },
+      { "id": "D", "correct": false, "text": "The old consumers convert the integer to its string form automatically, so their coupons simply show numbers instead", "why": "Protobuf performs no such conversion; a wire-type mismatch is a parse error or the field is treated as unknown." }
+    ],
+    "explanation": "Protobuf's wire format carries a field number and wire type, not a name. Reusing a number for a different meaning corrupts the data contract with every reader still on the old schema, and with data already stored. When removing a field, add `reserved 7; reserved \"coupon_code\";`. Schema registries can enforce this, but the rule must also live in code review.",
+    "reference": "Protocol Buffers docs: Updating a message type"
+  },
+  {
+    "id": "SD-MSG-044",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A transactional producer opens a Kafka transaction, writes one record to partition 0 of topic `orders`, and then hangs without committing or aborting. Other non-transactional producers keep writing to the same partition. What do consumers with `isolation.level=read_committed` see on partition 0?",
+    "options": [
+      { "id": "A", "correct": true, "text": "They stall at the hung transaction's first record, since even committed records after it are held back until it ends or times out", "why": "Read_committed readers stop at the last stable offset, which can't pass the earliest open transaction." },
+      { "id": "B", "correct": false, "text": "They skip the open transaction's record and keep reading every newer non-transactional record as normal", "why": "Kafka can't know yet whether the open record will commit, so it holds back everything after it." },
+      { "id": "C", "correct": false, "text": "They receive the open transaction's record immediately, and it is removed again later if the transaction aborts", "why": "That is `read_uncommitted` behaviour; read_committed never exposes uncommitted data." },
+      { "id": "D", "correct": false, "text": "Nothing changes for them, because isolation only affects consumers that are reading the partition from the beginning", "why": "Isolation level applies to every fetch, wherever the consumer starts." }
+    ],
+    "explanation": "Read_committed consumers read only up to the last stable offset (LSO), the first offset of the oldest open transaction. A stuck transaction pins the LSO, so lag grows for every read_committed consumer of that partition, even for unrelated records, until the coordinator aborts it after `transaction.timeout.ms`. Keep transaction timeouts short and alert on LSO lag.",
+    "reference": "KIP-98: Exactly Once Delivery and Transactional Messaging"
+  },
+  {
+    "id": "SD-MSG-045",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A fulfilment service consumes `OrderCreated` from topic `orders` and `PaymentReceived` from topic `payments`, both keyed by `order_id`. Sometimes a payment is processed before its order exists, and the service rejects it as \"unknown order\". Which two approaches fix this correctly? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "Publish both event types to one topic keyed by `order_id`, so that each order's events arrive in a single ordered partition", "why": "Kafka orders records only within a partition, so co-locating the events gives the order you need." },
+      { "id": "B", "correct": true, "text": "Treat early payments as pending: store them and apply them once the matching `OrderCreated` arrives", "why": "Tolerating out-of-order arrival (buffer and reconcile) works across topics without relying on timing." },
+      { "id": "C", "correct": false, "text": "Give both topics the same number of partitions, so that Kafka delivers matching keys from the two topics in order", "why": "Co-partitioning puts the keys on matching partition numbers but never orders records across two topics." },
+      { "id": "D", "correct": false, "text": "Delay the payments consumer by a fixed 5 seconds, so that the order event almost always gets processed first", "why": "Timing assumptions fail during lag or a backlog, so this lowers the error rate without making it correct." },
+      { "id": "E", "correct": false, "text": "Send rejected payments to a dead-letter topic and alert, because this situation only arises from producer bugs", "why": "It is normal in a distributed system and needs handling, not paging; a DLQ would just shelve real payments." }
+    ],
+    "explanation": "Ordering in Kafka is per partition, never across topics. If you need causal order between event types for the same entity, put them in one topic and partition by entity key. Otherwise design the consumer to tolerate any order: park early events and reconcile once the prerequisite arrives, with a timeout path for events that never get a match.",
+    "reference": "Kleppmann, DDIA ch. 11: Ordering events"
+  }
+]

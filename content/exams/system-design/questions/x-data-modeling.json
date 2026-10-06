@@ -1,0 +1,1330 @@
+[
+  {
+    "id": "SD-DAT-011",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A professional network wants to show \"people you may know\" (friends of friends) and the shortest chain of connections between any two members. Which kind of database is designed around exactly this access pattern?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A graph database that stores members as nodes and connections as edges",
+        "why": "Graph stores make multi-hop traversals cheap because each node points directly at its neighbours."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A key-value store that maps each member id to a serialized profile blob",
+        "why": "Key-value lookups are fast for one key, but each hop of a traversal becomes another round trip with no help from the store."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A columnar warehouse that stores each profile attribute in its own column",
+        "why": "Columnar storage speeds up scans and aggregates over a few columns, not pointer-chasing across relationships."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A time-series database that records each new connection as a timestamped event",
+        "why": "Time-series engines optimise appends and time-range queries, not path finding between entities."
+      }
+    ],
+    "explanation": "Multi-hop relationship queries (friends of friends, shortest path, fraud rings) are the classic case for a graph database. A relational database can do them with recursive joins, but each extra hop multiplies the work, while a graph engine follows adjacency directly.",
+    "reference": "DDIA ch. 2: Graph-like data models"
+  },
+  {
+    "id": "SD-DAT-012",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A product search box must find items whose descriptions contain the words a user types, in any order, ranked by relevance. Which data structure do search engines such as Elasticsearch build to answer this quickly?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A B-tree index on the full description string, scanned with `LIKE '%word%'`",
+        "why": "A leading wildcard defeats a B-tree, so every row must be scanned, and there is still no relevance ranking."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "An inverted index that maps each term to the list of documents containing it",
+        "why": "Looking up each query term gives its posting list directly; intersecting and scoring those lists produces ranked results."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A hash index keyed on the exact description, so matching text is found in O(1)",
+        "why": "A hash index only answers exact whole-value matches, never individual words inside the text."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A bloom filter per document that records which words it might contain",
+        "why": "Bloom filters can rule documents out, but you would still test every document and could not rank them."
+      }
+    ],
+    "explanation": "Full-text search tokenizes text into terms and stores, for each term, the documents (and positions) where it occurs. A query becomes a few posting-list lookups plus scoring such as BM25, instead of a scan of every document.",
+    "reference": "Elasticsearch docs: Inverted index"
+  },
+  {
+    "id": "SD-DAT-013",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "For an app where users upload photos and videos, the usual design is to store the media files in object storage (such as S3) and keep only each file's key and metadata in the database.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Object storage is built for large immutable blobs and can serve them through a CDN, while the database stays small and fast."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "Putting large blobs in the database bloats backups, replication and the buffer cache, and every download then passes through the database."
+      }
+    ],
+    "explanation": "Databases are optimised for many small, frequently updated rows. Media is large, written once and read through CDNs, which is exactly what object storage offers at a fraction of the cost. Clients usually upload directly to object storage with a pre-signed URL, and the database records the key once the upload completes.",
+    "reference": "AWS docs: Uploading objects with presigned URLs"
+  },
+  {
+    "id": "SD-DAT-014",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 2,
+    "stem": "A blog platform copies the author's display name into every post row instead of joining to the `users` table when it renders a feed. Which statements about this denormalization are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Rendering a feed no longer needs a join to the `users` table",
+        "why": "The name travels with each post, so the read path touches one table."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "When an author renames themselves, many post rows must be updated or will show the old name",
+        "why": "Duplicated data must be kept in sync on writes, or readers see stale copies."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The database uses less storage, because the name is stored closer to the posts",
+        "why": "Copying the name into every post uses more storage, not less."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The database now guarantees that every copy of the name stays consistent",
+        "why": "Nothing enforces consistency between copies; that job moves to the application."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Creating a post becomes cheaper, because no foreign key needs to be checked",
+        "why": "The post still references its author, and the write now also copies extra data."
+      }
+    ],
+    "explanation": "Denormalization trades write-time work and possible staleness for cheaper reads. It fits data that is read far more often than it changes, such as display names on posts, and it should come with a plan for propagating updates (a background job, an event, or accepting brief staleness).",
+    "reference": "DDIA ch. 2: Many-to-one relationships"
+  },
+  {
+    "id": "SD-DAT-015",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "A game needs a live leaderboard: update a player's score, read the top 100, and find any player's rank, each in O(log N) time. Which Redis data type is built for this? Type its name.",
+    "options": [],
+    "accepted": [
+      "sorted set",
+      "sorted sets",
+      "zset",
+      "zsets",
+      "sortedset"
+    ],
+    "explanation": "A Redis sorted set (ZSET) keeps members ordered by score using a skip list plus a hash table. `ZADD` updates a score, `ZREVRANGE 0 99` returns the top 100, and `ZREVRANK` returns a member's rank, all in O(log N) (plus the size of the range returned).",
+    "reference": "Redis docs: Sorted sets"
+  },
+  {
+    "id": "SD-DAT-016",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Which query benefits most from a columnar (column-oriented) storage format compared with a row-oriented one?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Fetching one customer's full profile, with all 40 of its columns, by its primary key value",
+        "why": "Reading every column of one row is the row store's strength; a column store must stitch 40 columns back together."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Updating a single order's status thousands of times per second during checkout",
+        "why": "Frequent single-row updates are an OLTP pattern; column stores handle them poorly."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Summing revenue by month across 2 billion orders, reading 3 of the table's 40 columns",
+        "why": "Only the needed columns are read, and similar values in a column compress very well."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Inserting a new order row together with its line items inside one transaction",
+        "why": "Small transactional inserts are where row stores shine; column stores batch writes instead."
+      }
+    ],
+    "explanation": "Analytical queries scan many rows but few columns. Storing each column contiguously means the engine reads only those columns, compresses them well (run-length, dictionary encoding) and processes them with vectorized execution. That is why warehouses such as BigQuery, Redshift, Snowflake and ClickHouse are columnar.",
+    "reference": "DDIA ch. 3: Column-oriented storage"
+  },
+  {
+    "id": "SD-DAT-017",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A team replaces `DELETE` with a soft delete: rows get a `deleted_at` timestamp and stay in the table. Which new problem must they now handle that a hard delete would not create?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Foreign keys stop working, because a soft-deleted row can no longer be referenced",
+        "why": "The row still exists, so foreign keys keep pointing at it, which is part of the problem rather than a failure."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Every query, join and unique constraint has to account for soft-deleted rows",
+        "why": "Forgetting `deleted_at IS NULL` anywhere leaks deleted data, and uniqueness still counts the deleted rows."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Soft-deleted rows can never be restored, because their indexes are dropped",
+        "why": "Restoring is the main benefit of soft deletes: clear the timestamp and the row is back."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The table can no longer be indexed, because rows change state after insertion",
+        "why": "Rows that change are indexed all the time; soft deletes do not prevent indexing."
+      }
+    ],
+    "explanation": "Soft deletes keep history and allow undo, but every read path must filter the deleted rows, unique constraints still see them (so a user may not be able to re-register with the same email), and the table grows forever. Common mitigations are a partial unique index over live rows, a view that hides deleted rows, and archiving old ones. Privacy laws may still require real deletion.",
+    "reference": "PostgreSQL docs: Partial indexes"
+  },
+  {
+    "id": "SD-DAT-018",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each workload with the kind of data store that fits it best.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Key-value store"
+      },
+      {
+        "id": "B",
+        "text": "Document store"
+      },
+      {
+        "id": "C",
+        "text": "Wide-column store"
+      },
+      {
+        "id": "D",
+        "text": "Graph database"
+      },
+      {
+        "id": "E",
+        "text": "Search engine"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Session data looked up only by session id, with a TTL",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "A product catalog where each category has different, nested attributes",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Billions of append-heavy writes partitioned by device and sorted by time",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Detecting rings of accounts linked through shared cards and devices",
+        "answer": "D"
+      },
+      {
+        "id": "P5",
+        "text": "Typo-tolerant, relevance-ranked text search over listings",
+        "answer": "E"
+      }
+    ],
+    "explanation": "Pick the store by access pattern. Key-value stores serve lookups by one key. Document stores hold flexible, nested records read as a whole. Wide-column stores (Cassandra, Bigtable) take huge write volumes and sorted range reads within a partition. Graph databases traverse relationships. Search engines build inverted indexes for full-text relevance.",
+    "reference": "DDIA ch. 2 and 3"
+  },
+  {
+    "id": "SD-DAT-019",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A ride app stores each driver's position as a geohash string. Which statement about geohashes is true?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Two points whose geohashes share no common prefix must always be far apart from each other",
+        "why": "Points on either side of a cell boundary can be metres apart yet have different prefixes."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Every geohash cell covers the same area in square metres anywhere on the planet",
+        "why": "Cells span fixed degrees, so their east-west width in metres shrinks towards the poles."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Two points sharing a long geohash prefix lie in the same small cell, so they are close",
+        "why": "Each extra shared character means both points fall inside a smaller common cell."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Comparing two geohash strings gives the exact distance between their points",
+        "why": "A geohash names a cell; exact distance still needs the coordinates and a formula such as haversine."
+      }
+    ],
+    "explanation": "A geohash interleaves latitude and longitude bits and encodes them in base 32, so a prefix names a rectangular cell and longer prefixes name smaller cells. The implication only runs one way: a shared prefix means closeness, but close points near a cell edge may share very little prefix. That is why proximity searches also check neighbouring cells.",
+    "reference": "Geohash (Niemeyer, 2008)"
+  },
+  {
+    "id": "SD-DAT-020",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A PostgreSQL table receives 20,000 inserts per second, and its primary key is a random UUIDv4 indexed by a B-tree. As the table grows past memory, insert latency climbs and the index keeps splitting pages all over the tree. What does switching to UUIDv7 change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing important, because UUIDv4 and UUIDv7 values are both 128 bits wide and are stored and compared identically",
+        "why": "The size is the same, but the ordering is not: B-trees care about the order in which keys arrive."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "New keys are time-ordered, so inserts land near the right edge of the B-tree and its hot pages stay cached",
+        "why": "UUIDv7 starts with a millisecond timestamp, which turns random inserts into nearly sequential ones."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Index lookups become O(1), because UUIDv7 values encode the page number that holds the row",
+        "why": "UUIDv7 carries a timestamp and random bits, not a storage location; lookups remain O(log N)."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Collisions disappear, because UUIDv7 replaces random bits with a per-server sequence",
+        "why": "UUIDv7 still uses random bits after the timestamp; collisions were already negligible with v4."
+      }
+    ],
+    "explanation": "Random keys spread inserts across every leaf page, so once the index outgrows memory most inserts need a disk read and cause page splits that leave pages half full. UUIDv7 (RFC 9562) puts a Unix millisecond timestamp in its leading bits, so new keys sort after recent ones and inserts hit a small, cached set of right-most pages, like an auto-increment key but still globally unique without coordination.",
+    "reference": "RFC 9562: UUID version 7"
+  },
+  {
+    "id": "SD-DAT-021",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 3,
+    "stem": "A company adopts Twitter-style Snowflake IDs: a 41-bit millisecond timestamp, a 10-bit worker id and a 12-bit per-millisecond sequence. Which statements are true? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "An ID fits in a signed 64-bit integer column such as `BIGINT`",
+        "why": "1 unused sign bit + 41 + 10 + 12 = 64 bits."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "IDs from different workers sort roughly by creation time",
+        "why": "The timestamp occupies the high bits, so ordering by ID approximates ordering by time across workers."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Each worker generates IDs locally, with no coordination per ID",
+        "why": "Only the worker id has to be assigned uniquely, once; after that IDs need no network call."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "IDs are strictly increasing across the whole fleet",
+        "why": "Two workers in the same millisecond produce interleaved IDs, and clock skew between machines reorders them."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "A worker is unaffected if its clock jumps backwards",
+        "why": "A backwards jump can reissue old timestamps and duplicate IDs, so generators must refuse or wait."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "The IDs are unguessable, so they can serve as secret tokens",
+        "why": "They are mostly time and worker bits, so neighbouring IDs are easy to predict."
+      }
+    ],
+    "explanation": "Snowflake-style IDs give compact, roughly time-ordered keys without a central sequence. Each worker can issue up to 4,096 IDs per millisecond. The costs are a dependency on monotonic clocks (generators must handle backwards jumps) and IDs that leak creation time and are predictable, so they should not double as security tokens.",
+    "reference": "Twitter Engineering: Announcing Snowflake (2010)"
+  },
+  {
+    "id": "SD-DAT-022",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A B2B SaaS has 5,000 small customers and is signing three large enterprises that contractually require their data to be physically isolated and restorable on its own. Which multi-tenancy model fits best?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "One schema per tenant for all 5,000 customers, so every tenant is isolated the same way",
+        "why": "Thousands of schemas make every migration a 5,000-step job and bloat the catalog, without physical isolation."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A dedicated database per tenant for all 5,000 customers, to treat every customer equally",
+        "why": "5,000 databases multiply operational cost and connection overhead for tenants that do not need it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A shared schema with a `tenant_id` column for every customer, enterprises included",
+        "why": "Efficient for small tenants, but it cannot satisfy a contract for physical isolation and separate restores."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "A shared schema with `tenant_id` and row-level security for most, plus separate databases for the enterprises",
+        "why": "A hybrid model keeps small tenants cheap while meeting the enterprise isolation contracts."
+      }
+    ],
+    "explanation": "Shared tables with a tenant column (enforced with row-level security) are the cheapest to run and migrate. Database-per-tenant gives the strongest isolation and per-tenant backup and restore, at a high operating cost. Most mature SaaS products route tenants through a directory so that each tenant can live in the shared pool or in a dedicated database, and they move large or regulated tenants out as needed.",
+    "reference": "AWS SaaS Lens: Silo, bridge and pool models"
+  },
+  {
+    "id": "SD-DAT-023",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "This PostgreSQL query is hot:\n\n```sql\nSELECT email FROM users\nWHERE status = 'active' AND signup_date >= $1;\n```\n\nThe planner uses an index on `(status, signup_date)` but still visits the table heap for every match. Which index lets it answer from the index alone in most cases?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Separate single-column indexes on `status`, on `signup_date` and on `email`",
+        "why": "Combining separate indexes with a bitmap scan still has to visit the heap to fetch `email`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "An index on `(email, status, signup_date)`, with the selected column placed first",
+        "why": "With `email` leading, the filter on `status` and `signup_date` cannot use the index's ordering."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`CREATE INDEX ON users (status, signup_date) INCLUDE (email)`",
+        "why": "The filter columns stay as keys and `email` rides along, so an index-only scan can return it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A hash index on `status`, because equality lookups on hash indexes are faster",
+        "why": "A hash index cannot serve the range on `signup_date` and does not carry `email`."
+      }
+    ],
+    "explanation": "A covering index holds every column a query needs. Keep the filter columns as keys in equality-then-range order and add the selected columns with `INCLUDE` (PostgreSQL 11+), so they are stored in the index without affecting its ordering. In PostgreSQL an index-only scan still checks the visibility map, so it avoids the heap only for pages that vacuum has marked all-visible.",
+    "reference": "PostgreSQL docs: Index-only scans and covering indexes"
+  },
+  {
+    "id": "SD-DAT-024",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "A team must move a live table from 8 shards to 32 without downtime or lost writes. Put the steps of a safe online resharding in order.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Provision the 32 new shards and the new key-to-shard mapping"
+      },
+      {
+        "id": "B",
+        "text": "Start copying every new write to the new shards (dual writes or change data capture)"
+      },
+      {
+        "id": "C",
+        "text": "Backfill the existing rows from the old shards into the new ones"
+      },
+      {
+        "id": "D",
+        "text": "Verify the copies with row counts, checksums and shadow reads"
+      },
+      {
+        "id": "E",
+        "text": "Switch reads, then writes, to the new shards"
+      },
+      {
+        "id": "F",
+        "text": "Stop writing to the old shards and retire them after a safety period"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "explanation": "Capturing new writes before the backfill starts means no change made during the copy is missed; the backfill must not overwrite newer values (use versions or timestamps). Verification before cutover catches bugs while the old shards are still the source of truth, and keeping them for a while makes rollback possible.",
+    "reference": "Stripe Engineering: Online migrations at scale"
+  },
+  {
+    "id": "SD-DAT-025",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A social app gets 100 million new posts per day, and the average poster has 200 followers. The team considers fan-out on write: when a post is created, insert a 16-byte entry (post id plus timestamp) into every follower's home feed. What does that cost, and what is the standard refinement?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "100 million inserts and 1.6 GB per day, so fan-out on write is cheap enough for every account",
+        "why": "That forgets to multiply by the 200 followers who each get a copy."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "20 billion inserts (about 230,000 per second) and 320 GB per day; pull posts from celebrity accounts at read time instead",
+        "why": "100M × 200 = 20B entries; 20B × 16 B = 320 GB. Accounts with millions of followers would make single posts enormous to fan out."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "20 billion inserts and 320 GB per day, so the team should switch every user to fan-out on read",
+        "why": "Pure fan-out on read makes every feed load merge posts from hundreds of accounts, which is costly for the far more frequent reads."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "2 billion inserts and 32 GB per day, which a single database primary can absorb comfortably",
+        "why": "The arithmetic is off by 10×, and even the smaller figure would be far more than one primary should take."
+      }
+    ],
+    "explanation": "100,000,000 × 200 = 20,000,000,000 feed entries per day, about 231,000 per second, and 20B × 16 bytes = 320 GB per day before replication. Fan-out on write makes reads cheap but is wasteful for accounts with huge followings, so production feeds use a hybrid: push for ordinary accounts, and merge in posts from high-follower accounts at read time.",
+    "reference": "Twitter timeline architecture (QCon 2012)"
+  },
+  {
+    "id": "SD-DAT-026",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Using DynamoDB single-table design, an app must fetch a customer's profile together with their orders, newest first, in one request. Which key design supports that with a single `Query`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Partition key `ORDER#<orderId>` for orders and `CUSTOMER#<id>` for profiles, joined together by a second call",
+        "why": "Profiles and orders land in different partitions, so one `Query` cannot return both."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Partition key `CUSTOMER#<id>` for both; sort key `PROFILE` for the profile and `ORDER#<date>` for each order",
+        "why": "They share one item collection, so a single `Query` on the partition key returns the profile and the orders together."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Partition key `<date>` with sort key `CUSTOMER#<id>`, so that the newest orders are stored first",
+        "why": "Partitioning by date scatters one customer's data across many partitions and makes today's date a hot key."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Partition key `CUSTOMER#<id>` and a `Scan` with a filter expression on the order date",
+        "why": "A `Scan` reads the whole table, and filters are applied after the read, so it is slow and expensive."
+      }
+    ],
+    "explanation": "Single-table design starts from access patterns. Put items that are read together under the same partition key and use the sort key to order and select them. Here `PK = CUSTOMER#42` holds the profile (`SK = PROFILE`) and the orders (`SK = ORDER#2026-10-06...`). `begins_with(SK, 'ORDER#')` with `ScanIndexForward = false` returns the newest orders first.",
+    "reference": "AWS docs: Best practices for DynamoDB sort keys"
+  },
+  {
+    "id": "SD-DAT-027",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In an LSM-tree store such as RocksDB or Cassandra, a per-SSTable bloom filter lets a lookup for a key that does not exist skip most SSTables without reading their data from disk.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "A bloom filter never gives false negatives, so a \"definitely not here\" answer lets the read skip that SSTable."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "Bloom filters can give false positives but never false negatives, which is exactly what makes skipping safe."
+      }
+    ],
+    "explanation": "Without bloom filters, a read for a missing key would have to check every SSTable on every level. With about 10 bits per key the false-positive rate is around 1%, so almost all unnecessary SSTable reads are avoided. That matters most for missing keys, which otherwise go through every level.",
+    "reference": "RocksDB wiki: Bloom filter"
+  },
+  {
+    "id": "SD-DAT-028",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "An e-commerce `order_lines` table currently stores only `order_id`, `product_id` and `quantity`. Invoices join to `products` for name and price. After a price change, finance finds that reprinted old invoices show new prices. Which changes model the data correctly? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Store the unit price charged on each order line at purchase time",
+        "why": "The price paid is a historical fact about the order, not a live property of the product."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Snapshot the product name and SKU onto the line as they were when ordered",
+        "why": "Products get renamed or retired; the invoice must show what the customer actually bought."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Keep only `product_id` and recompute invoices from the current product price",
+        "why": "That is the current bug: invoices change whenever the catalog changes."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Forbid price updates and create a new product row for every price change",
+        "why": "It distorts the catalog and breaks product identity, while a snapshot solves the problem directly."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Put a trigger on `products` that rewrites old order lines when a price changes",
+        "why": "Rewriting history is exactly what must not happen to past invoices."
+      }
+    ],
+    "explanation": "Normalization removes duplication of facts that should change together. A price at purchase time is a different fact from today's catalog price, so copying it onto the order line is correct modelling, not harmful denormalization. Orders, invoices and ledgers should be immutable records of what happened.",
+    "reference": "Kleppmann, DDIA ch. 11 (immutable events)"
+  },
+  {
+    "id": "SD-DAT-029",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A Cassandra table holds user profiles that are overwritten several times a day and read about 50 times more often than they are written. Disk is tight. Reads are slow because a profile's versions are spread across many SSTables, and during big compactions disk usage briefly doubles. Which compaction strategy fits better, and what is its main cost?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Size-tiered compaction, because merging similar-sized SSTables lowers both read and space amplification",
+        "why": "Size-tiered is the current behaviour; it leaves a row spread across many SSTables and needs large temporary space."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Time-window compaction, because it groups data by write time and drops whole expired windows",
+        "why": "TWCS suits TTL'd time-series data; overwritten profiles would spread across windows and never be cleaned up."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "No compaction at all, with a bigger row cache, so that disk I/O is spent on reads",
+        "why": "Without compaction, overwritten versions and tombstones pile up and reads touch even more SSTables."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Leveled compaction: a read touches about one SSTable per level and space overhead stays small, at the price of more write I/O",
+        "why": "Leveling keeps each level's key ranges disjoint, so reads and space improve while data is rewritten more often."
+      }
+    ],
+    "explanation": "Compaction strategies trade among write, read and space amplification. Size-tiered compaction writes data fewer times but lets a key live in many SSTables and needs up to 2× space while merging. Leveled compaction keeps non-overlapping SSTables per level, so a read checks about one SSTable per level and space overhead is around 10%, but each byte is rewritten more times. For read-heavy, update-heavy tables leveled compaction is the usual choice.",
+    "reference": "Cassandra docs: Compaction strategies"
+  },
+  {
+    "id": "SD-DAT-030",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "A delivery app finds couriers within 2 km of a restaurant by computing the restaurant's geohash and querying couriers whose geohash starts with the same prefix. Couriers who are 100 m away are sometimes missed, and others 3 km away are returned. Which changes make the search correct? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Also query the 8 cells that neighbour the restaurant's cell",
+        "why": "Nearby couriers just across a cell edge have a different prefix, so only the neighbours catch them."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Pick a precision whose cells are at least as large as the 2 km radius",
+        "why": "Then the 3 × 3 block of cells is guaranteed to cover the whole search circle."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Post-filter the candidates by their exact distance from the restaurant",
+        "why": "Cells are rectangles, so some candidates in the corners are farther than 2 km."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Raise the precision until the problem goes away, with no neighbour checks",
+        "why": "Smaller cells make edge cases more frequent, not less, and miss more of the circle."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Rank couriers by the length of the prefix they share with the restaurant",
+        "why": "Shared prefix length is not a distance: points near an edge can be close with no shared prefix."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Use equal-sized cells, since a geohash cell is the same width in metres everywhere",
+        "why": "Geohash cells span fixed degrees, so their width in metres shrinks with latitude."
+      }
+    ],
+    "explanation": "A prefix query only finds points inside one cell. The standard recipe is to choose a precision whose cell size is at least the search radius, scan the centre cell plus its 8 neighbours, and then filter by the true (haversine) distance. Systems such as S2 and H3 offer cell coverings that do the same with less wasted area.",
+    "reference": "Redis docs: GEOSEARCH; Uber H3 docs"
+  },
+  {
+    "id": "SD-DAT-031",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A global leaderboard keeps scores in a Redis sorted set split across 10 Redis shards by `hash(player_id)`, so each shard holds a random tenth of the players. How should the service compute one player's exact global rank?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Call `ZREVRANK` on the player's own shard, because each shard is a uniform random sample of the players",
+        "why": "That gives the rank within one tenth of the players, not among all of them."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Call `ZREVRANK` on the player's own shard and multiply the result by 10 to scale it up",
+        "why": "Scaling a sample gives an estimate whose error grows with rank; it is not the exact rank."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Run `ZCOUNT key (score +inf` on every shard and add 1 to the total",
+        "why": "Counting strictly higher scores on every shard gives the exact number of players ahead."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Read the top 100 from each shard and merge them to see where the player falls",
+        "why": "That only works for players near the top; anyone ranked beyond 100 is not in the merged list."
+      }
+    ],
+    "explanation": "When a sorted set is partitioned by player id, each shard only knows local order. The exact rank is 1 plus the number of players on all shards with a strictly higher score; `ZCOUNT` with an exclusive lower bound is O(log N) per shard. Alternatives are partitioning by score range (which makes rank math cheaper but creates hot shards at the top) or keeping one sorted set if it fits in memory.",
+    "reference": "Redis docs: ZCOUNT, ZREVRANK"
+  },
+  {
+    "id": "SD-DAT-032",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A PostgreSQL `users` table uses soft deletes (`deleted_at`). Email must be unique among live accounts, but someone who deleted their account must be able to sign up again with the same email. Today a `UNIQUE (email)` constraint blocks that. What is the cleanest fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Drop the constraint and check `SELECT ... WHERE email = $1` in the application before inserting",
+        "why": "Two concurrent sign-ups both pass the check and both insert: a classic check-then-act race."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`CREATE UNIQUE INDEX ON users (email) WHERE deleted_at IS NULL`",
+        "why": "A partial unique index enforces uniqueness only for live rows, atomically, inside the database."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Make the constraint `UNIQUE (email, deleted_at)` so that deleted rows get their own unique pair",
+        "why": "NULLs are distinct by default, so two live rows with the same email (both NULL) would pass."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Rewrite a deleted user's email to a random string, and keep a separate table of the old addresses",
+        "why": "It works, but it destroys data and adds a second source of truth; the partial index is simpler and safe."
+      }
+    ],
+    "explanation": "A partial index covers only the rows matching its predicate, so uniqueness is enforced among live accounts while deleted rows are ignored. It is race-free because the database checks it. Note that `UNIQUE (email, deleted_at)` fails because NULLs compare as distinct by default. PostgreSQL 15's `NULLS NOT DISTINCT` can make that pair work, but the partial index states the rule directly and also keeps the index small.",
+    "reference": "PostgreSQL docs: Partial indexes"
+  },
+  {
+    "id": "SD-DAT-033",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Analysts' hour-long reports were slowing checkout, so the team moved them to a PostgreSQL streaming read replica. Now the long queries are cancelled with \"canceling statement due to conflict with recovery\". Enabling `hot_standby_feedback` stops the cancellations, but tables on the primary start to bloat. What is the right fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Set `max_standby_streaming_delay = -1` so that the replica waits for queries instead of cancelling them",
+        "why": "Replay then pauses behind long queries, so the replica lags by hours and stops being useful for anything else."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Run `VACUUM FULL` on the primary every night to remove the bloat that feedback causes",
+        "why": "`VACUUM FULL` locks the table exclusively and treats the symptom; the feedback keeps bloat coming."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Stream changes (change data capture) into a columnar warehouse and run the reports there",
+        "why": "Long analytical scans get an engine built for them, fully decoupled from the OLTP primary and its vacuum."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add indexes for every report query on the primary, so that they replicate and run fast on the replica",
+        "why": "Each index slows primary writes, and hour-long analytical scans rarely become fast just by indexing."
+      }
+    ],
+    "explanation": "A physical replica is a copy of the primary's pages, so long queries on it collide with vacuum cleanup replayed from the primary. Either the queries get cancelled, replay is delayed, or (with feedback) the primary keeps dead rows and bloats. OLTP and OLAP have opposite needs, which is why analytics usually moves to a columnar warehouse fed by CDC or ETL.",
+    "reference": "PostgreSQL docs: Hot standby, handling query conflicts"
+  },
+  {
+    "id": "SD-DAT-034",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "You must add an index on `orders(customer_id)` to a 2 TB PostgreSQL table that takes thousands of writes per second. A plain `CREATE INDEX` would block writes for hours. What is the right approach?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Use `CREATE INDEX CONCURRENTLY` outside a transaction, and if it fails, drop the INVALID index it leaves and retry",
+        "why": "It builds without blocking writes, at the cost of extra table scans and a longer build."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Run `CREATE INDEX` inside a transaction with `SET lock_timeout`, so the build stops if it waits too long",
+        "why": "The timeout only limits waiting for the lock. Once it is taken, writes stay blocked for the whole build."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Create the index on a read replica first, since replicas pass new indexes back to the primary",
+        "why": "Physical replicas are read-only copies; nothing built there flows back to the primary."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use `CREATE INDEX CONCURRENTLY` inside a migration transaction so that it can be rolled back cleanly",
+        "why": "PostgreSQL refuses to run `CREATE INDEX CONCURRENTLY` inside a transaction block."
+      }
+    ],
+    "explanation": "`CREATE INDEX CONCURRENTLY` takes a weaker lock that allows inserts, updates and deletes. It scans the table twice and waits for older transactions, so it is slower. It can't run inside a transaction block, which trips up many migration tools. If it fails partway, it leaves an INVALID index that still costs writes, so drop it and retry. MySQL teams solve the same problem with online DDL or tools such as gh-ost.",
+    "reference": "PostgreSQL docs: CREATE INDEX (Building Indexes Concurrently)"
+  },
+  {
+    "id": "SD-DAT-035",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An Elasticsearch index maps `city` as a `text` field with the standard analyzer. A `term` query for `\"New York\"` returns no documents, although many documents have exactly that city, and a terms aggregation on `city` is rejected. What is wrong, and what fixes it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The index needs a refresh before new documents become searchable, so call `_refresh` and then retry the same term query",
+        "why": "Refresh only matters for very recent writes; these documents are old, and the aggregation error would remain."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`text` is analysed into the tokens `new` and `york`; use a `keyword` sub-field for exact matches and aggregations",
+        "why": "A term query looks for the exact token `New York`, which analysis never produced; `keyword` stores the whole value."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Term queries are case-sensitive, so lowercasing the query to `\"new york\"` will match the documents",
+        "why": "Even lowercased, the two-word value was split into separate tokens, so no single token equals `new york`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The shard holding those documents is unassigned, so the query silently skips them",
+        "why": "An unassigned shard shows up as a shard failure in the response, and it would not explain the aggregation error."
+      }
+    ],
+    "explanation": "Analysed `text` fields are for full-text search: they are tokenized and lowercased into an inverted index. Exact matching, sorting and aggregations need a `keyword` field (by default Elasticsearch adds `city.keyword` under dynamic mapping). Use a `match` query on `city` for search and a `term` query or aggregation on `city.keyword` for exact values.",
+    "reference": "Elasticsearch docs: text vs keyword"
+  },
+  {
+    "id": "SD-DAT-036",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 3,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each symptom seen in an LSM-tree store (RocksDB or Cassandra) with its most likely cause.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Bloom filters disabled or undersized"
+      },
+      {
+        "id": "B",
+        "text": "Size-tiered compaction needs temporary space for large merges"
+      },
+      {
+        "id": "C",
+        "text": "Write amplification from leveled compaction"
+      },
+      {
+        "id": "D",
+        "text": "Many tombstones from deletes not yet compacted away"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Lookups for keys that don't exist touch nearly every SSTable",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Disk usage briefly approaches twice the data size",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Disk writes are 10–30× the rate of incoming application writes",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Range reads over recently deleted data are slow and warn about scanned cells",
+        "answer": "D"
+      }
+    ],
+    "explanation": "LSM trees buffer writes and merge sorted files later, so their problems show up as one of three amplifications. Read amplification (fixed with bloom filters and leveling), space amplification (size-tiered merges and tombstones) and write amplification (leveled compaction rewriting data) trade off against each other, and tuning means choosing which one the workload can afford.",
+    "reference": "RocksDB wiki: Compaction; Cassandra docs: Tombstones"
+  },
+  {
+    "id": "SD-DAT-037",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "A 600 GB table is stored in a columnar format (such as Parquet) with 60 columns of roughly equal size. An analytics query reads only 3 of those columns and has no filter. Ignoring compression and metadata, about how many GB must be scanned? Type a number.",
+    "options": [],
+    "accepted": [
+      "30",
+      "30 GB",
+      "30gb"
+    ],
+    "explanation": "Each column is about 600 ÷ 60 = 10 GB, so reading 3 columns scans about 30 GB. A row-oriented store would read all 600 GB, 20× more. Real columnar files do even better: similar values in a column compress well, and min/max statistics per row group let filtered queries skip whole chunks. That is why OLAP systems store data by column.",
+    "reference": "DDIA, Chapter 3: Column-Oriented Storage"
+  },
+  {
+    "id": "SD-DAT-038",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A team migrates an `events` table from PostgreSQL, where UUIDv7 keys gave great insert performance, to a range-partitioned distributed SQL database (Spanner or CockroachDB). They keep the UUIDv7 primary keys. At 50,000 inserts per second, one node is pegged while the rest are idle. Why, and what is the fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "UUIDv7 values are too long for the distributed key encoding, so switch to auto-increment 64-bit `BIGINT` keys",
+        "why": "Auto-increment keys are also monotonic, so they create the same hotspot at the end of the key range."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The cluster is too small; add nodes so that the hot range has more machines to split across",
+        "why": "Ranges split by key, but all new keys still sort after every existing key, so one range is always hot."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Time-ordered keys always land in the last range; use a hash-prefixed or bit-reversed key for this table",
+        "why": "Range partitioning sends sequential keys to whichever range holds the highest values, so spreading keys spreads writes."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Secondary indexes are written synchronously; drop them and write events asynchronously through a queue",
+        "why": "Indexes add write cost, but the single hot node is caused by the primary key order, not by indexes."
+      }
+    ],
+    "explanation": "The same key choice can be right on one system and wrong on another. On a single B-tree, monotonic keys keep inserts in cached pages. On a range-partitioned cluster they send every insert to the range holding the highest keys, one node at a time. Spanner recommends UUIDv4 or bit-reversed sequences, and CockroachDB offers hash-sharded indexes. If you need time-ordered scans, add a separate secondary index that accepts the trade-off.",
+    "reference": "Google Cloud Spanner docs: Schema design best practices"
+  },
+  {
+    "id": "SD-DAT-039",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A SaaS shards all tables by `hash(tenant_id)` across 16 database shards, so each tenant's data and joins stay on one shard. One tenant has grown to 40% of total traffic, and its shard is saturated while the others are lightly used. Which changes address this? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Route tenants through a lookup directory, and move the big tenant to dedicated hardware",
+        "why": "A directory lets placement be chosen per tenant instead of being fixed by a hash function."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Partition the big tenant's own data by a second key, accepting cross-shard queries for it alone",
+        "why": "A tenant bigger than one machine has to be split, and only that tenant pays the cross-shard cost."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Increase the hash space from 16 to 64 shards so that the hot tenant spreads out",
+        "why": "All of one tenant's rows hash to the same value, so more shards still put them on one shard."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Re-shard every table by `hash(row_id)` so that load is uniform for all tenants",
+        "why": "It fixes balance but breaks tenant locality for everyone, turning every tenant query into a scatter-gather."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Add read replicas to the hot shard so that its write load is spread out",
+        "why": "Replicas help reads but every replica still applies every write the primary receives."
+      }
+    ],
+    "explanation": "Hashing a tenant key gives good balance only while every tenant is small relative to a shard. Mature multi-tenant systems keep a tenant-to-shard directory, so they can isolate or move large tenants, and they sub-partition tenants that outgrow a machine, for example by `(tenant_id, project_id)`. Only those tenants pay for distributed queries. Hash-based placement alone can never split a single hot key.",
+    "reference": "Citus docs: Multi-tenant applications and tenant isolation"
+  },
+  {
+    "id": "SD-DAT-040",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A PostgreSQL table with a random UUIDv4 primary key gets 5,000 small inserts per second. Its WAL volume, and so replication and backup traffic, is several times what the row sizes suggest, and it spikes right after every checkpoint. Switching the key to a time-ordered UUIDv7 cuts WAL volume sharply. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "UUIDv7 values compress better in WAL records, since their leading timestamp bits repeat from row to row",
+        "why": "WAL records are not compressed that way by default, and key compression could not explain post-checkpoint spikes."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Random keys force every insert to take a table-level lock, which PostgreSQL logs as an extra WAL record",
+        "why": "Inserts take row-level locks regardless of key order; locks are not why WAL grew."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "UUIDv4 keys are stored as text, while UUIDv7 keys use the native 16-byte `uuid` type",
+        "why": "Both versions use the same native `uuid` type; the version does not change storage format."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "After each checkpoint, the first change to any page logs a full 8 KB page image; random keys touch far more distinct index pages",
+        "why": "With full-page writes on, scattered inserts dirty thousands of different pages per checkpoint, and each logs a full image."
+      }
+    ],
+    "explanation": "To survive torn pages, PostgreSQL (with `full_page_writes = on`) writes the whole 8 KB page to WAL the first time it is modified after a checkpoint. Random keys spread inserts across the entire index, so nearly every insert hits a page not yet touched since the checkpoint, and WAL fills with full-page images. Sequential keys concentrate changes in a few right-most pages, so only a few full images are needed.",
+    "reference": "PostgreSQL docs: WAL configuration (full_page_writes)"
+  },
+  {
+    "id": "SD-DAT-041",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A ride app finds the nearest 10 drivers using fixed 1.2 km geohash cells (precision 6). Downtown, a single cell holds 4,000 drivers, so every query reads and sorts thousands of rows. In the suburbs most cells are empty, so queries often find no driver within the 3 × 3 block. What design fixes both problems?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Raise the precision everywhere to 150 m cells, so downtown cells hold far fewer drivers",
+        "why": "Downtown improves, but suburban searches now need hundreds of empty cells before finding 10 drivers."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Lower the precision everywhere to 20 km cells, so suburban searches always find drivers",
+        "why": "Suburbs improve, but each downtown cell now holds tens of thousands of drivers to scan."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Use adaptive cells: a quadtree that splits any cell above a capacity, searched outwards until 10 drivers are found",
+        "why": "Cell size follows density, so every query reads a bounded number of drivers in both dense and sparse areas."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Replace geohashes with a B-tree on `(latitude, longitude)` and query a bounding box",
+        "why": "The index can only range-scan on latitude, so it reads an entire latitude band and filters longitude row by row."
+      }
+    ],
+    "explanation": "Fixed-size grids suit uniform density, but real locations are very skewed. A quadtree (or an S2/H3 hierarchy where you pick resolution per query) splits dense cells and keeps sparse ones large, and a k-nearest search expands ring by ring until it has enough candidates, then sorts them by exact distance. Composite B-trees on latitude and longitude cannot express two-dimensional ranges efficiently.",
+    "reference": "Samet, Foundations of Multidimensional Data Structures; Uber H3 docs"
+  },
+  {
+    "id": "SD-DAT-042",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A DynamoDB `jobs` table (partition key `job_id`) spreads writes perfectly. To find pending work, the team adds a global secondary index with partition key `status`. During a burst of 20,000 job updates per second, writes to the base table start failing with throttling errors, although the base table has plenty of capacity. What is happening?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Almost every update writes the same few `status` values in the GSI, so its hot partitions throttle and push back on base-table writes",
+        "why": "A GSI needs write capacity too, and a low-cardinality key turns into a hot partition that throttles base writes."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Global secondary indexes are updated synchronously inside each write transaction, so every write waits for them",
+        "why": "GSIs are maintained asynchronously, but a throttled GSI still pushes back on writes to the base table."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The base table has too few partitions; switching it to on-demand capacity mode will fix the errors",
+        "why": "The base table is fine; on-demand still enforces per-partition throughput limits on the hot GSI partitions."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Each `status` change deletes the item and writes it again, which uses twice the base-table capacity",
+        "why": "Changing an indexed attribute costs extra GSI writes, but the base-table write is a normal update."
+      }
+    ],
+    "explanation": "An index key with only a handful of values (`PENDING`, `DONE`) packs all index writes into a few partitions, each capped at about 1,000 write units per second. When a GSI cannot keep up, DynamoDB throttles writes to the base table. Fixes include a sparse index (set a `pending_shard` attribute only on pending items, with a random suffix such as `PENDING#0..15`) or a different store for the work queue.",
+    "reference": "AWS docs: GSI write throttling; sparse indexes"
+  },
+  {
+    "id": "SD-DAT-043",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A multi-tenant MySQL (InnoDB) table uses an auto-increment `id` primary key and a secondary index on `tenant_id`. The hot query loads one tenant's 20,000 most recent documents. It reads about 20,000 scattered pages from disk because the tenant's rows are interleaved with every other tenant's. Which change gives the biggest improvement?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Run `OPTIMIZE TABLE` every night to defragment the table so that each tenant's rows sit together",
+        "why": "InnoDB stores rows in primary-key order, so a rebuild keeps them interleaved by `id`, just more compactly."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Raise `innodb_buffer_pool_size` until the whole table fits in memory and disk reads stop",
+        "why": "That helps only while the data fits in RAM; it treats the symptom and grows more expensive with every tenant."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Make the primary key `(tenant_id, id)`, so that InnoDB stores each tenant's rows contiguously",
+        "why": "InnoDB clusters rows by primary key, so a tenant's recent rows then fill a few adjacent pages."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add a covering secondary index on `(tenant_id, created_at)` that includes every document column",
+        "why": "Duplicating the whole row in a secondary index doubles storage and write cost; the clustered key does this natively."
+      }
+    ],
+    "explanation": "In InnoDB the table is the primary-key B-tree, so the primary key decides physical locality, and secondary index lookups jump into it by primary key. An auto-increment key orders rows by insertion time across all tenants. A composite `(tenant_id, id)` key groups each tenant's rows, so a tenant-scoped range scan becomes mostly sequential I/O. The cost is less sequential inserts across tenants.",
+    "reference": "MySQL docs: Clustered and secondary indexes"
+  },
+  {
+    "id": "SD-DAT-044",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A ClickHouse `MergeTree` table of 50 billion log rows uses `ORDER BY (timestamp, tenant_id)`. Nearly every query filters on one `tenant_id` and the last 24 hours. Queries still read about 1/30th of the table's granules, far more than the tenant's share of the data. Which change helps most?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Change the sorting key to `(tenant_id, toStartOfHour(timestamp), timestamp)`",
+        "why": "Leading with the equality filter groups each tenant's rows, so the sparse index skips everything else."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add `PARTITION BY tenant_id` so that every tenant gets its own set of partitions on disk",
+        "why": "Thousands of tenants mean thousands of tiny partitions, which ClickHouse handles badly, and sort order is still the issue."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add a bloom filter skip index on `timestamp` so that the time range is pruned faster",
+        "why": "Timestamp is already the leading sort column; the waste comes from the tenant filter, which is second."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Reduce the index granularity from 8,192 rows to 64 rows to make the index more precise",
+        "why": "A much bigger index costs memory, and it still cannot skip data for a column that isn't leading."
+      }
+    ],
+    "explanation": "ClickHouse's primary index is sparse: one entry per granule, in sorting-key order. With `timestamp` first, all tenants' rows from the last 24 hours (1/30th of a 30-day table) are interleaved, so every one of those granules must be read. Putting the equality-filtered column first, followed by time, makes one tenant's 24 hours a narrow contiguous range. A low-cardinality bucket such as `toStartOfHour` before the raw timestamp also improves compression.",
+    "reference": "ClickHouse docs: Choosing a primary key"
+  },
+  {
+    "id": "SD-DAT-045",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 4,
+    "type": "order",
+    "select": 1,
+    "stem": "A 2-billion-row table must rename column `fullname` to `display_name` with zero downtime while old and new app versions run side by side during deploys. Put the expand/contract steps in a safe order.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Add `display_name` as a nullable column (a metadata-only change)"
+      },
+      {
+        "id": "B",
+        "text": "Deploy code that writes both columns on every insert and update"
+      },
+      {
+        "id": "C",
+        "text": "Backfill `display_name` from `fullname` in small throttled batches"
+      },
+      {
+        "id": "D",
+        "text": "Deploy code that reads `display_name`, still writing both columns"
+      },
+      {
+        "id": "E",
+        "text": "Deploy code that stops writing `fullname`"
+      },
+      {
+        "id": "F",
+        "text": "Drop the `fullname` column"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "explanation": "The expand/contract pattern keeps every running version compatible. Expand the schema, make new writes populate both columns, then backfill old rows; doing it in that order means nothing is missed. Switch reads only once the data is complete, stop the old writes only once no running version reads the old column, and contract last. A direct `RENAME COLUMN` would break any old app instances still deployed.",
+    "reference": "Fowler & Sadalage, Evolutionary Database Design (parallel change)"
+  }
+]

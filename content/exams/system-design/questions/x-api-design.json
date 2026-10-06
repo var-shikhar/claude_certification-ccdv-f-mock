@@ -1,0 +1,1310 @@
+[
+  {
+    "id": "SD-API-011",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A user profile resource has the fields `name`, `email` and `bio`. A client sends `PUT /users/7` with a body containing only `{\"bio\": \"Hiker\"}`. Under standard HTTP semantics, what should the stored resource look like afterwards?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`name` and `email` stay as they were and only `bio` changes, because PUT merges the body into the existing resource",
+        "why": "That is PATCH-style merging. PUT means the body is the complete new state of the resource."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The resource becomes exactly the body sent, so `name` and `email` are removed or reset",
+        "why": "PUT replaces the target's whole state with the enclosed representation, so omitted fields are gone (or the server rejects the request as incomplete)."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The server must create a second user resource, because PUT always creates a new resource at a new URI",
+        "why": "PUT targets the URI given by the client; it creates only if nothing exists there, and never at a different URI."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The request must fail with `405 Method Not Allowed`, because PUT cannot be used on an existing resource",
+        "why": "Replacing an existing resource is exactly what PUT is for; 405 means the method isn't supported on that target at all."
+      }
+    ],
+    "explanation": "RFC 9110 defines PUT as \"replace the state of the target resource with the enclosed representation\". Sending a partial body with PUT therefore wipes the omitted fields, or the server should reject it with 400/422. Partial updates belong to PATCH, with a patch format such as JSON Merge Patch or JSON Patch.",
+    "reference": "RFC 9110 §9.3.4 (PUT)"
+  },
+  {
+    "id": "SD-API-012",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "`POST /orders` has just created a new order synchronously, with id `981`. Which response best follows HTTP conventions?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`200 OK` with an empty body, since the client already knows what it sent and can list orders to find the new id",
+        "why": "It works, but loses the standard signal that something was created and forces an extra lookup to learn its id."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`202 Accepted` with the new order in the body, because a new resource was accepted and stored by the server",
+        "why": "202 means the work is not finished yet. A completed, synchronous creation is 201."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`201 Created` with `Location: /orders/981` and the new order in the body",
+        "why": "201 says a resource was created, and `Location` tells the client its URI without another query."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`204 No Content` with a `Location` header, because creation responses must not include a response body",
+        "why": "204 forbids a body but creation responses may include one; 201 is the code that means \"created\"."
+      }
+    ],
+    "explanation": "For a synchronous create, `201 Created` plus a `Location` header pointing at the new resource is the convention. Returning the created representation (with server-generated fields such as id and timestamps) saves the client a round trip. Use `202 Accepted` only when the work continues after the response.",
+    "reference": "RFC 9110 §15.3.2 (201 Created)"
+  },
+  {
+    "id": "SD-API-013",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "It is acceptable to expose an endpoint like `GET /users/42/delete`, as long as only authenticated administrators can call it.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Authentication doesn't change GET's contract: GET must be safe, and browsers, crawlers, link previewers and prefetchers issue GETs freely."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: GET is defined as safe, so a state-changing GET can be triggered by prefetching, link unfurling, caches or a crafted image tag in an admin's browser."
+      }
+    ],
+    "explanation": "Safe methods (GET, HEAD, OPTIONS) must not change server state. Infrastructure relies on that: browsers prefetch links, chat apps unfurl URLs, and an `<img src>` on any page makes a logged-in admin's browser send the GET with their cookies (a CSRF attack). Use `DELETE /users/42`.",
+    "reference": "RFC 9110 §9.2.1 (Safe methods)"
+  },
+  {
+    "id": "SD-API-014",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A request arrives with a valid, unexpired access token for user Priya, who is a regular member. She calls `DELETE /projects/5`, which only project owners may do. Which status code fits best?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`401 Unauthorized`, because she isn't authorized to delete the project",
+        "why": "Despite its name, 401 means the request lacks valid authentication; her token is valid."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`403 Forbidden`",
+        "why": "The server knows who she is and refuses the action because she lacks permission."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`400 Bad Request`, because the request is not allowed for this particular user",
+        "why": "400 is for malformed requests; this one is well formed but not permitted."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`409 Conflict`, because her role conflicts with the role the action needs",
+        "why": "409 describes a conflict with the resource's current state, not a permission problem."
+      }
+    ],
+    "explanation": "401 = \"who are you?\": no credentials, or invalid or expired ones; it comes with `WWW-Authenticate`. 403 = \"I know who you are, and you can't do this\". Some APIs return 404 instead of 403 to avoid revealing that a private resource exists, which is a deliberate trade-off.",
+    "reference": "RFC 9110 §15.5.2, §15.5.4"
+  },
+  {
+    "id": "SD-API-015",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "A client has exceeded its rate limit. Which HTTP status code should the API return (usually together with a `Retry-After` header)? Type just the three-digit code.",
+    "options": [],
+    "accepted": [
+      "429",
+      "429 Too Many Requests"
+    ],
+    "explanation": "`429 Too Many Requests` (RFC 6585) tells the client it is being rate limited, and `Retry-After` says how long to wait. Use 503 when the whole service is overloaded rather than one client being over its quota. Clients should honour `Retry-After` instead of retrying immediately.",
+    "reference": "RFC 6585 §4"
+  },
+  {
+    "id": "SD-API-016",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which HTTP methods are defined as idempotent, meaning several identical requests have the same intended effect on the server as one? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`GET`",
+        "why": "GET is safe, and every safe method is also idempotent."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`PUT`",
+        "why": "Replacing a resource with the same representation twice leaves the same state as doing it once."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`DELETE`",
+        "why": "After the first delete the resource is gone; repeats don't change that, even if they return 404."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`POST`",
+        "why": "POST is not idempotent: repeating it can create a second order or charge a card twice."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`PATCH`",
+        "why": "PATCH is not guaranteed idempotent; an \"append to list\" or \"increment\" patch changes state on every repeat."
+      }
+    ],
+    "explanation": "RFC 9110 lists GET, HEAD, OPTIONS, TRACE, PUT and DELETE as idempotent. Idempotency is about the effect on the server, not the response: a repeated DELETE may return 404 and still be idempotent. It is what makes automatic retries safe, which is why non-idempotent calls need idempotency keys.",
+    "reference": "RFC 9110 §9.2.2 (Idempotent methods)"
+  },
+  {
+    "id": "SD-API-017",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each situation with the status code that fits it best.",
+    "options": [
+      {
+        "id": "A",
+        "text": "`204 No Content`"
+      },
+      {
+        "id": "B",
+        "text": "`304 Not Modified`"
+      },
+      {
+        "id": "C",
+        "text": "`409 Conflict`"
+      },
+      {
+        "id": "D",
+        "text": "`422 Unprocessable Content`"
+      },
+      {
+        "id": "E",
+        "text": "`503 Service Unavailable`"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "A `DELETE` succeeded and there is nothing to send back",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "A conditional `GET` with `If-None-Match` matches the current ETag, so the client's cached copy is still good",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Creating user `ana` fails because the username is already taken",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Well-formed JSON arrives, but `end_date` is before `start_date`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "204 means success with no body. 304 lets a client reuse its cached copy without re-downloading it. 409 signals a conflict with the current state of the resource, such as a duplicate unique key. 422 means the syntax is fine but the content fails validation. 503 (unused here) means the server is temporarily unable to handle requests, often sent with `Retry-After`.",
+    "reference": "RFC 9110 §15"
+  },
+  {
+    "id": "SD-API-018",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Users of a photo app upload images of up to 50 MB. Today the mobile app sends each file to the API servers, which then write it to object storage, and those servers are now saturated on network bandwidth. What is the standard fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Have the app base64-encode each image into the JSON body so the API servers can parse and forward it more efficiently",
+        "why": "Base64 inflates the data by about 33% and still pushes every byte through the API servers."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add many more API servers behind the load balancer so that the total upload bandwidth grows with the fleet",
+        "why": "It scales the problem rather than removing it; the servers do nothing useful with the bytes except relay them."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Have the API hand out a short-lived presigned URL so the app uploads straight to object storage",
+        "why": "The API only authorizes the upload; the bytes go directly to storage, which is built for that bandwidth."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Switch the upload endpoint from HTTP/1.1 to WebSockets so that the large files stream to the servers faster",
+        "why": "The transport changes, but every byte still flows through the same saturated API servers."
+      }
+    ],
+    "explanation": "With a presigned URL (S3, GCS, Azure SAS), the API checks the user's permissions and signs a URL that allows one specific upload for a few minutes. The client PUTs the file directly to storage, and the API learns the upload finished through a completion call or a storage event. That takes the bulk data path off the application tier.",
+    "reference": "AWS docs: Uploading objects with presigned URLs"
+  },
+  {
+    "id": "SD-API-019",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A company puts an API gateway in front of 30 microservices. Which responsibility belongs in the gateway rather than in the services behind it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Validating access tokens, enforcing per-client rate limits and routing each path to the right service",
+        "why": "These cross-cutting edge concerns are the same for every service and are best done once at the entry point."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Calculating order totals, discounts and taxes, so that the business rules sit in one central and shared place",
+        "why": "Business logic in the gateway couples every team to one shared component and turns it into a bottleneck."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Joining tables from several service databases directly, so that clients get complete objects back in one call",
+        "why": "Reaching into service databases breaks service ownership. Aggregation, if needed, should go through the services' APIs."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Storing each service's data in a gateway-managed cache as the system of record for reads and writes",
+        "why": "A gateway may cache responses, but it must never become the source of truth for service data."
+      }
+    ],
+    "explanation": "Gateways handle edge concerns: TLS termination, authentication, rate limiting, request routing, request and response size limits, and sometimes response caching and protocol translation. Business rules stay in the services. A gateway that accumulates domain logic becomes a shared monolith that every team must change in step.",
+    "reference": "microservices.io: API Gateway pattern"
+  },
+  {
+    "id": "SD-API-020",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A public JSON REST API promises not to break existing clients within `v1`. Which of these changes are backward compatible? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Adding a new optional field `nickname` to the user response",
+        "why": "Well-behaved clients ignore fields they don't know, so existing integrations keep working."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Adding an optional query parameter `?include=avatar` that defaults to the old behaviour",
+        "why": "Existing requests don't send it and get exactly the same responses as before."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Renaming `phone` to `phone_number` in responses to match the style guide",
+        "why": "Clients reading `phone` suddenly get nothing; a rename is a remove plus an add."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Making the previously optional request field `country` required",
+        "why": "Existing clients that never sent it now get validation errors."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Changing `id` from a JSON number to a string to allow larger ids",
+        "why": "Typed clients fail to parse, and code comparing ids numerically breaks."
+      }
+    ],
+    "explanation": "The safe direction is: accept more, return more. New optional inputs and new output fields are additive. Removing or renaming fields, changing types, or tightening validation breaks someone. Make such changes in a new version, or ship the new field alongside the old one and deprecate the old one.",
+    "reference": "Google API Design Guide: Compatibility"
+  },
+  {
+    "id": "SD-API-021",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An API accepts JSON Merge Patch (`application/merge-patch+json`, RFC 7396) on `PATCH /users/7`. The stored user is `{\"name\": \"Ana\", \"nickname\": \"Annie\", \"tags\": [\"a\", \"b\"]}`. The client sends `{\"nickname\": null, \"tags\": [\"c\"]}`. What is the result?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`{\"name\": \"Ana\", \"nickname\": null, \"tags\": [\"a\", \"b\", \"c\"]}`, since null is stored as a value and arrays are merged",
+        "why": "Merge Patch never stores null (null means delete), and it never merges arrays element by element."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`{\"name\": \"Ana\", \"tags\": [\"c\"]}`",
+        "why": "A null value removes the member, and an array in the patch replaces the whole array."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`{\"nickname\": null, \"tags\": [\"c\"]}`, because the patch body becomes the new state of the resource",
+        "why": "That is PUT's full replacement. Merge Patch leaves members it doesn't mention (such as `name`) untouched."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`{\"name\": \"Ana\", \"nickname\": \"Annie\", \"tags\": [\"c\"]}`, since null values in a merge patch are ignored",
+        "why": "In Merge Patch null is meaningful: it is the only way to delete a member."
+      }
+    ],
+    "explanation": "Merge Patch is simple: objects merge recursively, `null` deletes a member, and every other value, including arrays, replaces the old one wholesale. Two consequences: you can't set a field to null, and you can't append to an array without resending the whole array. When you need those, use JSON Patch (RFC 6902), with operations such as `add`, `remove` and `test`.",
+    "reference": "RFC 7396 (JSON Merge Patch)"
+  },
+  {
+    "id": "SD-API-022",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A single-page app at `https://app.example.com` calls `fetch('https://api.example.com/orders', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer …' }, body })`. The API adds `Access-Control-Allow-Origin: https://app.example.com` to its POST responses, but its router returns `404` for `OPTIONS` requests. What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The POST runs on the server and creates the order, but the browser hides the response from the JavaScript code",
+        "why": "That is what happens with a \"simple\" request. This one needs a preflight first, so the POST is never sent."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The browser's preflight `OPTIONS` fails, so the browser never sends the POST and the fetch rejects",
+        "why": "The JSON content type and the Authorization header make this a non-simple request, so it needs a successful preflight first."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It works fine, because the POST response carries the right `Access-Control-Allow-Origin` header for this origin",
+        "why": "The allow-origin header on the POST is never seen; the browser gives up at the failed preflight."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The browser retries the request without the `Authorization` header so that it qualifies as a simple request",
+        "why": "Browsers never rewrite a request to avoid CORS; the fetch simply fails."
+      }
+    ],
+    "explanation": "CORS lets \"simple\" requests through without a preflight: GET, HEAD or POST, with form or `text/plain` content types and no custom headers. Anything else, such as `application/json` or `Authorization`, triggers a preflight `OPTIONS` that must return 2xx with the matching `Access-Control-Allow-Methods` and `-Headers`. Add `Access-Control-Max-Age` so browsers cache the preflight result instead of doubling every call.",
+    "reference": "Fetch Standard: CORS protocol; MDN: CORS"
+  },
+  {
+    "id": "SD-API-023",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A sync client has 50 queued requests for a partner API. Its next call returns `429 Too Many Requests` with `Retry-After: 30`. What should the client do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Retry that one request immediately, then fall back to exponential backoff that starts at 100 ms if it fails again",
+        "why": "That ignores an explicit instruction from the server and keeps burning the quota it has just run out of."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Send the remaining 49 requests in parallel from several IP addresses so that the per-connection limit doesn't apply",
+        "why": "That evades the limit rather than respecting it; limits are usually per API key, and it can get the key revoked."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Pause all calls to that API for 30 seconds, then resume at a slower pace that follows any rate-limit headers",
+        "why": "`Retry-After` applies to the client, not one request, and pacing afterwards avoids hitting the limit again at once."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Treat 429 as a permanent failure, drop the request and move straight on to the remaining 49 queued items",
+        "why": "429 is temporary by definition. Dropping work loses data, and the next calls would get 429 too."
+      }
+    ],
+    "explanation": "A 429 with `Retry-After` is the server telling you exactly when capacity returns. A good client stops the whole queue for that API, waits, and then paces itself. Many APIs expose `RateLimit-Remaining` and `RateLimit-Reset` headers (IETF draft) or vendor equivalents, so the client can slow down before it ever sees a 429. Add jitter if many workers share the key.",
+    "reference": "RFC 6585 §4; RFC 9110 §10.2.3 (Retry-After)"
+  },
+  {
+    "id": "SD-API-024",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A new mobile app must let users sign in with your OAuth 2.0 authorization server and then call your API on their behalf. The app's binary can be decompiled. Which flow should it use?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The implicit flow, which returns the access token in the redirect URL and needs no client secret at all",
+        "why": "Current OAuth security guidance deprecates the implicit flow: tokens in URLs leak through history, logs and referrers."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Resource owner password credentials, so the app collects the user's password and swaps it for tokens",
+        "why": "The app handles raw passwords, which defeats the purpose of OAuth; this grant is deprecated."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Client credentials, with the client secret embedded in the app and protected by code obfuscation",
+        "why": "Client credentials authenticate the app, not a user, and any secret shipped in a binary can be extracted."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Authorization code flow with PKCE, opened in the system browser",
+        "why": "PKCE ties the code to a one-time verifier the app holds, so a stolen code is useless and no secret is needed."
+      }
+    ],
+    "explanation": "Mobile apps and SPAs are public clients: they can't keep a secret. The authorization code flow with PKCE (RFC 7636) is the recommended choice for them. The app sends a hashed `code_challenge` up front and must present the matching `code_verifier` to redeem the code. Using the system browser (not an embedded web view) keeps the user's credentials away from the app.",
+    "reference": "RFC 7636 (PKCE); RFC 8252; OAuth 2.0 Security BCP"
+  },
+  {
+    "id": "SD-API-025",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A field device collects thousands of sensor readings over a few minutes and sends them to a backend, which returns one summary (count, min, max) once the device has finished sending. Which gRPC method type models this most naturally?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Server streaming, where the device sends one request and the server streams back a sequence of summaries",
+        "why": "Here the device is the side producing a stream, and the server answers only once."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Client streaming",
+        "why": "The client sends a stream of messages and the server replies with a single response once the stream ends."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Bidirectional streaming, since both the device and the server must exchange messages during the call",
+        "why": "It would work, but nothing here needs the server to talk back mid-stream, so it adds complexity for no benefit."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Unary calls, sending one request per reading and adding up the summary on the device after all the calls",
+        "why": "Thousands of round trips add overhead, and the summary then has to be computed somewhere else."
+      }
+    ],
+    "explanation": "gRPC has four method types: unary (1 → 1), server streaming (1 → many), client streaming (many → 1) and bidirectional streaming (many ↔ many). Client streaming fits uploads and aggregations, such as `rpc RecordRoute(stream Point) returns (RouteSummary)` in the official route-guide example. All of them run over HTTP/2 streams with flow control.",
+    "reference": "gRPC docs: Core concepts"
+  },
+  {
+    "id": "SD-API-026",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the steps of the OAuth 2.0 authorization code flow with PKCE in order, for a mobile app signing a user in.",
+    "options": [
+      {
+        "id": "A",
+        "text": "The app generates a random `code_verifier` and derives `code_challenge = BASE64URL(SHA256(code_verifier))`"
+      },
+      {
+        "id": "B",
+        "text": "The app opens the authorization endpoint in the system browser, sending the `code_challenge`"
+      },
+      {
+        "id": "C",
+        "text": "The user signs in and consents, and the server redirects back to the app with a one-time authorization code"
+      },
+      {
+        "id": "D",
+        "text": "The app posts the code and the original `code_verifier` to the token endpoint"
+      },
+      {
+        "id": "E",
+        "text": "The server checks that the verifier hashes to the stored challenge and issues access and refresh tokens"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "The verifier never leaves the app until the final back-channel call, and the challenge sent earlier is a one-way hash of it. An attacker who intercepts the authorization code (for example through a malicious app registered for the same redirect scheme) can't redeem it without the verifier. Use the `S256` method, never `plain`.",
+    "reference": "RFC 7636 §4"
+  },
+  {
+    "id": "SD-API-027",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "`POST /contacts:batchCreate` receives 100 contacts. 97 are valid and 3 fail validation. The product wants the valid ones saved. What response design is best?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Save the 97 and return `400 Bad Request` with the three errors, since part of the batch was invalid input",
+        "why": "A 4xx tells clients nothing was done, so they will likely retry everything and create 97 duplicates."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Save the 97 and return `201 Created` listing only the created ids, leaving the client to work out which failed",
+        "why": "Without a per-item result tied to each input, the client can't reliably tell which three to fix."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Return `200 OK` with a result per input item, in order, each either the created contact or its error",
+        "why": "The client sees exactly what succeeded and what failed, and can resubmit just the failures."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Reject the entire batch with `422` because a batch must always be all-or-nothing, and return all three errors",
+        "why": "All-or-nothing is a valid design, but it contradicts the stated requirement to save the valid contacts."
+      }
+    ],
+    "explanation": "Batch endpoints must document whether they are atomic. If partial success is allowed, the top-level status reports that the batch was processed, and the body carries one result per item (matched by index or by a client-supplied id) with its own status and error. WebDAV's `207 Multi-Status` is another option. Pair it with idempotency keys so a retried batch doesn't duplicate the items that succeeded.",
+    "reference": "Google AIP-233 (Batch methods)"
+  },
+  {
+    "id": "SD-API-028",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Adding a new value (for example `REFUNDED`) to an enum field that an API returns in responses is always a backward-compatible change for every client.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Clients that switch exhaustively over the enum, or that parse it into a closed type, can crash or mishandle the new value."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: it is additive on the wire, but clients written for a closed set of values can break, so APIs must tell clients to expect unknown values."
+      }
+    ],
+    "explanation": "Output enums are a classic compatibility trap. Generated clients may fail to deserialize an unknown value, and business logic like `switch(status)` with no default may throw. Good practice: document that enums can grow, have clients treat unknown values safely, and consider gating new values behind an opt-in or a new version.",
+    "reference": "Google API Design Guide: Compatibility (enum values)"
+  },
+  {
+    "id": "SD-API-029",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An API issues stateless JWT access tokens valid for 24 hours, and every service verifies them with the issuer's public key without calling the auth server. A contractor is fired at 10:00, and security wants their API access cut off within minutes. What is the best design change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Rotate the token signing key immediately, so that every token that has already been issued stops verifying",
+        "why": "It does cut the contractor off, but it also logs out every other user; this is an emergency measure, not a design."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Delete the contractor's user record, so that each service's token check fails on their very next request",
+        "why": "Services verify the signature and claims offline; they never look the user up, so the token keeps working."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Use 5–15 minute access tokens with server-checked refresh tokens, plus a small `jti` denylist for urgent cases",
+        "why": "Revoking the refresh token stops renewal within one short lifetime, and the denylist covers the gap for urgent cases."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Move the tokens from localStorage into HttpOnly cookies, so that they can be cleared from the browser at once",
+        "why": "That changes where the browser keeps the token, not whether the server accepts a copy that has already been taken."
+      }
+    ],
+    "explanation": "Self-contained tokens trade revocability for speed: nothing can invalidate one before it expires without an online check. The usual compromise is short access-token lifetimes, a refresh token that the auth server checks on every renewal (where revocation takes effect), and for urgent cases a small denylist of token ids (`jti`) pushed to the verifiers. Token introspection (RFC 7662) is the fully online alternative.",
+    "reference": "RFC 9068; RFC 7662; OAuth 2.0 Security BCP"
+  },
+  {
+    "id": "SD-API-030",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A service verifies tokens with `jwt.verify(token, PUBLIC_KEY)` and the library picks the algorithm from the token's own header. Tokens are normally signed with RS256. An attacker takes the public key (which is published), signs a forged token with HS256 using that key as the HMAC secret, and the service accepts it. What is the root cause and the fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "RS256 keys are too short to resist forgery; switch to a 4096-bit RSA key and publish the new public key",
+        "why": "No RSA key was broken. The attacker never touched the private key; the verifier ran the wrong algorithm."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The verifier trusts the token's `alg` header; pin it to accept only RS256 for this key",
+        "why": "With HS256 the public key is treated as a shared secret. Pinning the algorithm stops that confusion."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The public key leaked; keep the verification key secret on the server so that attackers can't use it to sign",
+        "why": "Public keys are meant to be public. The design must stay safe even when everyone knows the key."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Tokens lacked an expiry; add a short `exp` claim to every token so that forged ones expire quickly",
+        "why": "Expiry limits how long a stolen real token is useful; the attacker can just put a far-future `exp` in a forged one."
+      }
+    ],
+    "explanation": "This is the JWT algorithm-confusion attack. Its cousin is `alg: none`, where some libraries accept an unsigned token. The `alg` header is attacker-controlled input, so the verifier must decide which algorithms a given key may be used with. Bind keys to algorithms (for example through a JWKS entry's `alg`), reject `none`, and validate `iss`, `aud` and `exp` as well.",
+    "reference": "RFC 8725 (JWT Best Current Practices) §2.1, §3.1"
+  },
+  {
+    "id": "SD-API-031",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A web app authenticates with a session cookie, and `POST /transfer` moves money. An attacker's page contains an auto-submitting HTML form that posts to `/transfer`. Which measures actually stop this cross-site request forgery? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Set the session cookie with `SameSite=Lax` or `Strict`",
+        "why": "The browser then leaves the cookie off cross-site POSTs, so the forged request arrives unauthenticated."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Require a per-session anti-CSRF token (or a custom header) on every state-changing request",
+        "why": "The attacker's page can't read the token or set custom headers cross-origin, so its forged request fails the check."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Mark the cookie `HttpOnly`",
+        "why": "HttpOnly stops scripts reading the cookie (an XSS defence); the browser still attaches it to the forged POST."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Serve the whole site over HTTPS only",
+        "why": "HTTPS protects data in transit; the forged request is a perfectly valid HTTPS request from the victim's browser."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Configure CORS to allow only the app's own origin",
+        "why": "CORS controls which origins can read responses. A plain form POST is a simple request and is sent anyway."
+      }
+    ],
+    "explanation": "CSRF works because browsers attach cookies automatically. Defences either keep the cookie off cross-site requests (`SameSite`) or require proof that the request came from your own pages: a synchronizer token, the double-submit cookie pattern, or a custom header plus an `Origin` check. CORS is not a CSRF defence, because it never blocks sending a simple request.",
+    "reference": "OWASP CSRF Prevention Cheat Sheet"
+  },
+  {
+    "id": "SD-API-032",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "In Kubernetes, 20 frontend pods call a backend over gRPC through a normal ClusterIP Service. The backend is scaled from 3 to 10 pods during a traffic spike, but the 7 new pods get almost no traffic and the original 3 stay overloaded. Why, and what fixes it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "New pods start cold and the Service sends them only health checks for 10 minutes; lower the Service's warm-up period",
+        "why": "ClusterIP Services have no warm-up period; any pod that passes its readiness check is eligible straight away."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "gRPC uses UDP, which the Service can't balance; switch the backend to REST over HTTP/1.1 instead",
+        "why": "gRPC runs over HTTP/2 on TCP; the problem is long-lived connections, not the transport protocol."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The Service balances by client IP, so add more frontend pods so their IPs spread across the backends",
+        "why": "kube-proxy picks a backend per connection, not by client IP, and more clients would only make a little difference."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Each client holds one long-lived HTTP/2 connection balanced only at connect time; balance per request (L7) instead",
+        "why": "Use client-side balancing over a headless Service, a proxy or mesh, or cap connection age so clients reconnect."
+      }
+    ],
+    "explanation": "kube-proxy balances at layer 4: it picks a pod once per TCP connection. gRPC multiplexes every request over one long-lived HTTP/2 connection, so connections made before the scale-up keep hitting the old pods forever. Fixes: per-request (L7) balancing in the client (gRPC's `round_robin` over a headless Service's DNS), a proxy or service mesh such as Envoy or Linkerd, or a server-side `MAX_CONNECTION_AGE` that makes clients reconnect and re-spread.",
+    "reference": "Kubernetes blog: gRPC Load Balancing on Kubernetes"
+  },
+  {
+    "id": "SD-API-033",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A mobile API moved from HTTP/1.1 (the client opened 6 parallel connections) to HTTP/2 (one multiplexed connection). On good networks it got faster, but on lossy cellular links with about 2% packet loss, page loads got slower. What is the most likely explanation, and what addresses it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "TCP head-of-line blocking: one lost packet stalls every stream on the single connection. HTTP/3 over QUIC avoids it",
+        "why": "With HTTP/2 every stream waits for the TCP retransmit; with 6 connections a loss stalled only one of them."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "HTTP/2 header compression (HPACK) corrupts headers when packets are lost; turn compression off for mobile clients",
+        "why": "HPACK runs above TCP, which delivers bytes reliably and in order; packet loss never corrupts what it sees."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "HTTP/2 server push floods mobile clients with resources they never asked for; turn server push off on the server",
+        "why": "Push can waste bandwidth, but it doesn't explain a slowdown that appears only with packet loss."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "HTTP/2 needs TLS 1.3, which takes extra round trips on cellular; use TLS 1.2 to cut the handshake time",
+        "why": "HTTP/2 works with TLS 1.2, and TLS 1.3 actually needs fewer handshake round trips."
+      }
+    ],
+    "explanation": "HTTP/2 removed HTTP-level head-of-line blocking but kept TCP's: TCP delivers bytes in order, so a lost segment blocks all multiplexed streams until it is retransmitted. One connection also has a single congestion window, which a loss cuts for everything. QUIC (HTTP/3) runs streams independently over UDP, so a loss delays only the stream it belongs to.",
+    "reference": "RFC 9000 (QUIC); RFC 9114 (HTTP/3)"
+  },
+  {
+    "id": "SD-API-034",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A public GraphQL API allows 100 requests per minute per key. An attacker stays within that limit but sends queries like `user { friends(first: 100) { friends(first: 100) { friends(first: 100) { name } } } }`, and the database falls over. What is the most effective protection?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Lower the rate limit to 10 requests per minute for each key, so that the attacker can send fewer queries in total",
+        "why": "A single such query asks for up to a million nodes, so counting requests doesn't measure the load at all."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Estimate each query's cost (depth and list sizes multiplied out) before running it, and reject or budget it",
+        "why": "Expensive queries are refused before they touch the database, and keys can be limited by total cost, not request count."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add a 30-second server timeout so that any expensive query is cancelled once it has run for too long",
+        "why": "By the time the timeout fires, the database has already done most of the damaging work."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Cache all GraphQL responses at the CDN so that repeated queries never reach the database at all",
+        "why": "Attackers can vary arguments to bust caches, and POST-based GraphQL is rarely CDN-cacheable anyway."
+      }
+    ],
+    "explanation": "In GraphQL one request can cost anything from one row to millions, so protection has to work on query cost. Common layers: a maximum depth, required and capped page sizes, static cost analysis (each field carries a cost, and lists multiply it), rate limits measured in cost points (as GitHub's API does), and for first-party apps, an allowlist of persisted queries so arbitrary queries are never accepted.",
+    "reference": "GitHub GraphQL API: Rate limits and node limits"
+  },
+  {
+    "id": "SD-API-035",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 3,
+    "type": "match",
+    "select": 1,
+    "stem": "A gRPC API defines `message Order { int64 id = 1; string note = 3; int32 count = 4; }`, and old clients and stored messages already exist. Match each change with its effect.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Safe: old readers skip the unknown field"
+      },
+      {
+        "id": "B",
+        "text": "Safe, and stops the number being reused by mistake"
+      },
+      {
+        "id": "C",
+        "text": "Unsafe: old data is decoded into the wrong field"
+      },
+      {
+        "id": "D",
+        "text": "Unsafe: the wire type changes, so existing data no longer parses as before"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Add `string coupon = 7;` (a number never used before)",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Delete `note` and add `reserved 3;`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Delete `note`, then later add `int64 discount_cents = 3;`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Change `int32 count = 4;` to `string count = 4;`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Protobuf identifies fields on the wire by number and wire type, not by name. New numbers are ignored (and preserved) by old readers. Reusing a deleted number makes old bytes and old clients interpret data as the new field, so deleted numbers and names should be `reserved`. Changing between incompatible types (varint vs length-delimited) breaks the encoding. Renaming a field is wire-safe but breaks JSON mappings and generated code.",
+    "reference": "Protocol Buffers docs: Updating a message type"
+  },
+  {
+    "id": "SD-API-036",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "Field reporters upload videos of 2–5 GB from phones on unreliable cellular networks. Today one interrupted upload means starting again from zero. Which three choices together make uploads reliable and efficient? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Use a multipart (chunked) upload, with the API issuing presigned URLs for each part",
+        "why": "Each part (say 8–16 MB) uploads independently and directly to storage."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Have the client record completed parts and their ETags, re-send only failed parts, then call complete",
+        "why": "An interruption costs one part, not the whole file, and the completion call assembles the parts in order."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Add a storage lifecycle rule that aborts incomplete multipart uploads after a few days",
+        "why": "Abandoned uploads otherwise leave orphaned parts that are billed indefinitely."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Keep one PUT but raise every timeout to two hours",
+        "why": "Long timeouts don't stop cellular drops; any drop still restarts all 5 GB."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Base64-encode the video into a JSON body sent to the API servers",
+        "why": "That adds about 33% overhead, pushes gigabytes through the API tier and still isn't resumable."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Stream the file over a WebSocket to an app server that writes it to disk",
+        "why": "One connection drop still loses progress, and the app tier now relays all the bulk data."
+      }
+    ],
+    "explanation": "Resumable uploads split the file into parts that can be retried independently and uploaded in parallel, ideally straight to object storage via presigned part URLs (S3 multipart upload, GCS resumable uploads, or the tus protocol). The client tracks progress and resumes after a crash or network drop, and a lifecycle policy cleans up uploads that never finish.",
+    "reference": "AWS S3: Multipart upload; tus.io resumable upload protocol"
+  },
+  {
+    "id": "SD-API-037",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Your platform sends webhooks signed as `HMAC-SHA256(secret, body)` in a header. A customer reports that someone captured one legitimate `invoice.paid` request from a proxy log and replayed it hours later, and the receiver accepted it because the signature was valid. Which two changes defend against replay? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Sign a timestamp together with the body, and have receivers reject any request whose timestamp is more than about 5 minutes old",
+        "why": "An old capture can't be re-timestamped without the secret, so it fails the freshness check."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Give each event a unique id and have receivers store recently seen ids and ignore repeats",
+        "why": "That catches replays inside the time window and also makes the provider's own retries harmless."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Switch the signature from HMAC-SHA256 to HMAC-SHA512 so that captured signatures are much harder to reuse",
+        "why": "The attacker reuses a valid signature as is; a stronger hash doesn't change that at all."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Require HTTPS for every webhook endpoint, which on its own makes replaying a captured request impossible",
+        "why": "HTTPS protects the request in transit, but this one was captured from a log after decryption and resent over HTTPS."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Put the HMAC signature in the URL query string rather than in a header so that proxies don't log it",
+        "why": "Query strings are logged more often than headers, and moving the signature doesn't make it single-use."
+      }
+    ],
+    "explanation": "A signature proves who sent a request, not when. Replay protection needs freshness (a signed timestamp with a tolerance window, as Stripe's `t=…,v1=…` scheme does) plus de-duplication by event id, which the receiver needs anyway because webhooks are delivered at least once. Compare signatures in constant time, and support two active secrets so they can be rotated.",
+    "reference": "Stripe docs: Verify webhook signatures"
+  },
+  {
+    "id": "SD-API-038",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 4,
+    "type": "fill",
+    "select": 1,
+    "stem": "A client is resuming a download of a 10,000-byte file and sends `Range: bytes=9500-`. The server supports ranges and replies `206 Partial Content`. Type the exact value of the `Content-Range` response header.",
+    "options": [],
+    "accepted": [
+      "bytes 9500-9999/10000"
+    ],
+    "explanation": "Byte ranges in HTTP are zero-based and inclusive, so an open-ended range from 9500 on a 10,000-byte file covers bytes 9500 through 9999 (500 bytes). The `Content-Range` header is written as `bytes first-last/complete-length`. A common bug is sending `9500-10000`, which is one byte past the end. Clients should also send `If-Range` with the ETag, so a file that changed is returned in full instead of being spliced.",
+    "reference": "RFC 9110 §14 (Range Requests)"
+  },
+  {
+    "id": "SD-API-039",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Your payments API handles `POST /payments` by calling a card processor. The call to the processor times out after 30 seconds: you don't know whether the card was charged. How should your API handle this payment?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Mark it `failed` and return 502 so the customer can retry, since the processor never confirmed the charge",
+        "why": "If the charge did go through, the customer's retry charges them a second time."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Immediately retry against the processor using a fresh request reference so it gets a clean new attempt",
+        "why": "A new reference is a new charge to the processor, which turns an uncertain charge into a possible double charge."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Keep it in an `unknown` state, reconcile by the original reference or idempotency key, and report the outcome later",
+        "why": "Query or retry with the same key, then notify the client by webhook or status resource. The outcome is unknown, not failed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Return 500, delete the payment record and rely on the processor to reverse any charge that went through",
+        "why": "Deleting the record destroys the evidence needed for reconciliation, and processors don't reverse charges on their own."
+      }
+    ],
+    "explanation": "In distributed systems a timeout means \"unknown\", not \"failed\". Payment systems model this explicitly: a state machine with pending or unknown states, idempotent calls to the processor with a stable reference, background reconciliation (query the status or retry with the same idempotency key), and asynchronous notification to the client. Turning \"unknown\" into \"failed\" is how double charges happen.",
+    "reference": "Stripe engineering: Designing robust and predictable APIs with idempotency"
+  },
+  {
+    "id": "SD-API-040",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A mobile home screen needs data from 6 services: profile, feed, notifications, promotions, recommendations and cart. Over cellular, each extra client round trip costs about 150 ms. Recommendations has a p99 of 2 s, while the others stay under 100 ms. The target is a home screen that loads in 300 ms at p99. Which design meets it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Have the app call all 6 services directly and in parallel through the gateway, so no extra hop is added",
+        "why": "Six cellular requests cost radio and connection overhead, and the screen still waits on the 2-second dependency."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Add a BFF that calls all 6 in parallel with ~200 ms budgets and leaves out any section that misses its budget",
+        "why": "One client round trip, parallel fan-out, and per-dependency deadlines stop the slowest service setting the screen's latency."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add a BFF that calls the 6 services in a fixed order and returns only once every one of them has answered",
+        "why": "Calling them in order adds up all six latencies, and waiting for everything puts the 2-second p99 straight into the screen."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add a BFF that waits for all 6 services with a 3-second timeout so no section is ever missing from the response",
+        "why": "That guarantees completeness by guaranteeing a slow screen whenever recommendations is slow."
+      }
+    ],
+    "explanation": "A backend-for-frontend turns many chatty calls into one request shaped for the screen. To meet a latency target despite slow dependencies it must fan out in parallel, give each dependency a deadline, and degrade gracefully: return the rest of the screen and mark the missing section so the app can show a placeholder or load it lazily. The slowest optional dependency should never set the latency of the whole page.",
+    "reference": "Sam Newman, Backends for Frontends pattern; Dean & Barroso, The Tail at Scale"
+  },
+  {
+    "id": "SD-API-041",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A gRPC API in proto3 updates a `Book` resource with `UpdateBook(book, update_mask)`, following Google's AIP-134. Which two statements are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Without a mask, the server can't tell `page_count = 0` (clear it) from `page_count` not being sent, since proto3 scalars have no presence",
+        "why": "Both serialize identically for plain scalars, so the field mask is what carries the intent."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A path listed in `update_mask` but missing from `book` resets that field to its default value",
+        "why": "The mask says \"set these fields to what I sent\"; sending nothing for a listed field means the default."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "An `update_mask` of `*` means the server updates only the fields that happen to be present in the request",
+        "why": "Under AIP-134, `*` means full replacement, so every field takes the request's value, including defaults."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Field masks only matter for reads; updates should always send and replace the entire resource instead",
+        "why": "Masks matter most for updates: full replacement makes clients overwrite each other's fields and fields they don't know about."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "A client built before a field existed can't erase it with a full-resource update, as unknown fields are always kept",
+        "why": "Many clients (especially JSON ones) drop unknown fields, so a read-modify-write without a mask can wipe the new field."
+      }
+    ],
+    "explanation": "Field masks turn \"update\" into an explicit list of paths, which solves two problems. First, proto3 can't distinguish a default value from \"not set\" for plain scalars. Second, older clients or concurrent editors would clobber fields they never meant to touch. The trade-off is that `*` (or a full replace) becomes an explicit, dangerous opt-in.",
+    "reference": "Google AIP-134 (Standard methods: Update); AIP-161 (Field masks)"
+  },
+  {
+    "id": "SD-API-042",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A public, unauthenticated product-catalog GraphQL API gets 50,000 requests per second. About 90% of them are the same few hundred queries with different variables, all sent as `POST /graphql`, and the CDN in front caches none of it. How can the CDN absorb most of this load?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Configure the CDN to cache POST requests keyed only on the URL path, with a 60-second TTL for every response",
+        "why": "Every query shares the same path, so different queries would get each other's cached responses."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Use a normalized client-side cache (such as Apollo's) so each browser deduplicates its own repeated queries",
+        "why": "That saves repeat requests from one browser, not the combined load of all users on the origin."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Send persisted queries as GET with the query hash and variables in the URL, and set `Cache-Control` per response",
+        "why": "Each distinct query and variable set gets its own cacheable URL, with a TTL derived from the shortest-lived field."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Move the catalog queries to GraphQL subscriptions so that clients receive updates pushed over a WebSocket",
+        "why": "Subscriptions create long-lived per-client streams; that adds origin load and is even less cacheable."
+      }
+    ],
+    "explanation": "GraphQL defeats HTTP caching because every query is a POST to the same URL. Automatic persisted queries replace the query text with a hash, so requests fit in a `GET` URL that a CDN can key on. The server then sets `Cache-Control` from per-field hints (for example the minimum `maxAge` across resolved fields, with `private` when user data is involved). This is the standard way to put GraphQL behind a CDN.",
+    "reference": "Apollo docs: Automatic persisted queries; Caching with CDNs"
+  },
+  {
+    "id": "SD-API-043",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A public API pins each customer account to the API version it first integrated with, and dozens of dated versions are still in use. The team wants to keep shipping changes without maintaining dozens of copies of its business logic. Which approach, used by Stripe, achieves this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Fork the codebase for each version and backport security fixes to every fork as they are released",
+        "why": "Dozens of forks multiply every fix and every test run; this is the cost the team is trying to avoid."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Force every customer onto the latest version on each release, giving them a one-week notice period",
+        "why": "It breaks integrations with no way out and contradicts the promise of pinned versions."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Put `if (version < X)` checks wherever behaviour differs, spread through the core business logic",
+        "why": "Version checks spread through every code path, and nobody can tell what a given version actually does."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Run core logic only at the latest version, then chain small version-change modules that rewrite responses back to the pinned version",
+        "why": "Each version change lives in one place, and older versions are produced by applying the changes in reverse order."
+      }
+    ],
+    "explanation": "Stripe's date-based versioning keeps one current implementation. Each backward-incompatible change is captured as a small, self-describing module that knows how to transform responses (and side effects) back to the previous version's shape. A request for an old version runs the current code, then walks back through the changes in order. Versions become cheap to keep, and the changelog is generated from the same modules.",
+    "reference": "Stripe engineering: APIs as infrastructure: future-proofing Stripe with versioning"
+  },
+  {
+    "id": "SD-API-044",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 4,
+    "type": "order",
+    "select": 1,
+    "stem": "A public API must rename the response field `zip` to `postal_code`, and the underlying database column too, with no downtime and without breaking clients that still read `zip`. Put the expand-and-contract steps in order.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Add a `postal_code` column, have the code write both columns, and backfill old rows"
+      },
+      {
+        "id": "B",
+        "text": "Switch reads to `postal_code` and return both `zip` and `postal_code` in API responses"
+      },
+      {
+        "id": "C",
+        "text": "Mark `zip` deprecated in the docs and schema, and send `Deprecation` and `Sunset` headers"
+      },
+      {
+        "id": "D",
+        "text": "Track which clients still read `zip`, and contact them before the sunset date"
+      },
+      {
+        "id": "E",
+        "text": "After the sunset date, stop returning `zip`, then stop writing to and drop the old column"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "Expand-and-contract (parallel change) never breaks anything in a single step. First expand the schema and data so that both forms exist and are always populated. Then serve both from the new source of truth, announce the deprecation in a way machines can read (RFC 9745 `Deprecation`, RFC 8594 `Sunset`), and use telemetry to check that nobody still depends on the old field. Only then contract the API and the database.",
+    "reference": "Martin Fowler: ParallelChange; RFC 8594 (Sunset header)"
+  },
+  {
+    "id": "SD-API-045",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A client sends `PATCH /orders/12` with JSON Patch body `[{\"op\": \"add\", \"path\": \"/items/-\", \"value\": {\"sku\": \"PEN\"}}]`. The server applies it but the response is lost, and the client's HTTP library automatically retries the same request. What happens, and what is the most robust fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing bad happens, because PATCH is an idempotent method and so the retry leaves the order as it is",
+        "why": "PATCH is not idempotent in general; this append operation adds another element every time it runs."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The pen is added twice; fix it by switching to JSON Merge Patch, which makes every array change idempotent",
+        "why": "Merge Patch has to resend the whole array; it fixes this retry but silently overwrites concurrent edits instead."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The pen is added twice; send `If-Match` with the order's ETag, so the retry gets `412` and the client re-reads the order",
+        "why": "The precondition makes the patch apply only to the version it was written for, which blocks both duplicates and lost updates."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The server rejects the retry with `409`, because JSON Patch can detect duplicate operations by itself",
+        "why": "JSON Patch has no memory of earlier requests; without a precondition the server just applies the patch again."
+      }
+    ],
+    "explanation": "JSON Patch operations such as `add` to `/-` (append) are not idempotent, so blind retries duplicate them. Conditional requests fix this: with `If-Match`, the first attempt changes the ETag, the retry fails with 412, and the client re-reads to see whether its change landed. A `test` operation inside the patch, or an `Idempotency-Key`, also works, but `If-Match` also prevents lost updates from other writers.",
+    "reference": "RFC 6902 (JSON Patch); RFC 9110 §13.1.1 (If-Match)"
+  }
+]

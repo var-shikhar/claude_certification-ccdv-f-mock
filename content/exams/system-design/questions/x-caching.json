@@ -1,0 +1,611 @@
+[
+  {
+    "id": "SD-CAC-011",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "An API response carries `Cache-Control: no-cache`. What does this tell a browser or CDN to do?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Never write the response to any cache, in memory or on disk", "why": "That is `no-store`. Despite its name, `no-cache` allows storing the response." },
+      { "id": "B", "correct": true, "text": "It may store the response, but must revalidate it with the origin before each reuse", "why": "`no-cache` means \"check with the server first\", typically with a cheap conditional request that can return 304." },
+      { "id": "C", "correct": false, "text": "Cache it in the browser only, never in shared caches such as a CDN", "why": "That is the meaning of `private`, which restricts storage to the user's own cache." },
+      { "id": "D", "correct": false, "text": "Serve it from cache for a browser-chosen default period, then fetch a fresh copy", "why": "That describes heuristic or `max-age` freshness. `no-cache` forbids reuse without revalidation." }
+    ],
+    "explanation": "`no-cache` and `no-store` are a classic interview mix-up. `no-cache` lets the cache keep the response but requires revalidation (for example `If-None-Match` with the ETag) before every use, so an unchanged resource costs a 304 instead of a full download. `no-store` forbids keeping it at all and is the directive for sensitive data.",
+    "reference": "RFC 9111 §5.2.2"
+  },
+  {
+    "id": "SD-CAC-012",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "An interviewer asks you to implement an LRU cache where both `get` and `put` run in O(1) time. Which pair of data structures is the standard answer?",
+    "options": [
+      { "id": "A", "correct": false, "text": "A min-heap of entries ordered by their last-access timestamp", "why": "Updating an entry's position in a heap on every access costs O(log n), not O(1)." },
+      { "id": "B", "correct": false, "text": "A hash map from key to node, plus a singly linked list ordered by recency of use", "why": "Moving a node out of the middle of a singly linked list needs its predecessor, which takes O(n) to find." },
+      { "id": "C", "correct": true, "text": "A hash map from key to node, plus a doubly linked list by recency", "why": "The map finds a node in O(1), and a doubly linked list can unlink it and move it to the head in O(1)." },
+      { "id": "D", "correct": false, "text": "A sorted array of keys kept in order of their most recent access", "why": "Moving an element within an array shifts the elements after it, which is O(n)." }
+    ],
+    "explanation": "The map points at list nodes. On `get`, look up the node and move it to the head. On `put` for a new key when full, remove the tail node (the least recently used) and delete its key from the map, then insert the new node at the head. Java's `LinkedHashMap` with access order is this structure.",
+    "reference": "LeetCode 146: LRU Cache"
+  },
+  {
+    "id": "SD-CAC-013",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Memcached natively supports rich data types such as lists, hashes and sorted sets, in the same way that Redis does.",
+    "options": [
+      { "id": "A", "correct": false, "text": "True", "why": "Memcached stores opaque byte values under string keys. Rich types are a Redis feature." },
+      { "id": "B", "correct": true, "text": "False", "why": "Correct: Memcached is a plain key-value store of opaque blobs; Redis adds data structures and operations on them." }
+    ],
+    "explanation": "Memcached is a deliberately simple, multi-threaded key-value cache. Redis offers lists, hashes, sets, sorted sets, streams and more, plus optional persistence and replication. If you need a leaderboard (sorted set) or atomic list operations, you need Redis; for a plain look-aside cache of serialized objects, either works.",
+    "reference": "Memcached and Redis documentation"
+  },
+  {
+    "id": "SD-CAC-014",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A service warms its cache at deploy time and gives every key the same 1-hour TTL. Exactly one hour after each deploy, database load spikes sharply and then settles. What is the simplest fix?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Raise every TTL to 24 hours, so the spike happens less often", "why": "The spike still comes, just once a day, and data stays stale for much longer in between." },
+      { "id": "B", "correct": false, "text": "Remove the TTLs completely and rely on LRU eviction instead", "why": "Without TTLs, entries that are never evicted can stay stale indefinitely." },
+      { "id": "C", "correct": true, "text": "Add random jitter to each TTL, such as 1 hour ± 10%", "why": "Spreading the expiry times means keys refill gradually rather than all at the same moment." },
+      { "id": "D", "correct": false, "text": "Restart the cache nodes at a quieter time of day instead", "why": "A restart empties the cache, which causes the same synchronized miss storm." }
+    ],
+    "explanation": "When many keys are written together with the same TTL, they also expire together. This is sometimes called a cache avalanche. A small random jitter on each TTL desynchronizes expiry so the refill load is spread out.",
+    "reference": "AWS: Caching best practices"
+  },
+  {
+    "id": "SD-CAC-015",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "A read path serves 5,000 requests per second through a cache with a 92% hit ratio. Every miss runs one database query. How many database queries per second does the read path generate? Type just the number.",
+    "options": [],
+    "accepted": ["400", "400 qps", "400/s"],
+    "explanation": "Misses are 100% − 92% = 8% of traffic: 5,000 × 0.08 = 400 queries per second. Capacity planning for the database should use the miss rate, which is why small changes in hit ratio matter so much.",
+    "reference": "Back-of-the-envelope estimation"
+  },
+  {
+    "id": "SD-CAC-016",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A web app keeps all login sessions in a single Redis node with persistence and replication turned off. What is the main risk of this design?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Sessions are readable by every app server, so requests can't stick to one", "why": "Shared access is the point of an external session store; it lets any instance serve any user." },
+      { "id": "B", "correct": false, "text": "Session reads become slower than reading from a relational database", "why": "An in-memory store answers in well under a millisecond, faster than a typical database query." },
+      { "id": "C", "correct": false, "text": "Redis cannot expire keys, so old sessions pile up without limit", "why": "Redis supports per-key TTLs, which is how session expiry is usually implemented." },
+      { "id": "D", "correct": true, "text": "If that node restarts or fails, every session is lost and all users are logged out", "why": "With no persistence and no replica, the data exists only in that process's memory." }
+    ],
+    "explanation": "An external session store makes the web tier stateless, but the store itself then holds critical state. Use a replica with automatic failover, persistence if a restart must not log everyone out, or self-contained signed tokens for data that can live on the client.",
+    "reference": "Redis docs: Persistence and replication"
+  },
+  {
+    "id": "SD-CAC-017",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team puts a CDN in front of its website's images, scripts and stylesheets. Which two benefits should they expect? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "Lower latency, because users fetch files from an edge location near them", "why": "Edge servers cut the network round-trip time compared with a distant origin." },
+      { "id": "B", "correct": true, "text": "Fewer requests and less bandwidth hitting the origin servers", "why": "Cache hits are served at the edge, so the origin handles only misses and revalidations." },
+      { "id": "C", "correct": false, "text": "Every user sees a new file version the instant it is deployed", "why": "Cached copies live until they expire or are purged, so stale versions can linger without versioned URLs." },
+      { "id": "D", "correct": false, "text": "Personalized API responses become safe to cache for all users", "why": "Caching per-user data in a shared cache can leak it to other users; that needs `private` or no caching." },
+      { "id": "E", "correct": false, "text": "Database queries behind the site's dynamic pages run faster", "why": "A CDN caches HTTP responses; it does nothing for queries that still reach the database." }
+    ],
+    "explanation": "CDNs reduce latency by serving from the edge and offload the origin. They introduce staleness, which is why static assets usually get content-hashed file names so a deploy changes the URL instead of waiting for caches to expire.",
+    "reference": "MDN: HTTP caching"
+  },
+  {
+    "id": "SD-CAC-018",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each eviction policy with the entry it removes when the cache is full.",
+    "options": [
+      { "id": "A", "text": "The entry that has gone longest without being read or written" },
+      { "id": "B", "text": "The entry that has been accessed the fewest times" },
+      { "id": "C", "text": "The entry that was inserted earliest, however often it is used" },
+      { "id": "D", "text": "An entry chosen at random" },
+      { "id": "E", "text": "The largest entry in the cache, regardless of how it is used" }
+    ],
+    "prompts": [
+      { "id": "P1", "text": "LRU", "answer": "A" },
+      { "id": "P2", "text": "LFU", "answer": "B" },
+      { "id": "P3", "text": "FIFO", "answer": "C" },
+      { "id": "P4", "text": "Random", "answer": "D" }
+    ],
+    "explanation": "LRU bets that recent use predicts future use; LFU bets on frequency; FIFO ignores use entirely; random eviction is cheap and surprisingly competitive for some workloads. Redis offers LRU, LFU and random variants through `maxmemory-policy`. Evicting by size is not a standard policy.",
+    "reference": "Redis docs: Key eviction"
+  },
+  {
+    "id": "SD-CAC-019",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A response is sent with `Cache-Control: public, max-age=60, s-maxage=600`. How long may a CDN and a user's browser each treat it as fresh?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Both for 60 seconds, because the smaller value always wins", "why": "The two directives target different caches; neither one overrides the other everywhere." },
+      { "id": "B", "correct": false, "text": "Both for 600 seconds, because the larger value always wins", "why": "Browsers are private caches and ignore `s-maxage`." },
+      { "id": "C", "correct": true, "text": "The CDN for 600 seconds, the browser for 60 seconds", "why": "`s-maxage` applies only to shared caches and overrides `max-age` there." },
+      { "id": "D", "correct": false, "text": "The CDN for 60 seconds, the browser for 600 seconds", "why": "This reverses the rule: the \"s\" stands for shared caches such as CDNs and proxies." }
+    ],
+    "explanation": "`s-maxage` lets you cache longer at the CDN, where you can purge, while keeping browser caches short, where you can't. That is a common pattern for HTML and API responses.",
+    "reference": "RFC 9111 §5.2.2.10"
+  },
+  {
+    "id": "SD-CAC-020",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A cache lookup takes 1 ms. On a miss, the service also queries the database, which takes 20 ms, and then returns. The hit ratio is 90%. What is the average read latency?",
+    "options": [
+      { "id": "A", "correct": false, "text": "2.9 ms: 0.9 × 1 ms for hits plus 0.1 × 20 ms for misses", "why": "This forgets that a miss pays for the failed cache lookup as well as the database query." },
+      { "id": "B", "correct": true, "text": "3.0 ms: 0.9 × 1 ms plus 0.1 × (1 ms + 20 ms) for misses", "why": "Every request pays the 1 ms lookup; only the 10% of misses add the 20 ms query." },
+      { "id": "C", "correct": false, "text": "10.5 ms: the average of the cache time and the database time", "why": "A plain average ignores the hit ratio, which weights the two paths very differently." },
+      { "id": "D", "correct": false, "text": "21 ms: the slow path dominates, so averages don't matter", "why": "That is the miss latency, which only 10% of requests see; it matters for the tail, not the mean." }
+    ],
+    "explanation": "Average = hit ratio × hit time + miss ratio × (lookup time + backend time) = 0.9 × 1 + 0.1 × 21 = 3.0 ms. Raising the hit ratio to 99% gives 0.99 + 0.21 = 1.2 ms. The miss path still sets the tail: p99 here is the 21 ms path.",
+    "reference": "Hennessy & Patterson: average memory access time"
+  },
+  {
+    "id": "SD-CAC-021",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team is choosing between Redis and Memcached for a new cache. Which two statements are accurate? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "Redis offers data structures such as sorted sets plus optional RDB and AOF persistence", "why": "These are Redis features that Memcached does not provide." },
+      { "id": "B", "correct": true, "text": "Memcached is multi-threaded and stores opaque values using a slab allocator", "why": "One Memcached process uses many cores; values are blobs it doesn't interpret." },
+      { "id": "C", "correct": false, "text": "Memcached replicates every key between its servers to survive node failures", "why": "Memcached has no built-in replication; clients shard keys across independent servers." },
+      { "id": "D", "correct": false, "text": "Redis Cluster runs a multi-key command such as `MGET` across keys on any slots", "why": "Multi-key commands in Redis Cluster require all keys in one hash slot, or they fail with CROSSSLOT." },
+      { "id": "E", "correct": false, "text": "Only Memcached supports giving each key its own expiry time", "why": "Both support per-key TTLs; Redis sets them with `EXPIRE` or the `EX` option." }
+    ],
+    "explanation": "Choose Memcached for a simple, multi-threaded look-aside cache of serialized objects. Choose Redis when you need data structures, atomic operations on them, replication, persistence or pub/sub. Both lose data on restart unless configured otherwise, so treat either as a cache, not a system of record.",
+    "reference": "Redis and Memcached documentation"
+  },
+  {
+    "id": "SD-CAC-022",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A shop caches category listing pages under keys like `cat:7:page:3:sort:price`. A category has hundreds of such variants, and when any product in it changes, all of them must stop being served. What is the most practical invalidation approach?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Run `KEYS cat:7:*` on each change and then delete every key the command returns", "why": "`KEYS` scans the whole keyspace and blocks Redis while it runs; it is unsafe in production." },
+      { "id": "B", "correct": true, "text": "Keep a generation number per category in the keys and increment it on each change", "why": "New reads build keys with the new generation, so old entries are simply never read again and age out." },
+      { "id": "C", "correct": false, "text": "Call `FLUSHALL` whenever any product changes, so no stale page can survive", "why": "Flushing the whole cache for one change causes a miss storm across every unrelated key." },
+      { "id": "D", "correct": false, "text": "Give the listing pages a very short TTL and rely on expiry to hide changes", "why": "That bounds staleness but costs far more misses, and changes still show up late." }
+    ],
+    "explanation": "Versioned (generation) keys turn \"delete hundreds of keys\" into one atomic `INCR cat:7:gen`. Readers fetch the generation and build keys such as `cat:7:g42:page:3:sort:price`. Orphaned entries are reclaimed by TTL or eviction. The cost is one extra lookup per read, which is often cached locally for a second or two.",
+    "reference": "Memcached wiki: Namespacing keys"
+  },
+  {
+    "id": "SD-CAC-023",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A single-page app ships `index.html` plus scripts whose file names contain a content hash, such as `app.3f9a1c.js`. Which caching headers fit best?",
+    "options": [
+      { "id": "A", "correct": false, "text": "`max-age=31536000` on both, plus a CDN purge of everything on every deploy", "why": "Browsers keep the old `index.html` for a year, and a CDN purge cannot reach browser caches." },
+      { "id": "B", "correct": false, "text": "`no-store` on both, so that no user can ever end up with a stale file", "why": "This throws away all caching for scripts whose content can never change under the same name." },
+      { "id": "C", "correct": false, "text": "`max-age=300` on both, so that a deploy reaches every user within five minutes", "why": "Hashed files are re-downloaded needlessly, and users can briefly get new HTML with old cached scripts or vice versa." },
+      { "id": "D", "correct": true, "text": "Hashed files: `max-age=31536000, immutable`; `index.html`: `no-cache`", "why": "A content change produces a new file name, so hashed files can be cached forever, while the HTML is revalidated." }
+    ],
+    "explanation": "Cache busting by file name means a hashed asset never changes under its URL, so it can be cached for a year and marked `immutable` to skip revalidation. The small entry document must be revalidated on each load (`no-cache` with an ETag) so users pick up the new hashed names right after a deploy.",
+    "reference": "RFC 8246 (immutable); web.dev: HTTP cache"
+  },
+  {
+    "id": "SD-CAC-024",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "A browser cached a response with `ETag: \"abc\"` and `max-age=60`. Put the steps of the next request after those 60 seconds in order, assuming the resource has not changed.",
+    "options": [
+      { "id": "A", "text": "The browser finds its stored copy is no longer fresh" },
+      { "id": "B", "text": "The browser sends the request with `If-None-Match: \"abc\"`" },
+      { "id": "C", "text": "The server compares the tag with the resource's current ETag and finds a match" },
+      { "id": "D", "text": "The server replies `304 Not Modified` with no body" },
+      { "id": "E", "text": "The browser reuses its stored body and updates its freshness from the 304's headers" }
+    ],
+    "answerOrder": ["A", "B", "C", "D", "E"],
+    "explanation": "Revalidation saves bandwidth and server work, because the body is not re-sent when nothing changed. A 304 can carry a new `Cache-Control`, which restarts the freshness clock. If the ETag had not matched, the server would return a normal 200 with the new body and a new ETag.",
+    "reference": "RFC 9111 §4.3; RFC 9110 §13.1.2"
+  },
+  {
+    "id": "SD-CAC-025",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "A service protects an expensive key with request coalescing (\"single-flight\"): when many requests miss the same key at once, only one of them rebuilds it. Put the steps for the request that becomes the leader in order.",
+    "options": [
+      { "id": "A", "text": "The request looks up key `k` and gets a cache miss" },
+      { "id": "B", "text": "It becomes the single in-flight loader for `k`; concurrent misses wait on it" },
+      { "id": "C", "text": "It checks the cache again, in case another loader filled `k` a moment ago" },
+      { "id": "D", "text": "It queries the database for the value" },
+      { "id": "E", "text": "It writes the value to the cache with a TTL" },
+      { "id": "F", "text": "The waiting requests receive the loaded value without querying the database" }
+    ],
+    "answerOrder": ["A", "B", "C", "D", "E", "F"],
+    "explanation": "The second cache check is the subtle step: between the first miss and taking the loader role, a previous loader may have just finished. Skipping it causes a redundant rebuild. Within one process this is a per-key promise map (Go's `singleflight`); across processes it needs a short-lived lock or lease in the cache.",
+    "reference": "Go: golang.org/x/sync/singleflight"
+  },
+  {
+    "id": "SD-CAC-026",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "With default settings, Redis replication is asynchronous, so a write the primary has acknowledged can be lost if the primary fails before a replica receives it.",
+    "options": [
+      { "id": "A", "correct": true, "text": "True", "why": "Correct: the primary replies to the client before replicas confirm, so a failover can promote a replica that lacks the write." },
+      { "id": "B", "correct": false, "text": "False", "why": "Redis does not wait for replicas by default. Even the `WAIT` command reduces the window but does not make Redis strongly consistent." }
+    ],
+    "explanation": "This is fine for a cache, where a lost write just means a later miss. It matters when Redis holds data you can't rebuild, such as counters, queues or locks. Redis documents that `WAIT` makes loss less likely but doesn't turn Redis into a CP system.",
+    "reference": "Redis docs: Replication"
+  },
+  {
+    "id": "SD-CAC-027",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "On a Redis Cluster, `MGET cart:42 wishlist:42` fails with a `CROSSSLOT` error. Both keys belong to user 42 and are always read together. What is the right fix?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Switch the cluster to a hashing scheme that keeps keys with similar names close together", "why": "Redis Cluster always maps keys to its 16,384 hash slots with CRC16; that can't be changed." },
+      { "id": "B", "correct": true, "text": "Name the keys `{user:42}:cart` and `{user:42}:wishlist`, so both hash to the same slot", "why": "Only the part in braces is hashed, so both keys share a slot and multi-key commands work." },
+      { "id": "C", "correct": false, "text": "Wrap the two reads in a `MULTI`/`EXEC` transaction, so they run atomically on one node", "why": "Transactions have the same rule: all keys must be in one slot, or the command is rejected." },
+      { "id": "D", "correct": false, "text": "Increase the number of cluster nodes, so both keys are more likely to land on one", "why": "More nodes spreads slots further; the key-to-slot mapping is unchanged, so the error remains." }
+    ],
+    "explanation": "Redis Cluster places each key in slot CRC16(key) mod 16384. A hash tag (the text between the first `{` and `}`) is hashed instead of the full key, which co-locates related keys. Use tags at a fine granularity, such as per user; one tag shared by everything creates a hot slot.",
+    "reference": "Redis docs: Cluster specification (hash tags)"
+  },
+  {
+    "id": "SD-CAC-028",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A sign-up form checks whether a username is free by calling `GET /users/by-name/{name}`. That endpoint caches \"not found\" results for 10 minutes so bots can't hammer the database. After Alice registers as `alice`, logins as `alice` fail with \"no such user\" for several minutes. What is the right fix?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Remove the negative caching altogether, so that every lookup always queries the database directly", "why": "That reopens the database to the bot traffic the negative cache was added to stop." },
+      { "id": "B", "correct": false, "text": "Make the login path read the user record from a database replica instead of using the cache", "why": "This works around one path but leaves every other reader of the stale negative entry wrong." },
+      { "id": "C", "correct": true, "text": "Delete or overwrite the negative entry for that name when the user is created", "why": "The write path invalidates exactly the cached answer it just made false." },
+      { "id": "D", "correct": false, "text": "Increase the negative TTL so that the cache is refreshed far less often by the bots", "why": "A longer TTL makes the stale \"not found\" last even longer after sign-up." }
+    ],
+    "explanation": "Negative caching is just caching: any write that changes the answer must invalidate it. Here, creating a user changes \"not found\" into \"found\", so the creation path must delete the negative entry, ideally after the database commit. Negative TTLs are also usually kept much shorter than positive ones.",
+    "reference": "RFC 2308 (negative caching in DNS)"
+  },
+  {
+    "id": "SD-CAC-029",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A read path handles 100,000 requests per second with a 99% cache hit ratio. After a deploy that changed the cache key format for a few fields, the hit ratio settles at 97%. The database starts timing out. What happened to database load?",
+    "options": [
+      { "id": "A", "correct": false, "text": "It rose about 2%, which is too small to explain the timeouts; look for another cause", "why": "The 2-point drop is in the hit ratio. The miss ratio, which drives database load, went from 1% to 3%." },
+      { "id": "B", "correct": false, "text": "It rose about 50%, from 2,000 to 3,000 queries per second", "why": "At 99% hits, misses were 1% of 100,000 = 1,000 per second, not 2,000." },
+      { "id": "C", "correct": false, "text": "It stayed the same, because each key misses only once and is then cached again", "why": "If the key format no longer matches, those reads keep missing; and even refill misses count against capacity." },
+      { "id": "D", "correct": true, "text": "It tripled, from 1,000 to 3,000 queries per second", "why": "Misses went from 1% to 3% of 100,000 requests per second." }
+    ],
+    "explanation": "Database load scales with the miss ratio, not the hit ratio. Going from 99% to 97% hits triples the misses: 100,000 × 0.01 = 1,000 per second becomes 100,000 × 0.03 = 3,000. This is why hit ratio should be alerted on, and why cache key changes deserve gradual rollouts.",
+    "reference": "Back-of-the-envelope estimation"
+  },
+  {
+    "id": "SD-CAC-030",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team is migrating from an old Redis cluster to a new, empty one. The database can absorb only about 20% of normal traffic as cache misses. Which two steps make the cut-over safe? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "Shift read traffic to the new cluster gradually, such as 5% at a time, watching database load", "why": "Each step adds a bounded amount of misses while the new cluster fills." },
+      { "id": "B", "correct": true, "text": "Pre-warm the new cluster with the hottest keys, from access logs or by copying from the old cluster", "why": "The most-read keys are already present on day one, so the miss spike shrinks." },
+      { "id": "C", "correct": false, "text": "Flush the old cluster first, so that no stale data is carried over into the new one", "why": "That empties the only warm cache before the new one is ready, maximizing database load." },
+      { "id": "D", "correct": false, "text": "Switch all traffic at once at the quietest hour, since misses are cheap at night", "why": "Even at night, a fully cold cache can push misses above the 20% the database can take." },
+      { "id": "E", "correct": false, "text": "Disable TTLs on the new cluster, so that warmed entries can never expire during the migration", "why": "This does not reduce the initial misses and leaves entries that can stay stale indefinitely." }
+    ],
+    "explanation": "A cold cache in front of a database sized for cache-hit traffic is an outage waiting to happen. Gradual traffic shifting (or dual reads that fall back to the old cluster) and pre-warming the hot set keep misses within the database's headroom. Netflix and Facebook both describe warming new cache clusters before taking traffic.",
+    "reference": "Nishtala et al., Scaling Memcache at Facebook (NSDI 2013)"
+  },
+  {
+    "id": "SD-CAC-031",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An app deletes a product's cache key after every update it makes. Users still see stale prices after a nightly batch job updates prices with direct SQL, and after support engineers fix data by hand. What design catches every change?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Ask the batch job and the support team to call the cache-delete API after each change", "why": "This depends on every current and future writer remembering, which is what already failed." },
+      { "id": "B", "correct": true, "text": "Drive invalidation from the database's change log (CDC), deleting the key for each changed row", "why": "Every committed write appears in the log, whoever made it, and the consumer can retry failed deletes." },
+      { "id": "C", "correct": false, "text": "Put a database trigger that calls the cache directly over the network inside each transaction", "why": "Network calls in triggers slow every write and invalidate before commit, so a rollback leaves the cache wrong." },
+      { "id": "D", "correct": false, "text": "Lower the product TTL to one minute, so that stale prices disappear quickly on their own", "why": "This bounds staleness but multiplies misses, and prices can still be wrong for up to a minute." }
+    ],
+    "explanation": "Change data capture (for example Debezium reading the MySQL binlog or PostgreSQL WAL) sees every committed row change, in commit order per key. An invalidation consumer deletes the matching keys and retries until it succeeds, so invalidation no longer depends on application code paths. It is still asynchronous, so a short window of staleness remains.",
+    "reference": "Debezium documentation; Facebook McSqueal (NSDI 2013)"
+  },
+  {
+    "id": "SD-CAC-032",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A \"write-through\" layer handles an update by setting the new value in Redis and then running the database transaction. Occasionally the transaction fails a constraint check and rolls back. What does that leave behind, and what is the better order?",
+    "options": [
+      { "id": "A", "correct": true, "text": "Redis holds a value that never committed; commit the database first, then delete the cache key", "why": "The cache must reflect committed data only, so it is touched after the commit succeeds." },
+      { "id": "B", "correct": false, "text": "Nothing harmful, because the rollback also undoes the Redis write as part of the same transaction", "why": "Redis is not part of the database transaction; the rollback cannot reach it." },
+      { "id": "C", "correct": false, "text": "Redis holds a value that never committed; write Redis and the database in parallel to save time", "why": "Running them in parallel still lets the cache take a value whose transaction later fails." },
+      { "id": "D", "correct": false, "text": "Redis is merely out of date until the TTL; keep the order and lower the TTL to a few seconds", "why": "Shorter TTLs reduce how long readers see phantom data, but they still see it." }
+    ],
+    "explanation": "Writing the cache before the database risks caching data that never existed. Commit to the database first, then invalidate (deleting is safer than setting, since concurrent writers could set out of order). If the invalidation fails, retry it or rely on a CDC-driven invalidator.",
+    "reference": "DDIA ch. 11; AWS: Caching best practices"
+  },
+  {
+    "id": "SD-CAC-033",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "200 app servers each keep an in-process L1 cache with a 30-second TTL, in front of a shared Redis L2. When an entry changes, a message on Redis pub/sub tells every server to drop it from L1. One server's connection to Redis blips during a publish and then reconnects. What bounds how long that server serves the stale entry?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Nothing does: it serves the stale entry until the process restarts", "why": "L1 entries expire on their own TTL, which is why the TTL is kept short." },
+      { "id": "B", "correct": false, "text": "The L2 TTL in Redis, since the L1 entry is checked against L2 on each read", "why": "An L1 hit never consults L2, so the L2 TTL plays no part until L1 expires." },
+      { "id": "C", "correct": true, "text": "The 30-second L1 TTL, because the missed message is not redelivered", "why": "Redis pub/sub is fire-and-forget; a disconnected subscriber simply misses the message." },
+      { "id": "D", "correct": false, "text": "Nothing needs to: Redis redelivers missed messages after the reconnect", "why": "Redis pub/sub keeps no history. Redis Streams would, but this design uses pub/sub." }
+    ],
+    "explanation": "Redis pub/sub is at-most-once delivery: messages published while a subscriber is disconnected are gone. That makes the L1 TTL the real staleness bound, so pick it based on how stale you can tolerate. Use a durable stream if you need guaranteed invalidation, and clear L1 entirely on reconnect to close the gap.",
+    "reference": "Redis docs: Pub/Sub delivery semantics"
+  },
+  {
+    "id": "SD-CAC-034",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A social app caches each rendered page of a user's feed (`feed:u1:page:1`, `feed:u1:page:2`, ...). New posts shift every item down, so pages show duplicates and gaps, and every new post forces deleting many page keys. Which design fixes both problems?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Keep the page keys but give them a TTL of a few seconds, so shifted pages are rebuilt quickly", "why": "Duplicates and gaps still appear within each window, and misses rise sharply." },
+      { "id": "B", "correct": false, "text": "Cache the whole feed as a single large value and rewrite it in full whenever a post is added", "why": "Every new post rewrites a big value and every read transfers it, which scales badly for active users." },
+      { "id": "C", "correct": true, "text": "Cache the ordered post IDs (such as a sorted set by time), page with a cursor, and load posts by ID", "why": "Appending an ID touches one structure, and cursors over IDs are stable as new posts arrive." },
+      { "id": "D", "correct": false, "text": "Move pagination to the client, which downloads the full feed once and caches it locally", "why": "Large feeds make this slow and memory-hungry, and the client copy goes stale anyway." }
+    ],
+    "explanation": "Separate the list from the items. Keep a capped list of post IDs per feed (for example a Redis sorted set by timestamp) and page through it with a cursor such as \"posts older than ID x\". Hydrate each post from its own cache entry. An edited post then invalidates one item key, and new posts don't shift a cursor.",
+    "reference": "Twitter timeline architecture (Redis lists of IDs)"
+  },
+  {
+    "id": "SD-CAC-035",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "You need to store 10 million active sessions in Redis. Each session is 2,000 bytes, and Redis overhead adds 50% on top of the raw data. Every primary has one replica holding a full copy. How many gigabytes of RAM does the cluster need in total (1 GB = 10^9 bytes)? Type just the number.",
+    "options": [],
+    "accepted": ["60", "60 GB", "60GB"],
+    "explanation": "Raw data: 10,000,000 × 2,000 B = 20 GB. With 50% overhead: 20 × 1.5 = 30 GB. With one replica per primary: 30 × 2 = 60 GB. In practice, also leave headroom (often 20–30%) for fragmentation and for the copy-on-write memory a background save or replica sync can use.",
+    "reference": "Redis docs: Memory optimization"
+  },
+  {
+    "id": "SD-CAC-036",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 2,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each cache failure pattern with its usual mitigation.",
+    "options": [
+      { "id": "A", "text": "A Bloom filter of existing IDs, or caching \"not found\" results briefly" },
+      { "id": "B", "text": "Adding random jitter to TTLs so keys don't expire together" },
+      { "id": "C", "text": "Letting one request rebuild the key while the others wait (single-flight or a mutex)" },
+      { "id": "D", "text": "Copying the key to in-process caches or several suffixed keys on different shards" },
+      { "id": "E", "text": "Turning on persistence so the cache never loses data" }
+    ],
+    "prompts": [
+      { "id": "P1", "text": "Penetration: requests for keys that don't exist anywhere keep reaching the database", "answer": "A" },
+      { "id": "P2", "text": "Avalanche: many keys expire at the same moment", "answer": "B" },
+      { "id": "P3", "text": "Breakdown: one very hot key expires and many requests rebuild it at once", "answer": "C" },
+      { "id": "P4", "text": "Hot key: one key's traffic saturates the shard that owns it", "answer": "D" }
+    ],
+    "explanation": "These four names come up often in interviews. Penetration is about keys that don't exist, avalanche is synchronized expiry, breakdown is a stampede on one hot key, and a hot key is a load-distribution problem. Persistence helps restarts but none of these four.",
+    "reference": "AWS: Caching best practices"
+  },
+  {
+    "id": "SD-CAC-037",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "A product page is cached by a CDN (`s-maxage=3600`) and by browsers (`max-age=3600`). The origin itself reads prices from a Redis cache. After a pricing error, the team purges the page's URL from the CDN, and only afterwards deletes the price keys in Redis. Hours later, some users still see the wrong price. Which three explain it? (Choose three.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "Browsers that cached the page keep using their copy until their `max-age` runs out", "why": "A CDN purge cannot reach browser caches, so their copies live out their freshness." },
+      { "id": "B", "correct": true, "text": "Between the purge and the Redis delete, the CDN refetched the page from an origin still reading old prices", "why": "Purging the outer cache before the inner one lets the outer cache refill with stale data for another hour." },
+      { "id": "C", "correct": true, "text": "Copies cached under URLs with extra query strings, such as tracking parameters, were not purged", "why": "Many CDNs include the query string in the cache key, so purging one URL leaves those variants." },
+      { "id": "D", "correct": false, "text": "A CDN purge only takes effect after the object's `s-maxage` has run out", "why": "Purges are designed to remove objects immediately, typically within seconds." },
+      { "id": "E", "correct": false, "text": "An ETag on the cached response stops the CDN from honoring the purge", "why": "ETags are for revalidation; they have no effect on whether a purge evicts an object." },
+      { "id": "F", "correct": false, "text": "CDNs never purge responses that were marked `public`", "why": "`public` only allows shared caching; it does not protect objects from purges." }
+    ],
+    "explanation": "Invalidate from the inside out: fix the data, then the origin's own caches, then the CDN. Purge every cache-key variant (or normalize query strings out of the key), and accept that browser copies live out their `max-age`, which is why critical pages keep browser TTLs short or use `no-cache`.",
+    "reference": "RFC 9111; CDN purge documentation"
+  },
+  {
+    "id": "SD-CAC-038",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A news site's article cache has two problems. With LRU, a nightly crawler that reads every archived article once flushes out today's popular stories. When the team tried plain LFU with exact per-key counters, last week's viral story kept a huge count and stayed in the cache for weeks, while today's breaking story kept getting evicted. Which eviction design addresses both problems?",
+    "options": [
+      { "id": "A", "correct": false, "text": "LRU with a cache twice as large, so that the crawler's one-time reads no longer push out the hot articles", "why": "A full archive scan still cycles through any cache smaller than the archive, and memory cost doubles." },
+      { "id": "B", "correct": false, "text": "LFU with exact per-key counters that are also persisted, so that frequencies survive restarts", "why": "Persisting counters makes the stale-popularity problem worse, since old counts never decay." },
+      { "id": "C", "correct": true, "text": "W-TinyLFU: admit by approximate frequency with periodic decay, behind a small LRU window", "why": "Frequency admission resists scans, decay lets old favorites fade, and the window lets new bursts in." },
+      { "id": "D", "correct": false, "text": "CLOCK (second chance), which approximates LRU cheaply and so keeps the most recently used articles", "why": "CLOCK behaves like LRU, so the crawler's single reads still evict the popular stories." }
+    ],
+    "explanation": "W-TinyLFU (used by Caffeine) keeps a compact count-min sketch of recent access frequencies and halves all counts periodically, so popularity ages. A new entry is admitted to the main cache only if it is estimated to be more frequent than the entry it would evict, which stops one-hit scans. A small LRU admission window (about 1% of capacity) gives brand-new items a chance to build frequency.",
+    "reference": "Einziger et al., TinyLFU (ACM TOS 2017); Caffeine wiki"
+  },
+  {
+    "id": "SD-CAC-039",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A service writes to the database primary, then deletes the cache key. On a cache miss, readers load from an asynchronous read replica that lags by up to 1 second, then set the value in the cache with a 1-hour TTL. Users sometimes see an old profile for up to an hour after editing it. Which change fixes the cause?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Delete the cache key before writing the database instead of after", "why": "A reader can still miss after the delete, read the lagging replica, and re-cache the old value." },
+      { "id": "B", "correct": false, "text": "On every write, set the new value in the cache instead of deleting it", "why": "A concurrent reader that loaded the old value from the replica can overwrite the fresh one moments later." },
+      { "id": "C", "correct": true, "text": "Load from the primary on a miss, or delete the key again after the worst replica lag", "why": "Either the miss path sees committed data, or a second delete removes any old value cached during the lag." },
+      { "id": "D", "correct": false, "text": "Lower the TTL to five minutes, so that any stale copy disappears sooner", "why": "That shortens the symptom but still caches stale data after edits; it treats the effect, not the cause." }
+    ],
+    "explanation": "The delete happens before the replica has the new row. A miss within that lag reads the old row from the replica and caches it for the full TTL. Fixes are to fill misses from the primary (at extra primary load), schedule a second delete after the maximum replica lag (\"delayed double delete\"), or invalidate from the replica's own change stream, so the delete happens only after the replica has the new data.",
+    "reference": "Nishtala et al., Scaling Memcache at Facebook (remote markers)"
+  },
+  {
+    "id": "SD-CAC-040",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A CDN has 300 edge locations, each with 4 cache servers that don't share contents. A popular file has `s-maxage=60` and is requested constantly at every server. Roughly how many origin fetches per minute does this file cause, and how many after adding 5 regional shield caches that collapse concurrent misses?",
+    "options": [
+      { "id": "A", "correct": false, "text": "About 300 per minute without shields, and about 5 per minute with them", "why": "This counts edge locations, but each of the 4 servers in a location refetches on its own." },
+      { "id": "B", "correct": true, "text": "About 1,200 per minute without shields, and about 5 per minute with them", "why": "300 × 4 independent caches each refetch once a minute; with shields, only the 5 shields go to the origin." },
+      { "id": "C", "correct": false, "text": "About 1,200 per minute with or without shields, because the edges still refetch", "why": "The edges now refetch from the shields, which serve them from cache and reach the origin once per expiry." },
+      { "id": "D", "correct": false, "text": "About 1 per minute without shields, since the CDN fetches each file only once", "why": "Without a shared tier, every independent cache that expires the file refetches it." }
+    ],
+    "explanation": "Each independent cache refetches an expired object: 300 × 4 = 1,200 caches, once per 60 s, so about 1,200 origin requests per minute. A shield tier makes edge misses go to a regional cache, and request collapsing there means about one origin fetch per shield per expiry, so about 5 per minute. `stale-while-revalidate` further hides the refetch latency from users.",
+    "reference": "CDN documentation: origin shield and request collapsing"
+  },
+  {
+    "id": "SD-CAC-041",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Clients spread keys over 100 memcached servers with consistent hashing. When one server dies, its keys rehash to its neighbors on the ring. Last time, the dead server held a few very hot keys; one neighbor became overloaded, failed, and passed its load on, and the failure cascaded. What design from Facebook's memcache paper addresses this?",
+    "options": [
+      { "id": "A", "correct": false, "text": "Send every miss for the failed server's keys straight to the database until that server is repaired", "why": "The database then absorbs all of that server's traffic, which is usually far beyond its capacity." },
+      { "id": "B", "correct": true, "text": "Send its requests to a small, otherwise idle \"gutter\" pool that caches values with short TTLs", "why": "The load lands on spare machines, not on healthy neighbors, so the failure can't cascade." },
+      { "id": "C", "correct": false, "text": "Double every TTL in the cluster, so that fewer keys need refilling whenever a server is lost", "why": "Longer TTLs don't help the keys whose server just vanished; their entries are gone either way." },
+      { "id": "D", "correct": false, "text": "Replicate every key to all 100 servers, so that any one of them can answer each request", "why": "Full replication divides usable capacity by 100 and turns each write into 100 writes." }
+    ],
+    "explanation": "Facebook found that rehashing a failed server's keys onto the remaining servers risks cascading failures, especially with hot keys. Instead, about 1% of servers form a gutter pool. A client whose request times out retries against the gutter, which caches values briefly so the database is shielded and no healthy server takes on extra load.",
+    "reference": "Nishtala et al., Scaling Memcache at Facebook (NSDI 2013)"
+  },
+  {
+    "id": "SD-CAC-042",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "One Redis instance stores login sessions, each with a 30-minute TTL, and computed cache entries written without any TTL. It runs with `maxmemory-policy volatile-lru` and has now hit `maxmemory`. Which two statements describe what happens? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "Redis evicts only keys that have a TTL, so sessions are evicted and users are logged out, while the cache entries stay", "why": "`volatile-*` policies consider only keys with an expiry, which here are exactly the sessions." },
+      { "id": "B", "correct": true, "text": "Once no keys with a TTL are left to evict, write commands that need more memory fail with an OOM error", "why": "With no eligible keys, `volatile-lru` behaves like `noeviction` and rejects writes." },
+      { "id": "C", "correct": false, "text": "Redis evicts the least recently used keys across the whole keyspace, sessions and cache entries alike", "why": "That is `allkeys-lru`. The volatile policies never touch keys without a TTL." },
+      { "id": "D", "correct": false, "text": "Redis moves the coldest keys to disk and loads them back into memory when they are read again", "why": "Redis does not swap keys to disk; its old virtual-memory feature was removed long ago." },
+      { "id": "E", "correct": false, "text": "Redis accepts new writes but quietly discards them, so the client receives OK but the data is lost", "why": "Redis returns an explicit OOM error instead of silently dropping writes." }
+    ],
+    "explanation": "The policy evicts the opposite of what the team wants: the sessions they care about go first, and the rebuildable cache entries never leave. Fixes are to give cache entries TTLs, use `allkeys-lru` or `allkeys-lfu` on a dedicated cache instance, and keep sessions on a separate instance with `noeviction` and capacity alarms.",
+    "reference": "Redis docs: Key eviction"
+  },
+  {
+    "id": "SD-CAC-043",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A read path handles 100,000 requests per second through a 10-node cache cluster with a 97% hit ratio, spread evenly by consistent hashing. One cache node dies. Its keys now map to the other nodes, which don't have them yet. Right after the failure, roughly what database load should you expect?",
+    "options": [
+      { "id": "A", "correct": false, "text": "About 3,300 queries per second, which is 10% more than the usual 3,000", "why": "The lost node's keys don't miss 3% of the time; they miss every time until they are refilled." },
+      { "id": "B", "correct": false, "text": "About 30,000 queries per second, since the whole cluster rebalances and every key misses", "why": "Consistent hashing only moves the failed node's keys; the other 90% stay where they are." },
+      { "id": "C", "correct": false, "text": "About 3,000 queries per second, because consistent hashing prevents any extra misses", "why": "Consistent hashing limits how many keys move, but the moved keys still start cold." },
+      { "id": "D", "correct": true, "text": "About 12,700 queries per second, more than four times the normal load", "why": "100,000 × (0.10 × 1 + 0.90 × 0.03) = 10,000 + 2,700 = 12,700." }
+    ],
+    "explanation": "Normally misses are 3% of 100,000 = 3,000 per second. After the failure, the 10% of traffic whose keys lived on the dead node misses 100% of the time until refilled (10,000 per second), and the other 90% misses as before (2,700 per second), for 12,700. Size the database or use gutter pools, replicas and warm standbys with this failure in mind.",
+    "reference": "Back-of-the-envelope estimation"
+  },
+  {
+    "id": "SD-CAC-044",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "To stop requests for nonexistent product IDs reaching the database, you put a Bloom filter of all 10 million existing IDs in front of the cache and target a 1% false-positive rate. Using m = −n·ln(p) / (ln 2)² bits and k = (m/n)·ln 2 hash functions, roughly how large is the filter, and what does a false positive mean here?",
+    "options": [
+      { "id": "A", "correct": false, "text": "About 120 MB with 7 hash functions; a false positive wrongly rejects a product that exists", "why": "That's off by about 10×, and Bloom filters never produce false negatives, so real products are never rejected." },
+      { "id": "B", "correct": false, "text": "About 1.2 MB with 1 hash function; a false positive lets a nonexistent ID through", "why": "The formula gives about 96 million bits (12 MB), and one hash function would push the error rate far above 1%." },
+      { "id": "C", "correct": true, "text": "About 12 MB with 7 hash functions; a false positive lets a nonexistent ID reach the database", "why": "m ≈ 10⁷ × 4.605 / 0.4805 ≈ 96 Mbit ≈ 12 MB, k ≈ 9.6 × 0.693 ≈ 7; misses still go to the database." },
+      { "id": "D", "correct": false, "text": "About 12 MB with 7 hash functions; a false positive wrongly rejects a product that exists", "why": "The size is right, but a Bloom filter answers \"definitely absent\" or \"possibly present\", so existing IDs always pass." }
+    ],
+    "explanation": "m = 10,000,000 × 4.605 / 0.4805 ≈ 95.9 million bits ≈ 12.0 MB, about 9.6 bits per element. k = 9.6 × ln 2 ≈ 6.6, rounded to 7. False positives let about 1% of bogus IDs through to the database, which is fine. Remember to add new IDs on creation; standard Bloom filters can't delete, so removals need a periodic rebuild or a counting Bloom filter.",
+    "reference": "Bloom (1970); Broder & Mitzenmacher, Network Applications of Bloom Filters"
+  },
+  {
+    "id": "SD-CAC-045",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A CDN rule caches any URL ending in `.css` or `.js` for one day, whatever headers the origin sends. The web framework ignores unknown path suffixes, so `/account/settings/x.css` renders the logged-in user's settings page. An attacker sends victims that link, then loads it themselves and reads the victims' account details. Which two changes fix this? (Choose two.)",
+    "options": [
+      { "id": "A", "correct": true, "text": "Make the app route strictly, returning 404 for paths such as `/account/settings/x.css`", "why": "Without the lenient routing, the fake static URL no longer returns private content." },
+      { "id": "B", "correct": true, "text": "Make the CDN respect origin `Cache-Control`, and mark account pages `private, no-store`", "why": "A cache that honors the origin will not store a response the origin forbids it to store." },
+      { "id": "C", "correct": false, "text": "Shorten the CDN TTL for `.css` and `.js` files from one day to five seconds", "why": "Shorter TTLs shrink the window, but the attacker can still fetch the cached page within it." },
+      { "id": "D", "correct": false, "text": "Serve the whole site over HTTPS with HSTS, so that nobody can read the traffic", "why": "The leak comes from the CDN legitimately serving a cached page, not from interception." },
+      { "id": "E", "correct": false, "text": "Add an `ETag` to the settings page, so that the CDN revalidates it before serving", "why": "Revalidation still returns the cached body when the origin says it is unchanged, and the extension rule ignores origin headers." }
+    ],
+    "explanation": "This is web cache deception: a cache decides cacheability from the URL's look while the origin serves private content for it. Defend in both layers: strict routing at the origin, and caches that defer to origin headers, with personalized responses marked `private` or `no-store`. Some CDNs also offer a check that the response content type matches the extension.",
+    "reference": "Gil, Web Cache Deception Attack (Black Hat 2017)"
+  }
+]

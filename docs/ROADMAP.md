@@ -7,12 +7,13 @@ a time and update the status column as items land.
 
 Goal: one place to take mocks in every common IT subject. Each subject gets
 questions at four levels (Basic, Intermediate, Advanced, Expert), and the upper
-levels need deep reasoning, not recall. Banks are built one subject at a time,
-in this order:
+levels need deep reasoning, not recall. Every subject targets 400–500 questions
+based on real interview topics, spread evenly over skills and levels. Banks are
+built one subject at a time, in this order:
 
 | # | Subject | Exam id | Status |
 |---|---|---|---|
-| 1 | System Design | `system-design` | Done (6 Oct 2026): 100 items, 10 skills, 4 levels, 3 case studies |
+| 1 | System Design | `system-design` | Done (6 Oct 2026): 450 items, 45 per skill, 4 levels, 6 case studies |
 | 2 | JavaScript | `javascript` (the 20-item `js-essentials` quiz stays as a taster) | Planned |
 | 3 | TypeScript | `typescript` | Planned |
 | 4 | React | `react` | Planned |
