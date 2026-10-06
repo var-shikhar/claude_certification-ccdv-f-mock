@@ -14,7 +14,7 @@ built one subject at a time, in this order:
 | # | Subject | Exam id | Status |
 |---|---|---|---|
 | 1 | System Design | `system-design` | Done (6 Oct 2026): 450 items, 45 per skill, 4 levels, 6 case studies |
-| 2 | JavaScript | `javascript` (the 20-item `js-essentials` quiz stays as a taster) | Planned |
+| 2 | JavaScript | `javascript` (the 20-item `js-essentials` quiz stays as a taster) | Done (6 Oct 2026): 450 items, 45 per skill, 4 levels |
 | 3 | TypeScript | `typescript` | Planned |
 | 4 | React | `react` | Planned |
 | 5 | Node.js | `nodejs` | Planned |

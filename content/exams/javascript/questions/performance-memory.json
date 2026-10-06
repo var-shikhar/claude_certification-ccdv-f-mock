@@ -1,0 +1,1656 @@
+[
+  {
+    "id": "JSM-PRF-001",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Why do JavaScript engines such as V8 give objects internal \"hidden classes\" (also called shapes or maps)?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "So objects with the same layout share one description and property reads become fixed-offset loads",
+        "why": "Knowing the layout lets optimized code read `obj.x` at a known offset instead of doing a dictionary lookup."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "So that the garbage collector can tell which objects belong to which class declaration in the source",
+        "why": "Hidden classes describe property layout, and plain object literals get them too. They are not tied to `class` syntax."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "So that the engine can enforce private fields and stop code outside the class from adding properties",
+        "why": "Privacy is handled by `#private` fields. Hidden classes are an internal optimization and restrict nothing."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "So that JSON.stringify can serialize objects faster by caching one template string per class",
+        "why": "Serialization can benefit indirectly, but that is not why shapes exist."
+      }
+    ],
+    "explanation": "A dynamic language lets properties be added at any time, so a naive engine would store every object as a hash map. V8 instead tracks a hidden class per object layout: which properties exist and at what offsets. Objects built the same way share a hidden class, and inline caches can then turn `obj.x` into a shape check plus a load at a fixed offset.",
+    "reference": "V8 blog: Fast properties in V8"
+  },
+  {
+    "id": "JSM-PRF-002",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Setting the last variable that references a large object to `null` immediately frees that object's memory.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "The object only becomes unreachable. Memory is reclaimed later, whenever the garbage collector runs."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: dropping references makes the object eligible for collection, but the GC decides when to reclaim it."
+      }
+    ],
+    "explanation": "JavaScript has no manual `free`. Clearing references (or letting them go out of scope) makes an object unreachable, and the next suitable garbage collection reclaims it. That is why heap graphs show memory staying flat for a while and then dropping when a GC happens.",
+    "reference": "MDN: Memory management"
+  },
+  {
+    "id": "JSM-PRF-003",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A dashboard component starts `setInterval(() => render(bigReport), 1000)` when it mounts, but never stops it. Users open and close the dashboard many times. What happens to memory?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing, because each interval is collected as soon as the component is removed from the page",
+        "why": "Active timers are GC roots. The browser keeps the callback, and everything it references, alive."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Each uncleared interval keeps its callback and `bigReport` alive, so memory grows",
+        "why": "An uncleared interval is a classic leak: the timer list references the closure, and the closure references the data."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Memory stays flat because the browser runs at most one interval per callback function",
+        "why": "Each `setInterval` call creates a separate timer, even when the function looks the same."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Memory grows only until the tab goes into the background, when timers are released",
+        "why": "Background tabs throttle timers but don't cancel them, and the memory is still retained."
+      }
+    ],
+    "explanation": "Pending timers are roots for the garbage collector. Their callbacks, and every variable those callbacks close over, stay reachable until `clearInterval` runs. Store the interval id and clear it when the component unmounts (for example, in a React effect cleanup).",
+    "reference": "MDN: setInterval()"
+  },
+  {
+    "id": "JSM-PRF-004",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "This filter runs with `users.length = 10,000` and `blocked.length = 5,000`:\n\n```js\nconst visible = users.filter((u) => !blocked.includes(u.id));\n```\n\nWhat is the most effective fix if it is slow?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Replace `filter` with a plain `for` loop, because callbacks are what make it slow",
+        "why": "A plain loop saves a little overhead, but it still does about 50 million comparisons."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Build `const blockedSet = new Set(blocked)` once and test `blockedSet.has(u.id)`",
+        "why": "Set lookups are O(1) on average, so the work drops from about 10,000 × 5,000 to about 15,000 steps."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Sort `blocked` first, because `includes` stops early on sorted arrays",
+        "why": "`includes` doesn't know the array is sorted, so it still scans linearly."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use `indexOf` instead of `includes`, because it skips the NaN check",
+        "why": "Both are linear scans and perform about the same."
+      }
+    ],
+    "explanation": "`Array.prototype.includes` is a linear scan, so calling it inside a loop over another array is O(n × m): here about 50 million comparisons. Building a `Set` costs O(m) once, and each `has` is O(1) on average, for O(n + m) in total. This is one of the most common real-world performance fixes in JavaScript code.",
+    "reference": "MDN: Set"
+  },
+  {
+    "id": "JSM-PRF-005",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each part of the V8 engine with its job.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Ignition"
+      },
+      {
+        "id": "B",
+        "text": "Sparkplug"
+      },
+      {
+        "id": "C",
+        "text": "TurboFan"
+      },
+      {
+        "id": "D",
+        "text": "Orinoco"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Interprets bytecode and collects type feedback as code runs",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Quickly compiles bytecode to machine code without speculative optimizations",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Builds highly optimized machine code for hot functions from type feedback",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "The garbage collector: parallel, incremental and concurrent collection",
+        "answer": "D"
+      }
+    ],
+    "explanation": "V8 parses source into bytecode that the Ignition interpreter runs while it records type feedback. Warm code is compiled by Sparkplug, a fast baseline compiler, and Maglev, a mid-tier optimizer. The hottest functions go to TurboFan, which uses the feedback to speculate on types. Orinoco is the name of V8's garbage collector project.",
+    "reference": "V8 blog: Sparkplug, Maglev, Orinoco"
+  },
+  {
+    "id": "JSM-PRF-006",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Why is `performance.now()` preferred over `Date.now()` for timing how long code takes to run?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "It is monotonic and sub-millisecond, so system clock changes can't skew it",
+        "why": "Wall-clock time can jump when the clock is synced or changed by the user; `performance.now()` only moves forward."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It pauses while the garbage collector runs, so it measures only your own code",
+        "why": "It keeps counting through GC pauses. Those pauses are part of what users experience."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It returns whole milliseconds, which are easier to compare between two runs",
+        "why": "It returns fractional milliseconds, and the extra precision is the point."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It counts CPU cycles used by the current function rather than elapsed time",
+        "why": "It measures elapsed wall time since the time origin, not CPU cycles."
+      }
+    ],
+    "explanation": "`performance.now()` returns a high-resolution timestamp relative to the page's time origin, and it is monotonic. `Date.now()` follows the system wall clock, which can be corrected backwards or forwards by NTP and only has millisecond precision. Browsers coarsen `performance.now()` slightly to mitigate timing attacks, but it is still the right tool.",
+    "reference": "MDN: Performance.now()"
+  },
+  {
+    "id": "JSM-PRF-007",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A photo editor applies a filter that takes 2 seconds of pure computation on a large image. While it runs, the page freezes and buttons stop responding. What is the standard fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Wrap the filter in an `async` function so that it runs in the background",
+        "why": "`async` doesn't move work off the thread. Synchronous code inside it still blocks the main thread."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Run the filter in a Web Worker and post the result back",
+        "why": "A worker runs on its own thread, so the main thread stays free for input and rendering."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Call the filter inside `requestAnimationFrame` so that it runs between frames",
+        "why": "rAF still runs on the main thread, and one 2-second callback freezes the frame."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Split the filter into ten promises and run them together with `Promise.all`",
+        "why": "Promise callbacks are microtasks on the same thread. They don't create parallelism or yield to rendering."
+      }
+    ],
+    "explanation": "JavaScript on a page runs on a single main thread that also handles input and rendering. CPU-bound work belongs in a Web Worker (or must be chunked with yields). Transfer large buffers to and from the worker instead of copying them.",
+    "reference": "MDN: Using Web Workers"
+  },
+  {
+    "id": "JSM-PRF-008",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "Type the name of the built-in collection that maps object keys to values while holding the keys weakly, so an entry disappears once its key object is no longer reachable elsewhere.",
+    "options": [],
+    "accepted": [
+      "WeakMap",
+      "weakmap"
+    ],
+    "explanation": "`WeakMap` keys must be objects (or non-registered symbols), and the map doesn't keep them alive. That makes it ideal for attaching metadata to objects, such as DOM nodes, without leaking them. In exchange, a WeakMap can't be iterated and has no `size`.",
+    "reference": "MDN: WeakMap"
+  },
+  {
+    "id": "JSM-PRF-009",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "V8 splits the heap into a young generation and an old generation. Which observation is this design based on?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Most objects die young, so collecting the small young area often is cheap",
+        "why": "Most allocations are temporary, so frequent collections of a small young area reclaim most garbage at low cost."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Old objects are referenced more often, so they must be kept on faster memory",
+        "why": "Generations are about object lifetime, not access speed or memory type."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Objects created by older code are more likely to be leaks and need extra checks",
+        "why": "Generations reflect how long an object has survived, not where it was created."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Young objects are always smaller, so they fit in a fixed-size array",
+        "why": "Object size is unrelated; large objects get their own space."
+      }
+    ],
+    "explanation": "The generational hypothesis says that most objects die soon after they are allocated. V8 therefore allocates into a small young generation and collects it often with a fast copying scavenger. Objects that survive a couple of these collections are promoted to the old generation, which is collected less often with mark-compact.",
+    "reference": "V8 blog: Trash talk: the Orinoco garbage collector"
+  },
+  {
+    "id": "JSM-PRF-010",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "An app's main bundle includes a heavy chart library that only the Reports page uses. What is the usual way to keep it out of the initial download?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Minify the chart library more aggressively so that it costs fewer bytes on every page",
+        "why": "Minification shrinks it, but the code is still downloaded and parsed on every page load."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Load it with a dynamic `import()` when the Reports page opens",
+        "why": "Code splitting means the chunk is downloaded only when someone actually needs it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Move the `import` statement to the bottom of the file so that it loads last",
+        "why": "Static imports are hoisted and bundled no matter where they appear in the file."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Mark the library's `<script>` tag with `defer` so that the browser parses it faster",
+        "why": "`defer` only changes when it executes. The bytes are still downloaded on every page."
+      }
+    ],
+    "explanation": "Dynamic `import()` returns a promise for a module, and bundlers such as webpack, Rollup and Vite turn each dynamic import into a separate chunk. Route-level and feature-level code splitting cuts the JavaScript a user must download, parse and compile before the first interaction.",
+    "reference": "web.dev: Reduce JavaScript payloads with code splitting"
+  },
+  {
+    "id": "JSM-PRF-011",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Tree shaking (dropping unused exports from a bundle) works best when code uses static ES module `import` and `export` statements.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: static ES module syntax lets the bundler see exactly which exports are used at build time."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "It is true: CommonJS `require` is dynamic, which makes unused code much harder to prove dead."
+      }
+    ],
+    "explanation": "Bundlers decide what to remove by analysing imports and exports at build time. ES module syntax is static, so that analysis is reliable. CommonJS modules can compute `require` paths and mutate `module.exports` at runtime, so bundlers usually have to keep the whole module.",
+    "reference": "webpack docs: Tree Shaking"
+  },
+  {
+    "id": "JSM-PRF-012",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "In a hot loop, objects are created in two places:\n\n```js\nconst a = { x: 1, y: 2 };\nconst b = { y: 2, x: 1 };\n```\n\nBoth are passed to `function len(p) { return Math.hypot(p.x, p.y); }`. How does V8 see these objects?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "As one shape, because both objects have exactly the same set of properties",
+        "why": "Shape depends on the order properties were added, not only on which properties exist."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "As two shapes, because the properties were added in a different order",
+        "why": "So the property reads in `len` see two maps and become polymorphic instead of monomorphic."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "As dictionary-mode objects, because object literals never get hidden classes",
+        "why": "Object literals get hidden classes like any other object, which is what makes them fast."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "As one shape, but only after `len` has been optimized by TurboFan",
+        "why": "Optimization doesn't merge shapes; it adds checks for each one it has seen."
+      }
+    ],
+    "explanation": "Hidden classes form transition trees: `{}` → add x → add y is a different path from `{}` → add y → add x. Code that handles both objects sees two maps at each property access. That is still fast (polymorphic), but it is avoidable: create objects of the same kind in one place, with a constructor, class or factory that always assigns properties in the same order.",
+    "reference": "V8 blog: Fast properties in V8"
+  },
+  {
+    "id": "JSM-PRF-013",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A hot code path handles user objects and sometimes runs `delete user.tempToken`, where `tempToken` is not the most recently added property. Why can this hurt performance in V8?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`delete` triggers a full garbage collection right away to reclaim the property",
+        "why": "Deleting a property doesn't start a GC."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It can switch the object to slow dictionary mode",
+        "why": "Deleting a property out of order can turn fast properties into a hash table in V8."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`delete` freezes the object, so later writes throw in strict mode",
+        "why": "Deleting doesn't freeze anything; it only removes the key."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`delete` is asynchronous, so later reads must wait for it to finish",
+        "why": "It is a synchronous operation."
+      }
+    ],
+    "explanation": "In V8, deleting a property that is not the last one added usually turns the object's properties into dictionary (hash-table) mode. Inline caches can't use fixed offsets for that object anymore. In hot paths, prefer assigning `undefined`, or build a new object without the field (`const { tempToken, ...rest } = user`). For data with many keys that come and go, use a `Map`.",
+    "reference": "V8 blog: Fast properties in V8"
+  },
+  {
+    "id": "JSM-PRF-014",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A single-page app gets slower after users navigate between pages for an hour. Which two patterns are real memory leaks? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A page adds a `resize` listener on `window` when it mounts and never removes it when it unmounts",
+        "why": "`window` lives for the whole session, so the listener and everything it closes over stay alive."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A module-level array collects references to removed DOM nodes \"for debugging\" and is never cleared",
+        "why": "Those nodes are detached from the document but still reachable, so they and their subtrees can't be collected."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A function builds a large local array, returns a number computed from it, and keeps no other reference",
+        "why": "When the function returns, the array is unreachable and is collected normally."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A `WeakMap` keyed by DOM nodes stores per-node metadata for nodes that are later removed",
+        "why": "WeakMap keys don't keep their nodes alive, so the entries go away with the nodes."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "A `setTimeout` callback that has already run once, with no saved reference to it",
+        "why": "Once a timeout fires, the browser drops its reference to the callback."
+      }
+    ],
+    "explanation": "Leaks in garbage-collected languages are unintended references: something long-lived (window, a module-level variable, a cache, a timer) keeps pointing at things you thought you had discarded. Remove listeners on teardown (an `AbortController` signal makes this easy), clear debug arrays and caches, and use weak collections for metadata.",
+    "reference": "Chrome DevTools: Fix memory problems"
+  },
+  {
+    "id": "JSM-PRF-015",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "This code indexes 20,000 products by id and takes several seconds:\n\n```js\nconst byId = products.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});\n```\n\nWhat is the real problem?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`reduce` is much slower than `forEach`, so switching the method fixes it",
+        "why": "The iteration method barely matters. What is slow is what happens on each step."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Every step copies the whole accumulator, so the work is quadratic",
+        "why": "Spreading into a new object costs O(size of acc), giving about n²/2 property copies."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Computed keys like `[p.id]` force V8 to recompile the reducer on every iteration",
+        "why": "Computed keys are fine. Recompiling is not what costs the time here."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Object keys must be strings, so converting 20,000 numeric ids is what dominates",
+        "why": "Converting keys is cheap compared to the repeated copying."
+      }
+    ],
+    "explanation": "The spread `{ ...acc }` builds a brand-new object containing everything collected so far. Over n items that is 0 + 1 + … + (n−1) ≈ n²/2 copies: about 200 million for 20,000 items. Mutate the accumulator instead (`acc[p.id] = p; return acc;`), or use `Object.fromEntries(products.map((p) => [p.id, p]))` or a `Map`. Both are O(n).",
+    "reference": "Rich Snapp: The reduce ({...spread}) anti-pattern"
+  },
+  {
+    "id": "JSM-PRF-016",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A breadth-first search uses an array as its queue:\n\n```js\nwhile (queue.length) {\n  const node = queue.shift();\n  for (const next of node.children) queue.push(next);\n}\n```\n\nOn a graph with 1 million nodes it is far slower than expected. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`push` reallocates the array on every call, so appending is O(n) each time",
+        "why": "`push` is amortized O(1): arrays grow their storage in chunks."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`shift` must move every remaining element down one slot, so each dequeue costs O(n)",
+        "why": "With a large queue this turns the BFS into O(n²). Track a head index, or use a real queue structure."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The `for...of` loop creates an iterator for every node, and that allocation dominates",
+        "why": "Iterators are optimized well; their cost is small next to the shifting."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`queue.length` is recomputed by counting the elements on every loop check",
+        "why": "`length` is a stored property, read in O(1)."
+      }
+    ],
+    "explanation": "`Array.prototype.shift` removes index 0 and re-indexes everything after it. Engines can sometimes optimize small arrays, but in general you should treat it as O(n). For queues, keep a `head` index and read `queue[head++]`, compacting now and then, or use a ring buffer or linked list. Then each dequeue is O(1) and the BFS is O(V + E).",
+    "reference": "MDN: Array.prototype.shift()"
+  },
+  {
+    "id": "JSM-PRF-017",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the steps of the \"three-snapshot\" technique for finding a memory leak in Chrome DevTools in order.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Load the page, perform the suspected action once to warm up, and take heap snapshot 1"
+      },
+      {
+        "id": "B",
+        "text": "Perform the suspected action several more times"
+      },
+      {
+        "id": "C",
+        "text": "Take heap snapshot 2"
+      },
+      {
+        "id": "D",
+        "text": "Perform the same action several more times again"
+      },
+      {
+        "id": "E",
+        "text": "Take heap snapshot 3"
+      },
+      {
+        "id": "F",
+        "text": "In snapshot 3, view the objects allocated between snapshots 1 and 2 and inspect their retainers"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "explanation": "Objects created between snapshots 1 and 2 that are still alive in snapshot 3 survived a further round of the same action. That repeated survival is the signature of a leak, as opposed to a one-time cache fill. The retainers panel then shows the reference path from a GC root that keeps them alive, which is what you need to fix.",
+    "reference": "Chrome DevTools: Record heap snapshots"
+  },
+  {
+    "id": "JSM-PRF-018",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer benchmarks a helper like this and reports that it takes about 0.001 ms per call:\n\n```js\nconst t = performance.now();\nfor (let i = 0; i < 1e6; i++) slugify('Hello World');\nconsole.log(performance.now() - t);\n```\n\nIn production the function is clearly much slower. What is the most likely flaw in the benchmark?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`performance.now()` can't measure loops longer than a few milliseconds",
+        "why": "It measures long durations fine. The problem is what runs inside the loop."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The result is unused and the input constant, so the JIT can skip the work",
+        "why": "A JIT can hoist or drop pure, unused computations, so the loop no longer measures real calls."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "One million iterations is too few for the timer to register anything at all",
+        "why": "A million calls is plenty to measure; the issue is the work being optimized away."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The loop variable should be declared with `var` so that V8 can optimize it",
+        "why": "Using `let` doesn't make the benchmark wrong."
+      }
+    ],
+    "explanation": "Optimizing compilers remove work whose result is unused (dead-code elimination) and can hoist constant work out of a loop. Benchmarks must consume their results (accumulate a checksum and print it), vary the inputs, warm up, and take several samples. Better still, use a benchmarking harness that guards against these effects.",
+    "reference": "V8 blog: Benchmarking pitfalls"
+  },
+  {
+    "id": "JSM-PRF-019",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Which pairing of rate-limiting technique and use case is correct?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Debounce saving a draft until typing stops; throttle updating a progress bar during scrolling",
+        "why": "A debounce waits for a pause in events; a throttle runs at most once per interval while events keep coming."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Throttle saving a draft until typing stops; debounce updating a progress bar during scrolling",
+        "why": "Swapped: a debounced progress bar would only update after scrolling stops."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Debounce both, because throttling always drops the most recent event",
+        "why": "A well-built throttle runs a trailing call, so the final state is still handled."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Throttle both, because debouncing delays every action by at least a full second",
+        "why": "The debounce delay is configurable, and waiting for a pause is the point for drafts."
+      }
+    ],
+    "explanation": "Debounce collapses a burst of events into one call after things go quiet, which suits search-as-you-type, autosave and resize-end layout. Throttle guarantees a steady maximum rate during a continuous stream, which suits scroll-driven UI, drag handlers and telemetry sampling. For visual updates, aligning with `requestAnimationFrame` is often better still.",
+    "reference": "CSS-Tricks: Debouncing and Throttling Explained"
+  },
+  {
+    "id": "JSM-PRF-020",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A page registers `document.addEventListener('touchstart', onTouch, { passive: true })`. Which two statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The browser can start scrolling right away instead of waiting for the listener to finish",
+        "why": "Passive means the listener promises not to cancel the event, so scrolling doesn't have to wait for JavaScript."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Calling `event.preventDefault()` inside this listener is ignored",
+        "why": "Browsers ignore it in a passive listener (Chrome logs a console warning), so the scroll still happens."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The listener now runs on a background thread instead of the main thread",
+        "why": "Listeners still run on the main thread; only the scroll stops waiting for them."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The listener fires only once and is then removed automatically",
+        "why": "That is the `once` option, not `passive`."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The browser batches all touch events in a frame into one call to the listener",
+        "why": "Passive doesn't change how many times the listener is called."
+      }
+    ],
+    "explanation": "For touch and wheel events, the browser normally has to wait for listeners in case one calls `preventDefault()` to cancel scrolling. `{ passive: true }` promises it won't, so scrolling can stay smooth on the compositor even when the main thread is busy. Chrome also treats document-level touch and wheel listeners as passive by default.",
+    "reference": "MDN: EventTarget.addEventListener() (passive)"
+  },
+  {
+    "id": "JSM-PRF-021",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "A Node.js batch job crashes with \"FATAL ERROR: … JavaScript heap out of memory\". You decide the job really does need more heap. Type the V8 command-line flag that raises the old-generation heap limit, without its value.",
+    "options": [],
+    "accepted": [
+      "--max-old-space-size",
+      "max-old-space-size",
+      "--max_old_space_size"
+    ],
+    "explanation": "Run `node --max-old-space-size=4096 job.js` to allow about 4 GB of old space (the value is in megabytes). You can also set it through `NODE_OPTIONS`. Raise it only after checking for a leak: a leak will simply run out of memory later. The flag also does not cover off-heap memory such as Buffer contents.",
+    "reference": "Node.js docs: Command-line options"
+  },
+  {
+    "id": "JSM-PRF-022",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "In V8, what is the elements kind of `arr` at the end?\n\n```js\nconst arr = [1, 2, 3];\narr.push(1.5);\narr.push('four');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`PACKED_SMI_ELEMENTS`, because the array was created from small integers",
+        "why": "It started there but moved to more general kinds as other values were added."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`PACKED_DOUBLE_ELEMENTS`, because the last number pushed was a double",
+        "why": "The string forces an even more general kind."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`PACKED_ELEMENTS`, because a string needs the most general kind",
+        "why": "It went SMI → DOUBLE → ELEMENTS, and those transitions only ever move towards more general kinds."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`HOLEY_ELEMENTS`, because mixing types always creates holes in the array",
+        "why": "Holes come from missing indices, not mixed types. This array has no gaps."
+      }
+    ],
+    "explanation": "V8 tracks an elements kind per array so that it can store elements efficiently: small integers (Smi), unboxed doubles, or general tagged values, each in a packed or holey variant. Adding 1.5 moves the array to double storage, and adding a string moves it to general elements. Transitions only go towards more general kinds, so keeping arrays of one type helps hot loops.",
+    "reference": "V8 blog: Elements kinds in V8"
+  },
+  {
+    "id": "JSM-PRF-023",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In V8, if an array becomes `PACKED_DOUBLE_ELEMENTS` because you pushed `1.5`, removing that value with `pop()` returns the array to `PACKED_SMI_ELEMENTS`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Transitions are one-way: the array stays in the more general kind even after the double is gone."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: elements kinds only move towards more general kinds, never back."
+      }
+    ],
+    "explanation": "V8 never moves an array back to a more specific elements kind, because that would mean re-checking every element. Once an array is double or holey, it stays that way. That is one reason to avoid pre-sizing with `new Array(n)` or mixing types in performance-critical arrays.",
+    "reference": "V8 blog: Elements kinds in V8"
+  },
+  {
+    "id": "JSM-PRF-024",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A widget registers several listeners on `window` and `document` when it mounts. It is mounted and unmounted hundreds of times in a session, and the heap keeps growing. What is the cleanest fix that guarantees every listener is removed?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Register the listeners with `{ once: true }` so that each one removes itself after it first fires",
+        "why": "Listeners that never fire are never removed, and listeners that must fire repeatedly stop working."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Pass one `AbortController` signal to every listener and call `abort()` on unmount",
+        "why": "One `abort()` removes every listener registered with that signal."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Call `removeEventListener` with a fresh arrow function that has the same body as the original",
+        "why": "Removal needs the same function reference; a new arrow function is a different function."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Set the handler variables to `null` on unmount so that the GC can collect the functions",
+        "why": "`window` still references the functions, so clearing your own variables doesn't detach them."
+      }
+    ],
+    "explanation": "`addEventListener(type, fn, { signal })` ties the listener to an `AbortSignal`, and aborting removes it. This avoids the classic bug of passing a different function reference to `removeEventListener`. One controller per component lifetime also makes cleanup of `fetch` calls and other abortable work uniform.",
+    "reference": "MDN: addEventListener() signal option"
+  },
+  {
+    "id": "JSM-PRF-025",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A CPU profile shows that a hot `function getPrice(item) { return item.price; }` has a megamorphic inline cache. Which two are plausible causes? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Items come from many sources: different literals, classes and JSON shapes with properties in different orders",
+        "why": "Each distinct property layout is a separate hidden class at that access site."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Some code paths add optional properties to items after creation, giving many shape variants",
+        "why": "Each variation in what was added, and in which order, branches the transition tree into more shapes."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`getPrice` uses dot access; bracket access `item['price']` would make it monomorphic",
+        "why": "With a constant key, both syntaxes compile to the same named property access."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`getPrice` is a function declaration rather than an arrow function",
+        "why": "The kind of function has nothing to do with how many shapes its property accesses see."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`getPrice` is called too often, and V8 marks very hot functions as megamorphic",
+        "why": "Call frequency affects tier-up, not whether an inline cache is megamorphic."
+      }
+    ],
+    "explanation": "An inline cache records the shapes seen at one property access. With one shape it is monomorphic, with a few it is polymorphic, and in V8 more than four makes it megamorphic, which falls back to a slower generic lookup. The fix is to normalise data at the boundary: map external JSON into objects created by one constructor with every field initialised in a fixed order.",
+    "reference": "Mathias Bynens: JavaScript engine fundamentals: Shapes and Inline Caches"
+  },
+  {
+    "id": "JSM-PRF-026",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "In V8, which way of building an array of 1,000 numbers keeps it in a PACKED (hole-free) elements kind?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`const a = new Array(1000);` and then `a[i] = i` for each index from 0 to 999",
+        "why": "`new Array(1000)` starts holey, and filling the slots later doesn't make it packed."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`const a = new Array(1000).fill(0);` and then overwrite each slot with its value",
+        "why": "`fill` writes a value into every slot, but the array keeps its holey kind."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`const a = [];` and then `a.push(i)` for each value from 0 to 999",
+        "why": "Appending in order never creates a gap, so the array stays packed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`const a = [];` then `a[999] = 0` first, and fill the lower indices afterwards",
+        "why": "Writing far past the end creates holes, and very sparse writes can even switch the array to dictionary elements."
+      }
+    ],
+    "explanation": "`new Array(n)` creates n holes, and transitions never return from holey to packed, so even a fully filled array stays holey. Holey arrays need extra checks on reads, which may consult the prototype chain. The difference is usually small, but it is real in hot loops. Building with `push`, a literal or `Array.from({ length: n }, fn)` avoids holes.",
+    "reference": "V8 blog: Elements kinds in V8"
+  },
+  {
+    "id": "JSM-PRF-027",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A hot function `function total(a, b) { return a + b; }` runs fast for millions of calls with integers. Then a rare request calls it with two strings, and for a while afterwards it runs noticeably slower. What happened in V8?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The strings were interned forever, and string interning slows down every later addition",
+        "why": "Interning strings doesn't affect integer addition."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A type guard in the optimized code failed, so V8 deoptimized it",
+        "why": "Speculative optimization relies on type feedback. A violated assumption sends execution back to the interpreter."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The garbage collector moved `total` to old space, which runs code more slowly",
+        "why": "Code doesn't run more slowly because of where objects are allocated."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Adding strings throws an internal exception that V8 catches and logs on every later call",
+        "why": "String concatenation is normal and throws nothing."
+      }
+    ],
+    "explanation": "TurboFan compiles hot functions using the types seen so far and inserts guards that check those assumptions. When a guard fails, V8 deoptimizes: it rebuilds the interpreter frame and continues in bytecode. It then gathers broader feedback and may re-optimize with more general code. `node --trace-deopt` shows these events. Keeping argument types stable in hot paths avoids deopt loops.",
+    "reference": "V8 blog: An introduction to speculative optimization in V8"
+  },
+  {
+    "id": "JSM-PRF-028",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two statements about `WeakRef` and `FinalizationRegistry` are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A finalization callback may run late or never, so correctness must not depend on it",
+        "why": "The spec gives no timing guarantee, and callbacks may never run, for example if the program exits first."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`ref.deref()` can return `undefined` once the target has been collected, so callers must handle that case",
+        "why": "A WeakRef doesn't keep its target alive, so the object may be gone by the time you look."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Registering an object guarantees that its callback runs before the process exits",
+        "why": "There is no such guarantee; the callbacks are best-effort cleanup hints."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A `WeakRef` can point to strings and numbers as well as objects",
+        "why": "Targets must be objects (or non-registered symbols); primitives can't be weakly referenced."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "A WeakRef keeps its target alive until the first time `deref()` is called",
+        "why": "The target can be collected at any point once nothing else strongly references it."
+      }
+    ],
+    "explanation": "WeakRefs and finalizers are low-level tools for caches and for releasing external resources as a backup. The proposal's authors advise avoiding them where possible. Resources such as file handles or sockets need deterministic cleanup with `try/finally`, explicit `close()` methods, or the `using` declarations of explicit resource management. A finalizer is only a safety net.",
+    "reference": "MDN: WeakRef"
+  },
+  {
+    "id": "JSM-PRF-029",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 3,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each heap snapshot term in Chrome DevTools with its meaning.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Shallow size"
+      },
+      {
+        "id": "B",
+        "text": "Retained size"
+      },
+      {
+        "id": "C",
+        "text": "Retainers"
+      },
+      {
+        "id": "D",
+        "text": "Distance"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Memory held directly by the object itself",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Memory that would be freed if this object were deleted, including objects reachable only through it",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "The objects whose references keep this object alive",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "The length of the shortest reference path from a GC root to the object",
+        "answer": "D"
+      }
+    ],
+    "explanation": "When you hunt a leak, sort by retained size to find what holds the most memory, then follow the retainers path from the GC root to see which reference to break. A small object with a large retained size, such as a cache Map or a closure context, is often the real culprit.",
+    "reference": "Chrome DevTools: Memory terminology"
+  },
+  {
+    "id": "JSM-PRF-030",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "After a modal is closed and removed from the page, a heap snapshot filtered on \"Detached\" shows the modal's `HTMLDivElement` and its subtree still alive. The retainers path is `Window → app → analytics → lastClicked → div.button → parent chain`. What is the right fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Call `modal.remove()` a second time to make sure the browser really detaches the subtree",
+        "why": "It is already detached. What keeps it alive is a JavaScript reference, not the DOM tree."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Stop `analytics.lastClicked` holding the element: clear it on close, or store a plain id or label instead",
+        "why": "One reference to any node in a detached subtree keeps the entire subtree alive through parent and child links."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Set `modal.innerHTML = ''` before removing it, so the children can be collected",
+        "why": "The retained button is one of those children, and the analytics reference would still keep it alive."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Force a garbage collection from DevTools and then take the snapshot again",
+        "why": "Taking a heap snapshot already runs a full GC first. Anything still listed is genuinely reachable."
+      }
+    ],
+    "explanation": "Detached DOM trees are a frequent frontend leak. Removing a node from the document doesn't free it while JavaScript still references it or any node connected to it, because nodes link to their parents and children. Analytics, caches and closures that store elements are common culprits. Store serialisable data instead, or use a WeakMap or WeakRef when you really need the element.",
+    "reference": "Chrome DevTools: Detached elements"
+  },
+  {
+    "id": "JSM-PRF-031",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A Node.js API memoizes responses in `const cache = new Map()` keyed by the request URL string, including query strings with user ids and timestamps. Memory climbs until the process is killed. What is the right fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Switch the cache to a `WeakMap`, so entries are dropped automatically under memory pressure",
+        "why": "WeakMap keys must be objects, and URL strings can't be weak keys. It would also drop entries unpredictably."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Bound it: LRU eviction at a maximum size, TTLs and normalised keys",
+        "why": "An unbounded cache keyed by near-unique strings is a leak by design. Bounding it caps the memory."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Call `global.gc()` after every request so that old cache entries are collected",
+        "why": "Entries in the Map are still reachable, so no GC can collect them."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Raise `--max-old-space-size` so that the cache fits in memory",
+        "why": "The key space is unbounded, so any limit is eventually reached."
+      }
+    ],
+    "explanation": "A cache is only a cache if it forgets. With effectively unique keys, each request adds an entry that is never reused. Use an LRU with a size or byte limit (such as `lru-cache`), give entries TTLs, normalise keys, or don't cache those requests at all. Weak collections help only when the key is an object whose lifetime should control the entry.",
+    "reference": "Node.js docs: Diagnostics: memory"
+  },
+  {
+    "id": "JSM-PRF-032",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "Put these stages in the order a frequently called function moves through them in modern V8 (2024 and later).",
+    "options": [
+      {
+        "id": "A",
+        "text": "The source is parsed and compiled to bytecode"
+      },
+      {
+        "id": "B",
+        "text": "The Ignition interpreter runs the bytecode and records type feedback"
+      },
+      {
+        "id": "C",
+        "text": "Sparkplug compiles it to baseline machine code without speculation"
+      },
+      {
+        "id": "D",
+        "text": "Maglev produces quickly optimized code using the feedback"
+      },
+      {
+        "id": "E",
+        "text": "TurboFan produces highly optimized code for the hottest functions"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "V8's tiers trade compile time against code quality. Bytecode starts fast and gathers feedback. Sparkplug removes interpreter overhead cheaply. Maglev, added in 2023, gives most of the optimization benefit at a fraction of TurboFan's compile cost. TurboFan is reserved for the hottest code. Deoptimization can drop optimized code back to the interpreter.",
+    "reference": "V8 blog: Maglev, V8's fastest optimizing JIT"
+  },
+  {
+    "id": "JSM-PRF-033",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer times one call of a small function with `performance.now()` before and after. Across runs they get 0, 0.1 and 0.2 ms, and they conclude the function \"sometimes takes 0 ms\". What is the best explanation and fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The timer is coarsened and one call is noise; time many warmed-up calls",
+        "why": "The timer's resolution is deliberately limited, and a single call is far below what it can resolve."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The function returned before it finished, so `performance.now()` caught it partway through running",
+        "why": "Synchronous code always finishes before the second timestamp is taken."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`performance.now()` stops counting while the CPU is idle between frames",
+        "why": "It is a monotonic wall-time clock that keeps counting."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The first call is served from a result cache that V8 keeps for pure functions",
+        "why": "V8 doesn't memoize function results automatically."
+      }
+    ],
+    "explanation": "To mitigate side-channel attacks, browsers reduce timer precision (more so on pages without cross-origin isolation) and may add jitter. A single cold call also includes interpreter and IC warm-up. Measure batches of many calls after warm-up, take several samples, and look at medians, or use the User Timing API (`performance.mark` and `measure`) for coarse application spans.",
+    "reference": "MDN: Performance.now(): reduced precision"
+  },
+  {
+    "id": "JSM-PRF-034",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "A Node.js service processes images in `Buffer`s. `process.memoryUsage()` shows `heapUsed` at 150 MB while `rss` is 3 GB. Which three statements are true? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Buffer contents live outside the V8 heap and are reported under `external` and `arrayBuffers`",
+        "why": "Buffers are backed by off-heap memory, so `heapUsed` barely changes as they grow."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`--max-old-space-size` doesn't cap this memory, so the process can grow past it",
+        "why": "The flag limits V8's old space, not off-heap allocations."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Buffer memory is freed only after the JavaScript Buffer objects become unreachable and are collected",
+        "why": "Holding Buffers in a queue or cache keeps their large off-heap memory alive."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`heapUsed` includes Buffer contents, so the 3 GB must be native code from add-ons",
+        "why": "Buffer bytes are not counted in `heapUsed`."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Buffer memory is never returned until the process exits, whatever the code does",
+        "why": "It is released when the owning objects are garbage collected."
+      }
+    ],
+    "explanation": "Big gaps between `heapUsed` and `rss` usually point at off-heap memory: Buffers and ArrayBuffers, native add-ons, or allocator fragmentation. V8 does account external memory to schedule GCs, but retaining references to Buffers (in queues, closures or caches) still leaks. Stream large data instead of buffering it whole.",
+    "reference": "Node.js docs: process.memoryUsage()"
+  },
+  {
+    "id": "JSM-PRF-035",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "This reducer builds an index of 1,000 items:\n\n```js\nitems.reduce((acc, it) => ({ ...acc, [it.id]: it }), {});\n```\n\nCounting only the existing properties copied by each spread (not the new key added each step), how many property copies happen in total? Type a number.",
+    "options": [],
+    "accepted": [
+      "499500",
+      "499,500"
+    ],
+    "explanation": "At step i (from 0) the accumulator already holds i properties, so the spread copies i of them. The total is 0 + 1 + … + 999 = 999 × 1000 / 2 = 499,500. At 20,000 items it would be about 200 million, the quadratic blow-up that makes this pattern famous. Mutating the accumulator makes it 1,000 assignments.",
+    "reference": "Big-O of the reduce-spread pattern"
+  },
+  {
+    "id": "JSM-PRF-036",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team compares two parsers by running `parseA` 10,000 times and then `parseB` 10,000 times in the same Node process, timing each block once. `parseB` \"wins\" by 30%. Which two changes would make the comparison trustworthy? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Run each variant in a fresh process (or alternate them in randomised order), with warm-up, and collect many samples",
+        "why": "Order effects (JIT state, GC debt left by the first run, CPU frequency) can produce a 30% \"win\" all by themselves."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Use realistic, varied inputs and consume every result so that the optimizer can't specialise for one input or drop the work",
+        "why": "Constant inputs and unused outputs let the JIT optimize in ways that never happen in production."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Run the benchmark with the JIT disabled (`--jitless`) so that both parsers are measured on raw code",
+        "why": "Production code runs with the JIT, so a jitless comparison measures a different engine."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Time only the first call of each parser, because that is what users actually experience",
+        "why": "One call is dominated by noise and timer resolution. Cold-start cost is real, but it needs its own careful study."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Increase the iterations to 10 million so that GC pauses average out and order stops mattering",
+        "why": "Longer runs reduce noise but don't remove order bias or dead-code elimination."
+      }
+    ],
+    "explanation": "Microbenchmarks inside one process are biased by order. The first variant can leave garbage that the second pays to collect, shared helpers get optimized for one caller, and CPUs change clock speed. Isolate the variants, randomise their order, warm up, take many samples, and compare distributions with a harness such as `mitata` or `tinybench`. Then confirm with a profile of the real workload.",
+    "reference": "V8 blog: Benchmarking pitfalls"
+  },
+  {
+    "id": "JSM-PRF-037",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Consider this code in V8:\n\n```js\nclass Point { constructor(x, y) { this.x = x; this.y = y; } }\nconst pts = data.map((d) => {\n  const p = new Point(d.x, d.y);\n  if (d.label) p.label = d.label; // about half the points\n  return p;\n});\nconst norm = (p) => Math.sqrt(p.x * p.x + p.y * p.y);\n```\n\nWhat state do the inline caches for `p.x` and `p.y` in `norm` end up in, and what is the best fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Monomorphic, because every point is an instance of the same `Point` class",
+        "why": "Class membership doesn't fix the shape: adding `label` afterwards creates a second hidden class."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Polymorphic with two shapes; set `this.label = undefined` in the constructor so that every point shares one shape",
+        "why": "Two maps is still polymorphic, which is fine. Initialising every field up front makes the access monomorphic."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Megamorphic, because any property added after construction makes access sites megamorphic",
+        "why": "In V8 an access goes megamorphic only after more than four shapes; two is polymorphic."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Dictionary mode, because adding a property outside the constructor converts the object to a hash table",
+        "why": "Adding a property normally just transitions to a new hidden class; it's out-of-order `delete` that tends to cause dictionary mode."
+      }
+    ],
+    "explanation": "The hidden class depends on the sequence of property additions, not on the class declaration. Points with and without `label` have two maps, so `norm`'s accesses see two shapes and are polymorphic. That works well, but initialising every field in the constructor in a fixed order keeps the access monomorphic and future-proof as more optional fields appear.",
+    "reference": "V8 blog: Fast properties in V8"
+  },
+  {
+    "id": "JSM-PRF-038",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two statements about garbage collection pauses in modern V8 are accurate? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A young-generation scavenge copies live objects out, so its cost tracks the number of survivors, not the garbage",
+        "why": "Dead objects in the young generation are never touched, which is why scavenges of mostly short-lived garbage are cheap."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Most of the marking for an old-generation collection runs concurrently on helper threads, but some main-thread pauses remain",
+        "why": "Concurrent and incremental marking shrink pauses a lot without removing them completely."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The GC runs only when the event loop is idle, so it can never pause a running request handler",
+        "why": "Allocation pressure can trigger a GC at any allocation, including in the middle of a handler."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Calling `global.gc()` regularly in production prevents long pauses by keeping the heap small",
+        "why": "Forced full GCs add expensive stop-the-world pauses and usually make latency worse."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Objects in the old generation are copied to a new location on every major GC",
+        "why": "Mark-compact moves only some fragmented pages; most old objects stay where they are."
+      }
+    ],
+    "explanation": "V8's Orinoco collector uses a parallel scavenger for the young generation and concurrent marking with incremental steps for the old generation, plus parallel compaction. Latency still suffers when the allocation rate is high, because that means more frequent scavenges and earlier major GCs. Reducing short-lived allocations in hot paths (temporary arrays, closures, string building) is often the real fix.",
+    "reference": "V8 blog: Trash talk: the Orinoco garbage collector"
+  },
+  {
+    "id": "JSM-PRF-039",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "This code leaks about 1 MB per second, even though `theThing` is replaced on every tick:\n\n```js\nlet theThing = null;\nfunction replaceThing() {\n  const originalThing = theThing;\n  const unused = function () { if (originalThing) console.log('hi'); };\n  theThing = {\n    longStr: new Array(1e6).join('*'),\n    someMethod() { console.log('m'); },\n  };\n}\nsetInterval(replaceThing, 1000);\n```\n\nWhy does it leak in V8?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`unused` is never called, so V8 can't collect it and keeps it in a special list for uncalled functions",
+        "why": "Uncalled functions are collected like any other object; being unused isn't the problem."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Closures from one call share a single context; `unused` puts `originalThing` in it, and `someMethod` keeps that context alive",
+        "why": "Each new `theThing` reaches the previous one through `someMethod`'s context, forming an ever-growing chain."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`setInterval` stores every return value of `replaceThing`, so each object is retained by the timer",
+        "why": "`replaceThing` returns `undefined`, and timers don't store return values."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Strings built with `Array.join` are interned forever, so every 1 MB string stays in the string table",
+        "why": "Large dynamically built strings are not permanently interned."
+      }
+    ],
+    "explanation": "V8 allocates one context object per scope for the variables that any inner function captures, and every closure created in that scope shares it. `unused` references `originalThing`, so it lives in the shared context, and `someMethod` holds that context too. Each new `theThing` therefore retains the previous one, and so on: a linked list of 1 MB strings. Fix it by setting `originalThing = null` at the end, or by not capturing it.",
+    "reference": "Meteor blog: An interesting kind of JavaScript memory leak"
+  },
+  {
+    "id": "JSM-PRF-040",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "The main thread must hand a 200 MB `ArrayBuffer` of video frames to a worker without freezing. Which call does that without copying the data?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`worker.postMessage(buffer)`, because postMessage passes objects by reference between threads",
+        "why": "Without a transfer list, postMessage structured-clones the data, which copies all 200 MB."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`worker.postMessage(buffer, [buffer])`, which transfers ownership",
+        "why": "Transferring moves the memory to the worker in O(1); the sender can no longer use the buffer."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`worker.postMessage(JSON.stringify(Array.from(new Uint8Array(buffer))))`",
+        "why": "This builds a huge array and string and then copies them: the slowest option on the list."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`worker.postMessage({ buffer: structuredClone(buffer) })` to clone it ahead of time",
+        "why": "That makes one copy up front, and postMessage then makes another."
+      }
+    ],
+    "explanation": "Structured clone copies data, while transferable objects (ArrayBuffer, MessagePort, ImageBitmap, OffscreenCanvas and others) can move between threads without copying. After transfer, the sender's ArrayBuffer is detached: its `byteLength` becomes 0 and using it throws. For true sharing, `SharedArrayBuffer` needs a cross-origin-isolated page (COOP and COEP headers).",
+    "reference": "MDN: Transferable objects"
+  },
+  {
+    "id": "JSM-PRF-041",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 4,
+    "type": "fill",
+    "select": 1,
+    "stem": "After this runs on the main thread, what is `buf.byteLength`? Type a number.\n\n```js\nconst buf = new ArrayBuffer(1024 * 1024);\nworker.postMessage({ frame: buf }, [buf]);\nconsole.log(buf.byteLength);\n```",
+    "options": [],
+    "accepted": [
+      "0"
+    ],
+    "explanation": "Listing `buf` in the transfer array moves its underlying memory to the worker. The main thread's ArrayBuffer object is left detached, with `byteLength` 0, and typed-array views over it can no longer be used. Detaching is what makes the transfer O(1) and safe: two threads never write the same non-shared memory.",
+    "reference": "MDN: ArrayBuffer: detached buffers"
+  },
+  {
+    "id": "JSM-PRF-042",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A React app adds `import { debounce } from 'lodash';` and the production bundle grows by about 70 KB, even though only one function is used and the bundler has tree shaking turned on. What is the most likely reason?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Tree shaking only works in development builds, so production includes every export",
+        "why": "Tree shaking is mainly a production optimization."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The `lodash` package is CommonJS, which bundlers can't tree-shake reliably; use `lodash-es` or `lodash/debounce`",
+        "why": "A named import from a CommonJS module usually pulls in the whole module object."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Named imports always include the entire library; only default imports can be tree-shaken",
+        "why": "It's the other way round: static named imports from ES modules are what tree shaking relies on."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`debounce` uses closures, and functions that use closures can never be removed from a bundle",
+        "why": "Closures don't prevent anything from being removed."
+      }
+    ],
+    "explanation": "Tree shaking depends on static ES module structure and on code that is free of side effects (signalled with `\"sideEffects\": false` in package.json). The main `lodash` entry is a single CommonJS module, so importing anything brings in everything. `lodash-es` (ES modules) or per-method paths such as `lodash/debounce` avoid this. Bundle analysers make these surprises visible.",
+    "reference": "webpack docs: Tree Shaking"
+  },
+  {
+    "id": "JSM-PRF-043",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "Processing 200,000 records in a loop on the main thread creates a 300 ms long task, and interactions feel frozen. Which two changes actually keep the page responsive? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Move the processing into a Web Worker and post back only the small summary the UI needs",
+        "why": "The heavy loop leaves the main thread, and returning a small result avoids a large structured-clone copy."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Process the records in chunks of a few milliseconds and yield between chunks, for example with `scheduler.yield()` or `setTimeout`",
+        "why": "Yielding to the event loop lets input and rendering run between chunks."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Wrap the loop in an `async` function and `await` it from the click handler",
+        "why": "The loop is still synchronous, so it blocks for the same 300 ms."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Split the records into chunks and run them with `Promise.all`, so they run as microtasks",
+        "why": "Microtasks drain completely before rendering, so the page is still frozen for the whole run."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Schedule the whole loop in one `requestIdleCallback` call so that it runs when the browser is idle",
+        "why": "It starts later but is still one 300 ms task that blocks input once it begins."
+      }
+    ],
+    "explanation": "Responsiveness, measured by Interaction to Next Paint, needs the main thread to come free often. Long tasks of 50 ms or more block input. Work either leaves the thread (workers) or is broken up with real yields to the event loop (a macrotask or `scheduler.yield()`). Promises and async functions don't yield to rendering by themselves.",
+    "reference": "web.dev: Optimize long tasks"
+  },
+  {
+    "id": "JSM-PRF-044",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 4,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each symptom seen in a performance or memory profile with its most likely cause.",
+    "options": [
+      {
+        "id": "A",
+        "text": "A memory leak"
+      },
+      {
+        "id": "B",
+        "text": "A high rate of short-lived allocations"
+      },
+      {
+        "id": "C",
+        "text": "Type instability causing repeated deoptimization"
+      },
+      {
+        "id": "D",
+        "text": "Layout thrashing"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "The heap graph is a sawtooth whose low points rise steadily after each repeated user action",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "A hot loop triggers many minor GCs per second, though the heap's baseline stays flat",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`--trace-deopt` shows the same function being optimized and deoptimized again and again",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Long tasks during scrolling show interleaved \"Recalculate Style\" and \"Layout\" entries",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Each problem has its own signature. A leak shows up as a rising floor after GCs. Allocation churn shows up as frequent minor GCs with a flat baseline. Deopt loops come from functions fed inconsistent types. Layout thrashing comes from reading layout (`offsetHeight`, `getBoundingClientRect`) and writing styles alternately in one frame, which forces synchronous layout each time. Batch the reads and writes, or use `requestAnimationFrame`.",
+    "reference": "Chrome DevTools: Analyze runtime performance"
+  },
+  {
+    "id": "JSM-PRF-045",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 4,
+    "type": "order",
+    "select": 1,
+    "stem": "Put these events in the order they happen when V8 optimizes a function and then deoptimizes it.",
+    "options": [
+      {
+        "id": "A",
+        "text": "The interpreter runs the function and records the shapes and types it sees"
+      },
+      {
+        "id": "B",
+        "text": "The optimizing compiler generates machine code that assumes those types and inserts guards"
+      },
+      {
+        "id": "C",
+        "text": "The optimized code runs fast while its guards keep passing"
+      },
+      {
+        "id": "D",
+        "text": "A call arrives with an unexpected shape or type, and a guard fails"
+      },
+      {
+        "id": "E",
+        "text": "V8 rebuilds an interpreter frame and continues running bytecode at the same point"
+      },
+      {
+        "id": "F",
+        "text": "After gathering more feedback, V8 may re-optimize with more general assumptions"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "explanation": "This loop of feedback, speculation and deoptimization is how JIT engines get near-native speed for dynamic code. Deoptimization is correct but costly, and repeated deopts (visible with `--trace-deopt` or the DevTools profiler) point at polymorphic or unstable inputs. Stable shapes and types are the most effective lever a JavaScript developer has.",
+    "reference": "V8 blog: An introduction to speculative optimization in V8"
+  }
+]
