@@ -1,0 +1,1680 @@
+[
+  {
+    "id": "TSM-STR-001",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Does this compile under `strict: true`?\n\n```ts\nclass Dog { name = ''; }\nclass Cat { name = ''; }\n\nconst d: Dog = new Cat();\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Yes: both classes have the same instance shape, so a Cat is assignable to Dog",
+        "why": "TypeScript compares class instances by their members, not by the class name."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "No: Cat and Dog are different classes, so TypeScript reports a nominal type mismatch",
+        "why": "That is how Java or C# behave. TypeScript is structural, so names do not matter here."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "No: assigning a class instance needs an explicit `as Dog` cast to change its type",
+        "why": "No cast is needed when the shapes already match; casts are for when they do not."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Only if Cat is declared with `extends Dog`, which makes Cat a subtype of Dog",
+        "why": "Inheritance is one way to match shapes, but it is not required; matching members is enough."
+      }
+    ],
+    "explanation": "TypeScript uses structural typing: a type is compatible with another if it has at least the required members with compatible types. `Dog` and `Cat` both have exactly `name: string`, so the assignment compiles. Private and protected members are the main exception, covered in other questions.",
+    "reference": "TypeScript Handbook: Type Compatibility"
+  },
+  {
+    "id": "TSM-STR-002",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Which call is reported as an error?\n\n```ts\ninterface Point { x: number; y: number }\nfunction show(p: Point) {}\n\nconst pt = { x: 1, y: 2, z: 3 };\nshow(pt);                    // call 1\nshow({ x: 1, y: 2, z: 3 });  // call 2\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both calls, because `z` is not a property of `Point`",
+        "why": "Extra properties are only an error on a fresh object literal, not on a variable."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Only call 2, the object literal written directly at the call site",
+        "why": "Fresh object literals get an excess property check, so the unexpected `z` is flagged."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Only call 1, because `pt` was inferred with an extra `z` property",
+        "why": "A variable with extra properties is still structurally a valid `Point`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Neither call, because both values have the `x` and `y` that `Point` requires",
+        "why": "Structurally both values fit, but the literal also triggers the excess property check."
+      }
+    ],
+    "explanation": "Excess property checking applies only to \"fresh\" object literals assigned or passed directly to a typed target. tsc reports: \"Object literal may only specify known properties, and 'z' does not exist in type 'Point'.\" The variable `pt` is not fresh, so call 1 is accepted structurally. The check exists to catch typos in literals, not to forbid extra data.",
+    "reference": "TypeScript Handbook: Excess Property Checks"
+  },
+  {
+    "id": "TSM-STR-003",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "If you declare `interface User { name: string }` and later, in the same scope, `interface User { age: number }`, TypeScript merges them into one interface that requires both `name` and `age`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Interfaces are open: declarations with the same name in the same scope merge their members."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "This is declaration merging, a documented feature of interfaces; only type aliases reject a second declaration."
+      }
+    ],
+    "explanation": "Interface declaration merging combines members from every declaration with the same name. An object typed `User` must then have both properties: assigning `{ name: \"a\" }` errors with \"Property 'age' is missing\". Type aliases cannot merge; declaring the same alias twice is a \"Duplicate identifier\" error. Merging is how libraries let you augment types like `Window`.",
+    "reference": "TypeScript Handbook: Declaration Merging"
+  },
+  {
+    "id": "TSM-STR-004",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What does TypeScript report for this code?\n\n```ts\nconst a: readonly number[] = [1, 2];\na.push(3);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing: `readonly` only stops you from reassigning the variable `a` itself",
+        "why": "That describes `const`. `readonly number[]` restricts the array's contents too."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "An error: `push` does not exist on type `readonly number[]`",
+        "why": "Readonly array types drop every mutating method, such as push, pop and splice."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A runtime TypeError, because the array is frozen when the code runs",
+        "why": "Readonly is compile-time only. Nothing is frozen at runtime unless you call `Object.freeze`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An error saying that a readonly array cannot be created from an array literal",
+        "why": "Initialising a readonly array from a literal is fine; only mutation is blocked."
+      }
+    ],
+    "explanation": "`readonly number[]` (also written `ReadonlyArray<number>`) is a type without mutating methods. tsc reports \"Property 'push' does not exist on type 'readonly number[]'.\" It is a compile-time guarantee only: the emitted JavaScript is an ordinary array.",
+    "reference": "TypeScript Handbook: The ReadonlyArray Type"
+  },
+  {
+    "id": "TSM-STR-005",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "Which TypeScript modifier, placed before a property name in an interface, makes the compiler reject any assignment to that property after the object is created? Type the keyword.",
+    "options": [],
+    "accepted": [
+      "readonly"
+    ],
+    "explanation": "`readonly` marks a property as not assignable through that type, for example `interface Config { readonly url: string }`. It is checked only at compile time and only through that type: an alias with a mutable type can still change it, as another question shows.",
+    "reference": "TypeScript Handbook: readonly Properties"
+  },
+  {
+    "id": "TSM-STR-006",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "With `strict: true`, which line is an error?\n\n```ts\nlet a: {} = 'hello';  // line 1\nlet b: {} = 42;       // line 2\nlet c: {} = null;     // line 3\nlet d: {} = [1];      // line 4\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Lines 1 and 2, because `{}` means \"an object\" and strings and numbers are primitives",
+        "why": "Primitives have properties through their wrappers, so they fit the empty object type."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Only line 3, because `{}` accepts every value except `null` and `undefined`",
+        "why": "Under strictNullChecks, null and undefined are the only values excluded from `{}`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Only line 4, because an array has more members than the empty type allows",
+        "why": "Extra members are fine structurally, and this is not a fresh object literal check."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "None of them, because `{}` is the top type and behaves exactly like `unknown`",
+        "why": "`unknown` also admits null and undefined; `{}` does not under strict mode."
+      }
+    ],
+    "explanation": "The empty object type `{}` requires no members, so any value that is not `null` or `undefined` is assignable, including strings and numbers. tsc reports \"Type 'null' is not assignable to type '{}'.\" on line 3. Use `object` for \"any non-primitive\" and `Record<string, unknown>` for \"a plain dictionary\".",
+    "reference": "TypeScript Handbook: object vs {}"
+  },
+  {
+    "id": "TSM-STR-007",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two statements about interfaces and type aliases are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Only a type alias can name a union such as `type Id = string | number`",
+        "why": "Interfaces always describe a single object shape; unions need a type alias."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "An interface can extend a type alias, as long as the alias is an object type",
+        "why": "For example `type T = { a: string }; interface I extends T {}` compiles."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A class can implement an interface, but it can never implement a type alias",
+        "why": "A class can implement an object type alias too; only unions are rejected."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Declaring a type alias twice merges both declarations, just like interfaces",
+        "why": "A second alias with the same name is a \"Duplicate identifier\" error."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Interfaces can describe functions and tuples, but type aliases cannot",
+        "why": "Type aliases describe functions and tuples easily, for example `type Fn = (x: number) => string`."
+      }
+    ],
+    "explanation": "Both describe object shapes and mostly interoperate. Differences: aliases can name unions, primitives, tuples and mapped or conditional types; interfaces merge across declarations and give clearer error messages for object hierarchies. An interface can extend an object type alias, but `interface J extends (A | B)` errors: \"An interface can only extend an object type or intersection of object types with statically known members.\"",
+    "reference": "TypeScript Handbook: Differences Between Type Aliases and Interfaces"
+  },
+  {
+    "id": "TSM-STR-008",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Which assignment is an error under `strict: true`?\n\n```ts\ndeclare const maybe: { a?: number };\n\nconst o1: { a?: number } = {};            // 1\nconst o2: { a: number } = maybe;          // 2\nconst o3: { a?: number } = { a: 1 };      // 3\nconst o4: { a?: number } = { a: undefined }; // 4\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Assignment 1, because an empty object does not have the property `a`",
+        "why": "An optional property may be absent, so `{}` is a valid value."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Assignment 2, because an optional property cannot satisfy a required one",
+        "why": "The source may lack `a`, but the target promises that `a` is always a number."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Assignment 4, because `undefined` can never be written into an optional property",
+        "why": "Without exactOptionalPropertyTypes, an optional property also accepts undefined."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Assignments 1 and 4, since optional properties must be omitted or set to a number",
+        "why": "Both are accepted under default strict settings; only the flag discussed elsewhere changes 4."
+      }
+    ],
+    "explanation": "Optional (`a?: number`) to required (`a: number`) fails because the value might not have `a`: tsc reports \"Type '{ a?: number | undefined; }' is not assignable to type '{ a: number; }'.\" The reverse direction is fine. Under default strict settings `a?: number` reads as `number | undefined`, so writing `undefined` is allowed; `exactOptionalPropertyTypes` changes that.",
+    "reference": "TypeScript Handbook: Optional Properties"
+  },
+  {
+    "id": "TSM-STR-009",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What does TypeScript report for this interface?\n\n```ts\ninterface Dict {\n  [key: string]: number;\n  count: string;\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing: named properties always take priority over the index signature",
+        "why": "Named properties must still conform to a string index signature."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "An error: property `count` of type `string` is not assignable to the `string` index type `number`",
+        "why": "Every named property is also reachable as `dict[\"count\"]`, so it must fit the index type."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "An error: interfaces cannot mix index signatures with named properties",
+        "why": "Mixing them is common; the named properties just have to fit the signature."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Nothing at declaration, but every read of `count` is typed `number`",
+        "why": "The declaration itself is rejected; TypeScript does not silently retype the property."
+      }
+    ],
+    "explanation": "A string index signature describes every string key, including named ones. tsc reports \"Property 'count' of type 'string' is not assignable to 'string' index type 'number'.\" Fix it by widening the signature, for example `[key: string]: number | string`, or by moving the dictionary into its own property.",
+    "reference": "TypeScript Handbook: Index Signatures"
+  },
+  {
+    "id": "TSM-STR-010",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each type with the values it accepts under `strict: true`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Any value, and you must narrow it before using it",
+        "why": "The safe top type."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Any value, and every operation on it is allowed without checks",
+        "why": "Turns checking off."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "No value at all",
+        "why": "The bottom type."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Any value except null and undefined",
+        "why": "Includes primitives."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`unknown`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`any`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`never`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`{}`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "`unknown` and `any` both accept everything, but `unknown` forces you to narrow before use, while `any` disables checking in both directions. `never` has no values, which is why it appears for impossible cases and exhaustive checks. `{}` is \"anything non-nullish\", which surprises people who expect it to mean \"an empty object\".",
+    "reference": "TypeScript Handbook: unknown, never and object types"
+  },
+  {
+    "id": "TSM-STR-011",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Under `strict: true`, a value of type `unknown` can be assigned to a variable of type `string` without narrowing or an assertion.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "`unknown` is assignable only to `unknown` and `any`; anything else needs narrowing first."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: tsc reports \"Type 'unknown' is not assignable to type 'string'.\""
+      }
+    ],
+    "explanation": "`unknown` is the type-safe top type: everything is assignable to it, but it is assignable only to `unknown` and `any`. Use a check such as `typeof u === \"string\"` to narrow it first. `any` is the opposite: it is assignable to almost everything, which is why it is unsafe.",
+    "reference": "TypeScript Handbook: unknown"
+  },
+  {
+    "id": "TSM-STR-012",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Which line does TypeScript flag?\n\n```ts\ninterface Opts { url: string }\nfunction req(o: Opts) {}\n\nconst extra = { url: '/a', retries: 3 };\nreq(extra);                                // 1\nreq({ url: '/a', retries: 3 } as Opts);    // 2\nreq({ url: '/a', retries: 3 });            // 3\nconst copy: Opts = { ...extra };           // 4\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Lines 1 and 3, because both pass an object with an unknown `retries` property",
+        "why": "Line 1 passes a variable, which is not fresh, so it is not checked for extras."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Lines 3 and 4, because both build a new object literal containing `retries`",
+        "why": "Properties that come from a spread are not checked for excess, so line 4 is accepted."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Only line 3",
+        "why": "It is the only fresh literal that spells out the extra property without an assertion."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lines 2 and 3, because an assertion cannot hide a property the type does not declare",
+        "why": "An `as` assertion is allowed when the types are comparable, and it skips the excess check."
+      }
+    ],
+    "explanation": "Excess property checks run only on fresh object literals with explicit properties. A variable (line 1) has lost freshness; an assertion (line 2) replaces the check with a comparability check; properties brought in by a spread (line 4) are not checked. Only line 3 is reported: \"Object literal may only specify known properties, and 'retries' does not exist in type 'Opts'.\"",
+    "reference": "TypeScript Handbook: Excess Property Checks"
+  },
+  {
+    "id": "TSM-STR-013",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Does this compile?\n\n```ts\ntype Shape =\n  | { kind: 'circle'; r: number }\n  | { kind: 'square'; size: number };\n\nconst s: Shape = { kind: 'circle', r: 1, size: 2 };\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Yes, because `size` exists on one member of the union, so it is a known property",
+        "why": "That rule applies to unions without a discriminant; here the `kind` picks one member."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "No: `kind: 'circle'` selects the circle member, and `size` is excess for it",
+        "why": "With a discriminant, TypeScript checks the literal against the matching member only."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "No, because an object literal can never be assigned to a union type directly",
+        "why": "Literals are assigned to unions all the time; the problem is the extra property."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Yes, but `s.size` is then typed `number | undefined` everywhere",
+        "why": "The literal is rejected, so the question of how `s.size` is typed never arises."
+      }
+    ],
+    "explanation": "For a discriminated union, the literal's discriminant narrows the target before the excess property check. tsc reports \"Object literal may only specify known properties, and 'size' does not exist in type '{ kind: \"circle\"; r: number; }'.\" Without a discriminant, TypeScript is more lenient, as another question shows.",
+    "reference": "TypeScript Handbook: Discriminated Unions"
+  },
+  {
+    "id": "TSM-STR-014",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Which line is an error?\n\n```ts\nconst m: number[] = [1];\nconst r: readonly number[] = m;  // line 2\nconst w: number[] = r;           // line 3\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Line 2, because a mutable array cannot be stored in a readonly variable",
+        "why": "Mutable to readonly is safe: you only lose the ability to mutate through `r`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Line 3, because a readonly array cannot be assigned to a mutable array type",
+        "why": "Allowing it would let `w.push` mutate an array that was promised to be read-only."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Both lines, because readonly and mutable arrays are unrelated types",
+        "why": "They are related one way: mutable is a subtype of readonly."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Neither line, because both variables point to the same array at runtime",
+        "why": "Runtime identity does not matter; the compiler checks the declared types."
+      }
+    ],
+    "explanation": "`number[]` is assignable to `readonly number[]`, but not the other way round. tsc reports \"The type 'readonly number[]' is 'readonly' and cannot be assigned to the mutable type 'number[]'.\" This lets functions accept `readonly T[]` parameters and still be called with ordinary arrays.",
+    "reference": "TypeScript Handbook: ReadonlyArray"
+  },
+  {
+    "id": "TSM-STR-015",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What happens with these declarations?\n\n```ts\ninterface A { x: string }\ninterface B extends A { x: number }  // declaration 1\ntype C = A & { x: number };          // declaration 2\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both are errors, because `x` cannot be both a string and a number",
+        "why": "An intersection never errors at its declaration; it silently computes a type."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Both compile, and `B['x']` and `C['x']` are both `string & number`",
+        "why": "The interface is checked against its base and fails; it does not intersect."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Declaration 1 errors; declaration 2 compiles, and `C['x']` is `never`",
+        "why": "`extends` checks compatibility with the base, while `&` combines the property types."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Declaration 1 compiles because `x` is overridden, and declaration 2 errors",
+        "why": "Interfaces cannot override a property with an incompatible type."
+      }
+    ],
+    "explanation": "An interface that extends another must stay assignable to it. tsc reports \"Interface 'B' incorrectly extends interface 'A'.\" An intersection instead merges the property types: `string & number` is `never`, so `C` is a type whose `x` can never be satisfied. That silent `never` is one reason interfaces give better errors for hierarchies.",
+    "reference": "TypeScript Handbook: Extending Types vs Intersections"
+  },
+  {
+    "id": "TSM-STR-016",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Two interfaces named `Settings` are declared in the same file. Which two statements about how TypeScript merges them are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "If both declare a non-method property with different types, TypeScript reports an error",
+        "why": "tsc: \"Subsequent property declarations must have the same type.\""
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "If both declare a method with the same name, the methods become overloads",
+        "why": "Merged function members turn into an overload list."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The later declaration silently replaces any property with the same name",
+        "why": "Conflicts are errors, not overrides; nothing is replaced silently."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An interface and a type alias with the same name merge in the same way",
+        "why": "An alias cannot share a name with an interface; that is a duplicate identifier."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Merging only happens across files, never within a single file",
+        "why": "Merging happens in any shared scope, including one file."
+      }
+    ],
+    "explanation": "Interface merging adds members from each declaration. Non-function members with the same name must have identical types, or tsc reports \"Subsequent property declarations must have the same type. Property 'a' must be of type 'string', but here has type 'number'.\" Methods with the same name become overloads, and later declarations' overloads are listed first.",
+    "reference": "TypeScript Handbook: Merging Interfaces"
+  },
+  {
+    "id": "TSM-STR-017",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does TypeScript report?\n\n```ts\ninterface Options { verbose?: boolean; color?: boolean }\n\nconst input = { verbos: true };\nconst o: Options = input;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing: `input` is not a fresh literal, so extra properties are allowed",
+        "why": "This is a different check that also applies to non-fresh values."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "An error: `{ verbos: boolean }` has no properties in common with `Options`",
+        "why": "This is weak type detection, for types whose properties are all optional."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "An error: `verbose` is missing in `{ verbos: boolean }`",
+        "why": "Nothing is missing: every property of `Options` is optional."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Nothing, because every property of `Options` is optional, so any object fits",
+        "why": "That loophole is exactly what weak type detection closes."
+      }
+    ],
+    "explanation": "A \"weak type\" has only optional properties. Since TypeScript 2.4, assigning a value that shares none of those properties is an error, even for non-fresh values: \"Type '{ verbos: boolean; }' has no properties in common with type 'Options'.\" It catches typos like `verbos` that would otherwise slip through structural typing.",
+    "reference": "TypeScript 2.4 release notes: Weak Type Detection"
+  },
+  {
+    "id": "TSM-STR-018",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "Given `type X = { a: string } & { a: number };`, what type is `X['a']`? Type the type.",
+    "options": [],
+    "accepted": [
+      "never"
+    ],
+    "explanation": "Intersecting two object types intersects the types of properties with the same name: `string & number` has no values, so it reduces to `never`. `X` itself is not `never` (it is still an object type), but no value can ever satisfy it. When the conflicting properties are literal discriminants, TypeScript reduces the whole intersection to `never`.",
+    "reference": "TypeScript Handbook: Intersection Types"
+  },
+  {
+    "id": "TSM-STR-019",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "Order these types from widest (accepts the most values) to narrowest. Each type should be assignable to every type above it.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`unknown`",
+        "why": "Accepts every value."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`{}`",
+        "why": "Every value except null and undefined."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`{ a: string }`",
+        "why": "Objects with a string `a`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`{ a: 'x'; b: number }`",
+        "why": "A narrower `a` plus a required `b`."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`never`",
+        "why": "No values at all."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "Each step adds requirements. `never` is assignable to everything; `{ a: 'x'; b: number }` is assignable to `{ a: string }` because `'x'` fits `string` and extra properties are allowed; that fits `{}`; and everything fits `unknown`. None of the reverse assignments compiles: for example `unknown` to `{}` errors with \"Type 'unknown' is not assignable to type '{}'.\"",
+    "reference": "TypeScript Handbook: Type Compatibility"
+  },
+  {
+    "id": "TSM-STR-020",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Which line is an error?\n\n```ts\nconst t: [number, string] = [1, 'a'];\nconst arr: (number | string)[] = t;   // line 2\nconst back: [number, string] = arr;   // line 3\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Line 2, because a tuple has a fixed length and an array does not",
+        "why": "A tuple is a special array, so it fits the wider element-union array type."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Line 3, because an array of unknown length cannot satisfy a fixed tuple",
+        "why": "The array might be empty or have the elements in a different order."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Both lines, because tuples and arrays are never mutually assignable",
+        "why": "Tuple to array works; only array to tuple fails."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Neither, because `back` gets exactly the same values that `t` had",
+        "why": "The compiler checks types, and `arr`'s type has lost the tuple's length and order."
+      }
+    ],
+    "explanation": "`[number, string]` is assignable to `(number | string)[]` because every element fits the union. The reverse fails because `(number | string)[]` says nothing about length or position: \"Type '(string | number)[]' is not assignable to type '[number, string]'.\" Use `as const` or an explicit tuple type to keep tuple information.",
+    "reference": "TypeScript Handbook: Tuple Types"
+  },
+  {
+    "id": "TSM-STR-021",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Because `any` turns off type checking, `const n: never = value as any;` compiles.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "`any` is assignable to every type except `never`; this assignment is rejected."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: tsc reports \"Type 'any' is not assignable to type 'never'.\""
+      }
+    ],
+    "explanation": "`any` is assignable to every other type, with one exception: `never`. That keeps `never` meaningful, so exhaustiveness checks like `const _exhaustive: never = shape;` are not silently defeated by an `any` value.",
+    "reference": "TypeScript Handbook: The never Type"
+  },
+  {
+    "id": "TSM-STR-022",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Which assignment is an error?\n\n```ts\ntype Handler = (event: string, attempt: number) => void;\n\nconst h1: Handler = (event) => {};                    // 1\nconst h2: Handler = () => {};                         // 2\nconst h3: Handler = (e: string, a: number, extra: boolean) => {}; // 3\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Assignments 1 and 2, because they ignore parameters the caller will pass",
+        "why": "Ignoring extra arguments is safe and common, as in `arr.forEach((x) => ...)`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Only assignment 3, because it requires a third argument callers never pass",
+        "why": "A function with more required parameters cannot stand in for one with fewer."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Only assignment 2, because a handler must declare at least one parameter",
+        "why": "Zero parameters is the simplest valid implementation."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "None of them, because extra parameters are always ignored at runtime",
+        "why": "At runtime `extra` would be undefined, which is exactly what the check prevents."
+      }
+    ],
+    "explanation": "A function with fewer parameters is assignable to a function type with more, because JavaScript ignores extra arguments. A function that needs more parameters than the type supplies is not: \"Type '(e: string, a: number, extra: boolean) => void' is not assignable to type 'Handler'.\" This is why callbacks like `forEach` can take just the element.",
+    "reference": "TypeScript Handbook: Comparing Two Functions"
+  },
+  {
+    "id": "TSM-STR-023",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 2,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each tsc error message with the situation that produces it.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A fresh object literal has a property the target type does not declare",
+        "why": "Excess property check."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A value shares none of the properties of an all-optional type",
+        "why": "Weak type detection."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A `readonly T[]` value is assigned to a `T[]` variable",
+        "why": "Readonly to mutable."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A value lacks a property that the target type requires",
+        "why": "Missing required member."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "\"Object literal may only specify known properties\"",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "\"Type … has no properties in common with type …\"",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "\"… is 'readonly' and cannot be assigned to the mutable type …\"",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "\"Property 'x' is missing in type … but required in type …\"",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Recognising these four messages speeds up debugging. Excess property errors only appear on literals; weak type errors appear even on variables; the readonly message points at array or tuple mutability; and \"missing\" errors mean the source lacks a required member.",
+    "reference": "TypeScript Handbook: Type Compatibility"
+  },
+  {
+    "id": "TSM-STR-024",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Which line does TypeScript reject?\n\n```ts\ninterface Box { readonly v: number }\n\nconst m = { v: 1 };\nconst b: Box = m;               // 1\nm.v = 2;                        // 2\nconst back: { v: number } = b;  // 3\nback.v = 3;                     // 4\nb.v = 4;                        // 5\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Lines 1 and 3, because readonly and mutable properties are incompatible",
+        "why": "`readonly` on a property does not affect assignability in either direction."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Lines 2, 4 and 5, because `b` was declared readonly",
+        "why": "`m` and `back` have mutable types, so writes through them are allowed."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Only line 5",
+        "why": "Only writes through the `Box` type are checked; the same object is mutable through other aliases."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lines 3 and 5, because once a value is typed readonly it can never become mutable again",
+        "why": "Unlike readonly arrays, readonly properties can be assigned to mutable types."
+      }
+    ],
+    "explanation": "Property-level `readonly` only stops writes through that particular type. It is not considered in assignability, so `{ v: number }` and `{ readonly v: number }` are mutually assignable. Here `b.v` ends up 3 at runtime despite `Box` being readonly, because lines 2 and 4 mutate it through aliases. Readonly arrays are different: `readonly T[]` to `T[]` is rejected.",
+    "reference": "TypeScript Handbook: readonly Properties"
+  },
+  {
+    "id": "TSM-STR-025",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Which assignment is an error?\n\n```ts\ntype AorB = { a: number } | { b: string };\n\nconst x: AorB = { a: 1, b: 'two' };  // 1\nconst y: AorB = { a: 1, c: true };   // 2\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both, because each literal has a property that one of the union members lacks",
+        "why": "For non-discriminated unions, a property is known if any member declares it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Only assignment 1, because a value cannot match both union members at once",
+        "why": "Matching both members is fine: unions are not exclusive in TypeScript."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Only assignment 2, because `c` is not declared by any union member",
+        "why": "The excess property check accepts properties declared anywhere in the union."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Neither, because excess property checks are disabled for union targets",
+        "why": "They still run, with the looser rule; `c` is flagged."
+      }
+    ],
+    "explanation": "Without a discriminant, excess property checking treats a property as known if any union member declares it. So `{ a: 1, b: 'two' }` passes, even though it matches both members, while `c` is reported: \"Object literal may only specify known properties, and 'c' does not exist in type 'AorB'.\" If you need \"exactly one of\", add a discriminant or use `{ a: number; b?: never } | { a?: never; b: string }`.",
+    "reference": "TypeScript Handbook: Excess Property Checks"
+  },
+  {
+    "id": "TSM-STR-026",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "With `strict: true` (which includes `strictFunctionTypes`), which line is an error?\n\n```ts\ntype Animal = { name: string };\ntype Dog = Animal & { bark(): void };\n\ninterface M { handle(a: Animal): void }    // method syntax\ninterface P { handle: (a: Animal) => void } // property syntax\n\nconst fd = (d: Dog) => d.bark();\nconst m: M = { handle: fd };  // line 1\nconst p: P = { handle: fd };  // line 2\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both lines, because a Dog handler cannot safely receive every Animal",
+        "why": "That would be the sound answer, but methods are deliberately exempt."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Only line 2, because only function-typed properties get strict parameter checks",
+        "why": "Methods declared with method syntax compare parameters bivariantly."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Only line 1, because method syntax is checked more strictly than property syntax",
+        "why": "It is the other way round: method syntax is the lenient one."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Neither line, because `strictFunctionTypes` only applies to standalone function types",
+        "why": "It applies to function-typed properties too, which is why line 2 fails."
+      }
+    ],
+    "explanation": "`strictFunctionTypes` checks parameters contravariantly for function types, including properties written as `handle: (a: Animal) => void`. Method syntax `handle(a: Animal): void` stays bivariant for compatibility with existing code such as DOM APIs. So line 2 reports \"Type '(d: Dog) => void' is not assignable to type '(a: Animal) => void'\", while line 1 compiles and can crash if `m.handle` receives a plain Animal.",
+    "reference": "TypeScript 2.6 release notes: strictFunctionTypes"
+  },
+  {
+    "id": "TSM-STR-027",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "This compiles under `strict: true`. What happens when it runs?\n\n```ts\nclass Animal { name = 'a'; }\nclass Dog extends Animal { bark() { return 'woof'; } }\n\nconst dogs: Dog[] = [new Dog()];\nconst animals: Animal[] = dogs;\nanimals.push(new Animal());\ndogs[1].bark();\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It returns \"woof\", because TypeScript converted the Animal to a Dog when it was pushed",
+        "why": "TypeScript never converts values; types are erased before the code runs."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It throws a TypeError, because `dogs[1]` is a plain Animal with no `bark` method",
+        "why": "Arrays are checked covariantly, which is unsound for writes through the wider alias."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It returns undefined, because a missing method call on an object returns undefined",
+        "why": "Calling a missing method calls `undefined`, which throws."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It never runs: the push is a compile error once the array is aliased",
+        "why": "The compiler accepts it; that is the point of the question."
+      }
+    ],
+    "explanation": "TypeScript treats `Dog[]` as assignable to `Animal[]` (array covariance). That is convenient for reads, but writing through the `Animal[]` alias puts an Animal into the Dog array. At runtime `dogs[1].bark` is undefined, so the call throws \"TypeError: dogs[1].bark is not a function\". Accepting `readonly Animal[]` in APIs avoids the problem, since readonly arrays cannot be written to.",
+    "reference": "TypeScript FAQ: Why are function parameters bivariant / array covariance"
+  },
+  {
+    "id": "TSM-STR-028",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Which lines are errors?\n\n```ts\nclass A { private x = 1; }\nclass B { private x = 1; }\nclass P1 { x = 1; }\nclass P2 { x = 1; }\n\nconst a: A = new B();      // 1\nconst p: P1 = new P2();    // 2\nconst lit: A = { x: 1 };   // 3\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Only line 1, because classes with private members compare by name",
+        "why": "Line 3 also fails: a plain object cannot supply A's private member."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Lines 1 and 3",
+        "why": "A private member is only compatible with the same declaration, so B and the literal both fail."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Lines 1, 2 and 3, because classes are always compared nominally",
+        "why": "P1 and P2 are compatible: they only have public members."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "None, because `private` is erased at runtime and ignored by the type checker",
+        "why": "It is erased at runtime, but the checker still uses it for compatibility."
+      }
+    ],
+    "explanation": "A `private` or `protected` member makes compatibility nominal for that member: it must come from the same declaration. Line 1 reports \"Type 'B' is not assignable to type 'A'. Types have separate declarations of a private property 'x'.\" Line 3 fails because 'x' is private in A but not in the literal. Line 2 compiles because public members are compared structurally.",
+    "reference": "TypeScript Handbook: Private and Protected Members in Classes"
+  },
+  {
+    "id": "TSM-STR-029",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which three declarations compile under `strict: true` without `noUncheckedIndexedAccess`? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`interface N1 { [i: number]: string; [s: string]: string }`",
+        "why": "The number index type must be assignable to the string index type, and it is."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`interface N2 { [i: number]: number; [s: string]: string }`",
+        "why": "Error: 'number' index type 'number' is not assignable to 'string' index type 'string'."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`interface N3 { [k: string]: number; length?: number }`",
+        "why": "Error: the optional property has type number | undefined, which does not fit the index type."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "`interface N4 { [k: string]: number | undefined; length?: number }`",
+        "why": "Including undefined in the index type makes the optional property fit."
+      },
+      {
+        "id": "E",
+        "correct": true,
+        "text": "`const d: Record<string, number> = {}; const v: number = d.missing;`",
+        "why": "Without the flag, index reads are typed as the value type with no undefined."
+      }
+    ],
+    "explanation": "Numeric keys are converted to strings in JavaScript, so a number index signature must be a subtype of the string one. Optional properties read as `T | undefined`, which must fit a string index signature. And by default `d.missing` is typed `number` even though it is undefined at runtime; `noUncheckedIndexedAccess` adds `| undefined` to such reads.",
+    "reference": "TypeScript Handbook: Index Signatures"
+  },
+  {
+    "id": "TSM-STR-030",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "With `noUncheckedIndexedAccess: true`, what are the types of `first`, `val`, `s` and `t0`?\n\n```ts\ndeclare const arr: string[];\ndeclare const dict: Record<string, number>;\ndeclare const tup: [string, number];\n\nconst first = arr[0];\nconst val = dict['k'];\nfor (const s of arr) { /* ... */ }\nconst t0 = tup[0];\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`string | undefined`, `number | undefined`, `string | undefined`, `string | undefined`",
+        "why": "Iteration and known tuple positions are not affected by the flag."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`string | undefined`, `number | undefined`, `string`, `string`",
+        "why": "Only index reads that might miss get `| undefined`; `for...of` and fixed tuple slots do not."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`string`, `number | undefined`, `string`, `string`",
+        "why": "Array element reads are index reads too, so `arr[0]` also gets `| undefined`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`string | undefined`, `number`, `string`, `string`",
+        "why": "`Record<string, number>` has a string index signature, so it is affected too."
+      }
+    ],
+    "explanation": "`noUncheckedIndexedAccess` adds `| undefined` to reads through index signatures, including array element access, because the key might not exist. Values produced by iteration cannot be missing, so `s` stays `string`, and a tuple's declared position `tup[0]` is known to exist, so it stays `string`. The flag is not part of `strict`; you enable it separately.",
+    "reference": "TSConfig Reference: noUncheckedIndexedAccess"
+  },
+  {
+    "id": "TSM-STR-031",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 3,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Under `strictFunctionTypes`, a function of type `(x: string) => void` can be assigned to a variable of type `(x: string | number) => void`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Callers could then pass a number to a function that only handles strings."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: function type parameters are checked contravariantly, so the narrower parameter is rejected."
+      }
+    ],
+    "explanation": "A variable of type `(x: string | number) => void` may be called with a number. A function that only accepts strings would receive a value it cannot handle, so tsc reports \"Type '(x: string) => void' is not assignable to type '(x: string | number) => void'.\" The opposite direction compiles: a function that accepts `string | number` can stand in for one that is only ever given strings.",
+    "reference": "TSConfig Reference: strictFunctionTypes"
+  },
+  {
+    "id": "TSM-STR-032",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "Given `type K = { kind: 'a'; v: string } & { kind: 'b' };`, what does TypeScript reduce the whole type `K` to? Type the type.",
+    "options": [],
+    "accepted": [
+      "never"
+    ],
+    "explanation": "Since TypeScript 3.9, an intersection of object types whose shared property has disjoint literal types (a discriminant) reduces entirely to `never`, not just the property. `{ kind: 'a' } & { kind: 'b' }` can never exist. In contrast, `{ a: string } & { a: number }` stays an object type whose `a` is `never`.",
+    "reference": "TypeScript 3.9 release notes: Intersections Reduced By Discriminant Properties"
+  },
+  {
+    "id": "TSM-STR-033",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Which lines are errors?\n\n```ts\ntype UserId = string & { readonly __brand: 'UserId' };\ntype OrderId = string & { readonly __brand: 'OrderId' };\nfunction getUser(id: UserId) {}\n\nconst raw = 'u1';\ngetUser(raw);                    // 1\nconst uid = raw as UserId;\ngetUser(uid);                    // 2\nconst oid = 'o1' as OrderId;\ngetUser(oid);                    // 3\nconst len: number = uid.length;  // 4\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Only line 1, because every branded string is interchangeable once it has been cast",
+        "why": "Different brands have incompatible `__brand` literal types."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Lines 1, 3 and 4, because a branded value is no longer usable as a string",
+        "why": "A brand is `string & {...}`, so all string members remain available."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Lines 1 and 3",
+        "why": "A plain string lacks the brand, and OrderId's brand is the wrong literal."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lines 2 and 3, because the `as` cast must be checked against the brand at runtime",
+        "why": "Casts are not checked at runtime; the brand exists only in the type system."
+      }
+    ],
+    "explanation": "Branding fakes nominal typing in a structural system: the phantom `__brand` property makes `UserId` and `OrderId` incompatible with each other and with plain `string`. Line 1: \"Argument of type 'string' is not assignable to parameter of type 'UserId'.\" Line 3: \"Argument of type 'OrderId' is not assignable...\". The brand costs nothing at runtime; create branded values in one validating function rather than casting everywhere.",
+    "reference": "TypeScript Handbook: Type Compatibility (nominal typing workarounds)"
+  },
+  {
+    "id": "TSM-STR-034",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "Given `interface Cfg { port: number }`, which three lines report an excess property error for `host`? (Choose three.)\n\n```ts\nfunction make(): Cfg { return { port: 1, host: 'x' }; }          // 1\nconst viaFn: () => Cfg = () => ({ port: 1, host: 'x' });         // 2\nconst list: Cfg[] = [{ port: 1, host: 'x' }];                    // 3\nconst nested: { cfg: Cfg } = { cfg: { port: 1, host: 'x' } };    // 4\nconst extra = { host: 'x' };\nconst spread: Cfg = { port: 1, ...extra };                       // 5\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Line 1",
+        "why": "A literal returned from a function with a declared return type is checked."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Line 2",
+        "why": "The arrow's return type is inferred from the literal, then the function types are compared, so no excess check runs."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Line 3",
+        "why": "Literals inside an array literal are fresh too."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Line 4",
+        "why": "Nested object literals are checked against the nested property type."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Line 5",
+        "why": "Properties that arrive through a spread are not checked for excess."
+      }
+    ],
+    "explanation": "Freshness follows the literal wherever it is directly checked against a declared type: return statements of annotated functions, array elements and nested properties. Two common gaps: an arrow function assigned to a function type infers its own return type first, so line 2 compiles (annotate `(): Cfg =>` to get the check), and spread properties are never treated as excess.",
+    "reference": "TypeScript Handbook: Excess Property Checks"
+  },
+  {
+    "id": "TSM-STR-035",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "Order these array and tuple types from widest to narrowest, so that each is assignable to every type above it.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`readonly (string | number)[]`",
+        "why": "Read-only, any length."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`(string | number)[]`",
+        "why": "Mutable, any length."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`[string, number]`",
+        "why": "Fixed length and positions."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`[string, 42]`",
+        "why": "Fixed, with a literal second element."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "explanation": "A tuple is assignable to an array of the union of its elements; a mutable array is assignable to a readonly one; and a tuple with a literal element is assignable to one with the wider element type. The reverse steps all fail, for example \"The type 'readonly (string | number)[]' is 'readonly' and cannot be assigned to the mutable type '(string | number)[]'.\"",
+    "reference": "TypeScript Handbook: Tuple Types and ReadonlyArray"
+  },
+  {
+    "id": "TSM-STR-036",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "This compiles under `strict: true`. What happens when it runs, and why did the compiler allow it?\n\n```ts\nconst full = { a: 1, b: 'text' };\nconst narrow: { a: number } = full;\nconst opt: { a: number; b?: number } = narrow;\nconst n = opt.b?.toFixed(2);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`n` is undefined, because the optional chain stops when `b` is not a number",
+        "why": "Optional chaining only stops on null or undefined, and `b` is the string 'text'."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It throws a TypeError: widening to `{ a: number }` forgot `b`, and an absent optional `b` is accepted",
+        "why": "Each step is allowed alone, but together they relabel a string as a number."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It never compiles: TypeScript tracks that `b` is a string through both assignments",
+        "why": "Assignments use the declared type; the earlier type of `b` is forgotten."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`n` is \"text\", because `toFixed` falls back to the string when called on one",
+        "why": "Strings have no `toFixed` method, so the call throws."
+      }
+    ],
+    "explanation": "Step 1 is ordinary width subtyping: `{ a; b: string }` to `{ a: number }` drops knowledge of `b`. Step 2 allows a source without `b` to fill a target where `b?: number` is optional. Each rule is reasonable, but composed they are unsound: at runtime `opt.b` is 'text', so `opt.b?.toFixed` is undefined and calling it throws \"TypeError: opt.b?.toFixed is not a function\". This is a known, accepted hole in structural typing.",
+    "reference": "TypeScript Handbook: Type Compatibility (A Note on Soundness)"
+  },
+  {
+    "id": "TSM-STR-037",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Which assignment is an error?\n\n```ts\ninterface IPerson { name: string }\ntype TPerson = { name: string };\ndeclare const i: IPerson;\ndeclare const t: TPerson;\n\nconst r1: Record<string, string> = t;  // 1\nconst r2: Record<string, string> = i;  // 2\nconst r3: object = i;                  // 3\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Assignment 1, because a type alias of an object literal type has no index signature",
+        "why": "Object literal types get an implicit index signature, so 1 compiles."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Only assignment 2, because interfaces do not get an implicit index signature",
+        "why": "An interface could gain more members through merging, so TypeScript will not assume one."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Assignments 1 and 2, because neither declares `[key: string]: string`",
+        "why": "Only the interface is rejected; the alias is given an implicit index signature."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Assignment 3, because `object` excludes interfaces with only primitive members",
+        "why": "`object` accepts any non-primitive, so an IPerson fits."
+      }
+    ],
+    "explanation": "Identical shapes, different results: tsc reports \"Type 'IPerson' is not assignable to type 'Record<string, string>'. Index signature for type 'string' is missing in type 'IPerson'.\" Types written as object literal type aliases receive an implicit index signature; interfaces do not, because declaration merging could add members of other types later. This shows up when passing interfaces to helpers typed `Record<string, unknown>`.",
+    "reference": "TypeScript GitHub issue #15300: Index signature is missing in type (only on interfaces)"
+  },
+  {
+    "id": "TSM-STR-038",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two lines compile? (Choose two.)\n\n```ts\nclass A { #x = 1; }\nclass B { #x = 1; }\nclass Base { protected id = 1; }\nclass Sub extends Base {}\nclass Other { protected id = 1; }\nclass Pub { id = 1; }\n\nconst a: A = new B();        // 1\nconst b1: Base = new Sub();  // 2\nconst b2: Base = new Other(); // 3\nconst b3: Base = new Pub();  // 4\nclass Merged {}\ninterface Merged { extra: number }\ndeclare const mm: Merged;\nconst e: number = mm.extra;  // 5\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Line 1",
+        "why": "Each `#x` is a distinct member, so A and B are incompatible."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Line 2",
+        "why": "Sub inherits Base's protected `id` from the same declaration."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Line 3",
+        "why": "Other declares its own protected `id`, which is a separate declaration."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Line 4",
+        "why": "A public `id` cannot stand in for a protected one."
+      },
+      {
+        "id": "E",
+        "correct": true,
+        "text": "Line 5",
+        "why": "An interface with the same name merges its members into the class instance type."
+      }
+    ],
+    "explanation": "ECMAScript `#private` fields, `private` and `protected` members all require the member to originate from the same declaration, which makes those classes nominal in practice. Subclasses inherit the original declaration, so line 2 compiles. Line 4 fails because 'id' is protected in Base but public in Pub. Line 5 shows class and interface merging: the interface adds `extra` to the instance type (without any runtime value, so it is undefined unless something sets it).",
+    "reference": "TypeScript Handbook: Classes and Declaration Merging"
+  },
+  {
+    "id": "TSM-STR-039",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "With `strict: true` and `exactOptionalPropertyTypes: true`, which lines are errors?\n\n```ts\ninterface Prefs { theme?: 'dark' | 'light' }\n\nconst p1: Prefs = {};                                  // 1\nconst p2: Prefs = { theme: undefined };                // 2\nfunction reset(p: Prefs) { p.theme = undefined; }      // 3\nfunction clear(p: Prefs) { delete p.theme; }           // 4\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Lines 1 and 4, because the flag requires every optional property to be present",
+        "why": "The flag still allows the property to be absent; it forbids writing undefined."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Lines 2 and 3",
+        "why": "Under the flag, \"optional\" means \"may be missing\", not \"may hold undefined\"."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Only line 4, because deleting a declared property is unsafe",
+        "why": "Deleting an optional property is allowed; it makes the property absent."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "None: the flag only changes how optional properties are read",
+        "why": "It changes writes: undefined is no longer an accepted value for `theme`."
+      }
+    ],
+    "explanation": "`exactOptionalPropertyTypes` separates \"absent\" from \"present but undefined\". Line 2: \"Type '{ theme: undefined; }' is not assignable to type 'Prefs' with 'exactOptionalPropertyTypes: true'.\" Line 3: \"Type 'undefined' is not assignable to type '\"dark\" | \"light\"'\". Omitting it or deleting it is fine. This matters for code that distinguishes `'theme' in p` from `p.theme === undefined`. Declare `theme?: Theme | undefined` to allow both.",
+    "reference": "TSConfig Reference: exactOptionalPropertyTypes"
+  },
+  {
+    "id": "TSM-STR-040",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 3,
+    "stem": "Given `interface Cfg { port: number }` and `declare const cond: boolean;`, which three lines report an excess property error for `host`? (Choose three.)\n\n```ts\nconst viaVar = { port: 2, host: 'y' };\nconst t1: Cfg = cond ? { port: 1 } : viaVar;                 // 1\nconst paren: Cfg = ({ port: 1, host: 'x' });                // 2\nconst asserted: Cfg = <Cfg>{ port: 1, host: 'x' };          // 3\nconst sat = { port: 1, host: 'x' } satisfies Cfg;           // 4\nconst frozen: Cfg = { port: 1, host: 'x' } as const;        // 5\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Line 1",
+        "why": "The branch that carries `host` is a variable, which is not fresh."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Line 2",
+        "why": "Parentheses do not remove freshness; the literal is still checked."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Line 3",
+        "why": "A type assertion to `Cfg` replaces the excess check with a comparability check."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Line 4",
+        "why": "`satisfies` checks the literal against the type, including excess properties."
+      },
+      {
+        "id": "E",
+        "correct": true,
+        "text": "Line 5",
+        "why": "`as const` is not an assertion to another type; the readonly literal is still fresh against `Cfg`."
+      }
+    ],
+    "explanation": "Parentheses keep a literal fresh (line 2). `satisfies` validates a literal against a type without changing its inferred type, and it reports excess properties (line 4). A const assertion only makes the literal readonly with literal types, so the annotated target still checks it (line 5). An assertion to the target type (line 3) skips the check, and a variable in a conditional branch (line 1) is not fresh, so neither is reported.",
+    "reference": "TypeScript 4.9 release notes: The satisfies Operator"
+  },
+  {
+    "id": "TSM-STR-041",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Which line is an error?\n\n```ts\ntype Cb = () => void;\n\nconst cb: Cb = () => 42;                              // 1\nconst r = cb();                                       // 2: r is void\nfunction g(): void { return 42; }                     // 3\nconst nums: number[] = [];\n[1, 2].forEach((n) => nums.push(n));                  // 4\nconst fv: () => void = function () { return 'x'; };   // 5\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Lines 1, 3 and 5, because each returns a value where void is expected",
+        "why": "Only a function declared with a void return type is checked this way."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Line 4, because `push` returns a number but the callback should return void",
+        "why": "This is the reason the rule exists: callbacks typed void may return anything."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Only line 3",
+        "why": "An explicit `: void` annotation on a function forbids returning a value."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lines 3 and 5, because function expressions are checked like declarations",
+        "why": "Line 5 is assigned to a `() => void` type, so its return value is simply ignored."
+      }
+    ],
+    "explanation": "A function type with a `void` return means \"the caller will ignore the result\", so any function is assignable to it. That is why `forEach((n) => nums.push(n))` compiles even though `push` returns a number. A function whose own declaration says `: void` is different: returning a value from it reports \"Type 'number' is not assignable to type 'void'.\" Note that `r` is typed `void` even though it holds 42 at runtime.",
+    "reference": "TypeScript Handbook: Return type void"
+  },
+  {
+    "id": "TSM-STR-042",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Which line reports an excess property error?\n\n```ts\ninterface Cfg { port: number }\n\nconst a: () => Cfg = () => ({ port: 1, host: 'x' });                 // 1\nconst b: () => Cfg = () => { return { port: 1, host: 'x' }; };      // 2\nconst c = (): Cfg => ({ port: 1, host: 'x' });                       // 3\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "All three, because each function returns a literal with an unknown property",
+        "why": "Only an annotated return type puts the returned literal directly against `Cfg`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Lines 1 and 2, because the variable's function type contextually types the return",
+        "why": "The return type is inferred from the body first, then the function types are compared."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Only line 3",
+        "why": "The return type annotation on the arrow itself checks the returned literal."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Only line 2, because a block body with `return` is checked like a declaration",
+        "why": "A block body behaves like the expression body here; neither is checked."
+      }
+    ],
+    "explanation": "For lines 1 and 2, TypeScript infers the arrow's return type as `{ port: number; host: string }` and then checks that function type against `() => Cfg`. That is an ordinary assignability check, and extra properties are allowed, so no error. On line 3 the arrow declares `: Cfg` itself, so the returned literal is fresh against `Cfg` and tsc reports \"Object literal may only specify known properties\". Annotate return types when you want typo protection.",
+    "reference": "TypeScript GitHub issue #241: Excess property checks for function return values"
+  },
+  {
+    "id": "TSM-STR-043",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 4,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each pair of same-named declarations in one scope with how TypeScript treats them.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Merged: the members of both are combined",
+        "why": "Interface merging."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Error: \"Duplicate identifier\"",
+        "why": "Aliases cannot be reopened."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Merged: the interface adds members to the class instance type",
+        "why": "Class and interface merging."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Merged: the namespace adds properties to the function",
+        "why": "Function and namespace merging."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Two `interface Box` declarations",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Two `type Box =` declarations",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`class Box {}` and `interface Box { width: number }`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`function greet() {}` and `namespace greet { export const lang = \"en\"; }`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "TypeScript merges declarations that create compatible meanings: interfaces with interfaces, interfaces into classes, and namespaces into functions, classes or enums. This is how libraries type a function that also carries properties, such as `jQuery.ajax`. Type aliases are closed and cannot be redeclared. Class and interface merging adds types only, not runtime values.",
+    "reference": "TypeScript Handbook: Declaration Merging"
+  },
+  {
+    "id": "TSM-STR-044",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Which assignment is an error under `strict: true`?\n\n```ts\nclass Animal { name = 'a'; }\nclass Dog extends Animal { bark() {} }\n\ninterface Cmp1<T> { compare(a: T, b: T): number }    // method syntax\ninterface Cmp2<T> { compare: (a: T, b: T) => number } // property syntax\n\ndeclare let a1: Cmp1<Animal>; declare let d1: Cmp1<Dog>;\ndeclare let a2: Cmp2<Animal>; declare let d2: Cmp2<Dog>;\n\na1 = d1;                                   // 1\na2 = d2;                                   // 2\nconst animals: Animal[] = [new Dog()];     // 3\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Assignments 1 and 2, because a Dog comparer cannot compare arbitrary animals",
+        "why": "That is the sound answer, but method syntax makes assignment 1 bivariant."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Only assignment 2",
+        "why": "The property-syntax comparer is checked contravariantly in `T`, so the Dog version is rejected."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Only assignment 3, because a Dog array element cannot be widened to Animal",
+        "why": "Element widening is fine; arrays of subtypes are assignable to arrays of supertypes."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "None, because generic interfaces are always compared covariantly",
+        "why": "TypeScript measures variance per type parameter from how it is used."
+      }
+    ],
+    "explanation": "TypeScript measures the variance of `T` from the members. In `Cmp2`, `T` appears only in function-typed property parameters, so it is contravariant and `Cmp2<Dog>` to `Cmp2<Animal>` fails: \"Type 'Cmp2<Dog>' is not assignable to type 'Cmp2<Animal>'.\" In `Cmp1` the member is a method, which is exempt from strictFunctionTypes, so it compiles. The same exemption is why `Array<T>` (whose methods are declared with method syntax) stays covariant.",
+    "reference": "TypeScript 4.7 release notes: Variance annotations (in/out)"
+  },
+  {
+    "id": "TSM-STR-045",
+    "domain": 1,
+    "skill": "structural-typing",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which three tuple assignments compile under `strict: true`? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`const a: [number, string?] = [1];`",
+        "why": "An optional tuple element may be left out."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`const b: readonly [number] = [1] as [number];`",
+        "why": "A mutable tuple is assignable to its readonly version."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`const c: [number] = [1] as readonly [number];`",
+        "why": "Readonly to mutable fails: \"The type 'readonly [number]' is 'readonly' and cannot be assigned to the mutable type '[number]'.\""
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "`const d: [number, ...string[]] = [1];`",
+        "why": "A rest element can match zero elements."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`const e: [number, number] = [1, 2] as number[];`",
+        "why": "Once the value is typed `number[]`, its length is unknown, so it cannot fill a fixed tuple."
+      }
+    ],
+    "explanation": "Tuples follow the same rules as arrays plus length rules. Optional elements (`string?`) and rest elements (`...string[]`) relax the minimum length, so `[1]` fits both. Mutable to readonly is allowed; the reverse is not. And an assertion to `number[]` throws away the length, so it cannot be assigned to a two-element tuple: \"Type 'number[]' is not assignable to type '[number, number]'.\"",
+    "reference": "TypeScript Handbook: Optional and Rest Elements in Tuple Types"
+  }
+]

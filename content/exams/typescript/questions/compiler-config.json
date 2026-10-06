@@ -1,0 +1,1630 @@
+[
+  {
+    "id": "TSM-CFG-001",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "This function compiles without errors. What happens when plain JavaScript calls `area(\"5\")` on the emitted code?\n\n```ts\nexport function area(side: number): number {\n  return side * side;\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The call throws a `TypeError` because the compiled code checks that `side` is a number",
+        "why": "tsc emits no runtime checks; the `number` annotation is gone from the JavaScript."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It returns `25`, because the annotation is erased and `\"5\" * \"5\"` coerces to a number",
+        "why": "Type annotations exist only at compile time, and JavaScript multiplication coerces strings."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "tsc refuses to emit the file because a JavaScript caller could pass a string",
+        "why": "tsc only checks the TypeScript it compiles. It cannot see untyped JavaScript callers."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It returns `\"55\"`, because the emitted code concatenates the two string arguments",
+        "why": "Only `+` concatenates strings; `*` always converts both operands to numbers."
+      }
+    ],
+    "explanation": "TypeScript types are erased during emit: the output is `function area(side) { return side * side; }`. Nothing checks arguments at runtime, so a JavaScript caller (or a JSON payload, or a `fetch` response) can pass anything. Validate untrusted input at the boundary with a schema library or hand-written checks.",
+    "reference": "TypeScript Handbook: Erased types"
+  },
+  {
+    "id": "TSM-CFG-002",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "With default settings, `tsc` still writes the `.js` output files even when the program has type errors.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: emit is independent of type-checking unless `noEmitOnError` is set."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "Type errors are reported, but the files are still emitted by default."
+      }
+    ],
+    "explanation": "TypeScript treats type-checking and emit as separate jobs, and by default it emits even when there are errors, returning a non-zero exit code. Set `\"noEmitOnError\": true` to write nothing when any error exists, which is common in CI builds that publish `dist/`.",
+    "reference": "TSConfig Reference: noEmitOnError"
+  },
+  {
+    "id": "TSM-CFG-003",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Under `\"strict\": true`, why does this report `'e' is of type 'unknown'`?\n\n```ts\ntry {\n  JSON.parse(input);\n} catch (e) {\n  console.log(e.message);\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`useUnknownInCatchVariables`, part of `strict`, types catch variables as `unknown`",
+        "why": "Anything can be thrown, so you must narrow `e` before reading `.message`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`strictNullChecks` assumes `e` might be `null` and blocks the property access",
+        "why": "A null check would report a possibly-null error, not that `e` is of type unknown."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`noImplicitAny` refuses an untyped catch variable and asks for an explicit annotation",
+        "why": "Catch variables never need annotations; without this flag they are simply `any`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`JSON.parse` is declared to throw `unknown`, and TypeScript carries that type into the catch",
+        "why": "TypeScript has no checked exceptions; functions do not declare what they throw."
+      }
+    ],
+    "explanation": "JavaScript can throw any value, not just `Error` objects, so `useUnknownInCatchVariables` (enabled by `strict`) types catch variables as `unknown`. Narrow first: `if (e instanceof Error) console.log(e.message)`. Without the flag `e` is `any`, which silently allows `e.message` on a thrown string.",
+    "reference": "TSConfig Reference: useUnknownInCatchVariables"
+  },
+  {
+    "id": "TSM-CFG-004",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Which compiler option makes this line an error?\n\n```ts\nlet username: string = null;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`noImplicitAny`",
+        "why": "That flag is about missing annotations. Here the variable is annotated explicitly."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`strictNullChecks`",
+        "why": "With it, `null` and `undefined` are separate types that `string` does not include."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`noUncheckedIndexedAccess`",
+        "why": "That flag adds `undefined` to indexed reads; there is no index access here."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`exactOptionalPropertyTypes`",
+        "why": "That flag concerns optional properties, not ordinary variables."
+      }
+    ],
+    "explanation": "Without `strictNullChecks`, `null` and `undefined` are assignable to every type, which hides the most common runtime crash in JavaScript. With it (part of `strict`), you must write `string | null` and narrow before use.",
+    "reference": "TSConfig Reference: strictNullChecks"
+  },
+  {
+    "id": "TSM-CFG-005",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "Name the compiler option that makes `arr[i]` and `record[key]` include `| undefined` in their types, even under `strict`. Type the option name.\n\n```ts\nconst scores: number[] = [];\nconst first: number = scores[0]; // error only with this option\n```",
+    "options": [],
+    "accepted": [
+      "noUncheckedIndexedAccess"
+    ],
+    "explanation": "`noUncheckedIndexedAccess` is not part of `strict`. It adds `undefined` to reads through index signatures and array indexes, because the element may not exist. `for...of` loops and tuple positions with known indexes are unaffected, so the cost is mostly at genuinely uncertain lookups.",
+    "reference": "TSConfig Reference: noUncheckedIndexedAccess"
+  },
+  {
+    "id": "TSM-CFG-006",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What is the difference between the `target` and `lib` compiler options?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`target` picks which runtime APIs are typed; `lib` picks the syntax tsc emits for them",
+        "why": "That is reversed: syntax comes from `target`, API typings from `lib`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "They are two names for the same setting, and setting `lib` always overrides `target`",
+        "why": "They control different things. `lib` defaults are derived from `target`, but they are not the same setting."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`target` controls which JavaScript syntax tsc emits; `lib` controls which built-in API types exist",
+        "why": "For example `target: \"es2017\"` downlevels `??`, while `lib` decides whether `Array.prototype.at` type-checks."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`lib` makes tsc add polyfills for newer APIs, so `target` only matters for older browsers",
+        "why": "tsc never polyfills APIs. `lib` only adds type declarations."
+      }
+    ],
+    "explanation": "`target` decides how syntax is emitted (classes, `async`, optional chaining, private fields). `lib` decides which declaration files describe the environment (ES versions, `dom`, `webworker`). If you omit `lib`, it is derived from `target`. Neither one polyfills missing runtime APIs.",
+    "reference": "TSConfig Reference: target and lib"
+  },
+  {
+    "id": "TSM-CFG-007",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each compiler option with the bug it reports.",
+    "options": [
+      {
+        "id": "A",
+        "text": "`noImplicitAny`"
+      },
+      {
+        "id": "B",
+        "text": "`strictPropertyInitialization`"
+      },
+      {
+        "id": "C",
+        "text": "`noFallthroughCasesInSwitch`"
+      },
+      {
+        "id": "D",
+        "text": "`noImplicitOverride`"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`function log(msg) { ... }`: the parameter has no type and nothing can infer one",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "A class field `name: string;` is never assigned in the constructor",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "A non-empty `case 1:` block runs straight into `case 2:` with no `break`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "A subclass method replaces a base-class method without saying so",
+        "answer": "D"
+      }
+    ],
+    "explanation": "`noImplicitAny` and `strictPropertyInitialization` are part of `strict`. `noFallthroughCasesInSwitch` and `noImplicitOverride` are opt-in extras. Empty cases that share one body (`case 3: case 4:`) are still allowed under the fallthrough check.",
+    "reference": "TSConfig Reference: Type Checking options"
+  },
+  {
+    "id": "TSM-CFG-008",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "How does a `// @ts-expect-error` comment differ from `// @ts-ignore`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`@ts-expect-error` hides only the first error on the next line, while `@ts-ignore` hides every error",
+        "why": "Both hide all errors on the next line; the difference is what happens when there are none."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`@ts-expect-error` itself becomes an error once the next line no longer has any error to hide",
+        "why": "Stale suppressions are reported, so they get cleaned up when the underlying bug is fixed."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`@ts-ignore` works only in `.js` files, so TypeScript files must use `@ts-expect-error`",
+        "why": "Both directives work in `.ts` and in type-checked `.js` files."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`@ts-expect-error` turns the error into a warning, while `@ts-ignore` deletes it entirely",
+        "why": "TypeScript has no warning level for type errors; both directives suppress them fully."
+      }
+    ],
+    "explanation": "Prefer `@ts-expect-error`. When a later fix or a library update removes the error, tsc reports \"Unused '@ts-expect-error' directive\" (TS2578), so suppressions don't outlive their reason. `@ts-ignore` stays silent forever.",
+    "reference": "TypeScript 3.9 release notes: @ts-expect-error"
+  },
+  {
+    "id": "TSM-CFG-009",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two options does `\"strict\": true` turn on? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`strictNullChecks`",
+        "why": "It is the core of strict mode: `null` and `undefined` become separate types."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`noImplicitAny`",
+        "why": "Strict mode reports parameters and variables whose type silently falls back to `any`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`noUncheckedIndexedAccess`",
+        "why": "This stricter indexing check is opt-in and is not part of the `strict` family."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`exactOptionalPropertyTypes`",
+        "why": "Opt-in only: it changes what `?` means, which would break too much existing code."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`noImplicitReturns`",
+        "why": "A separate lint-like check that `strict` does not include."
+      }
+    ],
+    "explanation": "`strict` enables a family: `strictNullChecks`, `noImplicitAny`, `strictFunctionTypes`, `strictBindCallApply`, `strictPropertyInitialization`, `noImplicitThis`, `useUnknownInCatchVariables`, `alwaysStrict` and `strictBuiltinIteratorReturn`. Extra checks such as `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes` must be enabled one by one.",
+    "reference": "TSConfig Reference: strict"
+  },
+  {
+    "id": "TSM-CFG-010",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In TypeScript 6.0, this tsconfig already type-checks with strict mode on.\n\n```json\n{ \"compilerOptions\": {} }\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: TypeScript 6.0 changed the default of `strict` to true."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "Before 6.0 this was false, but TypeScript 6.0 made `strict` the default."
+      }
+    ],
+    "explanation": "TypeScript 6.0 flipped several defaults to match modern projects, including `strict: true`. With an empty `compilerOptions`, `let s: string = null` is already an error. Projects that relied on the old loose default must now set `\"strict\": false` explicitly while they migrate.",
+    "reference": "TypeScript 6.0 release notes"
+  },
+  {
+    "id": "TSM-CFG-011",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "With this tsconfig, `src/index.ts` contains `import { v } from \"@lib/util\";` and type-checks. What import does the emitted `dist/index.js` contain?\n\n```json\n{\n  \"compilerOptions\": {\n    \"outDir\": \"dist\", \"rootDir\": \"src\",\n    \"paths\": { \"@lib/*\": [\"./src/lib/*\"] }\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`import { v } from \"./lib/util\";`, because tsc rewrites aliases into relative paths",
+        "why": "tsc never rewrites module specifiers based on `paths`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`import { v } from \"@lib/util\";`, left as is for a bundler to resolve",
+        "why": "`paths` only teaches the type checker where to look. The emitted import is left as written."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "No import at all, because tsc inlines path-aliased modules into the importing file",
+        "why": "tsc compiles file by file and never inlines other modules."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`require(\"@lib/util\")`, because path aliases always emit as CommonJS",
+        "why": "The module format comes from `module`, not from `paths`."
+      }
+    ],
+    "explanation": "`paths` is a type-checker resolution hint, not a rewrite rule. Running the output directly in Node fails with \"Cannot find package '@lib/util'\" unless something else resolves it: a bundler alias, `package.json` subpath imports (`#lib/*`), or a post-build rewriter.",
+    "reference": "TSConfig Reference: paths"
+  },
+  {
+    "id": "TSM-CFG-012",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A Node package has `\"type\": \"module\"` and this tsconfig. Why does the import fail to compile, and what is the fix?\n\n```json\n{ \"compilerOptions\": { \"module\": \"nodenext\" } }\n```\n```ts\n// src/a.ts\nimport { b } from \"./b\";\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Node ESM needs file extensions in relative imports, so write `\"./b.js\"`, the name of the emitted file",
+        "why": "TS2835 asks for an explicit extension; tsc resolves `./b.js` to `b.ts` while checking."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "nodenext only allows package imports, so `b` must be published as its own package first",
+        "why": "Relative imports are fine under nodenext; they just need a full extension."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Write `\"./b.ts\"`, because nodenext resolves TypeScript sources by their real extension",
+        "why": "That fails with TS5097 unless you also enable `allowImportingTsExtensions` or `rewriteRelativeImportExtensions`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add `\"moduleResolution\": \"node10\"`, which nodenext needs in order to find `b.ts` at all",
+        "why": "node10 is deprecated in TypeScript 6 and does not model how Node ESM really resolves files."
+      }
+    ],
+    "explanation": "Node's ESM loader does not guess extensions, so TypeScript under `nodenext` requires what Node will need at runtime: `\"./b.js\"`. During checking, tsc maps `./b.js` back to `b.ts`. To write `.ts` in the source instead, enable `rewriteRelativeImportExtensions` (or `allowImportingTsExtensions` with `noEmit`).",
+    "reference": "TypeScript Handbook: Modules - Choosing compiler options"
+  },
+  {
+    "id": "TSM-CFG-013",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "With `\"isolatedModules\": true`, why is this line an error (TS1205), given that `T` is an interface in `./t`?\n\n```ts\nexport { T } from \"./t\";\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Interfaces can never be re-exported from another module, with or without this option",
+        "why": "They can, using `export type { T } from \"./t\"`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A file-by-file transpiler can't see that `T` is a type, so it can't drop it",
+        "why": "Writing `export type { T }` tells single-file tools to erase the re-export."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "isolatedModules forbids all re-exports, so `T` must be imported first and exported separately",
+        "why": "Value re-exports work fine; only type re-exports need the `type` keyword."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The option makes interfaces exist at runtime, so `T` would be emitted as an empty object",
+        "why": "Interfaces never exist at runtime under any option."
+      }
+    ],
+    "explanation": "esbuild, swc and Babel compile one file at a time without type information. For `export { T } from \"./t\"` they can't see whether `T` is a value or a type, and keeping a type would crash at runtime with a missing export. `isolatedModules` makes tsc report every construct that needs cross-file type information to emit correctly.",
+    "reference": "TSConfig Reference: isolatedModules"
+  },
+  {
+    "id": "TSM-CFG-014",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two statements about `verbatimModuleSyntax` are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Imports without the `type` modifier are kept exactly as written in the emitted JavaScript",
+        "why": "There is no import elision, so the output matches the source, apart from imports marked `type`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Importing an interface without `type` (`import { T }`) is an error that asks for `import type`",
+        "why": "TS1484: types must be imported type-only so that they can be erased safely."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It deletes any import whose bindings are never used, to keep side effects predictable",
+        "why": "That is the old elision behaviour it replaces. With this option an unused value import is kept."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It converts ESM `import` statements to `require` calls when `module` is `commonjs`",
+        "why": "The opposite: with CommonJS output it reports ESM syntax as an error (TS1295)."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "It lets enums and namespaces be stripped by Node without any compilation step",
+        "why": "That is about `erasableSyntaxOnly`. verbatimModuleSyntax only concerns imports and exports."
+      }
+    ],
+    "explanation": "Under `verbatimModuleSyntax`, what you write is what you get: plain imports stay, and anything marked `type` disappears. This makes output predictable for single-file transpilers and for side-effectful modules. The price is that you must mark type-only imports and re-exports yourself.",
+    "reference": "TSConfig Reference: verbatimModuleSyntax"
+  },
+  {
+    "id": "TSM-CFG-015",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A project has `\"noEmitOnError\": true` and 40 files. One file has a single type error. What does `tsc` write to `outDir`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "All 40 files are written, and the error is only printed to the console",
+        "why": "That is the default behaviour, which `noEmitOnError` turns off."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The 39 error-free files are written, and only the file with the error is skipped",
+        "why": "The check applies to the whole program, not file by file."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Nothing is written at all, and tsc exits with a non-zero code",
+        "why": "Any error anywhere in the program blocks emit for every file."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Every file is written, with the broken file wrapped in a `throw` statement",
+        "why": "tsc never injects runtime code to mark type errors."
+      }
+    ],
+    "explanation": "`noEmitOnError` is all-or-nothing for the program, which stops CI from publishing a half-updated `dist/` folder. In watch mode it also means that one error pauses all output until it is fixed.",
+    "reference": "TSConfig Reference: noEmitOnError"
+  },
+  {
+    "id": "TSM-CFG-016",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "`src/lib/legacy.ts` is listed in `exclude`, but `src/index.ts` imports it. `src/lib/legacy.ts` contains a type error. What happens on `tsc -p .`?\n\n```json\n{\n  \"compilerOptions\": { \"outDir\": \"dist\", \"rootDir\": \"src\" },\n  \"include\": [\"src\"],\n  \"exclude\": [\"src/lib/legacy.ts\"]\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "It is still checked and emitted, because an included file imports it",
+        "why": "`exclude` only filters what `include` picks up; imported files always join the program."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "legacy.ts is skipped entirely, and the import resolves to `any`",
+        "why": "Exclusion never breaks resolution. The imported file joins the program anyway."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "legacy.ts is checked but never emitted, so `dist/index.js` imports a missing file",
+        "why": "Imported files are emitted like any other source file."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "tsc refuses to start, because an excluded file is imported by an included one",
+        "why": "This combination is legal and very common; there is no such error."
+      }
+    ],
+    "explanation": "`include` and `exclude` decide the starting set of files. Module resolution then adds every file those files import, excluded or not. To truly keep a file out, stop importing it, or move it to another project. `tsc --listFilesOnly` or `--explainFiles` shows why each file is in the program.",
+    "reference": "TSConfig Reference: exclude"
+  },
+  {
+    "id": "TSM-CFG-017",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "An `app` project lists `core` in its `references`, and `core` has `\"composite\": true`. Put the steps of `tsc -b app` in order.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Read `app/tsconfig.json` and find its references"
+      },
+      {
+        "id": "B",
+        "text": "Check whether `core` is up to date, using its tsbuildinfo"
+      },
+      {
+        "id": "C",
+        "text": "Build `core` if needed, emitting its `.js` and `.d.ts` files"
+      },
+      {
+        "id": "D",
+        "text": "Type-check `app` against `core`'s generated `.d.ts` files"
+      },
+      {
+        "id": "E",
+        "text": "Emit `app`'s output"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "Build mode walks the reference graph and builds dependencies first, skipping any that are up to date. Downstream projects then check against the declaration files upstream projects emitted, not their source. That is why `composite` (which forces `declaration`) is required for referenced projects.",
+    "reference": "TypeScript Handbook: Project References"
+  },
+  {
+    "id": "TSM-CFG-018",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Under `strict`, which assignment is an error?\n\n```ts\ntype Handlers = {\n  onA(x: string | number): void;           // method syntax\n  onB: (x: string | number) => void;       // property syntax\n};\nconst h: Handlers = {\n  onA(x: string) {},\n  onB: (x: string) => {},\n};\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Only `onA`, because method syntax is checked more strictly than function properties",
+        "why": "It is the other way round: methods keep the older, bivariant check."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Only `onB`: strictFunctionTypes skips parameters of method syntax",
+        "why": "Parameters of methods stay bivariant, for compatibility with patterns like DOM event handlers."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Both, because a handler for `string` can't accept every `string | number` argument",
+        "why": "That is true of `onB`, but method syntax is exempt from the strict check."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Neither, because `string` is a subtype of `string | number`, so both are safe",
+        "why": "Narrowing a parameter type is unsafe; callers may still pass a number."
+      }
+    ],
+    "explanation": "`strictFunctionTypes` checks parameters contravariantly, so a function that only handles `string` can't stand in for one that must handle `string | number`. The check deliberately skips method and constructor declarations, which stay bivariant. Declare callbacks as properties (`onB: (x) => void`) to get the safer check.",
+    "reference": "TSConfig Reference: strictFunctionTypes"
+  },
+  {
+    "id": "TSM-CFG-019",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "`tsc -b app` fails with TS6306: \"Referenced project '../core' must have setting ___: true\". Type the missing option name.",
+    "options": [],
+    "accepted": [
+      "composite",
+      "\"composite\""
+    ],
+    "explanation": "A project that others reference must set `composite: true`. It forces `declaration` (downstream projects check against `.d.ts` files), requires every source file to be matched by `include`/`files`, and writes a tsbuildinfo so the build can tell when the project is up to date. Turning off `declaration` in a composite project is itself an error (TS6304).",
+    "reference": "TSConfig Reference: composite"
+  },
+  {
+    "id": "TSM-CFG-020",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "With `\"exactOptionalPropertyTypes\": true`, which line is an error?\n\n```ts\ntype Prefs = { theme?: \"light\" | \"dark\" };\nconst a: Prefs = {};                     // 1\nconst b: Prefs = { theme: \"dark\" };      // 2\nconst c: Prefs = { theme: undefined };   // 3\nconst d: Prefs = { ...a };               // 4\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Line 1, because optional properties must still be listed in the object literal",
+        "why": "Leaving an optional property out is exactly what `?` allows."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Line 4, because spreading an object can never satisfy an optional property",
+        "why": "Spreading `a`, which has no `theme`, produces an object without the property, which is fine."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Line 3: `?` now means \"may be missing\", not \"may be undefined\"",
+        "why": "TS2375: to allow an explicit undefined, write `theme?: \"light\" | \"dark\" | undefined`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "None of them, because `undefined` is always allowed for an optional property",
+        "why": "That was the case before; this option is what makes the difference."
+      }
+    ],
+    "explanation": "Normally `theme?: T` means `theme?: T | undefined`. Under `exactOptionalPropertyTypes` it means \"absent or `T`\", which matches code that checks `\"theme\" in prefs` or uses `Object.keys`. It also applies to `Partial<T>`, so `{ a: undefined }` is rejected for `Partial<{ a: number }>` too.",
+    "reference": "TSConfig Reference: exactOptionalPropertyTypes"
+  },
+  {
+    "id": "TSM-CFG-021",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "With `\"noPropertyAccessFromIndexSignature\": true`, which access is an error?\n\n```ts\ninterface Env { [key: string]: string; PATH: string }\ndeclare const env: Env;\nenv.PATH;        // 1\nenv.HOME;        // 2\nenv[\"HOME\"];     // 3\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Only line 2",
+        "why": "Dot access to a name that exists only through the index signature must use brackets."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Lines 2 and 3",
+        "why": "Bracket access is exactly what the option asks for, so line 3 is fine."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Only line 1",
+        "why": "`PATH` is a declared property, so dot access is allowed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lines 1 and 2",
+        "why": "Declared properties like `PATH` are unaffected; only index-signature names are."
+      }
+    ],
+    "explanation": "TS4111: \"Property 'HOME' comes from an index signature, so it must be accessed with ['HOME']\". The rule makes the code show at a glance which keys are known to exist (`env.PATH`) and which are guesses (`env[\"HOME\"]`). Pair it with `noUncheckedIndexedAccess` so that guesses are also typed as possibly `undefined`.",
+    "reference": "TSConfig Reference: noPropertyAccessFromIndexSignature"
+  },
+  {
+    "id": "TSM-CFG-022",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In this snippet, `@ts-ignore` hides only the first error on the next line, so tsc still reports the second call.\n\n```ts\nfunction add(a: number, b: number) { return a + b; }\n// @ts-ignore\nadd(1, \"3\"); add(1, \"4\");\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "It hides every error on that line, so the second call is suppressed as well."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: the directive suppresses all errors on the following line, including the second call."
+      }
+    ],
+    "explanation": "Both `@ts-ignore` and `@ts-expect-error` apply to the entire next line, however many errors it has. That is one more reason to keep suppressed lines short, and to prefer `@ts-expect-error`, which at least reports itself once the line is clean.",
+    "reference": "TypeScript Handbook: // @ts-ignore"
+  },
+  {
+    "id": "TSM-CFG-023",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A project upgrades to TypeScript 6.0. `@types/node` is installed, but `process.env.PORT` now fails with \"Cannot find name 'process'\". The tsconfig sets no `types` option. What changed?\n",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`@types/node` must now be imported explicitly at the top of every file that uses Node APIs",
+        "why": "One project-level `types` entry is enough; per-file imports are not needed."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`process` was removed from `@types/node` and now lives in a separate `@types/process` package",
+        "why": "The package is unchanged; what changed is whether tsc loads it automatically."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "TS 6 defaults `types` to `[]`; list packages, e.g. `\"types\": [\"node\"]`",
+        "why": "Before 6.0, every package under `node_modules/@types` was included automatically."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "TS 6 dropped the `node` lib, so Node globals now need `\"lib\": [\"node\"]`",
+        "why": "There is no `node` lib; Node globals always came from `@types/node`."
+      }
+    ],
+    "explanation": "TypeScript 6.0 changed the default of `types` to an empty list, so ambient global packages are no longer pulled in just because they sit in `node_modules/@types`. That stops test-runner globals leaking into app code and makes startup faster, but projects must now list what they rely on, for example `\"types\": [\"node\", \"vitest/globals\"]`.",
+    "reference": "TypeScript 6.0 release notes: types default"
+  },
+  {
+    "id": "TSM-CFG-024",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "With `\"target\": \"es2017\"` and `\"module\": \"commonjs\"`, which statement about the emitted code for this class is correct?\n\n```ts\nexport const pick = (v?: string) => v ?? \"default\";\nexport class Counter { #count = 0; inc() { return ++this.#count; } }\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`??` and `#count` are emitted unchanged, because Node can parse them anyway",
+        "why": "tsc emits for the configured target, whatever your runtime happens to support."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`??` becomes a null/undefined check and `#count` becomes a WeakMap",
+        "why": "ES2017 has neither syntax, so tsc downlevels both, adding a private-field helper."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "tsc reports an error, because private fields need `\"target\": \"es2022\"` or later",
+        "why": "Private fields compile for older targets; tsc emulates them with WeakMaps."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`#count` becomes a plain property named `_count`, which other code can read",
+        "why": "tsc keeps hard privacy through a WeakMap; renaming would leak the field."
+      }
+    ],
+    "explanation": "tsc downlevels syntax the target lacks. `v ?? \"default\"` becomes `(_a = v) !== null && _a !== void 0 ? _a : \"default\"`. `#count` becomes a module-level `WeakMap` plus `__classPrivateFieldGet`/`__classPrivateFieldSet` helpers. Downlevelled private fields work, but they are slower and harder to debug, so choose the newest `target` your runtimes support.",
+    "reference": "TSConfig Reference: target"
+  },
+  {
+    "id": "TSM-CFG-025",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "`\"target\": \"es2017\"` reports `Property 'at' does not exist on type 'number[]'` for `[1, 2].at(-1)`. A teammate adds `\"lib\": [\"es2023\", \"dom\"]` and the build passes. What happens on a runtime that only supports ES2017?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It works, because tsc now injects an `Array.prototype.at` polyfill into the output",
+        "why": "tsc never polyfills. `lib` only changes which declarations are visible."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "tsc rewrites `.at(-1)` to `[arr.length - 1]`, because the target is ES2017",
+        "why": "tsc downlevels syntax, not method calls. API calls are emitted as written."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "It throws `TypeError: ... .at is not a function` at runtime",
+        "why": "The `lib` change only silenced the type error; you still need a real polyfill."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It fails to compile, because `lib` can't be newer than `target`",
+        "why": "`lib` and `target` are independent; a newer `lib` is allowed and common."
+      }
+    ],
+    "explanation": "By default `lib` follows `target`, which is why `.at` was flagged: ES2017 runtimes may not have it. Raising `lib` tells tsc to assume a newer environment. That is only correct if you also ship a polyfill (core-js) or know every runtime has the API. The rule of thumb: syntax gap → `target`, API gap → polyfill plus `lib`.",
+    "reference": "TSConfig Reference: lib"
+  },
+  {
+    "id": "TSM-CFG-026",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "Node.js 24 runs `.ts` files directly by stripping types. Which three of these fail when run with `node file.ts`? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A file that declares `enum Direction { Up, Down }`",
+        "why": "Enums generate runtime code, so Node rejects them with ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A class with a parameter property: `constructor(private id: number) {}`",
+        "why": "Parameter properties generate an assignment, which type stripping can't produce."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`import { User, save } from \"./db.ts\"` where `User` is an interface",
+        "why": "The import is kept verbatim, so the ESM loader reports that `./db.ts` has no export named `User`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`import { type User, save } from \"./db.ts\"`",
+        "why": "The `type` modifier marks `User` for erasure, so only `save` is imported at runtime."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "A file with `interface` declarations and `: number` annotations",
+        "why": "Pure type syntax is erasable; Node replaces it with whitespace and runs the rest."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "A file whose code uses generics such as `function id<T>(x: T): T`",
+        "why": "Type parameters and annotations are erasable syntax."
+      }
+    ],
+    "explanation": "Node's type stripping only erases type syntax. It never generates code and never does cross-file analysis. Constructs that emit JavaScript (enums, namespaces with values, parameter properties) are rejected. Imports are preserved as written, so type-only imports must say `type`. Configure tsc with `erasableSyntaxOnly`, `verbatimModuleSyntax` and `rewriteRelativeImportExtensions` (or `allowImportingTsExtensions` with `noEmit`) to catch all of this at compile time.",
+    "reference": "Node.js docs: Modules - TypeScript"
+  },
+  {
+    "id": "TSM-CFG-027",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "With `\"erasableSyntaxOnly\": true`, which of these declarations is allowed?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`export enum Status { Active, Disabled }`",
+        "why": "Enums emit a runtime object, so this flag reports them (TS1294)."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`export namespace Utils { export const pi = 3.14; }`",
+        "why": "A namespace containing values emits an IIFE, so it is not erasable."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`export declare namespace Globals { const version: string; }`",
+        "why": "`declare` makes it ambient: it only describes types and emits nothing."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`class Repo { constructor(private db: Db) {} }`",
+        "why": "The parameter property emits `this.db = db`, which the flag forbids."
+      }
+    ],
+    "explanation": "`erasableSyntaxOnly` restricts a file to TypeScript that can be removed without generating code. That is exactly what Node's type stripping and some bundlers support. It reports enums, value namespaces, parameter properties and `import x = require()`. Ambient `declare` forms, type aliases, interfaces and annotations are all fine.",
+    "reference": "TSConfig Reference: erasableSyntaxOnly"
+  },
+  {
+    "id": "TSM-CFG-028",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "With `\"module\": \"commonjs\"`, this emits `const fs_1 = __importDefault(require(\"fs\"))` and then reads `fs_1.default`. `fs` is a CommonJS module with no `__esModule` flag. What does `fs_1.default` hold?\n\n```ts\nimport fs from \"fs\";\nfs.readFileSync(\"a.txt\");\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The whole `module.exports` object of `fs`, wrapped by the interop helper",
+        "why": "`__importDefault` returns `{ default: mod }` when `mod.__esModule` is not set."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`undefined`, so the call throws, because `fs` defines no `default` export",
+        "why": "That is what happens without interop, which TypeScript 6 deprecates turning off."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A fresh copy of `fs`, so changes to `fs_1.default` don't affect other importers",
+        "why": "The helper wraps the same object in a new holder; nothing is copied."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Only `fs`'s first export, which Node treats as the default export",
+        "why": "CommonJS has no notion of a first export; `module.exports` is a single value."
+      }
+    ],
+    "explanation": "`esModuleInterop` (always on in TypeScript 6, where setting it to `false` is a deprecation error) emits `__importDefault` and `__importStar`. These make CommonJS modules behave the way Node's own ESM loader treats them: the default import is `module.exports`. Without interop, `import fs from \"fs\"` would read the non-existent `exports.default`.",
+    "reference": "TSConfig Reference: esModuleInterop"
+  },
+  {
+    "id": "TSM-CFG-029",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A file is compiled with `\"module\": \"commonjs\"` and `\"verbatimModuleSyntax\": true`. tsc reports TS1295: \"ECMAScript imports and exports cannot be written in a CommonJS file\". Why, and what is a valid fix?\n\n```ts\nimport fs from \"fs\";\nexport const x = 1;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "verbatimModuleSyntax doesn't support Node built-ins, so import from `node:fs` instead",
+        "why": "The specifier is irrelevant; the problem is the ESM syntax in a CommonJS output file."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Turn on `esModuleInterop`, which lets ESM syntax compile to CommonJS under this option",
+        "why": "Interop is already on in TS 6; it doesn't lift the verbatim restriction."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add `\"allowSyntheticDefaultImports\": true` so the default import is permitted",
+        "why": "That only affects type-checking of default imports, not the CommonJS rule."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "The option bans rewriting `import` into `require`; make the file ESM, or write `import fs = require(\"fs\")`",
+        "why": "Verbatim output means the source module syntax must match the output format."
+      }
+    ],
+    "explanation": "Because `verbatimModuleSyntax` keeps import and export statements as written, tsc can't quietly turn them into `require` and `exports.x`. In a file that compiles to CommonJS you must use CommonJS-shaped TypeScript syntax (`import x = require()`, `export =`). Alternatively, make the file an ES module through `\"type\": \"module\"`, an `.mts` extension, or `module: \"nodenext\"` with matching package settings.",
+    "reference": "TSConfig Reference: verbatimModuleSyntax"
+  },
+  {
+    "id": "TSM-CFG-030",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A project enables `\"isolatedModules\": true`. Which use of `Dir.Up` is reported as an error?\n\n```ts\n// types.d.ts\ndeclare const enum Dir { Up = 1 }\n\n// local.ts\nexport const enum Mode { On = 1 }\nexport const m = Mode.On;\n\n// app.ts\nexport const d = Dir.Up;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both `Mode.On` and `Dir.Up`, because const enums are not allowed under isolatedModules",
+        "why": "A const enum declared in a `.ts` file is still allowed; it is emitted like a regular enum."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Only `Mode.On`, because const enums must be declared in a `.d.ts` file",
+        "why": "Ambient const enums are exactly the ones that break single-file transpilers."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Only `Dir.Up` (TS2748): an ambient const enum has no runtime object",
+        "why": "A transpiler can't inline `Dir.Up` without reading `types.d.ts`, and no `Dir` object is emitted."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Neither, because isolatedModules only affects re-exports of types",
+        "why": "It also covers ambient const enums, namespaces and other cross-file constructs."
+      }
+    ],
+    "explanation": "A `const enum` normally gets inlined using information from another file, which a single-file transpiler doesn't have. Under `isolatedModules`, enums declared in `.ts` files are kept as real objects, so a lookup still works. An ambient `declare const enum` has no emitted object, so tsc reports TS2748. Libraries should ship regular enums or union types instead.",
+    "reference": "TSConfig Reference: isolatedModules"
+  },
+  {
+    "id": "TSM-CFG-031",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 3,
+    "type": "match",
+    "select": 1,
+    "stem": "TypeScript 6.0 deprecates these options, which will stop working in TypeScript 7.0. Match each deprecated setting with its usual replacement.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Put the directory in each `paths` entry, such as `\"./src/*\"`"
+      },
+      {
+        "id": "B",
+        "text": "`\"moduleResolution\": \"nodenext\"` or `\"bundler\"`"
+      },
+      {
+        "id": "C",
+        "text": "Target ES2015 or newer, and downlevel further with another tool if needed"
+      },
+      {
+        "id": "D",
+        "text": "Let a bundler produce the single output file"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`\"baseUrl\": \".\"` used only so that `paths` entries resolve",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`\"moduleResolution\": \"node10\"`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`\"target\": \"es5\"`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`\"outFile\": \"bundle.js\"`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "TypeScript 6.0 is the last JavaScript-based release before the native TypeScript 7 compiler. It deprecates legacy options: with them set, tsc errors (TS5101/TS5107) unless you add `\"ignoreDeprecations\": \"6.0\"`. That gives teams one release to migrate before the options stop working.",
+    "reference": "TypeScript 6.0 release notes: deprecations"
+  },
+  {
+    "id": "TSM-CFG-032",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "This config builds `dist/a.js`. A developer deletes `dist/` and runs `tsc -p .` again. tsc exits 0 but writes nothing. Why?\n\n```json\n{\n  \"compilerOptions\": {\n    \"incremental\": true, \"outDir\": \"dist\", \"rootDir\": \".\",\n    \"tsBuildInfoFile\": \".cache/app.tsbuildinfo\"\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`incremental` mode only ever emits files whose source changed since the last commit",
+        "why": "tsc knows nothing about git; it compares against its own build-info file."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`rootDir: \".\"` sends the output somewhere other than `dist/` after the first build",
+        "why": "The output location is stable; nothing is emitted at all."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "tsc exits early because `dist/` must exist before it can write any files",
+        "why": "tsc creates `outDir` as needed; that isn't why it skips."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "The tsbuildinfo outside `dist/` still says everything was emitted; delete it or rebuild with `tsc -b --force`",
+        "why": "Incremental builds trust the build-info file and don't check that outputs still exist."
+      }
+    ],
+    "explanation": "The `.tsbuildinfo` file records source hashes and what was already emitted. Keep it inside `outDir` (the default location when `outDir` is set) so the two are deleted together, or clear both in your `clean` script. `tsc -b --force` rebuilds everything regardless.",
+    "reference": "TSConfig Reference: tsBuildInfoFile"
+  },
+  {
+    "id": "TSM-CFG-033",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "In TypeScript 6.0 this config reports TS5011 (\"The common source directory ... is './src'\") and writes `dist/src/index.js` instead of `dist/index.js`. All sources live in `src/`. Which option should you add? Type the option name.\n\n```json\n{ \"compilerOptions\": { \"outDir\": \"dist\" }, \"include\": [\"src\"] }\n```",
+    "options": [],
+    "accepted": [
+      "rootDir",
+      "\"rootDir\"",
+      "rootDir: \"src\"",
+      "rootDir: src"
+    ],
+    "explanation": "Older versions inferred `rootDir` as the common folder of all input files, so output layouts changed silently whenever a file was added outside `src/`. TypeScript 6.0 defaults `rootDir` to the folder that contains `tsconfig.json`, and reports TS5011 when that doesn't match your sources. Set `\"rootDir\": \"src\"` to get `dist/index.js`.",
+    "reference": "TypeScript 6.0 release notes: rootDir"
+  },
+  {
+    "id": "TSM-CFG-034",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 3,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "With `\"skipLibCheck\": true`, type errors inside your own hand-written `.d.ts` files in `src/` are no longer reported.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: skipLibCheck skips checking all declaration files, not only those in `node_modules`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "It is not limited to third-party packages; every `.d.ts` file is skipped, including your own."
+      }
+    ],
+    "explanation": "`skipLibCheck` skips type-checking of every `.d.ts` file. That speeds up builds and avoids conflicts between `@types` packages, but a broken declaration in your own `src/globals.d.ts` goes unnoticed until something uses it. Keep hand-written declarations few, or validate them in a separate check without the flag.",
+    "reference": "TSConfig Reference: skipLibCheck"
+  },
+  {
+    "id": "TSM-CFG-035",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "This file is in a project with `\"allowJs\": true, \"checkJs\": true`. Which two statements are true? (Choose two.)\n\n```js\n// math.js\n/** @param {number} a @param {number} b */\nexport function add(a, b) { return a + b; }\nadd(1, \"2\");\n/** @type {string} */\nexport let label = 5;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`add(1, \"2\")` is reported, because the JSDoc `@param` types are enforced",
+        "why": "checkJs treats JSDoc tags as real type annotations."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`let label = 5` is reported, because `@type {string}` declares the variable as a string",
+        "why": "A JSDoc `@type` works like a `: string` annotation."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Nothing is reported, because type errors are never shown for `.js` files",
+        "why": "That is true with `allowJs` alone; `checkJs` turns checking on."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The file must be renamed to `.ts` before JSDoc types are read",
+        "why": "JSDoc types are read in `.js` files; that is the point of checkJs."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`// @ts-ignore` and `// @ts-expect-error` don't work in `.js` files",
+        "why": "Both directives work in checked JavaScript files."
+      }
+    ],
+    "explanation": "`allowJs` lets `.js` files join the program, and `checkJs` type-checks them using inference plus JSDoc (`@param`, `@type`, `@typedef`, `@template`). This is a common first step in migration: you get errors in existing JavaScript before renaming a single file. A `// @ts-check` comment enables checking for one file at a time.",
+    "reference": "TypeScript Handbook: JSDoc Reference"
+  },
+  {
+    "id": "TSM-CFG-036",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "After upgrading to TypeScript 6.0, a Vite app fails on `import \"./styles.css\";` with TS2882: \"Cannot find module or type declarations for side-effect import\". Nothing else changed. What is the best fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Turn off `isolatedModules`, which is what makes side-effect imports type-checked",
+        "why": "isolatedModules is unrelated; the new check comes from another option."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Declare `declare module \"*.css\";` (Vite ships it in `vite/client`)",
+        "why": "`noUncheckedSideEffectImports` is now on by default, and an ambient wildcard module satisfies it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Rewrite it as `import styles from \"./styles.css\"` so that TypeScript can infer its type",
+        "why": "A default import of an undeclared module fails too; the missing declaration is the real problem."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add `\"lib\": [\"dom\", \"css\"]` so that CSS imports are understood natively",
+        "why": "There is no `css` lib; bundler asset types come from ambient module declarations."
+      }
+    ],
+    "explanation": "`import \"./x\"` used to be ignored if it couldn't be resolved, which hid real typos such as `import \"./polyfils\"`. TypeScript 6.0 enables `noUncheckedSideEffectImports` by default, so side-effect imports must resolve to a file or a declaration. Bundlers provide wildcard declarations (`/// <reference types=\"vite/client\" />`). Setting the flag to `false` also works, but it gives up the typo protection.",
+    "reference": "TSConfig Reference: noUncheckedSideEffectImports"
+  },
+  {
+    "id": "TSM-CFG-037",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "In a folder covered by a `tsconfig.json`, a developer runs `npx tsc scripts/seed.ts` to check one file quickly. TypeScript 6.0 prints TS5112 and does nothing. What is going on?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "TS 6 can only compile whole projects, so single files must be added to `include` first",
+        "why": "Single files still work; tsc just needs to know you mean to skip the config."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The file is outside `rootDir`, so tsc refuses to compile it on the command line",
+        "why": "TS5112 is about the presence of a tsconfig, not about rootDir."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Passing files skips the tsconfig, which TS 6 reports; use `--ignoreConfig` or `-p`",
+        "why": "Before 6.0 tsc silently used defaults, so the check often differed from the real build."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`npx` can't find the project's TypeScript, so it falls back to an old global copy",
+        "why": "TS5112 is an error from TypeScript 6 itself, not a resolution problem."
+      }
+    ],
+    "explanation": "Running `tsc file.ts` has always meant: ignore tsconfig.json and use default options. People rarely realised this, so a file would pass on its own and then fail in the real build (or the other way round). TypeScript 6.0 makes the choice explicit: pass `--ignoreConfig` to really use defaults, or run `tsc -p .` / `tsc --noEmit` to use the project settings.",
+    "reference": "TypeScript 6.0 release notes: --ignoreConfig"
+  },
+  {
+    "id": "TSM-CFG-038",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A bundled app uses `\"module\": \"preserve\"`. Which two statements about this file are correct? (Choose two.)\n\n```ts\nimport fs = require(\"fs\");\nimport { join } from \"path\";\nexport const exists = fs.existsSync(join(\"data\", \"a.json\"));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The output keeps `const fs = require(\"fs\")` alongside the ESM `import` and `export` lines",
+        "why": "preserve emits each statement in its own style; nothing is converted."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It is meant for code that a bundler or runtime processes, since they accept mixed import styles",
+        "why": "Bundlers such as esbuild and Bun understand both styles in one file."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "tsc reports an error, because a single file can't mix `require` and `import`",
+        "why": "Under preserve this mix is allowed; it is one reason the mode exists."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "tsc converts both imports to `require`, because one statement is CommonJS",
+        "why": "preserve never converts module syntax in either direction."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "It implies `\"moduleResolution\": \"node10\"`, which matches how bundlers find packages",
+        "why": "preserve implies `bundler` resolution, and node10 is deprecated anyway."
+      }
+    ],
+    "explanation": "`module: \"preserve\"` (TS 5.4+) models tools that take TypeScript output as input. Imports and exports are emitted exactly as written, `import x = require()` becomes `const x = require()`, and module resolution defaults to `bundler`. It is the honest setting when tsc only type-checks and esbuild, Vite or Bun produce the final code.",
+    "reference": "TSConfig Reference: module - preserve"
+  },
+  {
+    "id": "TSM-CFG-039",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "tsc reports TS2610 on `x = 1` (\"x is defined as an accessor in class Base, but is overridden here as an instance property\"). If the code is emitted anyway with `\"target\": \"es2022\"`, what does `new D()` do at runtime?\n\n```ts\nclass Base {\n  get x() { return 0; }\n  set x(v: number) { console.log(\"setter\", v); }\n}\nclass D extends Base { x = 1; }\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It logs `setter 1`, because a field initialiser is compiled to `this.x = 1`",
+        "why": "That is the old behaviour, still used with `useDefineForClassFields: false`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It throws, because a class can't declare a field with the same name as a base accessor",
+        "why": "The JavaScript is legal. TypeScript reports it because the result is surprising."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "An own property `x` shadows the accessor, so the setter never runs",
+        "why": "From ES2022, fields use define semantics (`Object.defineProperty`), not assignment."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It calls the getter, sees `0`, and keeps the inherited accessor unchanged",
+        "why": "Field initialisation never reads the old value; it simply defines a new property."
+      }
+    ],
+    "explanation": "Standard class fields are defined with [[Define]] semantics, like `Object.defineProperty`, so a field shadows any accessor of the same name on the prototype. `useDefineForClassFields` defaults to true for `target` ES2022 and later, and the output keeps native fields. With the flag false, tsc emits `this.x = 1` in the constructor, which calls the setter instead. That is why changing `target` can change runtime behaviour, and why TypeScript reports this pattern.",
+    "reference": "TSConfig Reference: useDefineForClassFields"
+  },
+  {
+    "id": "TSM-CFG-040",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "`app` references `core` (composite). Both are built once with `tsc -b app`. A developer then changes `core/c.ts` from `export const c: number = 1` to `export const c: string = \"s\"`, while `app/a.ts` has `export const a: number = c;`. What do the next commands report?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`tsc -p app` passes, using `core`'s stale `.d.ts`; `tsc -b app` rebuilds `core` and reports the error",
+        "why": "Without build mode, references are read from previously emitted declarations."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Both report the error, because `tsc -p app` also recompiles referenced projects",
+        "why": "Only build mode rebuilds referenced projects; `-p` uses their existing output."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Both pass, because the tsbuildinfo files say both projects are up to date",
+        "why": "`tsc -b` compares source hashes, so it notices the change in `core`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`tsc -p app` fails with TS6305 every time, because it can't read referenced projects",
+        "why": "TS6305 appears only when `core` has never been built; here its `.d.ts` exists."
+      }
+    ],
+    "explanation": "With project references, `tsc -p app` checks `app` against whatever `core/*.d.ts` files exist. If they have never been built, tsc reports TS6305 (\"Output file ... has not been built from source\"). If they are stale, it quietly checks against old types. `tsc -b` (or an editor that understands references) builds upstream projects first, so the stale-type bug only shows up in build mode.",
+    "reference": "TypeScript Handbook: Project References - tsc -b"
+  },
+  {
+    "id": "TSM-CFG-041",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A library turns on `\"isolatedDeclarations\": true` (with `declaration`) so that `.d.ts` files can be generated per file. Which export is reported?\n\n```ts\nfunction load() { return { id: 1, tags: [\"a\"] }; }\nexport function count() { return 1; }        // 1\nexport const config = load();                // 2\nexport const retries = 3;                    // 3\nexport const modes = [\"a\", \"b\"] as const;    // 4\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Line 1, because every exported function needs an explicit return type annotation",
+        "why": "A function that returns only a literal is simple enough to infer from its syntax."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Line 4, because `as const` arrays need a separate `readonly` annotation",
+        "why": "Const assertions on literals can be described without type checking, so they are fine."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Line 3, because exported constants must be annotated, even with literal values",
+        "why": "A literal initialiser is inferred syntactically; that is allowed."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Line 2 (TS9010), because its type depends on what another function returns",
+        "why": "Generating its declaration would require type-checking `load()`, which the option forbids."
+      }
+    ],
+    "explanation": "`isolatedDeclarations` (TS 5.5+) requires that every exported declaration's type can be written out from that file's syntax alone. Then tools such as oxc or swc can emit `.d.ts` files in parallel, without the type checker. Literals, `as const` literals and functions that return literals pass. Values computed from calls need annotations: write `export const config: Config = load();`. A plain mutable `[\"a\", \"b\"]` export would be flagged too (TS9017).",
+    "reference": "TSConfig Reference: isolatedDeclarations"
+  },
+  {
+    "id": "TSM-CFG-042",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "Why must projects compiled by esbuild, swc or Babel (not tsc) turn on `isolatedModules` or `verbatimModuleSyntax`? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "They transpile each file alone, so they can't tell whether an imported name is a type to drop",
+        "why": "Without type information, `export { T }` might be a value or a type."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "They can't inline a `const enum` value that is declared in another file",
+        "why": "Inlining needs the enum's definition, which only a whole-program compiler has."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "They can't parse generics or type annotations unless the flag is on",
+        "why": "They parse all TypeScript syntax fine; the problem is emit decisions that need types."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The flags make them run a full type-check before emitting",
+        "why": "These tools never type-check; you still run `tsc --noEmit` for that."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The flags turn on tree shaking, which these tools need to remove unused types",
+        "why": "Removing types is plain erasure; it has nothing to do with tree shaking."
+      }
+    ],
+    "explanation": "The flags don't change how those tools behave. They make tsc report code that a single-file transpiler would get wrong: re-exported types without `type`, ambient const enums, and, under verbatimModuleSyntax, any import whose kind is ambiguous. The usual setup is a fast transpiler for emit plus `tsc --noEmit` in CI for checking.",
+    "reference": "esbuild docs: TypeScript caveats"
+  },
+  {
+    "id": "TSM-CFG-043",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Under default TypeScript 6 settings, which function produces an error, and why?\n\n```ts\nfunction a(x: number): number { if (x > 0) return 1; }\nfunction b(x: number) { if (x > 0) return 1; }\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both, because `strict` includes `noImplicitReturns`",
+        "why": "`noImplicitReturns` is a separate opt-in flag and is not part of `strict`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Only `a` (TS2366), because its declared `number` return type excludes the implicit `undefined`",
+        "why": "`b` infers `1 | undefined`; flagging it needs `noImplicitReturns` (TS7030)."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Only `b`, because an unannotated function must return on every path",
+        "why": "Without `noImplicitReturns`, an inferred return type simply includes `undefined`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Neither, because falling off the end of a function is valid JavaScript",
+        "why": "It is valid JavaScript, but `a` promises a `number` that it doesn't always return."
+      }
+    ],
+    "explanation": "Two different mechanisms are at work. An explicit return type that doesn't include `undefined` must be honoured on every path: TS2366, \"Function lacks ending return statement\". An unannotated function is inferred as `1 | undefined`, which is legal unless you enable `noImplicitReturns`, which reports \"Not all code paths return a value\" (TS7030) whatever the return type.",
+    "reference": "TSConfig Reference: noImplicitReturns"
+  },
+  {
+    "id": "TSM-CFG-044",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A monorepo type-check takes 3 minutes. `tsc --extendedDiagnostics` shows \"Check time: 160s\" with modest file counts. What is the most effective next step?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Turn on `skipLibCheck` and expect the 160 seconds of check time to drop to near zero",
+        "why": "skipLibCheck only skips `.d.ts` files; check time dominated by your own code stays."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Raise `target` to `esnext`, since downlevel emit is what makes checking slow",
+        "why": "Emit time is reported separately; `target` doesn't affect check time."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Split all the code into a single huge file so tsc resolves fewer imports",
+        "why": "Resolution is cheap here, and a giant file makes incremental work and editor latency worse."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Use `--generateTrace` to find hot types, then annotate or simplify them",
+        "why": "Traces show which files and types dominate checking; explicit annotations stop costly re-inference."
+      }
+    ],
+    "explanation": "`--extendedDiagnostics` splits time into parse, bind, check and emit. When check time dominates, the culprit is usually a few expensive types: deep conditional or recursive types, huge unions, or inference across large object literals. `--generateTrace out/` produces a trace that `@typescript/analyze-trace` or Chrome's performance panel can open. Project references and `incremental` then help avoid redoing that work.",
+    "reference": "TypeScript Wiki: Performance"
+  },
+  {
+    "id": "TSM-CFG-045",
+    "domain": 4,
+    "skill": "compiler-config",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A team sets `\"strict\": true, \"exactOptionalPropertyTypes\": true`. Which line is an error?\n\n```ts\ntype User = { id: number; nickname?: string };\nfunction update(u: User, patch: Partial<User>): User {\n  return { ...u, ...patch };\n}\nconst p: Partial<User> = { id: undefined };\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The return statement, because spreading a `Partial` can drop the required `id`",
+        "why": "Spreading `patch` after `u` keeps `u`'s `id`, and the result is accepted as `User`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The `update` signature, because `Partial<User>` can't be used as a parameter type",
+        "why": "Partial types are ordinary object types and work fine as parameters."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`const p`: under this flag, `Partial`'s `?` rules out an explicit `undefined`",
+        "why": "`id?: number` now means the key may be absent, not that it may hold `undefined`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "None, because `exactOptionalPropertyTypes` only applies to properties written with `?`",
+        "why": "`Partial<T>` produces `?` modifiers, so it is affected exactly like hand-written ones."
+      }
+    ],
+    "explanation": "Mapped types such as `Partial` add the `?` modifier, so they inherit the stricter meaning: `{ id: undefined }` is rejected with TS2375. This catches a real bug. In `{ ...u, ...patch }`, a patch holding `id: undefined` would overwrite the user's id with `undefined` at runtime, even though a plain `Partial` would allow it. To support \"clear this field\", model it explicitly, for example `nickname?: string | undefined` or `null`.",
+    "reference": "TSConfig Reference: exactOptionalPropertyTypes"
+  }
+]
