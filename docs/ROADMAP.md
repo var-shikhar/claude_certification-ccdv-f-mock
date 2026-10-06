@@ -15,8 +15,8 @@ built one subject at a time, in this order:
 |---|---|---|---|
 | 1 | System Design | `system-design` | Done (6 Oct 2026): 450 items, 45 per skill, 4 levels, 6 case studies |
 | 2 | JavaScript | `javascript` (the 20-item `js-essentials` quiz stays as a taster) | Done (6 Oct 2026): 450 items, 45 per skill, 4 levels |
-| 3 | TypeScript | `typescript` | Planned |
-| 4 | React | `react` | Planned |
+| 3 | TypeScript | `typescript` | Done (6 Oct 2026): 450 items, 45 per skill, checked with tsc 6.0.3 |
+| 4 | React | `react` | Done (6 Oct 2026): 450 items, 60% Advanced or Expert, checked by running React 19.3 |
 | 5 | Node.js | `nodejs` | Planned |
 | 6 | Python | `python` | Planned |
 | 7 | Next.js | `nextjs` | Planned |
