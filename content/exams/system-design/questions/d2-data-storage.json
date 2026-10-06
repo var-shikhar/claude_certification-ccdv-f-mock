@@ -1,0 +1,751 @@
+[
+  {
+    "id": "SD-DAT-001",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A `users` table has a composite B-tree index on `(last_name, first_name)`. Which query can use the index to find matching rows directly, without scanning the whole index or table?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`WHERE last_name = 'Rao'`",
+        "why": "The index is sorted by last_name first, so equality on the leading column is a direct range lookup."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`WHERE first_name = 'Asha'`",
+        "why": "first_name is only sorted within each last_name group, so matching rows are scattered across the whole index."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`WHERE first_name LIKE 'As%'`",
+        "why": "A prefix match still needs the leading column fixed first; on its own it skips past last_name and can't seek."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`WHERE lower(last_name) = 'rao'`",
+        "why": "Wrapping the column in a function hides it from a plain index; you would need an expression index on lower(last_name)."
+      }
+    ],
+    "explanation": "A composite index works like a phone book sorted by surname, then first name. You can seek on any leftmost prefix of its columns (last_name, or last_name plus first_name), but not on a later column alone. This is the leftmost-prefix rule.",
+    "reference": "PostgreSQL docs: Multicolumn Indexes"
+  },
+  {
+    "id": "SD-DAT-002",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Adding another secondary index to a table makes matching reads faster and has no meaningful cost for inserts and updates.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Every index is a separate structure that must be updated on each write that touches its columns."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: each index adds write work, storage and cache pressure, so indexes are a read-versus-write trade-off."
+      }
+    ],
+    "explanation": "An insert into a table with five indexes performs six writes: the row plus one entry per index. Indexes also use disk and memory and can push hot data out of cache. Add indexes for the queries you actually run, and drop unused ones.",
+    "reference": "DDIA, Chapter 3"
+  },
+  {
+    "id": "SD-DAT-003",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A telemetry service ingests 200,000 small writes per second and serves occasional point lookups. The team is choosing between a B-tree storage engine and an LSM-tree engine (such as RocksDB or Cassandra). Which statement describes the trade-off correctly?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "B-trees suit this better: they append writes sequentially, while LSM-trees rewrite pages in place and need random I/O",
+        "why": "This reverses the two designs. B-trees update pages in place; LSM-trees buffer in memory and flush sorted files sequentially."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "LSM-trees make writes sequential and fast, but a read may check several files and compaction costs background I/O",
+        "why": "This is the core LSM trade-off: cheap writes, more read work (eased by Bloom filters) and compaction overhead."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Both engines have identical write cost, so the choice only depends on how fast range scans need to be",
+        "why": "Write amplification and I/O patterns differ a lot between them; that difference is the main reason LSM engines exist."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An LSM-tree avoids write amplification entirely because data is written exactly once and never rewritten afterwards",
+        "why": "Compaction rewrites data repeatedly as it merges levels, so LSM engines still have write amplification."
+      }
+    ],
+    "explanation": "LSM-trees absorb writes in a memtable and flush them as immutable sorted files, which makes ingestion fast. A read may consult the memtable and several files (Bloom filters skip most of them), and compaction keeps merging files in the background. B-trees give more predictable reads but update pages in place, which costs random I/O per write.",
+    "reference": "DDIA, Chapter 3"
+  },
+  {
+    "id": "SD-DAT-004",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "An `events` table is sharded across 16 nodes. The team switches the shard key from range partitioning on `created_at` to hash partitioning on `user_id`. Which two consequences follow? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "New writes spread across all shards instead of piling onto the shard that owns the newest time range",
+        "why": "With time ranges, every insert hits the latest range; hashing user_id spreads writes evenly."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A query for all events in the last hour must now ask every shard and merge the results",
+        "why": "Hashing destroys time locality, so time-range queries become scatter-gather across all 16 shards."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Fetching one user's events now has to query every shard",
+        "why": "The opposite: all of a user's events hash to the same shard, so this query becomes single-shard."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Data never needs to be rebalanced again, even when shards are added",
+        "why": "Adding shards still moves data; how much depends on the scheme (mod-N moves most keys, consistent hashing about 1/N)."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "A unique index on `email` can now be enforced locally by each shard",
+        "why": "Local indexes only see one shard's rows, so cross-shard uniqueness still needs a global index or a separate lookup table."
+      }
+    ],
+    "explanation": "The shard key decides which queries are cheap. Range on time keeps time scans local but creates a write hotspot on the newest range. Hash on user_id balances writes and makes per-user reads single-shard, at the cost of scatter-gather for time-range queries.",
+    "reference": "DDIA, Chapter 6"
+  },
+  {
+    "id": "SD-DAT-005",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 2,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each partitioning technique with the problem it solves.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Adding or removing a node moves only about 1/N of the keys"
+      },
+      {
+        "id": "B",
+        "text": "Evens out load across nodes and lets bigger machines take a larger share"
+      },
+      {
+        "id": "C",
+        "text": "Spreads the writes for one extremely hot key over several partitions"
+      },
+      {
+        "id": "D",
+        "text": "Answers a query on a non-key attribute without asking every partition"
+      },
+      {
+        "id": "E",
+        "text": "Makes multi-partition transactions atomic without any coordination"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Consistent hashing",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Virtual nodes (many tokens per server)",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Appending a random suffix to the key (write sharding)",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "A global secondary index partitioned by the indexed term",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Consistent hashing limits data movement on membership change; virtual nodes smooth the uneven ranges a few random tokens would give. Key suffixes split a hot key's writes (reads then gather all suffixes). A term-partitioned global index turns a lookup by another attribute into a single-partition read, at the cost of slower, often asynchronous index writes. No partitioning trick makes cross-partition transactions free.",
+    "reference": "DDIA, Chapter 6; Dynamo paper"
+  },
+  {
+    "id": "SD-DAT-006",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A DynamoDB `orders` table has partition key `order_id` and a global secondary index (GSI) on `customer_id`. Right after a successful `PutItem` for a new order, the app queries the GSI to show \"Your orders\", and the new order is sometimes missing for a moment. What explains this, and what is the right fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The GSI is updated asynchronously and lags the table; read the new order from the base table by `order_id`, or merge it into the response",
+        "why": "GSI propagation is eventually consistent by design, so read-your-writes has to come from the base table or from the app itself."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Set `ConsistentRead: true` on the GSI query so that DynamoDB waits for the index to catch up with the base table first",
+        "why": "GSIs support only eventually consistent reads. DynamoDB rejects a strongly consistent query on a GSI with a validation error."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Replace the GSI with a local secondary index on `customer_id`, which DynamoDB keeps synchronously in step with the table",
+        "why": "An LSI must share the table's partition key (`order_id`), so it cannot be keyed by customer, and it can only be created with the table."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Write the order with `TransactWriteItems`, which commits the base item and all of its GSI entries as one atomic unit",
+        "why": "Transactions are atomic across base-table items only. GSI entries are still propagated asynchronously afterwards."
+      }
+    ],
+    "explanation": "A global secondary index is a separately partitioned copy of the data that DynamoDB maintains asynchronously, usually within a fraction of a second, and it offers only eventually consistent reads. Read-your-writes therefore needs a strongly consistent read on the base table by its key, or the client or server folding the just-written item into the list it shows. The general lesson applies to any sharded store: a global secondary index on a different key is either asynchronous or needs a distributed transaction on every write.",
+    "reference": "AWS docs: Using Global Secondary Indexes in DynamoDB"
+  },
+  {
+    "id": "SD-DAT-007",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A DynamoDB table stores like counts with partition key `post_id`. A viral post receives 50,000 like-increments per second. A single partition supports at most 1,000 write units per second, and each increment uses 1 unit. The table already has plenty of total provisioned capacity. What fixes the throttling?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Raise the table's provisioned write capacity to 100,000 units so the post has headroom",
+        "why": "Table capacity is spread over partitions; one partition key value still can't exceed its per-partition limit."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Put a read-through cache in front of the table so the database sees far fewer requests",
+        "why": "A read-through cache absorbs reads. These are writes, and every increment still reaches the same partition."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add a global secondary index on `post_id` so writes are shared between the table and the index",
+        "why": "Index updates are extra writes keyed on the same hot value, so this adds load rather than splitting it."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Write to `post_id#k` with random k from 0 to 63, and sum the 64 items when reading the count",
+        "why": "Each suffix is a different partition key, so about 50,000 / 64 ≈ 780 writes per second land on each, under the limit."
+      }
+    ],
+    "explanation": "The limit is per partition key, so the fix is to split the hot key. You need at least 50,000 / 1,000 = 50 suffixes; 64 leaves headroom (about 781 writes per second each). Reads now fetch 64 items and add them up, which suits a counter that is read far less often than it is written. Batching increments in memory and flushing periodically is a complementary option.",
+    "reference": "AWS DynamoDB docs: Using write sharding"
+  },
+  {
+    "id": "SD-DAT-008",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "This query runs thousands of times per second on a large `tickets` table:\n\n```sql\nSELECT * FROM tickets\nWHERE tenant_id = $1 AND status = 'open'\nORDER BY created_at DESC\nLIMIT 20;\n```\n\nWhich B-tree index lets the database read exactly the 20 rows it returns, with no sort step and no filtering of extra rows?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`(created_at, tenant_id, status)`, so rows come out already in time order",
+        "why": "The scan follows time across all tenants and must filter out every row of other tenants and statuses."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`(tenant_id, created_at, status)`, which keeps the tenant's rows together in time order",
+        "why": "Rows arrive in order, but closed tickets are interleaved and must be read and discarded until 20 open ones are found."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`(tenant_id, status, created_at)`",
+        "why": "Both equality columns come first, so the matching rows form one contiguous range already sorted by created_at."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`(status, tenant_id)`, since status has the fewest distinct values and is the most selective",
+        "why": "Few distinct values means low selectivity, and without created_at in the index the database must sort the matches."
+      }
+    ],
+    "explanation": "Put equality-filtered columns first and the sort or range column last. With `(tenant_id, status, created_at)`, the database seeks to (tenant, 'open'), walks the range backwards and stops after 20 rows. Any other order either sorts or reads rows it then throws away.",
+    "reference": "Use The Index, Luke: Indexing ORDER BY"
+  },
+  {
+    "id": "SD-DAT-009",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "User accounts are sharded by `user_id` across 64 shards. Login looks users up by `email`, and emails must be unique. Each shard answers an indexed lookup with a p99 of 10 ms. An engineer proposes a local index on `email` in every shard, with login querying all 64 shards in parallel. What is the best response?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Accept it: parallel queries finish in about 10 ms at p99, and a unique local index on each shard guarantees unique emails",
+        "why": "A local unique index only sees its own shard, and fan-out latency is set by the slowest of 64 responses, not a typical one."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Reject it: almost half of logins would wait on at least one slow shard, and local indexes can't stop duplicates across shards",
+        "why": "1 − 0.99^64 ≈ 47% of fan-outs hit a p99-or-worse shard, and uniqueness needs one place that sees all emails."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Reject it, and choose the user's shard by hashing `email` instead of `user_id`",
+        "why": "That fixes login but breaks every lookup by user_id, which the rest of the system routes on."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Accept it, but retry any shard that takes longer than 10 ms so the tail latency disappears",
+        "why": "Hedging trims the tail but doesn't fix it, and it does nothing for cross-shard uniqueness."
+      }
+    ],
+    "explanation": "If each shard exceeds its p99 1% of the time, a 64-way fan-out sees at least one slow reply with probability 1 − 0.99^64 ≈ 0.47. Local indexes also can't enforce global uniqueness. The usual design is a separate `email → user_id` table partitioned by email (a global index): a conditional insert on the email claims it, then the user row is created, with cleanup for claims that never complete. Login becomes two single-shard reads.",
+    "reference": "Dean & Barroso, The Tail at Scale; DDIA, Chapter 6"
+  },
+  {
+    "id": "SD-DAT-010",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A Cassandra table stores sensor readings with `PRIMARY KEY ((sensor_id), ts)` and a 90-day TTL. After a year, partitions for busy sensors are several gigabytes, reads of recent data are slow, and compaction keeps churning through tombstones from expired rows. Which two changes address the root causes? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Add a time bucket to the partition key, such as `PRIMARY KEY ((sensor_id, day), ts)`, so each partition stays bounded",
+        "why": "Bucketing caps partition size; queries for a range then read a known, small set of day partitions."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Use TimeWindowCompactionStrategy so data expiring together sits in the same SSTables, which are dropped whole once fully expired",
+        "why": "TWCS groups data by write time, so expired windows are deleted as files instead of being compacted tombstone by tombstone."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Create a secondary index on `ts` so recent readings can be found without scanning the large partitions",
+        "why": "Cassandra secondary indexes are local to each node and don't shrink partitions; they often make reads slower."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Raise the replication factor from 3 to 5 so reads are spread over more replicas",
+        "why": "Every replica still holds the same oversized partition, and writes and repair now cost more."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Add `ALLOW FILTERING` to the recent-data queries so Cassandra stops rejecting them",
+        "why": "That permits a scan rather than avoiding one. It hides the data model problem instead of fixing it."
+      }
+    ],
+    "explanation": "Unbounded partitions come from a partition key that never rolls over, so add a time bucket chosen to keep partitions in the tens of megabytes. TTL data under size-tiered compaction leaves tombstones mixed with live data. TWCS lets whole expired windows be dropped, avoiding the tombstone churn.",
+    "reference": "Apache Cassandra docs: Data modeling; Time Window Compaction"
+  },
+  {
+    "id": "SD-REP-001",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A web app writes to a database leader and serves reads from asynchronous followers. A user edits their display name, the page reloads, and the old name is shown. A second reload shows the new name. Which guarantee was violated?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Lost update: another transaction overwrote the user's change",
+        "why": "The new name appears on the next reload, so nothing was overwritten; the read was just stale."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Read-your-writes consistency",
+        "why": "The user's own write wasn't yet visible to their next read, which hit a lagging follower."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Write skew: two transactions read the same data and made conflicting updates",
+        "why": "Write skew needs two concurrent writers acting on a shared premise; here there is only one writer."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Durability: the database forgot a committed write after acknowledging it",
+        "why": "The write wasn't lost, since it shows up on the following reload."
+      }
+    ],
+    "explanation": "Asynchronous followers lag behind the leader. Common fixes are to read a user's own recently changed data from the leader for a short window, or to track the write's log position and only read from followers that have caught up to it.",
+    "reference": "DDIA, Chapter 5"
+  },
+  {
+    "id": "SD-REP-002",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "A leaderless store keeps N = 3 replicas of each key and acknowledges a write once W = 2 replicas have it. What is the smallest read quorum R for which every read set must overlap every write set? Type a number.",
+    "options": [],
+    "accepted": [
+      "2",
+      "two",
+      "R=2",
+      "R = 2"
+    ],
+    "explanation": "Overlap is guaranteed when R + W > N. With N = 3 and W = 2, R = 2 gives 4 > 3, while R = 1 gives 3, which is not greater than 3. The overlap means at least one replica in every read has seen the latest acknowledged write (with caveats such as sloppy quorums).",
+    "reference": "DDIA, Chapter 5; Dynamo paper"
+  },
+  {
+    "id": "SD-REP-003",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Reads are load-balanced randomly across three asynchronous followers. A user sees a new comment from a colleague, refreshes, and the comment is gone; a later refresh shows it again. Which guarantee is broken, and what is the standard targeted fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Read-your-writes; send every read that follows a write to the leader",
+        "why": "The user didn't write the comment, so read-your-writes isn't the issue and this rule wouldn't fire."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Linearizability; replace the asynchronous followers with a consensus protocol such as Raft or Paxos",
+        "why": "That would work, but it is a heavy fix for a session-level anomaly with a much cheaper remedy."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Monotonic reads; pin each user's reads to one follower, such as by hashing the user ID",
+        "why": "The second read hit a follower further behind than the first; one replica per user can't go backwards in time."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Consistent prefix reads; write related records to the same partition",
+        "why": "Consistent prefix concerns seeing causally related writes out of order, not data disappearing between reads."
+      }
+    ],
+    "explanation": "Monotonic reads promise that once you've seen data, a later read won't show an older state. Pinning a user's reads to one replica (with failover to another if it dies) is enough. Tracking the highest log position the user has seen and requiring replicas to be at least that current also works.",
+    "reference": "DDIA, Chapter 5"
+  },
+  {
+    "id": "SD-REP-004",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 3,
+    "stem": "A database runs transactions under snapshot isolation with first-committer-wins conflict detection (as in PostgreSQL REPEATABLE READ). Which three anomalies does it prevent? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Dirty reads: seeing another transaction's uncommitted changes",
+        "why": "Each transaction reads a snapshot of committed data only."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Non-repeatable reads: the same row returning different values within one transaction",
+        "why": "The snapshot is fixed for the whole transaction, so repeated reads agree."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Lost updates: two read-modify-write cycles on the same row where one silently overwrites the other",
+        "why": "The second transaction to update the same row is aborted with a serialization error."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Write skew: two transactions read overlapping data, then update different rows based on what they read",
+        "why": "They write different rows, so no write-write conflict is detected and both commit."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Two bookings for the same room and time, each inserted after checking that no overlapping booking exists",
+        "why": "This is write skew through a phantom: each inserts a new row the other's snapshot couldn't see."
+      }
+    ],
+    "explanation": "Snapshot isolation stops dirty and non-repeatable reads with snapshots and stops lost updates with write-write conflict checks. It allows write skew, including the phantom variant where the conflicting rows don't exist yet. Use SERIALIZABLE (SSI in PostgreSQL), explicit locks or a constraint for those cases.",
+    "reference": "Berenson et al., A Critique of ANSI SQL Isolation Levels"
+  },
+  {
+    "id": "SD-REP-005",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "Order these consistency models from strongest to weakest guarantee.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Linearizability"
+      },
+      {
+        "id": "B",
+        "text": "Sequential consistency"
+      },
+      {
+        "id": "C",
+        "text": "Causal consistency"
+      },
+      {
+        "id": "D",
+        "text": "Eventual consistency"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "explanation": "Linearizability gives one total order that respects real time. Sequential consistency keeps a single total order consistent with each process's program order, but without the real-time constraint. Causal consistency only orders operations that are causally related; concurrent ones may be seen in different orders. Eventual consistency only promises replicas converge once writes stop.",
+    "reference": "Jepsen: Consistency Models"
+  },
+  {
+    "id": "SD-REP-006",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A Dynamo-style store uses N = 3, W = 2, R = 2 with sloppy quorums and hinted handoff. During a network partition, a write to key K is accepted by two nodes outside K's three home replicas, which hold it as hints. A client on the other side of the partition then reads K from two of its home replicas and gets the old value. Why didn't R + W > N prevent this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The rule really needs R + W > 2N during a partition, and 4 is not greater than 6",
+        "why": "No such rule exists; the overlap argument works with R + W > N as long as both quorums use the same N nodes."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The write quorum was formed on stand-in nodes, so the read quorum and write quorum shared no replica",
+        "why": "Overlap is only guaranteed between subsets of the same N home replicas; hinted writes live elsewhere until handoff."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Read repair was switched off, and read repair is what guarantees the overlap",
+        "why": "Read repair fixes stale replicas after a read; it isn't what makes quorums overlap."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The replicas' clocks were skewed, so last-write-wins picked the older value",
+        "why": "Neither home replica had the new value at all, so there was nothing for conflict resolution to choose."
+      }
+    ],
+    "explanation": "A sloppy quorum trades consistency for write availability: when home replicas are unreachable, any W reachable nodes accept the write and hand it off later. Until the handoff, R + W > N is only a durability promise, not a guarantee that reads see the write. Cassandra and Riak expose this choice as a configuration option.",
+    "reference": "Dynamo paper (2007); DDIA, Chapter 5"
+  },
+  {
+    "id": "SD-REP-007",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A hospital rule says at least one doctor must stay on call per shift. Two on-call doctors press \"Go off call\" at the same moment. Each request runs in PostgreSQL at REPEATABLE READ:\n\n```sql\nBEGIN;\nSELECT count(*) FROM doctors WHERE shift_id = 7 AND on_call;  -- returns 2\nUPDATE doctors SET on_call = false WHERE id = $me AND shift_id = 7;\nCOMMIT;\n```\n\nBoth commit and nobody is on call. Which two changes prevent this? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Run the transaction at SERIALIZABLE and retry it when it fails with a serialization error",
+        "why": "PostgreSQL's SSI detects the read-write dependency cycle and aborts one transaction."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Replace the count with `SELECT id FROM doctors WHERE shift_id = 7 AND on_call FOR UPDATE` before deciding",
+        "why": "Both transactions must lock the same on-call rows, so the second waits for the first and then fails on the row it changed."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Lower the isolation level to READ COMMITTED so each statement sees the latest committed data",
+        "why": "Both counts still run before either update commits, so both still see 2."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add a unique index on `(shift_id, on_call)`",
+        "why": "That would forbid two doctors from both being on call, which breaks the normal state rather than the anomaly."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Wrap the SELECT and the UPDATE in a single transaction",
+        "why": "They already are. Snapshot isolation allows this anomaly inside one transaction."
+      }
+    ],
+    "explanation": "This is the classic write skew: each transaction reads the same premise and then updates a different row, so there's no write-write conflict to detect. Either make the conflict explicit with locks on the rows the decision depends on, or use true serializability (SSI) and retry aborted transactions.",
+    "reference": "DDIA, Chapter 7; PostgreSQL docs: Transaction Isolation"
+  },
+  {
+    "id": "SD-REP-008",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A database executes all transactions with serializable isolation on its leader and replicates asynchronously. A client commits a transfer on the leader, then immediately reads its balance from a follower and sees the pre-transfer value. Which statement is accurate?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Serializability was violated, because a serializable system must always return the most recently committed value",
+        "why": "Serializability promises equivalence to some serial order. It says nothing about real-time recency."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "No guarantee was violated, because no consistency model rules out reading a value that a completed write replaced",
+        "why": "Linearizability exists precisely to rule this out: after a write completes, reads must reflect it."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "It can still be serializable; it isn't linearizable, so it lacks strict serializability",
+        "why": "Ordering the follower's read before the transfer gives a valid serial order, but it contradicts real time."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "This is a dirty read, because the follower exposed data that had not yet been committed",
+        "why": "The follower returned older committed data, not uncommitted data."
+      }
+    ],
+    "explanation": "Serializability is about transactions: the result equals some serial execution, possibly not the real-time one. Linearizability is about single objects and recency: once a write completes, every later read sees it. Systems such as Spanner provide both, which is called strict serializability.",
+    "reference": "Bailis: Linearizability versus Serializability; DDIA, Chapter 9"
+  },
+  {
+    "id": "SD-REP-009",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "In two-phase commit, a participant has voted YES and is holding row locks. The coordinator then crashes before sending its decision, and the participant can't reach it. What can the participant safely do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Commit, because it voted YES and a YES vote means the transaction will commit",
+        "why": "It knows only its own vote. Another participant may have voted NO, making the coordinator decide abort."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Abort after a timeout to release its locks, since a recovering coordinator always aborts transactions it did not finish",
+        "why": "The coordinator may already have decided commit and told other participants, so aborting here breaks atomicity."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Ask the other participants, which always tells it whether to commit or abort",
+        "why": "If every reachable participant is also in doubt, none of them knows the decision, and they all stay blocked."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Keep its locks and wait until the coordinator recovers, or until it reaches a peer that has learned the decision",
+        "why": "After voting YES it is in doubt: neither outcome is safe until it learns the decision."
+      }
+    ],
+    "explanation": "This is why 2PC is called a blocking protocol. A YES vote gives up the right to abort alone, and in-doubt transactions hold locks until the coordinator's log is recovered. Production systems reduce the risk by making the coordinator itself highly available, for example by replicating its decision log with Paxos or Raft, as Spanner does.",
+    "reference": "DDIA, Chapter 9; Gray & Lamport, Consensus on Transaction Commit"
+  },
+  {
+    "id": "SD-REP-010",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Raft group has one replica in each of three regions. Round-trip times are: us-east to us-west 70 ms, us-east to eu-west 80 ms, us-west to eu-west 140 ms. The leader is in us-east, and a write commits once a majority has it. Ignoring local disk time, what is the minimum write commit latency seen at the leader normally, and after the us-west region goes down?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "140 ms normally, because the slowest link in the group bounds every commit; writes stop after us-west fails",
+        "why": "The leader never waits on the us-west to eu-west link, and two of three replicas are still a majority."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "70 ms normally, then 80 ms after us-west fails",
+        "why": "A majority is the leader plus its nearest follower; when us-west is gone, eu-west becomes that follower."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "80 ms normally, because the leader must wait for all followers; writes stop after us-west fails",
+        "why": "Raft commits on a majority, not all replicas, and 2 of 3 is still a majority after one region fails."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "150 ms in both cases, because the leader replicates to each follower one after another",
+        "why": "The leader replicates to followers in parallel, so latencies don't add up."
+      }
+    ],
+    "explanation": "The leader plus one follower is 2 of 3, so commit latency is one round trip to the nearest follower: 70 ms to us-west. If us-west fails, the remaining two still form a majority, so writes continue at the 80 ms round trip to eu-west. This is the 'else' half of PACELC: even with no partition, strong consistency across regions costs at least one wide-area round trip per write.",
+    "reference": "Raft paper (Ongaro & Ousterhout); Abadi, PACELC"
+  }
+]

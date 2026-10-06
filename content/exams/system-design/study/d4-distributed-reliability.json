@@ -1,0 +1,43 @@
+{
+  "coordination": {
+    "summary": "Know how nodes agree despite crashes, partitions and unreliable clocks: majority quorums, leader terms, leases with fencing, logical clocks and when a distributed transaction blocks.",
+    "points": [
+      "Consensus (Raft, Paxos) needs a majority of floor(N/2) + 1. A cluster of 2f + 1 members tolerates f failures, so an even member count adds cost without adding tolerance.",
+      "Leaders are identified by a term or epoch. A deposed leader can still be alive, so linearizable reads must confirm leadership with a quorum (ReadIndex) or a time-bounded lease.",
+      "Never trust a lock alone for correctness. Pair it with a monotonically increasing fencing token that the protected resource checks and enforces.",
+      "Measure durations with a monotonic clock. Order events across machines with Lamport or vector clocks, or with bounded-uncertainty time such as TrueTime (commit wait ≈ 2ε).",
+      "2PC is atomic but blocks if the coordinator fails after participants vote yes. Sagas avoid distributed locks but give up isolation and need idempotent, compensating steps."
+    ],
+    "traps": [
+      "A lower Lamport timestamp does not prove one event caused the other; only vector clocks can detect concurrency.",
+      "Checking that you still hold a lock right before writing does not help: a pause can happen between the check and the write.",
+      "Spreading 5 nodes as 2 / 2 / 1 over three zones survives a zone loss, but not a zone loss plus one more failure."
+    ],
+    "docs": [
+      { "title": "In Search of an Understandable Consensus Algorithm (Raft)", "url": "https://raft.github.io/raft.pdf" },
+      { "title": "How to do distributed locking (Martin Kleppmann)", "url": "https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html" },
+      { "title": "Spanner: Google's Globally-Distributed Database", "url": "https://research.google/pubs/spanner-googles-globally-distributed-database-2/" }
+    ]
+  },
+  "reliability": {
+    "summary": "Design so partial failures stay partial: bounded retries, shrinking timeouts, isolation between dependencies, overload protection and SLOs that tell you when to act.",
+    "points": [
+      "Retry with capped exponential backoff and jitter, at one layer only, inside a retry budget. Retries at every layer multiply (3 attempts at 3 layers = 27×).",
+      "Timeouts should shrink as calls go deeper and a layer's whole retry plan must fit in its caller's deadline. Propagate the remaining deadline downstream.",
+      "Hard serial dependencies multiply availability (0.999³ ≈ 99.7%). Fan-out turns rare tail latency into the common case; hedged requests trim it cheaply.",
+      "Circuit breakers fail fast on sick dependencies, bulkheads isolate resource pools, load shedding protects a server past capacity and rate limits enforce per-client fairness.",
+      "An error budget is 1 − SLO over the window (99.9% over 30 days = 43.2 minutes). Alert on burn rate with a long and a short window, for example 14.4× over 1 hour and 5 minutes.",
+      "Metastable failures outlive their trigger because retries and cold caches keep load above capacity. Recovery means cutting offered load, not adding callers."
+    ],
+    "traps": [
+      "A timeout does not mean the request did nothing, so retried operations must be idempotent.",
+      "Adding app servers during an overload often worsens it, because they all hit the same bottleneck.",
+      "A token bucket's capacity caps the burst: a long idle period does not bank unlimited requests."
+    ],
+    "docs": [
+      { "title": "Timeouts, retries and backoff with jitter (AWS Builders' Library)", "url": "https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/" },
+      { "title": "Alerting on SLOs (Google SRE workbook)", "url": "https://sre.google/workbook/alerting-on-slos/" },
+      { "title": "The Tail at Scale (Dean and Barroso)", "url": "https://research.google/pubs/the-tail-at-scale/" }
+    ]
+  }
+}

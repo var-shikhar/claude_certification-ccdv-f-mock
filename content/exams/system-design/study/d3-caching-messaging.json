@@ -1,0 +1,44 @@
+{
+  "caching": {
+    "summary": "Caches trade freshness for speed. Know who fills the cache, how stale data gets in, and what happens when a hot key expires or one key gets more traffic than a shard can serve.",
+    "points": [
+      "Cache-aside: the app reads the cache, loads from the database on a miss and populates the cache; writes update the database and then delete the key. Read-through, write-through and write-back move those steps into the cache layer.",
+      "Invalidation races are real. A reader that loads an old value before a write and sets it after the delete leaves stale data until TTL expiry. Leases or versioned compare-and-set prevent it, and short TTLs bound it.",
+      "Stampede size ≈ request rate × rebuild time. Bound it to one rebuild with request coalescing (a per-key lock or single-flight), stale-while-revalidate, or probabilistic early refresh (XFetch).",
+      "Cache penetration (lookups for keys that don't exist) needs negative caching with a short TTL, a Bloom filter of real keys, and rate limiting.",
+      "A hot key lives on one shard, so adding shards does not help. Use local in-process L1 caches, key replicas with random suffixes, or replica reads.",
+      "For CDNs, the cache key is the URL plus every header named in Vary. Keep Vary minimal and normalise the headers it lists; `private` keeps responses out of shared caches entirely."
+    ],
+    "traps": [
+      "Moving the delete before the database write does not fix the stale-set race; it just moves the window.",
+      "TTL jitter fixes many keys expiring together, not a single hot key expiring.",
+      "Pure LRU is flushed by one large scan; use a frequency-aware policy such as W-TinyLFU or keep batch jobs away from the cache."
+    ],
+    "docs": [
+      { "title": "Scaling Memcache at Facebook (NSDI 2013)", "url": "https://www.usenix.org/conference/nsdi13/technical-sessions/presentation/nishtala" },
+      { "title": "RFC 9111: HTTP Caching", "url": "https://www.rfc-editor.org/rfc/rfc9111" },
+      { "title": "AWS: Caching best practices", "url": "https://aws.amazon.com/caching/best-practices/" }
+    ]
+  },
+  "messaging": {
+    "summary": "Queues and logs decouple producers from consumers, but every guarantee has fine print. Reason about ordering, redelivery and crashes at every step, and assume at-least-once delivery.",
+    "points": [
+      "Kafka orders records only within a partition. Same key → same partition (hash mod partition count), and a partition goes to one consumer per group, so partitions cap a group's parallelism.",
+      "Commit-then-process is at-most-once; process-then-commit is at-least-once. Exactly-once effects come from idempotent processing or committing the result and the offset atomically.",
+      "Kafka exactly-once (idempotent producer + transactions + read_committed) covers read-process-write inside Kafka only. Emails, HTTP calls and external database writes need their own deduplication.",
+      "The dual-write problem (database + broker) is solved by a transactional outbox relayed via CDC or polling, or by making the log the source of truth. Kafka does not support XA, so two-phase commit with it is not an option.",
+      "SQS redelivers a message when its visibility timeout expires before it is deleted. Size the timeout above the worst-case job, or extend it with a heartbeat. maxReceiveCount then sends repeat failures to the dead-letter queue.",
+      "A Kafka consumer is evicted when the time between poll() calls exceeds max.poll.interval.ms. Heartbeats run on a background thread, so a slow batch shows up as rebalances and reprocessing, not session timeouts."
+    ],
+    "traps": [
+      "Adding partitions to a keyed topic remaps keys and breaks per-key ordering for events in flight.",
+      "A dead-letter queue unblocks a partition but breaks per-key ordering; park the whole key when order matters.",
+      "SQS FIFO deduplication only covers duplicate sends within 5 minutes; it does not stop redelivery after a visibility timeout."
+    ],
+    "docs": [
+      { "title": "Apache Kafka documentation", "url": "https://kafka.apache.org/documentation/" },
+      { "title": "Confluent: Exactly-once semantics in Apache Kafka", "url": "https://www.confluent.io/blog/exactly-once-semantics-are-possible-heres-how-apache-kafka-does-it/" },
+      { "title": "Amazon SQS visibility timeout", "url": "https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html" }
+    ]
+  }
+}
