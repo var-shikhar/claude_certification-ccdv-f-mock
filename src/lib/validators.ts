@@ -85,7 +85,8 @@ export const questionDraftSchema = z.object({
 
 export const saveQuestionSchema = z.object({ examId: id, draft: questionDraftSchema, note: z.string().max(500).optional() });
 
-export const bulkStatusSchema = z.object({ ids: z.array(id).min(1).max(500), status: z.enum(['draft', 'review', 'published', 'retired']) });
+// Matches MAX_BULK in server/admin/questions.ts: "select all matching" can cover a whole exam.
+export const bulkStatusSchema = z.object({ ids: z.array(id).min(1).max(5000), status: z.enum(['draft', 'review', 'published', 'retired']) });
 
 export const resolveReportsSchema = z.object({
   ids: z.array(z.string().uuid()).min(1).max(200),

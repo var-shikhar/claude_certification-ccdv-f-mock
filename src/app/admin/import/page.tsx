@@ -1,6 +1,6 @@
 import { ExamSwitcher } from '@/components/admin/exam-switcher';
 import { ImportPanel } from '@/components/admin/import-panel';
-import { listExamsForAdmin } from '@/server/admin/questions';
+import { examOptions, listExamsForAdmin } from '@/server/admin/questions';
 
 export const metadata = { title: 'Import & export' };
 
@@ -16,7 +16,7 @@ export default async function AdminImportPage({ searchParams }: { searchParams: 
           <h1 className="text-2xl font-bold">Import &amp; export</h1>
           <p className="text-sm text-muted-foreground">Every item is validated before anything is written.</p>
         </div>
-        <ExamSwitcher exams={exams} value={exam.id} />
+        <ExamSwitcher exams={examOptions(exams)} value={exam.id} />
       </div>
       <ImportPanel examId={exam.id} examCode={exam.code} />
     </div>

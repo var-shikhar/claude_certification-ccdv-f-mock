@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { FLAG_INFO, type ItemFlag } from '@/server/admin/analysis';
 import { openReportCount } from '@/server/admin/moderation';
 import { getAdminOverview } from '@/server/admin/overview';
-import { listExamsForAdmin } from '@/server/admin/questions';
+import { examOptions, listExamsForAdmin } from '@/server/admin/questions';
 
 export default async function AdminOverviewPage({ searchParams }: { searchParams: Promise<{ exam?: string }> }) {
   const exams = await listExamsForAdmin();
@@ -23,7 +23,7 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
           <h1 className="text-2xl font-bold">Overview</h1>
           <p className="text-sm text-muted-foreground">Content health and activity for {exam.code}.</p>
         </div>
-        <ExamSwitcher exams={exams} value={exam.id} />
+        <ExamSwitcher exams={examOptions(exams)} value={exam.id} />
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

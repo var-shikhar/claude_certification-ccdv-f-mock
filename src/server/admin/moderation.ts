@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { and, asc, count, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { exam, question, questionReport, user, type QuestionPool, type QuestionStatus, type Role } from '@/db/schema';
@@ -37,10 +38,11 @@ export async function resolveReports(userId: string, ids: string[], status: 'res
   return { updated: res.length };
 }
 
-export async function openReportCount() {
+/** Per request: the admin layout and the overview page both show it. */
+export const openReportCount = cache(async () => {
   const [row] = await db.select({ n: count() }).from(questionReport).where(eq(questionReport.status, 'open'));
   return row?.n ?? 0;
-}
+});
 
 // ---------------------------------------------------------------- import / export
 

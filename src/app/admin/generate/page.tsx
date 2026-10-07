@@ -2,7 +2,7 @@ import { KeyRound } from 'lucide-react';
 import { ExamSwitcher } from '@/components/admin/exam-switcher';
 import { GeneratorPanel } from '@/components/admin/generator-panel';
 import { aiEnabled, aiModel } from '@/server/ai/client';
-import { listExamsForAdmin } from '@/server/admin/questions';
+import { examOptions, listExamsForAdmin } from '@/server/admin/questions';
 
 export const metadata = { title: 'AI drafts' };
 
@@ -18,7 +18,7 @@ export default async function AdminGeneratePage({ searchParams }: { searchParams
           <h1 className="text-2xl font-bold">AI drafts</h1>
           <p className="text-sm text-muted-foreground">Generate candidate questions for a skill, then review them in the editor. {aiEnabled() ? `Model: ${aiModel()}.` : ''}</p>
         </div>
-        <ExamSwitcher exams={exams} value={exam.id} />
+        <ExamSwitcher exams={examOptions(exams)} value={exam.id} />
       </div>
       {aiEnabled() ? (
         <GeneratorPanel exam={exam.config} />

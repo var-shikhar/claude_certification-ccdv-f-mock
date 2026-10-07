@@ -12,8 +12,8 @@ import { requireRole } from '@/server/session';
 export const metadata: Metadata = { title: { default: 'Admin', template: '%s · quizzMonkey admin' } };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const user = await requireRole('author', 'admin');
-  const openReports = await openReportCount();
+  // The count reveals nothing on its own and is only rendered once the role check passes, so both share a round trip.
+  const [user, openReports] = await Promise.all([requireRole('author', 'admin'), openReportCount()]);
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-xl">
