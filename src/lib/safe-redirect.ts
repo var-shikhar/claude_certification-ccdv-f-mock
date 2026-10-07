@@ -8,7 +8,7 @@
 export function safeRedirectPath(next: string | null | undefined, fallback: string): string {
   if (!next || !next.startsWith('/') || next.startsWith('//')) return fallback;
   if (next.includes('\\') || /[\u0000- \u007f]/.test(next)) return fallback;
-  const base = 'http://quizmonkey.invalid';
+  const base = 'http://quizzmonkey.invalid';
   try {
     return new URL(next, base).origin === base ? next : fallback;
   } catch {

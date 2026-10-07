@@ -17,7 +17,7 @@ export function SiteFooter() {
       </div>
       <div className="border-t">
         <p className="mx-auto max-w-6xl px-4 py-5 text-xs text-muted-foreground sm:px-6">
-          © {new Date().getFullYear()} quizMonkey. An independent practice platform, not affiliated with any exam vendor. Readiness certificates are not official credentials.
+          © {new Date().getFullYear()} quizzMonkey. An independent practice platform, not affiliated with any exam vendor. Readiness certificates are not official credentials.
         </p>
       </div>
     </footer>

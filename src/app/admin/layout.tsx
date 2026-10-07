@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { openReportCount } from '@/server/admin/moderation';
 import { requireRole } from '@/server/session';
 
-export const metadata: Metadata = { title: { default: 'Admin', template: '%s · quizMonkey admin' } };
+export const metadata: Metadata = { title: { default: 'Admin', template: '%s · quizzMonkey admin' } };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireRole('author', 'admin');

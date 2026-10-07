@@ -1,4 +1,4 @@
-# quizMonkey roadmap
+# quizzMonkey roadmap
 
 Agreed with the product owner on 6 October 2026. We work through it one step at
 a time and update the status column as items land.
@@ -26,7 +26,7 @@ Each bank uses the standard layout under `content/exams/<id>/`: `exam.json`
 with the blueprint and four levels, `questions/`, and `study/`. It must pass
 `npm run validate -- <id>` with no errors.
 
-## 2. Rename certMonkey to quizMonkey
+## 2. Rename certMonkey to quizzMonkey
 
 Done in code, content and docs. Still outside the repo: the Vercel project
 name, any custom domain, OAuth app names and callback URLs for Google and

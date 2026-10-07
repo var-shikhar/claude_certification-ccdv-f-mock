@@ -1,6 +1,6 @@
-# quizMonkey
+# quizzMonkey
 
-Mock exams, quizzes and interview practice in one calm place. quizMonkey runs
+Mock exams, quizzes and interview practice in one calm place. quizzMonkey runs
 timed certification mocks that follow each exam's official blueprint, drills
 that explain every option, a readiness score that tells you when you're ready,
 and AI mock interviews with rubric feedback.
@@ -153,5 +153,5 @@ progress moves to the account when a guest signs up.
 
 ## Disclaimer
 
-quizMonkey is an independent practice platform. It is not affiliated with any
+quizzMonkey is an independent practice platform. It is not affiliated with any
 exam vendor, and readiness certificates are not official credentials.

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
-/** The quizMonkey mark: a friendly monkey face in cocoa and banana. */
+/** The quizzMonkey mark: a friendly monkey face in cocoa and banana. */
 export function LogoMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" aria-hidden="true" className={cn('size-8', className)}>
@@ -34,11 +34,11 @@ export function LogoMark({ className }: { className?: string }) {
 
 export function Logo({ className, href = '/', compact = false }: { className?: string; href?: string; compact?: boolean }) {
   return (
-    <Link href={href} className={cn('group inline-flex items-center gap-2 font-heading text-lg font-semibold tracking-tight', className)} aria-label="quizMonkey home">
+    <Link href={href} className={cn('group inline-flex items-center gap-2 font-heading text-lg font-semibold tracking-tight', className)} aria-label="quizzMonkey home">
       <LogoMark className="transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-105" />
       {!compact && (
         <span>
-          quiz<span className="text-primary">Monkey</span>
+          quizz<span className="text-primary">Monkey</span>
         </span>
       )}
     </Link>

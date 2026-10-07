@@ -26,7 +26,7 @@ const socialProviders = {
 export const enabledSocialProviders = Object.keys(socialProviders) as ('google' | 'github')[];
 
 export const auth = betterAuth({
-  appName: 'quizMonkey',
+  appName: 'quizzMonkey',
   baseURL: process.env.BETTER_AUTH_URL,
   secret: process.env.BETTER_AUTH_SECRET,
   // Local dev servers hop ports when 3000 is busy; trust any localhost port outside production.
@@ -55,7 +55,7 @@ export const auth = betterAuth({
   },
   plugins: [
     anonymous({
-      emailDomainName: 'guest.quizmonkey.app',
+      emailDomainName: 'guest.quizzmonkey.app',
       generateName: () => 'Guest',
       onLinkAccount: async ({ anonymousUser, newUser }) => {
         await mergeGuestIntoUser(anonymousUser.user.id, newUser.user.id);

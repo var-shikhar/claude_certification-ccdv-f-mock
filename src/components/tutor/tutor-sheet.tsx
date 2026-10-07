@@ -73,7 +73,7 @@ export function TutorButton({ questionId, attemptId, wasCorrect, size = 'sm' }: 
       </SheetTrigger>
       <SheetContent side={desktop ? 'right' : 'bottom'} className={cn('flex flex-col gap-0 p-0', desktop ? 'w-full sm:max-w-md' : 'h-[85dvh] rounded-t-3xl')}>
         <SheetHeader className="border-b p-4">
-          <SheetTitle className="flex items-center gap-2"><LogoMark className="size-7" /> quizMonkey tutor</SheetTitle>
+          <SheetTitle className="flex items-center gap-2"><LogoMark className="size-7" /> quizzMonkey tutor</SheetTitle>
           <SheetDescription>Ask anything about this question. Answers are grounded in its explanation.</SheetDescription>
         </SheetHeader>
 

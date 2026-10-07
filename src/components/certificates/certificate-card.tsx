@@ -12,7 +12,7 @@ export function CertificateCard({ cert, verifyUrl }: { cert: CertificateView; ve
 
       <div className="relative flex h-full flex-col">
         <header className="flex items-center justify-between">
-          <div className="flex items-center gap-2 font-heading text-lg font-semibold"><LogoMark className="size-9" /> quiz<span className="text-[oklch(0.6_0.18_48)]">Monkey</span></div>
+          <div className="flex items-center gap-2 font-heading text-lg font-semibold"><LogoMark className="size-9" /> quizz<span className="text-[oklch(0.6_0.18_48)]">Monkey</span></div>
           <span className="rounded-full border border-cocoa/20 px-3 py-1 text-[0.65rem] font-semibold tracking-[0.2em] uppercase">Readiness certificate</span>
         </header>
 
@@ -40,7 +40,7 @@ export function CertificateCard({ cert, verifyUrl }: { cert: CertificateView; ve
           </div>
         </footer>
         <p className="mt-3 text-center text-[0.6rem] opacity-55">
-          An independent practice assessment by quizMonkey. Not an official credential and not affiliated with {cert.vendor ?? 'the exam vendor'}.
+          An independent practice assessment by quizzMonkey. Not an official credential and not affiliated with {cert.vendor ?? 'the exam vendor'}.
         </p>
       </div>
     </article>
