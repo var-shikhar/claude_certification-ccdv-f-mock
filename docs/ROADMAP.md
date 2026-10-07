@@ -20,15 +20,65 @@ built one subject at a time, in this order:
 | 5 | Node.js | `nodejs` | Done (7 Oct 2026): 450 items, 58% Advanced or Expert, verified on Node 24 |
 | 6 | Python | `python` | Done (7 Oct 2026): 450 items, 58% Advanced or Expert, verified on CPython 3.13 |
 | 7 | Next.js | `nextjs` | Done (7 Oct 2026): 450 items, 58% Advanced or Expert, based on the bundled Next.js 16.3 docs |
-| … | More IT subjects (SQL, Docker/Kubernetes, AWS, DSA, Git, …) | | Later |
+| 8 | Docker | `docker` | Next up |
+| 9 | SQL | `sql` | Next up |
+| 10 | Kubernetes | `kubernetes` | Next up |
+| 11 | Git | `git` | Next up |
+| 12 | Data Structures and Algorithms | `dsa` | Next up |
+| 13 | Concurrency and Parallel Processing (senior level) | `concurrency` | Next up |
+| … | Further subjects (AWS, Linux, networking, …) | | Later |
+
+Subjects 8–13 were added to the pipeline on 7 October 2026. Each one follows
+the same process as 1–7. The writing is weighted toward Advanced and Expert
+(8/11/14/12 per skill), and every answer is checked by running real tools
+where possible (Docker CLI, a SQL engine, `kubectl` manifests, `git`, code).
+
+Subject 13 is a cross-language senior track. It covers threads vs processes,
+locks and lock-free techniques, memory models and visibility, deadlock,
+livelock and starvation, the actor model, async I/O, multiprocessing and
+worker pools, parallel algorithms, and the concurrency models of Go, Java,
+Python and Node.js.
 
 Each bank uses the standard layout under `content/exams/<id>/`: `exam.json`
 with the blueprint and four levels, `questions/`, and `study/`. It must pass
 `npm run validate -- <id>` with no errors.
 
+### Coverage against roadmap.sh
+
+Every bank is mapped to the matching official [roadmap.sh](https://roadmap.sh)
+roadmap, so we can mark which topics are covered and fill the gaps. The
+roadmap content is open source in `nilbuild/developer-roadmap` on GitHub
+(formerly `kamranahmedse/developer-roadmap`), with one Markdown file per topic
+under `roadmaps/<name>/content/`.
+
+| Subject | roadmap.sh roadmap | Topics | Coverage |
+|---|---|---|---|
+| System Design | `system-design` | 147 | To audit |
+| JavaScript | `javascript` | 126 | To audit |
+| TypeScript | `typescript` | 93 | To audit |
+| React | `react` | 83 | To audit |
+| Node.js | `nodejs` | 113 | To audit |
+| Python | `python` | 87 | To audit |
+| Next.js | `nextjs` | 94 | To audit |
+| Docker | `docker` | 56 | Use as the blueprint when writing |
+| SQL | `sql` | 112 | Use as the blueprint when writing |
+| Kubernetes | `kubernetes` | 67 | Use as the blueprint when writing |
+| Git | `git-github` | 155 | Use as the blueprint when writing |
+| DSA | `datastructures-and-algorithms` | 107 | Use as the blueprint when writing |
+| Concurrency | none (parts of `computer-science` and `backend`) | — | Use as the blueprint when writing |
+
+Audit steps:
+1. Pull each roadmap's topic list.
+2. Tag every question with the roadmap.sh topics it covers.
+3. Write `docs/coverage/<subject>.md`, marking each topic as covered,
+   partly covered or missing.
+4. Add questions for the missing topics.
+5. Record the final coverage percentage in the table above.
+
 ## 2. Rename certMonkey to quizzMonkey
 
-Done in code, content and docs. Still outside the repo: the Vercel project
+Done in code, content and docs on 7 October 2026. The product name is
+**quizzMonkey**, with a double z. Still outside the repo: the Vercel project
 name, any custom domain, OAuth app names and callback URLs for Google and
 GitHub, the Stripe product name, and `BETTER_AUTH_URL` if the domain changes.
 
