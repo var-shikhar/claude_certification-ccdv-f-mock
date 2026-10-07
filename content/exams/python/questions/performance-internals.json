@@ -1,0 +1,1650 @@
+[
+  {
+    "id": "PYM-PRF-001",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "After you import `utils.py` for the first time, CPython creates `__pycache__/utils.cpython-313.pyc`. What is that file for?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A native machine-code build of the module that skips the interpreter on later runs",
+        "why": "CPython does not compile modules to machine code; the .pyc holds bytecode that the interpreter still runs."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Cached bytecode, reused on the next import while the source is unchanged",
+        "why": "Skipping the parse and compile steps speeds up imports; execution speed is the same."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A compressed copy of the source so imports read fewer bytes from the disk",
+        "why": "It contains compiled bytecode plus a header with the source timestamp or hash, not compressed source."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A record of profiling data that lets CPython optimise hot functions in the module",
+        "why": "Runtime specialisation happens in memory while code runs and is never written to the .pyc."
+      }
+    ],
+    "explanation": "Importing a module parses and compiles it to a code object. CPython writes that bytecode to `__pycache__` so later imports can load it directly, as long as the source's modification time (or hash) still matches. It makes imports faster, not the code itself. The script you run directly as `__main__` is compiled each time and not cached.",
+    "reference": "Python docs: The import system (Cached bytecode invalidation)"
+  },
+  {
+    "id": "PYM-PRF-002",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "`sys.getsizeof(outer)` for `outer = [list(range(1000))]` includes the memory used by the inner 1,000-element list.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "getsizeof is shallow: for a list it counts the list object and its array of pointers, not the objects pointed to."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct. On 64-bit CPython 3.13 it reports 64 bytes, the same as for a list holding one small int."
+      }
+    ],
+    "explanation": "`sys.getsizeof` returns the size of one object, plus garbage-collector overhead for tracked objects. It never follows references. To estimate the total footprint of a structure, walk it recursively or measure allocations with `tracemalloc`.",
+    "reference": "Python docs: sys.getsizeof"
+  },
+  {
+    "id": "PYM-PRF-003",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "`allowed` holds 10,000 user IDs, and the code runs `if uid in allowed:` for every request. Why does changing `allowed` from a list to a set make this check dramatically faster?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Sets are stored sorted, so `in` can use a binary search instead of a scan",
+        "why": "Sets are unordered hash tables, not sorted arrays; binary search would still be O(log n)."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Sets are implemented in C while lists run membership tests in Python code",
+        "why": "Both are C types; the difference is the algorithm, not the implementation language."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "A set hashes the value and jumps to its slot: O(1) on average versus a linear scan",
+        "why": "list `in` compares element by element, which is O(n) per check."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Sets cache the result of the previous lookup, so repeated checks are free",
+        "why": "There is no lookup cache; each check hashes and probes the table again, it is just cheap."
+      }
+    ],
+    "explanation": "List membership walks the list comparing each element, so worst case it touches all 10,000 items. A set hashes `uid` and probes a few slots, independent of size. Measured on CPython 3.13, checking for the last of 10,000 ints was several hundred times faster with a set. Build the set once, outside the hot path.",
+    "reference": "Python wiki: TimeComplexity"
+  },
+  {
+    "id": "PYM-PRF-004",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A job queue appends tasks at the back and takes them from the front with `tasks.pop(0)`. With 50,000 queued tasks it becomes slow. What is the standard fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Use `collections.deque` and `popleft()`",
+        "why": "A deque removes from either end in O(1)."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Call `tasks.reverse()` once, then pop from the end, reversing again before each new append",
+        "why": "Reversing is itself O(n), so doing it around appends just moves the cost elsewhere."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Switch to `tasks.pop(-1)` and accept that tasks are processed newest-first from now on",
+        "why": "That is fast but turns the queue into a stack and changes the program's behaviour."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Pre-allocate the list with `[None] * 50000` so that no memory reallocation happens",
+        "why": "The cost of pop(0) is shifting every remaining element left, not allocation."
+      }
+    ],
+    "explanation": "A list is a contiguous array of pointers. Removing index 0 shifts every other pointer one slot left, so each pop(0) is O(n) and draining the queue is O(n²). `collections.deque` is a doubly-linked list of blocks, giving O(1) `append` and `popleft`. Draining 50,000 items was about 60× faster with a deque in CPython 3.13.",
+    "reference": "Python docs: collections.deque"
+  },
+  {
+    "id": "PYM-PRF-005",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "CPython frees most objects the moment nothing refers to them any more, by keeping a count on every object that goes up and down as references are created and dropped. What is this mechanism called? Type two words.",
+    "options": [],
+    "accepted": [
+      "reference counting",
+      "refcounting",
+      "ref counting",
+      "reference-counting"
+    ],
+    "explanation": "Every CPython object carries `ob_refcnt`. When it falls to zero the object is freed immediately, which is why files and other resources are usually released as soon as the last name goes away. Reference counting can't free cycles, so CPython adds a separate cyclic garbage collector.",
+    "reference": "Python docs: Reference counting (C API)"
+  },
+  {
+    "id": "PYM-PRF-006",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A batch script takes 40 minutes and you want to know which functions use most of the time. Which standard-library tool should you reach for first?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`timeit`, wrapped around the whole script so it runs several times",
+        "why": "timeit measures how long a small snippet takes, not where time goes inside a program."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`tracemalloc`, started at the top of the script and stopped at the end",
+        "why": "tracemalloc tracks memory allocations, not CPU time per function."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`cProfile`, e.g. `python -m cProfile -s cumtime script.py`",
+        "why": "It records every call with per-function and cumulative times."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`dis`, to read the bytecode and count the instructions in each function",
+        "why": "Instruction counts don't tell you runtime; a single call instruction can take seconds."
+      }
+    ],
+    "explanation": "`cProfile` is a deterministic profiler written in C. It hooks every function call and return and reports call counts, own time (`tottime`) and time including callees (`cumtime`). Sort by `cumtime` to find the expensive call paths, then by `tottime` to find the functions doing the work.",
+    "reference": "Python docs: The Python Profilers"
+  },
+  {
+    "id": "PYM-PRF-007",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "You need to build one large string from 500,000 small pieces. Which approach is the recommended, portable way?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Start with `s = ''` and do `s += piece` in the loop, since strings are optimised for that",
+        "why": "That relies on a CPython-only optimisation that breaks whenever another reference to s exists, and other Pythons don't have it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Collect the pieces in a list and call `''.join(pieces)` once",
+        "why": "join computes the final length, allocates once and copies each piece once."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Use `s = s.__add__(piece)` so that the interpreter skips the operator dispatch step",
+        "why": "It does the same concatenation as +, with an extra method lookup on top."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use an f-string inside the loop, as in `s = f'{s}{piece}'`, because f-strings are compiled",
+        "why": "Each iteration still creates a new string and copies everything built so far."
+      }
+    ],
+    "explanation": "Strings are immutable, so `s += piece` creates a new string and copies the old contents. In the worst case that is O(n²). CPython sometimes resizes in place when `s` has no other references, but you can't rely on it. `str.join` is linear and works the same on every implementation.",
+    "reference": "Python docs: Programming FAQ (most efficient way to concatenate many strings)"
+  },
+  {
+    "id": "PYM-PRF-008",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each operation with its typical time complexity in CPython (n is the container size).",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Amortised O(1)",
+        "why": "Over-allocation makes most appends constant time."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "O(n)",
+        "why": "Every existing element must shift one slot."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "O(1) on average",
+        "why": "A hash lookup touches a few slots regardless of size."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "O(n log n)",
+        "why": "Timsort is a comparison sort."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`lst.append(x)`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`lst.insert(0, x)`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`x in some_set`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`sorted(lst)` on random data",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Lists are dynamic arrays: appending is amortised O(1) thanks to over-allocation, but inserting or deleting at the front shifts every element. Sets and dicts are hash tables with average O(1) lookups. Sorting arbitrary data is O(n log n), although Timsort is close to O(n) on input that is already sorted.",
+    "reference": "Python wiki: TimeComplexity"
+  },
+  {
+    "id": "PYM-PRF-009",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print on CPython 3.13?\n\n```python\nimport sys\nx = object()\nprint(sys.getrefcount(x))\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`1`, because only the name `x` refers to the object",
+        "why": "That ignores the reference held by the call itself."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`2`, because passing `x` to the function adds a temporary reference",
+        "why": "The argument reference lives for the duration of the call."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`0`, because getrefcount reports references other than its own argument",
+        "why": "It reports the raw count, including its argument."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A very large constant, because new objects are immortal",
+        "why": "Only specific objects such as None and small ints are immortal; a new object() is not."
+      }
+    ],
+    "explanation": "`sys.getrefcount` documents that the count is usually one higher than you expect, because its own argument is a temporary reference. Here the name `x` holds one and the call holds one, so it prints 2. Binding `y = x` would make it 3.",
+    "reference": "Python docs: sys.getrefcount"
+  },
+  {
+    "id": "PYM-PRF-010",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A shuffled list of 1,000 numbers is sorted twice: once with `sorted(data, key=k)` and once with `sorted(data, key=functools.cmp_to_key(c))`, where `k` and `c` each count their calls. About how many times is each called?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both about 10,000 times, since sorting does roughly n log n comparisons either way",
+        "why": "Only comparisons scale with n log n. A key function is not called per comparison."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`k` exactly 1,000 times; `c` several thousand times (about n log n)",
+        "why": "Keys are computed once per element and cached. A comparator runs on every comparison."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`k` about 2,000 times, because each comparison evaluates the key on both sides",
+        "why": "That would be the naive approach. `list.sort` decorates each element with its key once."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Both exactly 1,000 times, because `cmp_to_key` caches the comparator results",
+        "why": "`cmp_to_key` only wraps `c` in an object whose `__lt__` calls it, so nothing is cached."
+      }
+    ],
+    "explanation": "`sorted` and `list.sort` compute `key(x)` once per element, then sort by those cached keys. This is the decorate-sort-undecorate pattern built in, so `k` runs exactly n = 1,000 times. `functools.cmp_to_key` turns a comparator into a key class whose comparison methods call `c(a, b)`, so it runs once per comparison: about n log₂ n ≈ 10,000 at most, and 8,649 for this shuffled list on CPython 3.13. Prefer a key function whenever you can, especially when each comparison is expensive.",
+    "reference": "Python docs: Sorting Techniques (Key Functions)"
+  },
+  {
+    "id": "PYM-PRF-011",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about `sys.getsizeof` are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "It is shallow: it does not count objects that the measured object refers to",
+        "why": "A dict's keys and values, or a list's elements, are not included."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "For objects tracked by the garbage collector it adds the GC header overhead",
+        "why": "The docs say it calls __sizeof__ and adds GC overhead for tracked objects."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It returns the total memory the process has allocated so far",
+        "why": "That is the job of OS tools or tracemalloc, not getsizeof."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It gives the same numbers on every Python version and platform",
+        "why": "Sizes depend on the build (32/64-bit) and change between versions."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "It includes memory that was freed but is still kept by the allocator",
+        "why": "Allocator-level pooling is invisible to getsizeof."
+      }
+    ],
+    "explanation": "`getsizeof` answers a narrow question: how big is this one object's own memory block. It is useful for comparing representations, such as a list versus a tuple, but it is misleading for nested data. For real memory questions use `tracemalloc` or a recursive size walker.",
+    "reference": "Python docs: sys.getsizeof"
+  },
+  {
+    "id": "PYM-PRF-012",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "On 64-bit CPython 3.13, appending 0 to 9 to an empty list one at a time gives these `sys.getsizeof` values after each append:\n\n```\n88, 88, 88, 88, 120, 120, 120, 120, 184, 184\n```\n\nWhy does the size jump in steps instead of growing by 8 bytes per element?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The list stores small ints inline, eight to a block, until each block fills up",
+        "why": "Lists always store pointers to objects; ints are never stored inline."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The list over-allocates spare slots on resize, making append amortised O(1)",
+        "why": "Most appends then fill an existing slot with no reallocation."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "getsizeof rounds every size up to the next multiple of 32 bytes in its report",
+        "why": "It reports the real allocation; the steps come from how the list grows."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The garbage collector compacts the list's memory every fourth append",
+        "why": "The GC does not move or compact objects in CPython."
+      }
+    ],
+    "explanation": "When a list runs out of room, CPython grows its pointer array by a proportional amount and leaves the extra slots empty. Most appends then just fill a slot, so appending is amortised O(1). A list created at its final size (`[0] * 10`, 136 bytes) has no spare slots, which is why it is smaller than one built by appending (184 bytes).",
+    "reference": "CPython source: Objects/listobject.c (list_resize)"
+  },
+  {
+    "id": "PYM-PRF-013",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A class with two attributes is changed to declare `__slots__ = ('x', 'y')`. Which statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Instances no longer get a per-instance `__dict__`, so assigning a new attribute such as `obj.z` raises AttributeError",
+        "why": "Slots replace the dict with fixed storage for the named attributes."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Instances can't be weakly referenced unless `'__weakref__'` is added to the slots",
+        "why": "Slots remove the weakref slot along with the dict; you must ask for it back."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Attribute access becomes thread-safe without any locks",
+        "why": "Slots change storage, not synchronisation."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Subclasses automatically inherit the restriction even if they don't define `__slots__`",
+        "why": "A subclass without __slots__ gets a __dict__ again."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The class can no longer define methods or properties",
+        "why": "Methods and properties live on the class, so they are unaffected."
+      }
+    ],
+    "explanation": "`__slots__` stores the named attributes in fixed descriptor-backed slots and drops the per-instance `__dict__` and `__weakref__`. That saves memory when you create many instances and blocks typos that create new attributes. The trade-offs are no dynamic attributes and no weak references unless requested, and the benefit is lost in subclasses that don't declare slots.",
+    "reference": "Python docs: Data model (__slots__)"
+  },
+  {
+    "id": "PYM-PRF-014",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "On CPython 3.12 or later, `sum([0.1] * 10) == 1.0` evaluates to `True`, even though adding 0.1 ten times in a plain `for` loop gives `0.9999999999999999`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct. Since 3.12, sum() of floats uses compensated summation, which removes this rounding error."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "This was true before 3.12; newer sum() tracks the lost low-order bits as it adds."
+      }
+    ],
+    "explanation": "Python 3.12 changed `sum()` to use a compensated (Neumaier-style) algorithm for floats, so `sum([0.1] * 10)` is exactly 1.0. A manual `t += 0.1` loop still accumulates rounding error. `math.fsum` has always been exact to within one rounding and remains the tool when correctness matters on any version.",
+    "reference": "Python docs: What's New in Python 3.12 (sum)"
+  },
+  {
+    "id": "PYM-PRF-015",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A long-running service creates and discards thousands of `Report` objects, yet memory keeps growing. What is the most likely cause?\n\n```python\nfrom functools import lru_cache\n\nclass Report:\n    @lru_cache(maxsize=None)\n    def total(self, year):\n        return expensive(self, year)\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`lru_cache` copies the return value into a global table that the GC can never scan",
+        "why": "The cache holds references, not copies, and the GC can see it; the real problem is what it keeps alive."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The cache key includes `self`, so the cache keeps every Report alive",
+        "why": "With maxsize=None nothing is evicted, so the reports are never freed."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Decorating a method makes each instance hold its own cache, and those caches leak",
+        "why": "There is one cache on the function, shared by all instances; that is why it pins them."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The `year` argument is cached as a new string each time, so memory grows per call",
+        "why": "Small ints and repeated arguments are not the issue; the self references are."
+      }
+    ],
+    "explanation": "`lru_cache` stores a strong reference to every argument tuple, and for a method that tuple starts with `self`. Every Report that ever called `total` stays reachable from the decorator's cache, and with `maxsize=None` the cache never evicts. In a test, a weakref to a deleted instance stayed alive after `gc.collect()`. Fixes: cache on a module-level function keyed by plain values, use `functools.cached_property` for per-instance values, or bound the cache size.",
+    "reference": "Python docs: functools.lru_cache (FAQ: caching method calls)"
+  },
+  {
+    "id": "PYM-PRF-016",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the steps CPython takes the first time it imports a module from source into the order they happen.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Execute the module's bytecode in the evaluation loop",
+        "why": "Running the code comes last."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Parse the source text into an abstract syntax tree",
+        "why": "Parsing comes first."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Write the bytecode to a .pyc file in __pycache__",
+        "why": "Caching happens after compiling."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Compile the AST into a code object of bytecode",
+        "why": "Compiling follows parsing."
+      }
+    ],
+    "answerOrder": [
+      "B",
+      "D",
+      "C",
+      "A"
+    ],
+    "explanation": "The source is tokenised and parsed into an AST, compiled into a code object, and the bytecode is cached in `__pycache__` so later imports can skip the first two steps. Finally the interpreter executes the module's top-level code, which defines its functions and classes.",
+    "reference": "Python docs: Design of CPython's Compiler"
+  },
+  {
+    "id": "PYM-PRF-017",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A `timeit` benchmark shows that building a big list of small objects is quick, but the same code is noticeably slower inside the real application. Which `timeit` default can explain part of the gap?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "timeit runs the statement with the specializing interpreter turned off",
+        "why": "timeit uses the normal interpreter; specialisation is not disabled."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "timeit caches the statement's result and returns it on later iterations",
+        "why": "The statement runs every iteration; nothing is cached."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "timeit turns off the garbage collector while it times the statement",
+        "why": "Allocation-heavy code skips GC passes during the benchmark."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "timeit runs the statement in a subprocess with its own fresh heap",
+        "why": "It runs in the current process; the effect comes from disabling the collector."
+      }
+    ],
+    "explanation": "By default `timeit` disables the cyclic garbage collector while timing, to make results more repeatable. Code that allocates many container objects triggers GC passes in real life, so the benchmark hides that cost. To include it, add `gc.enable()` to the setup string.",
+    "reference": "Python docs: timeit (Timer.timeit note on garbage collection)"
+  },
+  {
+    "id": "PYM-PRF-018",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "Which standard-library module lets you take snapshots of memory allocations and compare two snapshots grouped by source line, to find what is growing between requests? Type the module name.",
+    "options": [],
+    "accepted": [
+      "tracemalloc"
+    ],
+    "explanation": "`tracemalloc.start()` records a traceback for each allocation. `take_snapshot()` captures the current state, and `snapshot2.compare_to(snapshot1, 'lineno')` lists the lines whose allocations grew most. That is the standard way to find a Python-level memory leak.",
+    "reference": "Python docs: tracemalloc"
+  },
+  {
+    "id": "PYM-PRF-019",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "`arr * 2` on a NumPy array of 10 million floats is far faster than `[x * 2 for x in lst]` on a Python list. Which reasons are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The loop runs in compiled C, without dispatching bytecode for each element",
+        "why": "One Python-level call does all 10 million multiplications."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Values are stored unboxed in contiguous memory, not as separate float objects",
+        "why": "No per-element objects to create or pointers to follow, and it's cache-friendly."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "NumPy compiles your Python list comprehension with a JIT on the first call",
+        "why": "NumPy doesn't compile your code; you get speed by calling its vectorised functions."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "NumPy always spreads element-wise arithmetic across all CPU cores",
+        "why": "Basic element-wise ufuncs run on one thread; SIMD helps, not threads."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Python floats are cached like small ints, so the list version keeps waiting on the cache",
+        "why": "Floats are not cached; the list version is slow because each result is a new object."
+      }
+    ],
+    "explanation": "A Python list holds pointers to separate float objects, and each `x * 2` goes through bytecode dispatch, type checks and a new object allocation. A NumPy array is one typed buffer, and a ufunc loops over it in C, often using SIMD instructions. Vectorise by expressing work as whole-array operations.",
+    "reference": "NumPy docs: What is NumPy? (Why is NumPy fast?)"
+  },
+  {
+    "id": "PYM-PRF-020",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Which listing matches what `dis.dis(f)` prints for this function on CPython 3.13 (ignoring line numbers and the RESUME instruction)?\n\n```python\ndef f(x):\n    return x + 1\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`LOAD_FAST x`, `LOAD_CONST 1`, `BINARY_ADD`, `RETURN_VALUE`",
+        "why": "BINARY_ADD is the pre-3.11 opcode; 3.11 merged binary operators into BINARY_OP."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`LOAD_FAST x`, `LOAD_CONST 1`, `BINARY_OP (+)`, `RETURN_VALUE`",
+        "why": "Since 3.11 one BINARY_OP opcode with an argument covers every binary operator."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`LOAD_GLOBAL x`, `LOAD_CONST 1`, `BINARY_OP (+)`, `RETURN_VALUE`",
+        "why": "x is a parameter, so it is a fast local, not a global."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`LOAD_NAME x`, `LOAD_CONST 1`, `CALL __add__`, `RETURN_VALUE`",
+        "why": "LOAD_NAME is used at module or class level, and + doesn't compile to a method call."
+      }
+    ],
+    "explanation": "Parameters and local variables are stored in an array and loaded with `LOAD_FAST`, which is one reason local lookups are cheap. Python 3.11 replaced the many `BINARY_*` opcodes with a single `BINARY_OP` that takes the operator as an argument. That made room for the specializing interpreter to swap in type-specific versions at runtime.",
+    "reference": "Python docs: dis (BINARY_OP)"
+  },
+  {
+    "id": "PYM-PRF-021",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "After `add(1, 2)` has been called 100 times, `dis.dis(add, adaptive=True)` on CPython 3.13 shows `BINARY_OP_ADD_INT` where the plain listing shows `BINARY_OP`. What does that tell you?\n\n```python\ndef add(a, b):\n    return a + b\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The function was compiled to machine code by the JIT that ships in every 3.13 build",
+        "why": "Standard builds have no JIT; this is bytecode specialisation inside the interpreter."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The function now raises TypeError if it is ever called with floats",
+        "why": "Specialised instructions fall back (deoptimise) when their type guess is wrong."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "CPython rewrote the source code and saved the faster version to the .pyc",
+        "why": "Specialisation happens in memory at runtime and is never written to disk."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "The adaptive interpreter specialised the instruction for int operands",
+        "why": "PEP 659 (3.11+) swaps in type-specific instructions after a warm-up."
+      }
+    ],
+    "explanation": "Since Python 3.11, CPython's specializing adaptive interpreter watches the types each instruction sees. After a warm-up it replaces generic instructions with specialised ones, such as `BINARY_OP_ADD_INT` or `LOAD_ATTR_INSTANCE_VALUE`. If a later call has different types, the instruction falls back to the generic path. This is a big part of the 3.11 speedups, and it needs no code changes.",
+    "reference": "PEP 659: Specializing Adaptive Interpreter"
+  },
+  {
+    "id": "PYM-PRF-022",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about the experimental JIT compiler in CPython 3.13 are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "It is only present when CPython is built with `--enable-experimental-jit`",
+        "why": "Standard python.org builds don't include it in 3.13."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It builds on the specialised bytecode the adaptive interpreter produces",
+        "why": "Hot traces of specialised micro-ops are turned into machine code."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It is on by default in every 3.13 install and roughly doubles typical speed",
+        "why": "It is opt-in at build time and its speedups in 3.13 are modest."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It uses your type hints to generate specialised machine code",
+        "why": "CPython ignores annotations at runtime; specialisation is based on observed types."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "It removes the GIL, so threads can run Python code in parallel",
+        "why": "That is the separate free-threaded build (python3.13t), not the JIT."
+      }
+    ],
+    "explanation": "Python 3.13 added a copy-and-patch JIT that is only built when CPython is configured with `--enable-experimental-jit`. It takes the specialised micro-op traces that the adaptive interpreter finds and stitches pre-compiled machine-code templates together. It is experimental, gives modest gains, and has nothing to do with type hints or the GIL.",
+    "reference": "Python docs: What's New in Python 3.13 (An experimental JIT compiler)"
+  },
+  {
+    "id": "PYM-PRF-023",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print on CPython 3.13?\n\n```python\nimport gc\n\nclass D:\n    def __del__(self):\n        print('del')\n\na, b = D(), D()\na.other, b.other = b, a\ndel a, b\nprint('before')\nprint(gc.collect(), gc.garbage)\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`del`, `del`, `before`, then `0 []`",
+        "why": "The objects are in a cycle, so their counts never reach zero when the names are deleted."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`before`, then `0` and a list holding the two D objects",
+        "why": "That was the behaviour before Python 3.4, when cycles with __del__ went to gc.garbage."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`before`, `del`, `del`, then `2 []`",
+        "why": "The collector finds the cycle, calls both finalizers and frees both objects."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`before`, then `2 []` with no `del` lines, because finalizers are skipped for cycles",
+        "why": "Since PEP 442 finalizers in cycles are called, once each."
+      }
+    ],
+    "explanation": "`del a, b` only removes the names. Each object still references the other, so reference counting can't free them. The cyclic collector finds the unreachable cycle when `gc.collect()` runs. Since Python 3.4 (PEP 442) it calls each `__del__` once and then frees the objects, so `gc.garbage` stays empty. Relying on `__del__` timing is fragile; prefer context managers.",
+    "reference": "PEP 442: Safe object finalization"
+  },
+  {
+    "id": "PYM-PRF-024",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print on CPython?\n\n```python\nimport weakref\n\nclass Image: pass\n\ncache = weakref.WeakValueDictionary()\nimg = Image()\ncache['logo'] = img\nprint(len(cache))\ndel img\nprint(len(cache))\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`1` then `0`",
+        "why": "Once the last strong reference goes, the object is freed and its entry disappears."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`1` then `1`, because entries are only removed during a gc.collect() pass",
+        "why": "In CPython, freeing happens at once via reference counting, which also clears the entry."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`0` then `0`, because weak dictionaries never count weakly held values in len()",
+        "why": "len() counts the entries that are still alive, and the entry is alive at first."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`1` then `1`, because the cache itself is a strong reference that keeps the image alive",
+        "why": "The cache holds a weak reference, which doesn't keep the object alive."
+      }
+    ],
+    "explanation": "A `WeakValueDictionary` holds its values through weak references. When `del img` drops the only strong reference, CPython frees the object immediately and its weakref callback removes the entry. That makes it a good cache that never keeps objects alive by itself. On implementations without reference counting, such as PyPy, removal waits until the next GC.",
+    "reference": "Python docs: weakref.WeakValueDictionary"
+  },
+  {
+    "id": "PYM-PRF-025",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which of these raise `TypeError: cannot create weak reference to ...` on CPython 3.13? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`weakref.ref(1)`",
+        "why": "int has no weakref slot."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`weakref.ref(S())` where `class S: __slots__ = ('a',)`",
+        "why": "Slots drop __weakref__ unless you list it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`weakref.ref(T())` where `class T: pass`",
+        "why": "Ordinary class instances support weak references."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`weakref.ref(len)`",
+        "why": "Built-in function objects support weak references."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`weakref.ref(R())` where `class R: __slots__ = ('a', '__weakref__')`",
+        "why": "Listing __weakref__ in the slots restores weakref support."
+      }
+    ],
+    "explanation": "Only types that reserve space for a weak-reference list can be weakly referenced. Many built-ins such as `int`, `str`, `tuple` and `list` don't, and neither do classes whose `__slots__` omit `'__weakref__'`. Ordinary classes, functions and built-in functions do. To weakly cache a list or dict, wrap it in a small class.",
+    "reference": "Python docs: weakref"
+  },
+  {
+    "id": "PYM-PRF-026",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Both functions build a 80,000-character string. In CPython 3.13 the second is many times slower, and gets worse faster as n grows. Why?\n\n```python\ndef a(n):\n    s = ''\n    for _ in range(n):\n        s += 'x'\n    return s\n\ndef b(n):\n    s, history = '', []\n    for _ in range(n):\n        history.append(s)\n        s += 'x'\n    return s\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`history.append` is O(n) per call, so b() does quadratic work in its list",
+        "why": "Appending to a list is amortised O(1); the list is not the bottleneck."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "b() keeps every intermediate string, so the garbage collector runs on each step",
+        "why": "Strings aren't tracked by the cyclic GC; the cost is copying, not collection."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "a() is compiled with constant folding, so its loop never actually runs",
+        "why": "A loop with a runtime n can't be folded away."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "The extra reference stops CPython resizing `s` in place, so every `+=` copies it",
+        "why": "In-place appending is only safe when nothing else refers to the string."
+      }
+    ],
+    "explanation": "As an optimisation, CPython can grow a string in place for `s += t` when `s` has no other references. In `b` each old string is still referenced from `history`, so every `+=` must allocate a new string and copy all characters so far, which is O(n²) overall. The optimisation is fragile and CPython-only, which is why `''.join` is the recommended idiom.",
+    "reference": "Python docs: Programming FAQ (string concatenation)"
+  },
+  {
+    "id": "PYM-PRF-027",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "For a 10-million-character string `s`, the first `hash(s)` takes milliseconds but the second takes about a microsecond. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The CPU cache still holds the string, so the second pass reads it much faster",
+        "why": "A 10 MB string doesn't fit the CPU cache, and a cached read would still be a full pass."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "str objects store their hash after the first computation and reuse it",
+        "why": "Strings are immutable, so the hash can't change."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "hash() samples only part of long strings after the first call to save time",
+        "why": "The hash depends on every character; it is never sampled."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The specializing interpreter replaced hash() with a constant after one call",
+        "why": "Specialisation doesn't turn call results into constants."
+      }
+    ],
+    "explanation": "CPython's string objects have a field that caches the hash once it is computed. Because strings are immutable the value can't go stale, so repeated dict and set lookups with the same string key skip the O(n) hashing. That is part of why string-keyed dicts are fast. Hash randomisation is per process, so the cached value differs between runs.",
+    "reference": "CPython source: Include/cpython/unicodeobject.h (hash field)"
+  },
+  {
+    "id": "PYM-PRF-028",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "`items` and `to_delete` are lists of about 50,000 ints each, and this takes minutes. Which rewrite is fastest while keeping the remaining items in their original order?\n\n```python\nfor x in to_delete:\n    items.remove(x)\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Sort both lists first, then call items.remove(x) for each x in the same loop",
+        "why": "remove still scans and shifts the list each time; sorting adds work without fixing that."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Iterate over `reversed(to_delete)` so each removal happens nearer the end of the list",
+        "why": "remove searches items from the start whatever order to_delete is in."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`drop = set(to_delete)` then `items = [x for x in items if x not in drop]`",
+        "why": "Each check is O(1) on average, so the whole filter is linear."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`items = list(set(items) - set(to_delete))`, which does the work in C",
+        "why": "It is fast but loses the original order and any duplicates."
+      }
+    ],
+    "explanation": "Each `items.remove(x)` scans for x and then shifts the following elements, so the loop is O(n × m), about 2.5 billion operations here. Building a set of values to drop and filtering once is O(n + m) and keeps the order. Set difference is also linear, but it drops duplicates and ordering.",
+    "reference": "Python wiki: TimeComplexity"
+  },
+  {
+    "id": "PYM-PRF-029",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "Since Python 3.11, `int('1' * 5000)` raises `ValueError: Exceeds the limit (... digits) for integer string conversion`. What is the default maximum number of digits? Type a number.",
+    "options": [],
+    "accepted": [
+      "4300",
+      "4,300"
+    ],
+    "explanation": "Converting between str and int is quadratic in the number of digits, so huge numeric strings can be a denial-of-service vector. CPython limits conversion to 4,300 digits by default. You can change it with `sys.set_int_max_str_digits()`, `-X int_max_str_digits` or `PYTHONINTMAXSTRDIGITS`. Arithmetic on big ints is unaffected; only str and int conversion is limited.",
+    "reference": "Python docs: Integer string conversion length limitation"
+  },
+  {
+    "id": "PYM-PRF-030",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 3,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each situation with the tool that fits it best.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "py-spy",
+        "why": "A sampling profiler that attaches to a running process."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "tracemalloc snapshots",
+        "why": "Compares allocations by line between two points."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "line_profiler",
+        "why": "Times each line of the functions you decorate."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "cProfile",
+        "why": "Deterministic per-function profiling of a whole run."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "A production worker is slow right now and you can't restart or redeploy it",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Memory grows a little after every request and you need the allocating line",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "You already know the slow function and need to know which of its lines is slow",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "A batch script is slow and you want call counts and time per function",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Sampling profilers such as py-spy read the interpreter's stacks from outside, so they work on live processes with little overhead. `tracemalloc` is the stdlib way to diff memory by allocation site. `line_profiler` gives per-line timings once you know which function to look at. `cProfile` is the general-purpose first look at where a program spends its time.",
+    "reference": "Python docs: The Python Profilers; py-spy README"
+  },
+  {
+    "id": "PYM-PRF-031",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which statements about the `timeit` module are true? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "It disables garbage collection while timing unless you re-enable it in the setup",
+        "why": "Documented default, to make timings more repeatable."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The setup code runs once per repetition and is not included in the time",
+        "why": "Only the statement, repeated `number` times, is timed."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The docs suggest using the minimum of `repeat()` rather than the mean",
+        "why": "Higher values are mostly noise from other processes, not your code."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Each repetition runs in a fresh subprocess to avoid interference",
+        "why": "It runs in the current process; the command line just loops for you."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Results from one machine reliably predict speed on another",
+        "why": "Timings depend on the CPU, build and load; compare only on one machine."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "number=1 gives the most reliable figure because nothing is averaged",
+        "why": "One run is dominated by timer resolution and noise."
+      }
+    ],
+    "explanation": "timeit runs the setup once, then times `number` executions of the statement with GC off, and `repeat()` does that several times. The docs say the minimum is usually the most useful number. Beware of statements whose cost only appears the first time, such as an import, since the later loops hide it.",
+    "reference": "Python docs: timeit"
+  },
+  {
+    "id": "PYM-PRF-032",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A billing service switches from `float` to `decimal.Decimal`. Additions get roughly 3× slower in a micro-benchmark on CPython 3.13. Which reasoning is correct?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Decimal is software arithmetic; worth it for money, which needs exact decimal results",
+        "why": "The C `_decimal` module is fast for software, but it can't match one hardware instruction."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Decimal is written in pure Python, so moving the service to PyPy will remove the gap",
+        "why": "CPython uses the C implementation (_decimal/libmpdec); the cost is software arithmetic, not Python."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The slowdown proves floats are exact enough, so Decimal is only needed above 2**53",
+        "why": "Floats can't represent 0.1 exactly at any magnitude; that's the reason to use Decimal for money."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Decimal is slow only because each operation recreates the context; caching it removes the cost",
+        "why": "The context is thread-local and reused; the cost is the arithmetic itself."
+      }
+    ],
+    "explanation": "A float addition is one CPU instruction on IEEE 754 doubles. A Decimal addition goes through libmpdec's software arithmetic plus object allocation. Measured on 3.13 it was about 3× slower per add. For money the exactness wins; storing integer cents is the other fast, exact option.",
+    "reference": "Python docs: decimal"
+  },
+  {
+    "id": "PYM-PRF-033",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "You need to answer one million membership checks against the same 1,000,000 integers. Order these approaches from fastest to slowest.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`x in data` where `data` is the list",
+        "why": "Linear scan per check."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`x in data_set` where `data_set = set(data)` was built once",
+        "why": "Average O(1) per check."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`bisect` on `sorted_data`, sorted once",
+        "why": "O(log n) per check, about 20 comparisons."
+      }
+    ],
+    "answerOrder": [
+      "B",
+      "C",
+      "A"
+    ],
+    "explanation": "A set lookup hashes once and probes a slot. A binary search on a sorted list needs about log₂(1,000,000) ≈ 20 comparisons, plus Python-level overhead. A linear `in` on a list may compare up to a million elements per check, so a million checks can mean up to 10¹² comparisons.",
+    "reference": "Python docs: bisect; Python wiki: TimeComplexity"
+  },
+  {
+    "id": "PYM-PRF-034",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "On CPython 3.13, `sys.getsizeof(Plain())` and `sys.getsizeof(Slotted())` both return 48. A teammate concludes `__slots__` no longer saves memory. Which reply is accurate?\n\n```python\nclass Plain:\n    def __init__(self): self.x, self.y = 1, 2\n\nclass Slotted:\n    __slots__ = ('x', 'y')\n    def __init__(self): self.x, self.y = 1, 2\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "They're right: since 3.12 every instance stores attributes inline, so slots are now pointless",
+        "why": "Inline values shrank plain instances, but they still use more memory than slotted ones."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "getsizeof is wrong for user classes; sys.getallocatedblocks() per instance gives the true size",
+        "why": "getallocatedblocks counts blocks for the whole interpreter, not per object."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "getsizeof omits Plain's separately stored values; tracemalloc shows ~96 vs ~56 bytes",
+        "why": "Plain grew to ~160 bytes once its __dict__ was accessed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Slots now save memory only when an instance has more than 8 attributes",
+        "why": "The measured gap appears with just two attributes."
+      }
+    ],
+    "explanation": "Newer CPython stores a plain instance's attribute values in a separate inline-values area and builds a real `__dict__` only when you ask for it. `getsizeof` reports just the object header, so both classes show 48. Allocating 100,000 instances under `tracemalloc` on 3.13 measured about 96 bytes per Plain, 160 after touching `__dict__`, and 56 per Slotted. Measure total allocations, not getsizeof.",
+    "reference": "Python docs: What's New in Python 3.12/3.13 (object layout); tracemalloc"
+  },
+  {
+    "id": "PYM-PRF-035",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A team wants a cache that never keeps results alive by itself. Their first attempt fails on the first call. What happens, and what is the usual fix?\n\n```python\nimport weakref\n_cache = weakref.WeakValueDictionary()\n\ndef rows_for(key):\n    if key not in _cache:\n        _cache[key] = load_rows(key)  # returns a list\n    return _cache[key]\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It works, but the entry vanishes at once, so every call is a miss; use a WeakKeyDictionary",
+        "why": "It fails before that: the list can't be weakly referenced at all."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "TypeError: lists can't be weakly referenced; return an instance of a small class instead",
+        "why": "A plain class instance can be weakly referenced, so the cache then works."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "KeyError, because WeakValueDictionary needs keys to be weakly referenceable too",
+        "why": "Only values are weak in a WeakValueDictionary; keys can be anything hashable."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It works fine, because lists are weakly referenceable once they hold more than one element",
+        "why": "Weakref support depends on the type, never on the contents."
+      }
+    ],
+    "explanation": "Assigning a value into a WeakValueDictionary creates `weakref.ref(value)`, and `list` doesn't support weak references, so the assignment raises `TypeError: cannot create weak reference to 'list' object`. Wrapping the result in a class, for example `class Rows(list): pass`, works because subclass instances get a weakref slot. Remember that a weak cache only helps while someone else still holds the value.",
+    "reference": "Python docs: weakref"
+  },
+  {
+    "id": "PYM-PRF-036",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "On CPython 3.13, `sys.getrefcount(None)` prints `4294967295`, and creating a list of a thousand `None` values doesn't change it. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "None is immortal (PEP 683): its count is fixed and never changes",
+        "why": "Since 3.12, core singletons skip refcount updates."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The count overflowed a 32-bit counter and now stays stuck at its maximum value",
+        "why": "The counter is 64-bit; the value is a deliberate marker, not an overflow."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "getrefcount returns a cached result for built-in constants and doesn't recount",
+        "why": "There is no caching in getrefcount; immortal objects simply ignore increments."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lists holding None store a tagged null pointer instead of a reference",
+        "why": "Lists store real pointers to None; it's the refcount updates that are skipped."
+      }
+    ],
+    "explanation": "PEP 683 (Python 3.12) made objects such as None, True, False, small ints and some interned strings immortal. Their reference count is set to a special value that increments and decrements leave alone. That avoids memory writes to shared objects, which matters for multi-core free-threading and for copy-on-write after fork. It also means getrefcount on these objects tells you nothing.",
+    "reference": "PEP 683: Immortal Objects"
+  },
+  {
+    "id": "PYM-PRF-037",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A web server imports a large app in the parent process, then forks 16 workers. Shared memory drops quickly after the fork as pages are copied. Why do teams call `gc.freeze()` just before forking?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It turns the GC off in every worker, so workers can never collect cycles at all",
+        "why": "Workers keep collecting objects created after the fork; only the frozen ones are skipped."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It makes every object in the parent immortal, so refcount writes stop copying pages",
+        "why": "freeze doesn't change refcounts; reference-count writes can still copy pages."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "It moves existing objects to a permanent generation the GC never scans",
+        "why": "Collections in workers then don't write to the shared pages those objects live on."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It compacts the heap so the forked workers share fewer, denser pages",
+        "why": "CPython's GC never moves objects, so there is nothing to compact."
+      }
+    ],
+    "explanation": "After `fork`, parent and children share memory pages until one of them writes to a page. CPython's cyclic GC writes to object headers when it scans, so a collection in each worker would copy most pages. `gc.freeze()` moves all current objects into a permanent generation that later collections ignore. Instagram popularised this. Refcount changes on touched objects still cause some copying, which immortal objects reduce further.",
+    "reference": "Python docs: gc.freeze"
+  },
+  {
+    "id": "PYM-PRF-038",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "Code got noticeably faster when a team upgraded from Python 3.10 to 3.11 without changing anything. Which CPython changes contributed? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Instructions are specialised at runtime for the types they actually see",
+        "why": "PEP 659's adaptive interpreter arrived in 3.11."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Zero-cost exceptions: entering a `try` block costs nothing when nothing is raised",
+        "why": "3.11 replaced setup opcodes with an exception table."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The GIL was removed by default, so programs use all cores",
+        "why": "The GIL is still there; free-threading is a separate build from 3.13."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Type annotations are now used to compile functions to machine code",
+        "why": "CPython still ignores annotations when running code."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "For loops over range() are automatically run in parallel",
+        "why": "Nothing in CPython parallelises loops automatically."
+      }
+    ],
+    "explanation": "The Faster CPython project's 3.11 release made the interpreter 10–60% faster with no code changes. The main changes were the specializing adaptive interpreter, cheaper function calls and frames, zero-cost `try` blocks using an exception table, and faster startup from frozen core modules. None of these involve type hints or parallelism.",
+    "reference": "Python docs: What's New in Python 3.11 (Faster CPython)"
+  },
+  {
+    "id": "PYM-PRF-039",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "On CPython 3.13, why is `def t(): return (1, 2, 3)` cheaper per call than `def l(): return [1, 2, 3]`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Tuples are smaller, so the allocator finds memory for them more quickly",
+        "why": "Size isn't the issue; t() allocates nothing at all per call."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The tuple is a stored constant returned as-is; the list is built on every call",
+        "why": "dis shows RETURN_CONST ((1, 2, 3)) versus BUILD_LIST and LIST_EXTEND."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The interpreter caches the list after the first call and returns copies of it",
+        "why": "Lists are mutable, so each call must create a brand-new list."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Tuples skip reference counting entirely, which the list can't do",
+        "why": "Tuples are refcounted like other objects; the saving is skipping construction."
+      }
+    ],
+    "explanation": "Because a tuple of constants is immutable, the compiler builds it once and stores it in the function's `co_consts`. Each call then just returns that object (`RETURN_CONST` in 3.12+). A list must be fresh each time, since a caller might mutate it, so the bytecode builds it: `BUILD_LIST`, `LOAD_CONST (1, 2, 3)`, `LIST_EXTEND`. Prefer tuples for fixed constant sequences in hot code.",
+    "reference": "Python docs: dis"
+  },
+  {
+    "id": "PYM-PRF-040",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 4,
+    "type": "fill",
+    "select": 1,
+    "stem": "What number does this print on CPython 3.13? Type a number.\n\n```python\nimport sys\nx = []\ny = x\nz = [x, x]\nprint(sys.getrefcount(x))\n```",
+    "options": [],
+    "accepted": [
+      "5"
+    ],
+    "explanation": "Count the references to the list: the name `x`, the name `y`, the two slots in `z`, and the temporary argument reference held during the call to getrefcount. That makes 1 + 1 + 2 + 1 = 5, which is what CPython 3.13 prints. A new empty list is not immortal, so the count is real.",
+    "reference": "Python docs: sys.getrefcount"
+  },
+  {
+    "id": "PYM-PRF-041",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "cProfile says a tiny helper called 40 million times takes 60% of the runtime. py-spy on the same workload says it takes about 20%. What best explains the difference?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "py-spy misses short functions because it only samples once per second",
+        "why": "py-spy samples about 100 times a second by default; over a long run it catches short functions in proportion."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "cProfile counts time spent in the helper's callees as the helper's own time",
+        "why": "cProfile reports own time and cumulative time separately; the distortion here comes from its hooks."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "py-spy can't see functions written in Python, only C extension code",
+        "why": "py-spy reads the interpreter's Python call stacks; Python functions are exactly what it reports."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "cProfile's per-call hooks add overhead to each call, inflating tiny, frequent functions",
+        "why": "Sampling adds no per-call cost, so it shows a truer share."
+      }
+    ],
+    "explanation": "Deterministic profilers like cProfile run code on every call and return. For a function that does almost nothing, that overhead can be bigger than the function itself, so call-heavy code looks worse than it is. Sampling profilers interrupt periodically and record the stack, so their cost doesn't depend on call frequency. Use cProfile for call counts and structure, and a sampler for realistic time shares.",
+    "reference": "Python docs: The Python Profilers (deterministic profiling overhead)"
+  },
+  {
+    "id": "PYM-PRF-042",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A parser reads 20 million CSV rows, each with a `status` column that only ever holds one of five words, and keeps the rows in memory. Why might wrapping that value in `sys.intern()` cut memory use substantially?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Interned strings are stored compressed, so each copy takes fewer bytes",
+        "why": "Interning doesn't change how a string is stored; it ensures there is only one copy."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Interning converts the strings to small ints, which come from the small-int cache",
+        "why": "The values stay strings; interning deduplicates them."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Each value read from the file is a new string; interning shares one object per word",
+        "why": "20 million rows then point at five string objects."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Interned strings are immortal, so they aren't counted in the process's memory",
+        "why": "Immortal objects still occupy memory; the saving comes from deduplication."
+      }
+    ],
+    "explanation": "Strings created at runtime, such as values split from file lines, are separate objects even when equal. `sys.intern` returns the canonical object for each value, so equal strings share one copy. As a bonus, dict lookups with interned keys can short-circuit on identity. CPython interns many identifier-like literals automatically, but never data read at runtime.",
+    "reference": "Python docs: sys.intern"
+  },
+  {
+    "id": "PYM-PRF-043",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which of these keep an object alive after the function that created it returns, so memory isn't freed? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Saving the caught exception object in a module-level list",
+        "why": "Its traceback references the frame, and the frame references the locals."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Registering `obj.method` in a long-lived callback list",
+        "why": "A bound method holds a strong reference to its instance."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Keeping a `weakref.ref(obj)` in a global variable",
+        "why": "Weak references don't keep their target alive."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Storing `obj` as a value in a WeakValueDictionary",
+        "why": "The dictionary holds the value weakly, so the entry disappears with the object."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Binding `obj` to a local variable of the function that has returned",
+        "why": "Locals are released when the frame finishes, unless something else references the frame."
+      }
+    ],
+    "explanation": "An exception's `__traceback__` links to the frames it passed through, and each frame keeps its local variables, so storing exceptions can retain large objects. Tested on 3.13, a local stayed alive until the saved exception was cleared. Bound methods carry `__self__`, so callback registries retain instances. `weakref.WeakMethod` and clearing stored exceptions are the usual fixes.",
+    "reference": "Python docs: weakref.WeakMethod; Python docs: traceback objects"
+  },
+  {
+    "id": "PYM-PRF-044",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 4,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In CPython, `sorted()` on a list of one million integers that is already in ascending order takes about as long as sorting the same values in random order.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Timsort detects existing runs; sorted input needs only one linear pass."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct. In a 3.13 test the sorted input was more than 10× faster than the shuffled copy."
+      }
+    ],
+    "explanation": "CPython's sort is Timsort (with the Powersort merge policy since 3.11). It scans for runs that are already ascending or descending and merges them. Fully sorted data is one run, so sorting it takes about n comparisons instead of n log n. Real data is often partly ordered, which is why Timsort performs so well in practice.",
+    "reference": "CPython source: Objects/listsort.txt"
+  },
+  {
+    "id": "PYM-PRF-045",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Run as a script, this prints `True`. Typed one line at a time into the interactive REPL, the last line prints `False`. Why?\n\n```python\na = 10 ** 6\nb = 10 ** 6\nprint(a is b)\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The REPL turns off the small-int cache, so the ints are never shared there",
+        "why": "1,000,000 is far outside the small-int cache in both cases."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Scripts intern every integer result they compute, but the REPL does not",
+        "why": "Ints computed at runtime are never interned anywhere."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The REPL runs each line in a new process, so object identities differ",
+        "why": "The REPL is one process; it compiles each input separately."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "The compiler folds `10 ** 6` and merges equal constants within one code object",
+        "why": "Each REPL line is a separate code object, so each gets its own int."
+      }
+    ],
+    "explanation": "CPython's compiler evaluates constant expressions like `10 ** 6` at compile time and stores one copy of each equal constant per code object. In a script both names load the same constant. In the REPL each statement is compiled on its own, giving two distinct int objects. Compiling the two assignments separately with `compile()` reproduces the False. Never use `is` to compare numbers.",
+    "reference": "Python docs: Programming FAQ (is operator with integers)"
+  }
+]
