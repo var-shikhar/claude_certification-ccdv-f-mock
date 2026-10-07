@@ -7,7 +7,7 @@ export default function Page() {
     <article className="mx-auto max-w-3xl space-y-6 px-4 py-10 sm:px-6">
       <header className="space-y-2">
         <h1 className="text-3xl font-bold sm:text-4xl">Privacy</h1>
-        <p className="text-muted-foreground">What quizMonkey stores about you, and why.</p>
+        <p className="text-muted-foreground">What quizzMonkey stores about you, and why.</p>
       </header>
       <section className="space-y-2">
         <h2 className="text-xl font-semibold">What we store</h2>

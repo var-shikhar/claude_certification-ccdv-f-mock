@@ -37,6 +37,6 @@ function createDb(): DB {
 }
 
 // One client per process; Next dev re-evaluates modules on every edit.
-const g = globalThis as unknown as { __quizmonkeyDb?: DB };
-export const db: DB = (g.__quizmonkeyDb ??= createDb());
+const g = globalThis as unknown as { __quizzmonkeyDb?: DB };
+export const db: DB = (g.__quizzmonkeyDb ??= createDb());
 export { schema };

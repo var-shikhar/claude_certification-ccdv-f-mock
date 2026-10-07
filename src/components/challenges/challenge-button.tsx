@@ -25,7 +25,7 @@ export function ChallengeButton({ attemptId, examCode }: { attemptId: string; ex
   }
   async function share() {
     if (!link) return;
-    try { await navigator.share({ title: `Beat my ${examCode} score on quizMonkey`, url: link }); } catch { /* dismissed */ }
+    try { await navigator.share({ title: `Beat my ${examCode} score on quizzMonkey`, url: link }); } catch { /* dismissed */ }
   }
 
   return (

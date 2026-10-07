@@ -1,4 +1,4 @@
-// Aceternity UI "Bento Grid", re-themed to quizMonkey's tokens so it follows
+// Aceternity UI "Bento Grid", re-themed to quizzMonkey's tokens so it follows
 // light/dark mode instead of hard-coded neutrals.
 
 import { cn } from "@/lib/utils";
