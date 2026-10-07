@@ -1,0 +1,1698 @@
+[
+  {
+    "id": "CON-LKF-001",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What does a compare-and-swap (CAS) operation on a memory location do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It swaps the values of two memory locations in one indivisible step",
+        "why": "That describes an atomic swap of two locations, which most hardware does not offer; CAS works on one location."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It atomically stores a new value only if the location holds an expected one",
+        "why": "CAS compares and conditionally stores as one indivisible step, and reports whether the store happened."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It locks the cache line until the thread that issued it calls a matching release",
+        "why": "CAS takes no lock that outlives the instruction; nothing has to be released afterwards."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It compares two values and swaps their order if the first is larger than the second",
+        "why": "That is a sorting step (compare-exchange in a sorting network), not an atomic memory primitive."
+      }
+    ],
+    "explanation": "CAS(addr, expected, new) atomically checks that addr holds expected and, only then, stores new. It returns success or failure (and in many APIs the current value). Retry loops built on CAS are the foundation of most lock-free code: read, compute, CAS, and retry if another thread got there first.",
+    "reference": "cppreference: std::atomic::compare_exchange"
+  },
+  {
+    "id": "CON-LKF-002",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "A lock-free algorithm guarantees that every individual thread completes its operation within a bounded number of its own steps.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Bounded steps for every thread is the definition of wait-free, which is stronger than lock-free."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Lock-free only guarantees that some thread makes progress; an unlucky thread can keep losing CAS races."
+      }
+    ],
+    "explanation": "Lock-freedom is a system-wide guarantee: whenever threads run, at least one completes in a finite number of steps. An individual thread can starve by repeatedly losing races. Wait-freedom adds the per-thread bound. Neither involves locks that a descheduled thread could hold.",
+    "reference": "Herlihy & Shavit, The Art of Multiprocessor Programming, ch. 3"
+  },
+  {
+    "id": "CON-LKF-003",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "What does this JavaScript print? Type the number.\n\n```js\nconst ia = new Int32Array(new SharedArrayBuffer(4));\nia[0] = 5;\nconsole.log(Atomics.compareExchange(ia, 0, 5, 9));\n```",
+    "options": [],
+    "accepted": [
+      "5"
+    ],
+    "explanation": "`Atomics.compareExchange` returns the value that was at the index before the operation, whether or not the exchange happened. Here the slot held 5, which matched the expected value, so 9 is stored and 5 is returned. To know if it succeeded, compare the return value with the expected value. Verified in Node 24.",
+    "reference": "MDN: Atomics.compareExchange()"
+  },
+  {
+    "id": "CON-LKF-004",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each atomic operation with what it does.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Adds to the value and returns the previous value",
+        "why": "fetch-and-add"
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Stores a new value and returns the previous value",
+        "why": "exchange"
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Stores a new value only if the current value equals an expected one",
+        "why": "compare-and-swap"
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Reads the value so that later reads in the same thread are not moved before it",
+        "why": "load-acquire"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`fetch_add` / `getAndAdd` / `Atomics.add`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`exchange` / `getAndSet` / `Atomics.exchange`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`compare_exchange` / `compareAndSet` / `Atomics.compareExchange`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`load(memory_order_acquire)`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Fetch-and-add and exchange are read-modify-write operations that return the old value. CAS is the conditional store that retry loops build on. An acquire load is about ordering rather than modification: memory operations after it in program order cannot be reordered before it, which pairs with a release store to publish data.",
+    "reference": "cppreference: std::atomic"
+  },
+  {
+    "id": "CON-LKF-005",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "In Java, which call atomically increments an `AtomicInteger` and returns the value after the increment?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`counter.incrementAndGet()`",
+        "why": "It performs the read-modify-write atomically and returns the new value."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`counter.getAndIncrement()`",
+        "why": "It is atomic too, but returns the value from before the increment."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`counter.set(counter.get() + 1)`",
+        "why": "Two separate atomic calls are not one atomic step; another thread can update in between and an increment is lost."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`counter.lazySet(counter.get() + 1)`",
+        "why": "lazySet is just a weaker ordered store; the get-then-set sequence still loses updates."
+      }
+    ],
+    "explanation": "`incrementAndGet` and `getAndIncrement` are both single atomic read-modify-write operations; they differ only in whether they return the new or old value. Composing `get` and `set` yourself is not atomic, because another thread can change the value between the two calls.",
+    "reference": "Java docs: java.util.concurrent.atomic.AtomicInteger"
+  },
+  {
+    "id": "CON-LKF-006",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print in Node.js?\n\n```js\nconst ia = new Int32Array(new SharedArrayBuffer(4));\nia[0] = 9;\nconst r = Atomics.compareExchange(ia, 0, 5, 7);\nconsole.log(r, ia[0]);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`5 7`",
+        "why": "That would require the slot to hold the expected value 5, but it holds 9."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`9 9`",
+        "why": "The comparison fails, nothing is stored, and the current value 9 is returned."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`false 9`",
+        "why": "compareExchange returns the old value, not a boolean success flag."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`7 9`",
+        "why": "The replacement value is never returned; the old value is."
+      }
+    ],
+    "explanation": "The slot holds 9 and the expected value is 5, so the compare fails and 7 is not written. `compareExchange` returns the value it found (9), so the caller detects failure by seeing that the return value differs from the expected 5. Verified in Node 24.",
+    "reference": "MDN: Atomics.compareExchange()"
+  },
+  {
+    "id": "CON-LKF-007",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Several threads double a shared value with this loop. What happens when another thread changes `counter` between the `get()` and the first CAS?\n\n```java\nint cur = counter.get();\nwhile (!counter.compareAndSet(cur, cur * 2)) {\n  // retry\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The CAS retries until it succeeds, so the value is doubled exactly once",
+        "why": "It never succeeds while the value differs from cur, because cur is never refreshed."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The thread spins indefinitely, because `cur` is never refreshed",
+        "why": "Each retry compares against the same stale expected value, so the CAS keeps failing."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The CAS throws an exception after a fixed number of failed attempts",
+        "why": "compareAndSet just returns false; there is no built-in retry limit or exception."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The CAS silently overwrites the newer value with the stale `cur * 2`",
+        "why": "CAS cannot overwrite a value that differs from the expected one; that is its point."
+      }
+    ],
+    "explanation": "A correct CAS loop re-reads the current value on every iteration: `do { cur = counter.get(); next = cur * 2; } while (!counter.compareAndSet(cur, next));`. Here `cur` is read once, so after any interference the CAS compares against a value that no longer exists and spins until the counter happens to return to that exact value. (Java also offers `updateAndGet(x -> x * 2)`, which writes the loop for you.)",
+    "reference": "Java docs: AtomicInteger.updateAndGet"
+  },
+  {
+    "id": "CON-LKF-008",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about C++ `compare_exchange_weak` and `compare_exchange_strong` are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`compare_exchange_weak` may fail even when the current value equals `expected`",
+        "why": "It is allowed to fail spuriously, for example on LL/SC hardware when the reservation is lost."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`compare_exchange_weak` is the usual choice inside a retry loop",
+        "why": "A spurious failure just costs one more iteration, and weak can be cheaper on some hardware."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`compare_exchange_strong` may also fail spuriously, just less often",
+        "why": "The strong form fails only when the values really differ."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "On failure, only the strong form writes the current value back into `expected`",
+        "why": "Both forms update expected with the value actually observed when they fail."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The weak form takes a lock internally, which is why it can fail",
+        "why": "Neither form takes a lock on platforms where the atomic is lock-free; failure comes from the hardware primitive."
+      }
+    ],
+    "explanation": "On load-linked/store-conditional architectures (ARM, POWER), a store-conditional can fail for reasons unrelated to the value, such as an interrupt. The weak CAS exposes that as a spurious failure, which is harmless in a loop. The strong CAS hides it with an internal retry. Both update `expected` with the observed value on failure, so a loop does not need a separate reload.",
+    "reference": "cppreference: std::atomic::compare_exchange_weak"
+  },
+  {
+    "id": "CON-LKF-009",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the steps of a correct CAS-based \"apply f to a shared value\" operation in order.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Read the current value of the shared variable",
+        "why": ""
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Compute the new value from the value just read",
+        "why": ""
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "CAS the variable from the value read to the new value",
+        "why": ""
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "If the CAS failed, go back and read the current value again",
+        "why": ""
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "explanation": "The value used for the CAS must be the value the new result was computed from, and both must be refreshed on every failed attempt. Computing from one read and comparing against another read reintroduces the lost-update race the CAS was meant to prevent.",
+    "reference": "Herlihy & Shavit, The Art of Multiprocessor Programming, ch. 5"
+  },
+  {
+    "id": "CON-LKF-010",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A counter is incremented with a CAS retry loop by many threads. Which progress guarantee does this provide?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Wait-free: every thread finishes within a bounded number of its own steps",
+        "why": "A thread that keeps losing the CAS race has no bound on its retries."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Lock-free: whenever threads contend, at least one of them succeeds",
+        "why": "Every failed CAS means some other thread's CAS succeeded, so the system always progresses."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Only obstruction-free: progress is guaranteed only when a thread runs alone",
+        "why": "It is stronger than that; even under contention one CAS per round succeeds."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Blocking: a thread descheduled mid-loop can stop all the others",
+        "why": "A descheduled thread holds nothing; the others keep succeeding without it."
+      }
+    ],
+    "explanation": "A CAS fails only because another thread changed the value, which means that thread completed its update. So the system as a whole always progresses (lock-free), but a particular thread can lose indefinitely (not wait-free). Making it wait-free requires extra machinery such as helping or a hardware fetch-and-add that completes in a bounded number of steps.",
+    "reference": "Herlihy & Shavit, The Art of Multiprocessor Programming, ch. 3"
+  },
+  {
+    "id": "CON-LKF-011",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In Node.js, calling `Atomics.add` on an `Int32Array` that is backed by an ordinary `ArrayBuffer` (not a `SharedArrayBuffer`) throws a `TypeError`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Integer typed arrays over a plain ArrayBuffer are accepted; the operation simply has no other thread to race with."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "It works: the Atomics operations accept non-shared integer arrays, they are just pointless without sharing."
+      }
+    ],
+    "explanation": "The Atomics methods require an integer typed array (Int8 to Int32, Uint8 to Uint32, BigInt64, BigUint64); a non-integer array such as Float64Array throws a TypeError. Whether the buffer is shared only matters for `Atomics.wait` and `notify` semantics and for actually being visible to other threads. Verified in Node 24: `Atomics.add` on a plain Int32Array succeeds.",
+    "reference": "MDN: Atomics"
+  },
+  {
+    "id": "CON-LKF-012",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A Java service counts requests from 64 threads with one `AtomicLong.incrementAndGet()`. Switching to `LongAdder.increment()` raises throughput sharply. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`LongAdder` uses a lock with fair queueing, which is cheaper than CAS under load",
+        "why": "LongAdder is lock-free; it avoids contention rather than queueing it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Increments go to striped cells, so threads rarely contend for one cache line",
+        "why": "Contention is the cost: one hot word forces every CAS to fight for one cache line."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`LongAdder` batches increments and writes them to memory less often",
+        "why": "Each increment is applied immediately to a cell; nothing is buffered or delayed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`LongAdder` uses 32-bit cells, which are cheaper to update than a 64-bit long",
+        "why": "The cells hold long values; width is not the reason it is faster."
+      }
+    ],
+    "explanation": "With one AtomicLong, every increment needs exclusive ownership of the same cache line, and failed CASes retry, so throughput collapses as cores are added. LongAdder keeps a base value plus a dynamically grown array of padded cells; contending threads update different cells and `sum()` adds them up. The trade-off is that `sum()` is not an atomic snapshot and there is no atomic increment-and-get.",
+    "reference": "Java docs: java.util.concurrent.atomic.LongAdder"
+  },
+  {
+    "id": "CON-LKF-013",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Two threads each increment their own counter in a tight loop. The counters are adjacent `long` fields in the same object, and the program runs far slower with two threads than with one. Which statements are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The two fields likely share a cache line, so each write invalidates the other core's copy",
+        "why": "This is false sharing: logically independent data bouncing between cores."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Padding or aligning each counter to its own cache line removes the slowdown",
+        "why": "Separate lines let each core keep its line in a modified state without interference."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The slowdown proves the counters need a mutex",
+        "why": "There is no data race; each thread writes only its own field."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Making the fields `volatile` fixes it by bypassing the cache",
+        "why": "volatile does not bypass caches; the line still bounces between cores."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Using `AtomicLong` instead of `long` fields fixes it",
+        "why": "Two AtomicLong objects can still sit in the same line, and atomics add their own cost."
+      }
+    ],
+    "explanation": "Cache coherence works per cache line (typically 64 bytes). When two cores write different variables in the same line, the line ping-pongs between their caches, so each write waits for ownership. The fix is layout, not synchronization: pad or align hot per-thread data to separate lines (for example `alignas(64)` in C++, or `@Contended` / manual padding in Java).",
+    "reference": "Intel 64 and IA-32 Optimization Reference Manual: false sharing"
+  },
+  {
+    "id": "CON-LKF-014",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 2,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each progress guarantee with its definition.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A thread that is suspended while holding a resource can stop others from progressing",
+        "why": "blocking"
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A thread is guaranteed to finish if it eventually runs alone, without interference",
+        "why": "obstruction-free"
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Some thread always finishes, but an individual thread may retry forever",
+        "why": "lock-free"
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Every thread finishes in a bounded number of its own steps",
+        "why": "wait-free"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Blocking",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Obstruction-free",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Lock-free",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Wait-free",
+        "answer": "D"
+      }
+    ],
+    "explanation": "The non-blocking guarantees form a hierarchy: wait-free implies lock-free, which implies obstruction-free. Blocking algorithms, such as anything built on a mutex, offer none of these, because a thread descheduled inside the critical section stops everyone waiting for the lock.",
+    "reference": "Herlihy & Shavit, The Art of Multiprocessor Programming, ch. 3"
+  },
+  {
+    "id": "CON-LKF-015",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Which of these JavaScript calls throws a `TypeError`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`Atomics.add(new Int32Array(new SharedArrayBuffer(8)), 0, 1)`",
+        "why": "Int32Array is an integer typed array, which Atomics supports."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`Atomics.add(new Uint8Array(new SharedArrayBuffer(8)), 0, 1)`",
+        "why": "Uint8Array is also an integer typed array and is allowed."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`Atomics.add(new Float64Array(new SharedArrayBuffer(8)), 0, 1)`",
+        "why": "Floating-point typed arrays are not valid Atomics targets."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`Atomics.add(new BigInt64Array(new SharedArrayBuffer(8)), 0, 1n)`",
+        "why": "BigInt64Array is supported, with BigInt operands."
+      }
+    ],
+    "explanation": "Atomics operations work only on integer typed arrays: Int8, Uint8, Int16, Uint16, Int32, Uint32, BigInt64 and BigUint64. Float32Array and Float64Array throw a TypeError. If you need an atomic float, store its bits in an integer array and convert. Verified in Node 24.",
+    "reference": "MDN: Atomics"
+  },
+  {
+    "id": "CON-LKF-016",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A lock-free stack holds A → B → C. Thread T1 starts `pop`: it reads `top = A` and `next = B`, then is preempted before its CAS. Thread T2 pops A, pops B, and pushes A back (reusing the node). T1 resumes and runs `CAS(top, A, B)`. What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The CAS fails because the stack changed while T1 was preempted",
+        "why": "CAS only compares the pointer value, and top is A again, so it cannot see the change."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The CAS succeeds and sets `top` to B, a node T2 already popped",
+        "why": "This is the ABA problem: the value came back, but the structure underneath changed."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The CAS succeeds and leaves the correct stack A → C",
+        "why": "T1 writes its stale next pointer, B, not A or C."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The CAS succeeds but leaves `top` unchanged, because A still points to C",
+        "why": "T1 installs the next value it read earlier, which is B."
+      }
+    ],
+    "explanation": "T1's CAS only checks that top still equals A, and it does, because T2 pushed the same node back. So T1 installs its stale next pointer, B, which T2 already removed and may have freed or reused. The stack now begins with a node that is no longer logically in it. A deterministic simulation of this interleaving gives the stack B → C instead of A → C. Fixes include version-tagged pointers, hazard pointers and epoch-based reclamation.",
+    "reference": "Wikipedia: ABA problem; Michael, Hazard Pointers (2004)"
+  },
+  {
+    "id": "CON-LKF-017",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Why is the classic ABA bug in a Treiber stack much less likely in Java than in C++, even though Java code uses the same CAS on the `top` reference?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Java's `compareAndSet` compares objects with `equals()`, which detects changes",
+        "why": "compareAndSet compares references with identity (==), not equals()."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A node can't be reused while any thread still holds a reference to it",
+        "why": "The garbage collector keeps T1's node alive, so its address can't come back as a new node."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The JVM adds a hidden version counter to every `AtomicReference`",
+        "why": "There is no hidden stamp; AtomicStampedReference exists precisely because one is needed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Java CAS on references is always strong, so it can't succeed by accident",
+        "why": "Strong vs weak is about spurious failure, not about mistaken success."
+      }
+    ],
+    "explanation": "In C++, a popped node is often freed and its memory reused for a new node, so the same address reappears. In Java, the node T1 read stays alive while T1 references it, so a freshly allocated node can never share its identity. ABA is still possible in Java if code deliberately recycles node objects (pooling) or compares values rather than fresh objects, which is what AtomicStampedReference addresses.",
+    "reference": "Java docs: AtomicStampedReference; Herlihy & Shavit, ch. 10"
+  },
+  {
+    "id": "CON-LKF-018",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which techniques prevent the ABA problem in a lock-free linked structure? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Pair the pointer with a version counter that every successful CAS increments",
+        "why": "A recycled pointer comes back with a different version, so the stale CAS fails."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Hazard pointers, so a node another thread may dereference is not reclaimed",
+        "why": "If the node can't be freed and reused while in use, its address can't reappear."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Epoch-based reclamation, which frees nodes only after all readers leave the epoch",
+        "why": "Deferring reuse until no thread can hold the old pointer removes the ABA window."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Replacing `compare_exchange_weak` with `compare_exchange_strong`",
+        "why": "Strong only removes spurious failures; it still succeeds when the old value reappears."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Adding exponential back-off between CAS retries",
+        "why": "Back-off reduces contention but does nothing to stop a reused pointer matching."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Declaring the `top` pointer `volatile`",
+        "why": "volatile affects visibility and ordering, not whether a reused value can match."
+      }
+    ],
+    "explanation": "ABA happens because CAS compares values and a value can return after intermediate changes, usually through memory reuse. You can either make the value unique over time (tagged or stamped pointers, double-width CAS) or make sure memory is not reused while any thread might still be comparing against it (hazard pointers, epochs, RCU grace periods, garbage collection).",
+    "reference": "Michael, Hazard Pointers (IEEE TPDS 2004)"
+  },
+  {
+    "id": "CON-LKF-019",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "In the Michael–Scott lock-free queue, an enqueuer reads `tail` and finds that `tail.next` is not null. What should it do, and why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Wait until the other enqueuer finishes moving `tail`, then retry",
+        "why": "Waiting on another thread would make the queue blocking if that thread stalls."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "CAS `tail` forward to `tail.next` itself, then retry its own enqueue",
+        "why": "Helping finish the lagging update keeps the queue lock-free even if the other thread stalls."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Append its node after `tail.next` without touching `tail`",
+        "why": "It must re-read the real last node; tail.next may itself have a successor."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Report the queue as corrupted, because `tail` must always be the last node",
+        "why": "tail is allowed to lag by one node between the link step and the swing step."
+      }
+    ],
+    "explanation": "Enqueue happens in two CAS steps: link the new node after the last node, then swing tail to it. Another thread can observe the moment in between, when tail lags. Instead of waiting, it helps by advancing tail, then retries. This helping is what keeps the algorithm lock-free: a thread that stalls after linking can't block anyone.",
+    "reference": "Michael & Scott, Simple, Fast, and Practical Non-Blocking and Blocking Concurrent Queue Algorithms (PODC 1996)"
+  },
+  {
+    "id": "CON-LKF-020",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A seqlock protects a pair of values. The writer increments the sequence before and after updating them. Which reader logic is correct?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Read the sequence, read the data, and accept it if the sequence is even",
+        "why": "The writer may have started after the first read; the sequence must be re-read after the data."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Read seq, read data, re-read seq; retry if it changed or was odd",
+        "why": "An odd value means a write was in progress, and a change means one happened during the read."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Increment the sequence, read the data, then decrement the sequence",
+        "why": "Readers must not modify the sequence; that is the writer's signal."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lock the sequence with a CAS, read the data, then unlock it",
+        "why": "That turns readers into writers and defeats the point of a seqlock."
+      }
+    ],
+    "explanation": "Seqlocks favour writers: readers never block writers, they just detect torn reads and retry. The sequence is odd while a write is in progress. A read is valid only if the sequence was even and unchanged across the data reads. This suits small, frequently read, rarely written data, such as the Linux kernel's timekeeping.",
+    "reference": "Linux kernel docs: Sequence counters and sequential locks"
+  },
+  {
+    "id": "CON-LKF-021",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A component keeps its event listeners in a `CopyOnWriteArrayList`. Which statements are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Iterating never throws `ConcurrentModificationException`, even while listeners are added",
+        "why": "Each iterator works on the array snapshot that existed when it was created."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Every add or remove copies the whole underlying array",
+        "why": "Writes are O(n), which is acceptable only when writes are rare."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "An iterator sees listeners added after it was created",
+        "why": "The iterator holds the old snapshot, so later additions are invisible to it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Reads take a lock, so readers block while a writer copies the array",
+        "why": "Reads are lock-free; only writers serialize among themselves."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "It is the right choice for a write-heavy queue of jobs",
+        "why": "Copying the array on every write makes write-heavy use very slow."
+      }
+    ],
+    "explanation": "Copy-on-write collections make reads cheap and safe by publishing a new immutable array on every write. That suits read-mostly data such as listener lists and configuration. The costs are O(n) writes, extra garbage, and iterators that see stale snapshots and don't support `remove`.",
+    "reference": "Java docs: java.util.concurrent.CopyOnWriteArrayList"
+  },
+  {
+    "id": "CON-LKF-022",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "With read-copy-update (RCU), a writer copies a structure, modifies the copy, and publishes it by swapping a pointer. When may it free the old version?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Immediately after the pointer swap, because new readers see the new version",
+        "why": "Readers that started earlier may still be using the old version."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "After a grace period, once all pre-existing readers have finished",
+        "why": "Waiting for pre-existing readers is what makes lock-free reads safe."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "When its reference count, incremented by every reader, drops to zero",
+        "why": "Classic RCU readers don't touch shared counters; that would kill read scalability."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Never; RCU leaks old versions and relies on the process restarting",
+        "why": "Old versions are reclaimed after the grace period."
+      }
+    ],
+    "explanation": "RCU readers run without locks or shared writes, so the writer can't know who is reading. It publishes the new version with a release store, then waits for a grace period: until every reader that was active before the swap has left its read-side critical section. After that, nobody can still hold the old pointer and it can be freed.",
+    "reference": "Linux kernel docs: What is RCU?"
+  },
+  {
+    "id": "CON-LKF-023",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A producer publishes a node to a consumer like this. What can go wrong?\n\n```cpp\n// producer\nnode->value = 42;\nhead.store(node, std::memory_order_relaxed);\n\n// consumer\nNode* n = head.load(std::memory_order_relaxed);\nif (n) use(n->value);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing: the atomic store guarantees the earlier write is visible",
+        "why": "A relaxed store gives atomicity only, with no ordering of other writes."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The consumer can see the pointer but read a stale `value`",
+        "why": "Without release/acquire, the value write may become visible after the pointer."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The consumer can read a torn, half-written pointer",
+        "why": "The pointer is atomic, so it is read whole; the problem is the plain field."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The program deadlocks because both sides use relaxed order",
+        "why": "Memory ordering doesn't cause blocking; it decides what values can be seen."
+      }
+    ],
+    "explanation": "Publishing data through a pointer needs a happens-before edge: store the pointer with `memory_order_release` and load it with `memory_order_acquire`. Then every write the producer made before the release is visible to a consumer that observes the pointer. With relaxed ordering on both sides, the compiler or CPU may reorder the field write after the pointer store, especially on weakly ordered hardware such as ARM.",
+    "reference": "cppreference: std::memory_order (Release-Acquire ordering)"
+  },
+  {
+    "id": "CON-LKF-024",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "Four threads each want to increment a shared counter once, using a CAS retry loop. They all read the same value at the same moment, and in every round exactly one CAS succeeds while all others fail and retry. How many CAS attempts are made in total in this worst case? Type a number.",
+    "options": [],
+    "accepted": [
+      "10"
+    ],
+    "explanation": "Round 1: 4 attempts, 1 succeeds. Round 2: 3 attempts, 1 succeeds. Then 2, then 1. Total = 4 + 3 + 2 + 1 = 10, which is O(n²) work for n increments. This quadratic blow-up under contention is why heavily contended counters use fetch-and-add, back-off, or striping such as LongAdder. Checked with a brute-force search over adversarial schedules.",
+    "reference": "Herlihy & Shavit, The Art of Multiprocessor Programming, ch. 7"
+  },
+  {
+    "id": "CON-LKF-025",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 3,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Replacing a mutex-protected counter with a CAS retry loop always increases throughput when many threads update it heavily.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Under heavy contention, failed CASes and cache-line ping-pong can make it slower than a good lock."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Lock-free changes the progress guarantee, not the cost of contention; it can be slower."
+      }
+    ],
+    "explanation": "Every failed CAS still costs a cache-line transfer, and retries multiply under contention. A modern mutex with an uncontended fast path, or a lock that hands off efficiently, can outperform a CAS loop. If raw counting throughput matters, reduce sharing instead: fetch-and-add, per-thread counters, or striped adders.",
+    "reference": "Herlihy & Shavit, The Art of Multiprocessor Programming, ch. 7"
+  },
+  {
+    "id": "CON-LKF-026",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A benchmark shows that 16 cores incrementing one atomic counter are slower in total than a single core. What is the main hardware reason?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Atomic instructions are emulated in software on multicore CPUs",
+        "why": "Atomic RMW instructions are native; the cost comes from coherence traffic."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The counter's cache line must move to each core for every increment",
+        "why": "Coherence traffic serializes the updates and adds a cross-core transfer to each one."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The operating system takes a global lock whenever an atomic instruction runs",
+        "why": "Atomic instructions are executed by hardware without involving the OS."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The counter is written to main memory and bypasses the caches entirely",
+        "why": "Atomics work in the cache; the line is transferred between caches, not written through."
+      }
+    ],
+    "explanation": "Under a MESI-style protocol, a core must hold a line in Exclusive or Modified state to perform an atomic read-modify-write. With 16 writers, the line migrates for nearly every operation, so updates serialize and each pays a cross-core (or cross-socket) transfer. One core keeps the line in its own cache and runs much faster.",
+    "reference": "Intel 64 and IA-32 Architectures Software Developer's Manual, Vol. 3: cache coherency"
+  },
+  {
+    "id": "CON-LKF-027",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which statements about Go's `sync/atomic` package are true? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Accessing a variable both atomically and with plain reads or writes is a data race",
+        "why": "Every access to a shared variable must be atomic, or synchronized another way."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Calling `Store` on an `atomic.Value` with a different concrete type than before panics",
+        "why": "The documentation states that inconsistent types (and nil) panic."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Under the Go memory model, its operations behave as if in one sequentially consistent order",
+        "why": "Go defines its atomics as sequentially consistent, unlike relaxed C++ atomics."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It only provides compare-and-swap for pointer values",
+        "why": "It has CAS for integer types, pointers and atomic.Value."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Atomic operations make the surrounding non-atomic code free of data races",
+        "why": "Only the atomic accesses themselves are race-free; plain accesses elsewhere still race."
+      }
+    ],
+    "explanation": "The Go memory model (revised in 2022) says the operations in sync/atomic behave as if executed in some sequentially consistent order, and an atomic write observed by an atomic read creates a synchronized-before edge. Mixing atomic and non-atomic accesses to the same variable is still a race, which the race detector reports. `atomic.Value.Store` panics if the concrete type changes or the value is nil. Typed wrappers such as `atomic.Int64` (Go 1.19+) also avoid the old 64-bit alignment pitfalls on 32-bit platforms.",
+    "reference": "Go docs: The Go Memory Model; pkg.go.dev/sync/atomic"
+  },
+  {
+    "id": "CON-LKF-028",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the steps of a Michael–Scott queue enqueue in order, starting from a node already allocated with `next = null`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Read `tail` and `tail.next`",
+        "why": ""
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "If `tail.next` is not null, CAS `tail` forward to it and start again",
+        "why": ""
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "CAS `tail.next` from null to the new node",
+        "why": ""
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "CAS `tail` from the old tail to the new node",
+        "why": ""
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "explanation": "The linking CAS on `tail.next` is the linearization point; after it succeeds the node is in the queue. Swinging `tail` is a separate CAS that may fail harmlessly if another thread already helped. Checking for a lagging tail before linking is what lets threads help each other instead of waiting.",
+    "reference": "Michael & Scott (PODC 1996)"
+  },
+  {
+    "id": "CON-LKF-029",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "With hazard pointers, what must a thread do before dereferencing the node it read from a shared `top` pointer?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Increment a global reader counter that the reclaimer waits for before freeing",
+        "why": "That is closer to reference counting; hazard pointers avoid a shared hot counter."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Publish it in a hazard slot, then re-check that `top` still equals it",
+        "why": "The re-check closes the window where the node was retired before it was protected."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Lock the node so the reclaimer can't free it until it unlocks",
+        "why": "Hazard pointers are a non-blocking scheme; readers never take locks."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Copy the whole node to thread-local memory and use the copy",
+        "why": "Copying still reads freed memory if the node was reclaimed first."
+      }
+    ],
+    "explanation": "Readers announce the pointer they are about to use in a per-thread hazard slot. Because the node could have been removed between the read and the announcement, the reader then re-reads the source and retries if it changed. A reclaimer scans all hazard slots and frees only retired nodes that no slot mentions.",
+    "reference": "Michael, Hazard Pointers (IEEE TPDS 2004)"
+  },
+  {
+    "id": "CON-LKF-030",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Under heavy contention, adding a short randomized exponential back-off after each failed CAS improves a lock-free stack's throughput. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Back-off makes the CAS instruction itself execute faster",
+        "why": "The instruction cost is unchanged; fewer threads compete at once."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Fewer simultaneous attempts mean less coherence traffic and fewer doomed CASes",
+        "why": "Spreading retries out lets more CASes succeed instead of all colliding."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Back-off makes the algorithm wait-free by bounding how many retries each thread makes",
+        "why": "A thread can still lose repeatedly; back-off doesn't create a per-thread bound."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Back-off prevents the ABA problem by giving reclaimers time to finish",
+        "why": "ABA depends on memory reuse, which back-off doesn't control."
+      }
+    ],
+    "explanation": "When many threads retry immediately, they keep stealing the cache line from each other and most CASes fail. Randomized, growing delays desynchronize them, so attempts land in a less crowded window and a larger fraction succeed. The cost is extra latency for the threads that back off, so delays are capped.",
+    "reference": "Herlihy & Shavit, The Art of Multiprocessor Programming, ch. 7"
+  },
+  {
+    "id": "CON-LKF-031",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What does the stamp in Java's `AtomicStampedReference` let a CAS detect that a plain `AtomicReference` CAS cannot?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "That two different objects are equal according to `equals()`",
+        "why": "Stamped references still compare the reference by identity, not equals()."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "That the reference changed and later changed back",
+        "why": "A changed stamp makes the stale CAS fail even when the reference matches again."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "That the referenced object's fields were modified in place",
+        "why": "The stamp tracks updates to the reference, not mutations inside the object."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "That the current thread already holds the reference's monitor",
+        "why": "Stamps are unrelated to monitors or lock ownership."
+      }
+    ],
+    "explanation": "`compareAndSet(expectedRef, newRef, expectedStamp, newStamp)` succeeds only if both the reference and the integer stamp match. If every update increments the stamp, a reference that went A → B → A comes back with a different stamp, so a CAS based on the first A fails. This is the Java version of a tagged pointer.",
+    "reference": "Java docs: java.util.concurrent.atomic.AtomicStampedReference"
+  },
+  {
+    "id": "CON-LKF-032",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "This C++ code tries a single compare-exchange to claim a slot and reports \"taken\" on failure. What is the bug?\n\n```cpp\nint expected = 0;\nif (!slot.compare_exchange_weak(expected, myId)) {\n  return Status::Taken;\n}\nreturn Status::Claimed;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "compare_exchange_weak can't be used on an `int`",
+        "why": "It works on any atomic of a trivially copyable type, including int."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A spurious failure reports \"taken\" while the slot is still free",
+        "why": "Weak CAS may fail even though the slot holds 0; use strong for a one-shot attempt."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "On failure `expected` is left unchanged, so the caller can't tell who owns it",
+        "why": "On failure, expected is updated with the value actually observed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The weak form can succeed even when the slot holds another thread's ID",
+        "why": "Weak may fail spuriously but never succeeds when the values differ."
+      }
+    ],
+    "explanation": "The weak form is meant for loops, where a spurious failure just causes one more iteration. In a single attempt whose failure means something (\"someone else owns it\"), use `compare_exchange_strong`, or loop while `expected` is still 0. On LL/SC hardware, spurious failures really happen.",
+    "reference": "cppreference: std::atomic::compare_exchange_weak"
+  },
+  {
+    "id": "CON-LKF-033",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer \"fixes\" a stale-value bug in a Java CAS loop like this. Does it now update `balance` correctly under concurrency?\n\n```java\nlong cur = balance.get();\nlong next = applyFee(cur);\nwhile (!balance.compareAndSet(balance.get(), next)) {\n  // retry\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Yes: re-reading inside the CAS means it always compares the latest value",
+        "why": "Comparing the latest value is the problem: next was computed from an older one."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "No: `next` came from a stale `cur`, so newer updates get overwritten",
+        "why": "The CAS succeeds against the fresh value while installing a result based on the old one."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "No: it spins forever because `next` is never recomputed",
+        "why": "It won't spin; comparing against a fresh get() makes the CAS succeed quickly."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Yes: `compareAndSet` rejects the write if `next` was computed from an old value",
+        "why": "CAS knows nothing about how next was computed; it only compares the current value."
+      }
+    ],
+    "explanation": "The expected value given to the CAS must be the same value the new value was derived from. Here the CAS reads a fresh value just before comparing, so it almost always succeeds, and it installs `applyFee(old)` over any update made since `cur` was read. That is the classic lost update with extra steps. Correct form: `balance.updateAndGet(this::applyFee)`, or a loop that recomputes `next` from the value it CASes against.",
+    "reference": "Java docs: AtomicLong.updateAndGet"
+  },
+  {
+    "id": "CON-LKF-034",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which statements about progress guarantees are correct? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A counter built on a CAS retry loop is lock-free but not wait-free",
+        "why": "Some CAS always succeeds, but a given thread can keep losing."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A wait-free operation finishes in a bounded number of its own steps, whatever other threads do",
+        "why": "That per-thread bound is exactly what distinguishes wait-free."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Any algorithm that relies on a mutex being released is blocking",
+        "why": "If the lock holder is descheduled or dies, waiters can't proceed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Obstruction-free algorithms guarantee progress when two threads contend continuously",
+        "why": "Obstruction-freedom guarantees progress only for a thread running in isolation."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "A lock-free algorithm can never starve an individual thread",
+        "why": "Lock-freedom allows individual starvation; only wait-freedom rules it out."
+      }
+    ],
+    "explanation": "Blocking < obstruction-free < lock-free < wait-free. Each level strengthens what is guaranteed under interference: obstruction-free promises progress only in isolation, lock-free promises system-wide progress, and wait-free promises per-thread progress. Wait-free designs usually need helping or announcement arrays, which makes them more complex and often slower in the common case.",
+    "reference": "Herlihy & Shavit, The Art of Multiprocessor Programming, ch. 3"
+  },
+  {
+    "id": "CON-LKF-035",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A team swaps an `AtomicLong` that hands out order numbers via `incrementAndGet()` for a `LongAdder`, because profiling showed contention. What breaks?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing: `LongAdder.increment()` followed by `sum()` yields unique numbers",
+        "why": "Two threads can increment and then both read the same or a skipped sum."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "No atomic increment-and-get, so it can't hand out unique sequential numbers",
+        "why": "LongAdder is built for statistics; its sum is not an atomic snapshot."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`LongAdder` is slower than `AtomicLong` for increments, so contention gets worse",
+        "why": "Under contention it is faster; the problem is semantics, not speed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`LongAdder` resets to zero whenever `sum()` is called",
+        "why": "Only sumThenReset() resets; sum() is a read."
+      }
+    ],
+    "explanation": "LongAdder trades exactness of reads for write scalability: `increment()` returns nothing, and `sum()` adds the cells without a global snapshot, so concurrent increments may or may not be included. That is fine for metrics and counts, but it can't assign unique IDs. For IDs under contention, use per-thread ranges (each thread reserves a block with one fetch-and-add) or keep the AtomicLong.",
+    "reference": "Java docs: java.util.concurrent.atomic.LongAdder"
+  },
+  {
+    "id": "CON-LKF-036",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "To prevent false sharing in a hot Java class, a developer adds `@jdk.internal.vm.annotation.Contended` to two fields. Benchmarks show no change. What is the most likely cause?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The annotation only takes effect on fields that are also declared `volatile`",
+        "why": "The annotation applies to fields regardless of volatile."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Outside the JDK it is ignored unless the JVM runs with `-XX:-RestrictContended`",
+        "why": "By default the JVM honours @Contended only for JDK-internal classes."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The JIT compiler removes the annotation during escape analysis",
+        "why": "Annotations aren't affected by escape analysis; field layout is decided at class load."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Padding only helps for primitive `long` fields, never for object reference fields",
+        "why": "Any frequently written field can suffer false sharing and benefit from padding."
+      }
+    ],
+    "explanation": "The JVM's `@Contended` support pads annotated fields onto their own cache lines, but for application classes it is disabled unless you pass `-XX:-RestrictContended` (the annotation is also in an internal package). Manual padding with dummy `long` fields is fragile, because the JVM may reorder fields. Libraries such as LongAdder use @Contended internally, which is part of why they scale.",
+    "reference": "OpenJDK JEP 142: Reduce Cache Contention on Specified Fields"
+  },
+  {
+    "id": "CON-LKF-037",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A C++ seqlock reader reads the protected data with plain (non-atomic) loads, retrying whenever the sequence number changed. Under the C++ memory model, what is wrong?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing: torn reads are discarded by the retry, so the code is correct",
+        "why": "Discarding the result doesn't make the racing read defined behaviour."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The plain loads race with the writer, which is undefined behaviour in C++",
+        "why": "C++ seqlocks need the data read with (relaxed) atomics plus proper fences."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The sequence counter must be protected by a mutex for readers to be safe",
+        "why": "A mutex would defeat the purpose; the counter itself is atomic."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Readers must increment the sequence to tell the writer they are reading",
+        "why": "Seqlock readers never write the sequence."
+      }
+    ],
+    "explanation": "In C++, any concurrent non-atomic read and write to the same location is a data race and undefined behaviour, even if you later throw the value away. The compiler is allowed to assume no race. Correct seqlocks read the data with relaxed atomic loads (or byte-wise atomic memcpy) and use acquire loads or fences on the sequence. The Linux kernel can use plain reads because it relies on its own memory model and compiler barriers.",
+    "reference": "Boehm, Can Seqlocks Get Along with Programming Language Memory Models? (MSPC 2012)"
+  },
+  {
+    "id": "CON-LKF-038",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A lock-free stack fixes ABA by packing a 16-bit version tag next to a 48-bit pointer in one 64-bit word. Which residual risk remains?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "None at all: once a version tag is added, the ABA problem becomes impossible",
+        "why": "A finite tag eventually wraps around."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "After exactly 65,536 updates during a preemption, the tag wraps and ABA recurs",
+        "why": "Tags shrink the window to rare cases; they don't remove it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The combined word can no longer be compare-and-swapped atomically on 64-bit CPUs",
+        "why": "One 64-bit word is the ideal size for a single-word CAS."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The tag causes false sharing with the stack's nodes",
+        "why": "The tag lives in the top word itself, not in the nodes."
+      }
+    ],
+    "explanation": "A version counter detects A → B → A only if the counter value also differs, and a 16-bit counter repeats every 65,536 increments. A thread preempted long enough under heavy churn could see the same pointer and the same tag. Real implementations use wider tags (double-width CAS, such as 128-bit cmpxchg16b) or safe memory reclamation to make this practically impossible.",
+    "reference": "Wikipedia: ABA problem (tagged state reference)"
+  },
+  {
+    "id": "CON-LKF-039",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team replaces a mutex-protected `std::queue` with a popular lock-free MPMC queue. With 2 producers and 2 consumers, throughput drops. Which explanations are plausible? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "An uncontended mutex fast path costs about one atomic, so low contention favours the simple queue",
+        "why": "Lock-free designs pay for their guarantees with more atomics per operation."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The lock-free queue does several CASes and allocations or reclamation work per operation",
+        "why": "Extra atomics, helping and memory reclamation add constant overhead."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Lock-free queues require more threads than cores to work correctly",
+        "why": "They work at any thread count; this is a performance question, not correctness."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lock-free code always runs slower than lock-based code",
+        "why": "Under high contention or with preemption, lock-free designs often win."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The mutex queue was really lock-free, so nothing changed",
+        "why": "A mutex-protected queue is blocking by definition."
+      }
+    ],
+    "explanation": "Lock-freedom is a progress guarantee, not a speed guarantee. At low contention, a mutex usually costs one atomic to acquire and a store to release, while a lock-free queue may do several CASes, help other operations and manage safe reclamation. Lock-free designs shine when threads can be descheduled while holding locks, when latency tails matter, or under specific contention patterns. Measure with realistic workloads.",
+    "reference": "Herlihy & Shavit, The Art of Multiprocessor Programming, ch. 10"
+  },
+  {
+    "id": "CON-LKF-040",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 4,
+    "type": "fill",
+    "select": 1,
+    "stem": "Five threads each perform two increments of one shared counter using a CAS retry loop. In the worst case, every thread has an attempt in flight in every round and exactly one CAS succeeds per round. What is the maximum total number of CAS attempts? Type a number.",
+    "options": [],
+    "accepted": [
+      "40"
+    ],
+    "explanation": "The adversary keeps all five threads busy as long as possible: for the first five rounds every thread is still active (5 attempts per round, one success each, and each thread finishes its first increment), giving 25 attempts. Then each thread has one increment left, and the active count falls 5, 4, 3, 2, 1, giving 15 more. Total = 25 + 15 = 40, for just 10 successful increments. Checked with a brute-force search over all adversarial schedules.",
+    "reference": "Herlihy & Shavit, The Art of Multiprocessor Programming, ch. 7"
+  },
+  {
+    "id": "CON-LKF-041",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 4,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each concurrent structure or technique with the mechanism that keeps it correct.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Version-tagged or safely reclaimed nodes, because pop is vulnerable to ABA",
+        "why": "Treiber stack"
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Threads help advance a lagging tail pointer instead of waiting",
+        "why": "Michael–Scott queue"
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Readers retry if a sequence counter was odd or changed during the read",
+        "why": "seqlock"
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Old versions are freed only after a grace period for pre-existing readers",
+        "why": "RCU"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Treiber stack",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Michael–Scott queue",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Seqlock",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Read-copy-update (RCU)",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Each design solves a different concurrency problem. The Treiber stack has one CAS point but needs ABA protection. The Michael–Scott queue spreads an enqueue over two CASes and uses helping to stay lock-free. Seqlocks make readers optimistic and retry. RCU makes reads wait-free and defers reclamation.",
+    "reference": "Herlihy & Shavit, The Art of Multiprocessor Programming, ch. 10–11"
+  },
+  {
+    "id": "CON-LKF-042",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 4,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In Java, `AtomicReference.compareAndSet(expected, update)` succeeds when the current value is a different object that is `equals()` to `expected`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "compareAndSet compares references by identity (==), so an equal but distinct object fails."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "It uses identity comparison; a different object fails even if equals() returns true."
+      }
+    ],
+    "explanation": "`AtomicReference.compareAndSet` uses `==` semantics. A common bug is caching boxed values or strings and expecting value equality: `ref.compareAndSet(Integer.valueOf(1000), x)` may fail because a different Integer object is stored, even though both equal 1000. Keep the exact reference you read and pass it back as `expected`.",
+    "reference": "Java docs: java.util.concurrent.atomic.AtomicReference"
+  },
+  {
+    "id": "CON-LKF-043",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A thread iterates over a `CopyOnWriteArrayList` and calls `iterator.remove()` on an element that matches a condition. What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The element is removed from the list and the iteration continues",
+        "why": "COW iterators are read-only snapshots; they can't modify the list."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`UnsupportedOperationException` is thrown",
+        "why": "Iterator mutation methods aren't supported on the snapshot iterator."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`ConcurrentModificationException` is thrown",
+        "why": "COW iterators never throw CME; they work on an immutable snapshot."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The element is removed from the snapshot only, not the list",
+        "why": "There is no per-iterator copy to remove from; the call simply isn't supported."
+      }
+    ],
+    "explanation": "CopyOnWriteArrayList iterators traverse the array as it was when the iterator was created, and their `remove`, `set` and `add` methods throw UnsupportedOperationException. To remove matching elements, call `list.removeIf(...)`, which performs one copy, rather than removing one at a time in a loop, which would copy the array once per removal.",
+    "reference": "Java docs: java.util.concurrent.CopyOnWriteArrayList"
+  },
+  {
+    "id": "CON-LKF-044",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 4,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the steps of an RCU update to a shared configuration object in order.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Copy the current configuration object",
+        "why": ""
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Modify the copy",
+        "why": ""
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Publish the copy by storing its pointer with release semantics",
+        "why": ""
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Wait for a grace period so pre-existing readers finish",
+        "why": ""
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Free the old configuration object",
+        "why": ""
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "Readers either see the old version or the fully built new one, never a half-modified object, because changes happen on a private copy published with a release store. Freeing must wait until every reader that might still hold the old pointer has finished, which is what the grace period guarantees. Concurrent writers still need their own coordination, usually a lock.",
+    "reference": "Linux kernel docs: What is RCU?"
+  },
+  {
+    "id": "CON-LKF-045",
+    "domain": 2,
+    "skill": "lock-free",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A lock-free queue passes a million-iteration stress test on x86 servers but corrupts data on ARM devices. Which conclusions are justified? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The code probably relies on ordering that x86's stronger memory model gives for free",
+        "why": "x86 forbids most reorderings that ARM allows, hiding missing acquire/release."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A model checker that explores weak-memory behaviours can find the bug systematically",
+        "why": "Tools such as loom or CDSChecker explore interleavings and reorderings stress tests miss."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "ARM's atomic instructions are unreliable under load",
+        "why": "ARM atomics are reliable; the code's ordering assumptions are wrong."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Running the x86 stress test for longer would eventually reproduce the bug there",
+        "why": "Some weak-memory outcomes can never occur on x86, however long you run."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The fix is to add more threads to the x86 test",
+        "why": "More threads can't produce reorderings the x86 hardware never performs."
+      }
+    ],
+    "explanation": "x86 is TSO: only store-load reordering is visible, so code that omits release/acquire often still works there. ARM and POWER allow far more reordering, which exposes the missing ordering. Stress tests only sample the behaviours the current hardware produces. Model checkers and weak-memory-aware tools enumerate what the language memory model allows, which is how to test lock-free code properly.",
+    "reference": "Preshing, Weak vs. Strong Memory Models; Rust loom documentation"
+  }
+]

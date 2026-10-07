@@ -1,0 +1,33 @@
+{
+  "multiprocessing-pools": {
+    "summary": "Processes give isolation and true parallelism at the cost of startup, memory and serialised IPC. Senior engineers size and shape pools deliberately, understand what fork copies, and design for crashes, backpressure and clean shutdown.",
+    "points": [
+      "fork() copies the address space copy-on-write and keeps only the calling thread; locks held by other threads stay locked in the child, so register at-fork handlers or prefer spawn/forkserver.",
+      "Everything sent to a worker is serialised. Load big read-only data once per worker (initializer, pre-fork, shared memory or mmap) instead of passing it with each task.",
+      "Size CPU-bound pools to the core count and I/O-bound pools with cores × (1 + wait/compute), then cap by the tightest downstream resource such as database connections.",
+      "Java ThreadPoolExecutor grows past the core size only when the queue refuses a task, so an unbounded queue means the pool never exceeds its core size.",
+      "Chunk size trades IPC overhead against load balance; ordered results (imap) buffer everything behind a slow early task.",
+      "Plan for failure: reap children, cap retries for poison tasks, recycle leaky workers (maxtasksperchild), and drain gracefully on SIGTERM.",
+      "In CPython, reading objects writes refcounts and GC headers, which slowly defeats copy-on-write sharing; gc.freeze() and buffer-based data help."
+    ],
+    "traps": [
+      "Joining a process before draining its multiprocessing.Queue, or calling Popen.wait() with unread pipes, deadlocks once the pipe is full.",
+      "Opening database connections or sockets before fork makes every worker share one stream.",
+      "Killing a parent PID does not kill its children; signal the process group or have the parent stop its workers."
+    ],
+    "docs": [
+      {
+        "title": "fork(2) — Linux manual page",
+        "url": "https://man7.org/linux/man-pages/man2/fork.2.html"
+      },
+      {
+        "title": "ThreadPoolExecutor (Java SE)",
+        "url": "https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ThreadPoolExecutor.html"
+      },
+      {
+        "title": "multiprocessing — Process-based parallelism",
+        "url": "https://docs.python.org/3/library/multiprocessing.html"
+      }
+    ]
+  }
+}

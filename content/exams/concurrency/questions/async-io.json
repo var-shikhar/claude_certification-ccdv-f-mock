@@ -1,0 +1,1630 @@
+[
+  {
+    "id": "CON-AIO-001",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A chat server gives every client connection its own OS thread that blocks on `read()`. At about 10,000 mostly idle connections it struggles. What is the main limit?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Each blocked thread burns CPU while waiting for data on its socket",
+        "why": "A thread blocked in read() is descheduled and uses no CPU while it waits."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Per-thread stack memory and scheduler overhead grow with every connection",
+        "why": "Thousands of threads cost stack memory and context switches even when idle."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The kernel caps a process at a few thousand open sockets",
+        "why": "File-descriptor limits are configurable and far higher; they are not the core issue."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "TCP cannot keep more than a few thousand connections open on a single listening port",
+        "why": "A listening port accepts connections from many client address/port pairs."
+      }
+    ],
+    "explanation": "This is the C10K problem. Thread-per-connection is simple, but each thread reserves a stack and adds work for the scheduler, so memory and context-switch costs scale with connections rather than with actual traffic. Event-driven servers multiplex many idle sockets onto a few threads and only spend work on sockets that are ready.",
+    "reference": "Kegel, The C10K problem"
+  },
+  {
+    "id": "CON-AIO-002",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "On a socket put into non-blocking mode, calling `read()` when no data has arrived returns immediately with an error such as `EAGAIN` instead of waiting.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: non-blocking mode makes the call fail fast with EAGAIN/EWOULDBLOCK."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "It is true: the call does not wait; it reports \"try again later\"."
+      }
+    ],
+    "explanation": "Non-blocking mode changes only what happens when the operation cannot complete now: the call returns at once with EAGAIN (or EWOULDBLOCK) so the program can do something else. Event loops pair this with a readiness API (select/poll/epoll/kqueue) so they only call read() when data is available.",
+    "reference": "man7.org: read(2)"
+  },
+  {
+    "id": "CON-AIO-003",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each I/O model with how a program experiences it.",
+    "options": [
+      {
+        "id": "A",
+        "text": "The call waits until the data is ready and copied"
+      },
+      {
+        "id": "B",
+        "text": "The call returns at once; the program retries later"
+      },
+      {
+        "id": "C",
+        "text": "One call waits until any of many descriptors is ready"
+      },
+      {
+        "id": "D",
+        "text": "The program starts the operation and is told when it has finished"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Blocking I/O",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Non-blocking I/O",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "I/O multiplexing (select/poll/epoll)",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Asynchronous (completion-based) I/O",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Blocking I/O parks the caller. Non-blocking I/O fails fast with EAGAIN. Multiplexing lets one thread wait on many descriptors and learn which are ready. Completion-based asynchronous I/O (Windows IOCP, io_uring) performs the whole operation in the background and reports completion, so the program never makes a separate read call after a readiness event.",
+    "reference": "Stevens, UNIX Network Programming: I/O models"
+  },
+  {
+    "id": "CON-AIO-004",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A single-threaded event-loop server handles requests quickly, until one request handler runs a CPU-heavy loop for 2 seconds. What happens to the other clients during those 2 seconds?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "They are served by a second loop that the runtime starts automatically",
+        "why": "Event-loop runtimes do not spawn extra loops when one task runs long."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The loop pauses the heavy handler after a time slice and serves them",
+        "why": "Event loops are cooperative: they cannot preempt a running callback."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Nothing else runs: their events wait until that handler returns",
+        "why": "Run-to-completion means one long callback blocks every other event."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Only clients on the same TCP connection wait; the rest carry on",
+        "why": "All clients share the same thread, so all of them wait."
+      }
+    ],
+    "explanation": "An event loop runs one callback or task step at a time until it returns or awaits. CPU-bound work inside a handler never yields, so timers, new connections and other requests all queue behind it. The fix is to move CPU-heavy work off the loop, to a worker pool or another process, or to split it into chunks that yield.",
+    "reference": "Node.js docs: Don't Block the Event Loop"
+  },
+  {
+    "id": "CON-AIO-005",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "A non-blocking `read()` on a socket with no data available fails and sets `errno` to which value on Linux? Type the constant name.",
+    "options": [],
+    "accepted": [
+      "EAGAIN",
+      "EWOULDBLOCK",
+      "EAGAIN / EWOULDBLOCK"
+    ],
+    "explanation": "On Linux EAGAIN and EWOULDBLOCK have the same value; POSIX allows either. It means \"the operation would block, try again later\", and an event loop treats it as the signal to stop reading and wait for the next readiness notification.",
+    "reference": "man7.org: read(2), errno(3)"
+  },
+  {
+    "id": "CON-AIO-006",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Why does a server that calls `select()` on 20,000 sockets on every loop iteration scale worse than one using `epoll`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "select() can only report readable sockets, never writable ones",
+        "why": "select() takes separate read, write and exception sets."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "select() is capped by FD_SETSIZE and rescans every descriptor each call",
+        "why": "Its cost grows with the watched set, not with the few ready sockets."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "select() has to make one separate system call for each socket in the set",
+        "why": "It is a single system call for the whole set; the cost is the scan."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "select() blocks forever unless every socket in the set is ready",
+        "why": "It returns as soon as any descriptor is ready or the timeout expires."
+      }
+    ],
+    "explanation": "select() takes fixed-size bitmaps (FD_SETSIZE, typically 1024 on glibc), copies them into the kernel and checks every descriptor on each call, then the program scans the result again. epoll keeps the interest list in the kernel across calls and epoll_wait returns only the ready descriptors, so its cost tracks activity rather than the total number of connections.",
+    "reference": "man7.org: select(2), epoll(7)"
+  },
+  {
+    "id": "CON-AIO-007",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements explain why `epoll` handles many mostly idle connections efficiently? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The interest list lives in the kernel and is not re-sent on every wait",
+        "why": "epoll_ctl registers once; epoll_wait doesn't copy the whole set each time."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "epoll_wait returns only descriptors that are ready",
+        "why": "The work per wakeup depends on ready sockets, not on all watched ones."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "epoll reads the data into user buffers before returning",
+        "why": "epoll only reports readiness; the program still calls read()."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "epoll makes regular disk files non-blocking as well as sockets",
+        "why": "Regular files are not supported by epoll at all."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "epoll moves each ready socket onto its own kernel thread",
+        "why": "epoll does not create threads; one thread can wait on all sockets."
+      }
+    ],
+    "explanation": "epoll separates registration (epoll_ctl) from waiting (epoll_wait). The kernel keeps the interest set and a ready list, so each wait is proportional to the number of ready descriptors. It is still a readiness API: the program then performs the non-blocking reads and writes itself.",
+    "reference": "man7.org: epoll(7)"
+  },
+  {
+    "id": "CON-AIO-008",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What is the key difference between the reactor and proactor patterns?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A reactor needs one thread per connection, while a proactor needs one thread per core",
+        "why": "Both are designed so few threads serve many connections."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A reactor reports that I/O can start; a proactor reports that it has finished",
+        "why": "Readiness (epoll, kqueue) versus completion (IOCP, io_uring)."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A reactor works only on sockets; a proactor works only on files",
+        "why": "The difference is when you are notified, not which descriptors are used."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A reactor is synchronous; a proactor cannot be used from async/await",
+        "why": "Both underlie async/await runtimes on different platforms."
+      }
+    ],
+    "explanation": "In a reactor (epoll, kqueue, select), the loop is told a descriptor is ready and the handler then performs the non-blocking read or write. In a proactor (Windows IOCP, io_uring), the program submits the operation with its buffer, the kernel performs it, and the loop receives a completion event with the result. Libraries like libuv and Boost.Asio hide the difference behind one API.",
+    "reference": "Schmidt et al., Pattern-Oriented Software Architecture vol. 2"
+  },
+  {
+    "id": "CON-AIO-009",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the steps of one iteration of a readiness-based (reactor) event loop in order.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Run the handler for each ready descriptor"
+      },
+      {
+        "id": "B",
+        "text": "Block in the readiness call (for example epoll_wait) with a timeout from the nearest timer"
+      },
+      {
+        "id": "C",
+        "text": "Run expired timer callbacks before waiting again"
+      },
+      {
+        "id": "D",
+        "text": "Receive the list of ready descriptors"
+      },
+      {
+        "id": "E",
+        "text": "Handler performs non-blocking reads or writes until EAGAIN or done"
+      }
+    ],
+    "answerOrder": [
+      "B",
+      "D",
+      "A",
+      "E",
+      "C"
+    ],
+    "explanation": "The loop computes how long it may sleep from the next timer, waits for readiness, dispatches each ready descriptor to its handler, lets the handler do non-blocking I/O, and then runs due timers before the next wait. The exact placement of timers differs between runtimes, but the readiness → dispatch → non-blocking I/O cycle is the core.",
+    "reference": "man7.org: epoll(7); libuv design overview"
+  },
+  {
+    "id": "CON-AIO-010",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "In most languages, what does `async`/`await` compile down to?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A new OS thread for each async function call",
+        "why": "async functions don't create threads; many run on one thread."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A blocking call that the runtime quietly runs on a hidden thread pool for you",
+        "why": "Only explicitly offloaded work goes to a pool; await itself doesn't."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "A resumable state machine that yields to the event loop at each await",
+        "why": "Each await is a suspension point; the loop resumes the function later."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A busy-wait loop that polls the result until it is available",
+        "why": "Suspended functions don't spin; the loop resumes them when ready."
+      }
+    ],
+    "explanation": "An async function is a coroutine: the compiler or runtime turns it into a state machine (or a generator with continuations). At each await it saves its state and returns control to the scheduler, which resumes it when the awaited future completes. That is why async code is concurrent on one thread but not parallel unless work is offloaded.",
+    "reference": "Python docs: Coroutines and Tasks; C#/Rust async lowering"
+  },
+  {
+    "id": "CON-AIO-011",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An async client wraps every outbound request in `async with sem:` where `sem = asyncio.Semaphore(3)`, and then starts 10 requests with `gather`. What is the largest number of requests in flight at once?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "10, because gather starts every coroutine at the same moment",
+        "why": "gather schedules all ten, but seven of them wait at the semaphore."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "3, because the other requests wait to acquire the semaphore",
+        "why": "At most three holders exist; others resume as permits are released."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "1, because an event loop can only await one request at a time",
+        "why": "Many requests can be suspended in flight on one loop."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "4, because the semaphore allows its count plus the caller",
+        "why": "The count is the exact number of concurrent holders."
+      }
+    ],
+    "explanation": "A semaphore with N permits is the standard way to cap concurrency in async code: tasks beyond the limit suspend in acquire() until a permit is released. Running it shows a peak of exactly 3. This protects downstream services and connection pools from bursts while still overlapping I/O.",
+    "reference": "Python docs: asyncio.Semaphore"
+  },
+  {
+    "id": "CON-AIO-012",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Marking a CPU-bound function `async` lets it run in parallel with other coroutines on the same event loop.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "It is false: async alone gives no parallelism for CPU work."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: the function still runs on the loop thread and blocks everything until it awaits."
+      }
+    ],
+    "explanation": "async/await only creates suspension points at awaits. A CPU-bound function with no awaits runs start to finish on the loop thread and blocks every other coroutine. To use more cores you need threads (where the runtime allows parallel execution), processes or worker threads.",
+    "reference": "Python docs: Developing with asyncio (running blocking code)"
+  },
+  {
+    "id": "CON-AIO-013",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An async API handler calls `requests.get(url)` (a synchronous HTTP client) inside `async def`. Under load, every request's latency rises together. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "requests.get opens a new event loop per call, which is slow",
+        "why": "requests does not create event loops; it simply blocks."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The synchronous call blocks the loop thread, so no other task can run",
+        "why": "Every other coroutine waits until the blocking HTTP call returns."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "requests.get is cancelled and retried by the event loop after each await point",
+        "why": "There is no await inside it; nothing gets cancelled or retried."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The loop runs requests.get on a thread pool that is too small",
+        "why": "Nothing offloads it automatically; it runs on the loop thread."
+      }
+    ],
+    "explanation": "Calling blocking code inside a coroutine freezes the whole event loop for the duration of the call, so one slow upstream makes every concurrent request wait. Use an async client, or explicitly offload the blocking call to a thread pool so the loop keeps serving other tasks.",
+    "reference": "Python docs: Developing with asyncio"
+  },
+  {
+    "id": "CON-AIO-014",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which of these, called directly on an event-loop thread, block the loop? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Resolving a hostname with the C library's getaddrinfo()",
+        "why": "getaddrinfo is synchronous; async runtimes offload it to a thread."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Parsing a 300 MB JSON document",
+        "why": "Pure CPU work runs to completion without yielding."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Reading a large file with a synchronous read on a slow disk",
+        "why": "Synchronous file reads block the thread until the disk responds."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Awaiting a non-blocking socket read that has no data yet",
+        "why": "Awaiting suspends the task and lets the loop run others."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Awaiting a timer that fires in 5 seconds",
+        "why": "A timer await registers a callback and returns control at once."
+      }
+    ],
+    "explanation": "Anything that waits without yielding blocks the loop: synchronous DNS via getaddrinfo, synchronous file I/O and long CPU work. Awaiting non-blocking socket I/O or timers is fine, because the coroutine suspends and the loop keeps running. This is why runtimes like libuv run getaddrinfo and file operations on a thread pool.",
+    "reference": "Node.js docs: Don't Block the Event Loop"
+  },
+  {
+    "id": "CON-AIO-015",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "An event loop built on Linux epoll blocks waiting for readiness by calling which system call? Type its name.",
+    "options": [],
+    "accepted": [
+      "epoll_wait",
+      "epoll_pwait",
+      "epoll_pwait2"
+    ],
+    "explanation": "epoll_create1 creates the epoll instance, epoll_ctl adds, modifies or removes descriptors in its interest list, and epoll_wait (or epoll_pwait/epoll_pwait2) blocks until descriptors become ready or the timeout expires. The loop computes the timeout from its nearest timer.",
+    "reference": "man7.org: epoll_wait(2)"
+  },
+  {
+    "id": "CON-AIO-016",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A server registers sockets with `EPOLLIN | EPOLLET` (edge-triggered). On each event its handler calls `read(fd, buf, 4096)` once. Large client messages sometimes hang until the client sends more data. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Edge-triggered mode drops any data that arrives while a handler is still running",
+        "why": "The data stays in the kernel buffer; it is the notification that is missed."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Unread data stays buffered, and no new edge arrives until more data comes",
+        "why": "Edge-triggered mode only signals changes, so the handler must drain to EAGAIN."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The 4096-byte buffer is smaller than the socket's receive window",
+        "why": "Buffer size only means more reads are needed, which this handler skips."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "EPOLLET requires blocking sockets, so read() returned early",
+        "why": "Edge-triggered mode requires non-blocking sockets, not blocking ones."
+      }
+    ],
+    "explanation": "With EPOLLET, epoll reports a descriptor when its state changes (new data arrives), not while data remains. If the handler reads only part of the buffered data, the rest sits in the kernel and no further event is generated until the peer sends more. The rule from epoll(7): use non-blocking descriptors and keep reading (or writing) until the call returns EAGAIN.",
+    "reference": "man7.org: epoll(7)"
+  },
+  {
+    "id": "CON-AIO-017",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A level-triggered epoll server registers every connection for both `EPOLLIN` and `EPOLLOUT` permanently. CPU sits at 100% even when no traffic flows. What is the cause?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "EPOLLIN fires over and over, because idle sockets always look readable to the kernel",
+        "why": "An idle socket with no data is not readable."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Idle sockets are almost always writable, so epoll_wait returns at once in a loop",
+        "why": "Register EPOLLOUT only while output is queued, then remove it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Level-triggered mode can't sleep and needs a timeout of zero",
+        "why": "Level-triggered epoll_wait blocks normally when nothing is ready."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The kernel resends EPOLLIN for every TCP keepalive probe",
+        "why": "Keepalives carry no data and don't make the socket readable."
+      }
+    ],
+    "explanation": "A socket is writable whenever its send buffer has space, which for an idle connection is nearly always. With level-triggered EPOLLOUT permanently registered, every epoll_wait returns immediately and the loop spins. The standard fix is to enable write interest only when the application has unsent data, and disable it once the buffer drains.",
+    "reference": "man7.org: epoll(7); Stevens, UNIX Network Programming"
+  },
+  {
+    "id": "CON-AIO-018",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team switches its epoll loop to edge-triggered mode (`EPOLLET`). Which two rules must the handlers now follow? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Use non-blocking descriptors so the draining loop can stop at EAGAIN",
+        "why": "A blocking read at the end of the data would hang the loop."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Keep reading or writing until the call returns EAGAIN",
+        "why": "Otherwise remaining data never produces another notification."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Call epoll_ctl to re-register the descriptor after every event",
+        "why": "Re-arming is needed with EPOLLONESHOT, not with plain EPOLLET."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Handle each event on a new thread to avoid missing edges",
+        "why": "Edge-triggered mode doesn't require threads; draining does the job."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Use a zero timeout on epoll_wait so edges are not lost",
+        "why": "Edges are queued in the ready list; a blocking wait is fine."
+      }
+    ],
+    "explanation": "epoll(7) recommends edge-triggered use with non-blocking file descriptors, waiting for an event only after read or write has returned EAGAIN. Draining is what guarantees no data is left behind without a pending notification. EPOLLONESHOT is a separate flag that disables the descriptor after one event until it is re-armed.",
+    "reference": "man7.org: epoll(7)"
+  },
+  {
+    "id": "CON-AIO-019",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Eight worker processes each block in `epoll_wait` on the same shared listening socket. Each new connection wakes all eight, but only one `accept()` succeeds. What is this problem, and what is a kernel-level fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A deadlock on the shared accept queue; fix it with a global accept mutex in user space",
+        "why": "Nothing is stuck; the workers wake needlessly and go back to sleep."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Thundering herd; fix it with EPOLLEXCLUSIVE or one SO_REUSEPORT socket per worker",
+        "why": "Both stop one connection from waking every waiter."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Head-of-line blocking; fix it by enlarging the listen backlog",
+        "why": "The backlog size doesn't change how many waiters are woken."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Priority inversion; fix it by raising the priority of one worker",
+        "why": "Priorities don't prevent every waiter from waking."
+      }
+    ],
+    "explanation": "When many waiters share one listening socket, a single incoming connection can wake all of them, wasting CPU and causing contention. EPOLLEXCLUSIVE (Linux 4.5) wakes only one of the epoll instances, and SO_REUSEPORT (Linux 3.9) gives each worker its own listening socket and lets the kernel distribute connections. Older servers used an accept mutex in user space.",
+    "reference": "man7.org: epoll_ctl(2), socket(7)"
+  },
+  {
+    "id": "CON-AIO-020",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Four worker processes each bind their own socket to port 443 with `SO_REUSEPORT`. One worker hangs in a long GC pause. What happens to new connections during the pause?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The kernel notices the stalled worker and sends its share of connections to the others",
+        "why": "Distribution is a hash of the connection; it doesn't check worker health."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "About a quarter still go to that worker's queue and wait until it recovers",
+        "why": "Hash-based distribution keeps assigning connections to the stalled socket."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "All new connections are refused until every worker can accept again",
+        "why": "The other three sockets keep accepting their share."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "They all queue on the first worker that bound to the port",
+        "why": "Each socket has its own accept queue and gets a share."
+      }
+    ],
+    "explanation": "With SO_REUSEPORT the kernel spreads incoming connections across the sockets bound to the port using a hash of the connection tuple. It doesn't know a process is stalled, so connections keep landing in that socket's accept queue and see high latency or time out. A shared accept queue avoids this but brings back contention; some systems add health-aware steering with BPF.",
+    "reference": "man7.org: socket(7); LWN: The SO_REUSEPORT socket option"
+  },
+  {
+    "id": "CON-AIO-021",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print?\n\n```python\nimport asyncio\n\nasync def hog(out):\n    out.append(\"hog start\")\n    s = 0\n    for i in range(3_000_000):\n        s += i\n    out.append(\"hog end\")\n\nasync def tick(n, out):\n    out.append(f\"tick {n}\")\n    await asyncio.sleep(0)\n    out.append(f\"tick {n} again\")\n\nasync def main():\n    out = []\n    await asyncio.gather(tick(1, out), hog(out), tick(2, out))\n    print(out)\n\nasyncio.run(main())\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`tick 1, tick 2, hog start, tick 1 again, tick 2 again, hog end`",
+        "why": "hog never awaits, so nothing can run between its start and end."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`tick 1, hog start, hog end, tick 2, tick 1 again, tick 2 again`",
+        "why": "hog runs to completion in one step; the others resume after it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`tick 1, tick 1 again, hog start, hog end, tick 2, tick 2 again`",
+        "why": "tick 1 yields at sleep(0), letting the next task start first."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`hog start, hog end, tick 1, tick 2, tick 1 again, tick 2 again`",
+        "why": "gather schedules the tasks in argument order, so tick 1 starts first."
+      }
+    ],
+    "explanation": "gather wraps each coroutine in a task and they start in argument order. tick 1 runs until sleep(0) yields. hog then runs its whole loop without any await, so \"hog end\" follows \"hog start\" directly, and every other task waits. Then tick 2 starts, and the resumed ticks finish. Cooperative scheduling only switches at awaits.",
+    "reference": "Python docs: Coroutines and Tasks"
+  },
+  {
+    "id": "CON-AIO-022",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "An event-loop service must shut down without dropping requests. Put the graceful-shutdown steps in order.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Cancel the tasks still running when the deadline passes"
+      },
+      {
+        "id": "B",
+        "text": "Tell idle keep-alive connections to close"
+      },
+      {
+        "id": "C",
+        "text": "Close pools and flush logs, then exit"
+      },
+      {
+        "id": "D",
+        "text": "Stop accepting new connections (close the listening socket)"
+      },
+      {
+        "id": "E",
+        "text": "Wait for in-flight requests to finish, up to a deadline"
+      }
+    ],
+    "answerOrder": [
+      "D",
+      "B",
+      "E",
+      "A",
+      "C"
+    ],
+    "explanation": "First stop the intake so no new work arrives, then shed idle connections, then give in-flight work a bounded time to complete. When the deadline expires, cancel what remains so shutdown can't hang forever, and only then release shared resources like database pools. Closing pools first would fail the very requests you are draining.",
+    "reference": "Kubernetes docs: Pod termination; Node.js docs: server.close"
+  },
+  {
+    "id": "CON-AIO-023",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A proxy reads from a fast upstream socket and appends every chunk to an unbounded in-memory queue, which a slow downstream client drains. Memory grows until the process is killed. What is the right fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Increase the process memory limit so the queue fits",
+        "why": "A slower consumer means the queue grows without bound anyway."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Bound the queue and stop reading upstream while it is full",
+        "why": "Backpressure slows the producer to the consumer's pace."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Read upstream faster so chunks spend less time in memory",
+        "why": "Faster intake with the same slow consumer grows the queue quicker."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Drop the oldest chunks whenever the queue reaches a set size limit",
+        "why": "Silently losing proxied data corrupts the stream."
+      }
+    ],
+    "explanation": "This is missing backpressure. When the producer is faster than the consumer, an unbounded buffer turns the speed difference into unbounded memory. A bounded queue makes the producer wait (or stop reading), and with TCP that pause propagates back to the upstream sender through flow control. Dropping data is only acceptable for lossy streams such as metrics sampling.",
+    "reference": "Reactive Streams specification; Node.js docs: Backpressuring in streams"
+  },
+  {
+    "id": "CON-AIO-024",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 3,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "With `q = asyncio.Queue(maxsize=2)` holding two items and no consumer running, `await q.put(3)` suspends the producer until space frees up, while `q.put_nowait(3)` raises `QueueFull`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: the awaiting put waits; put_nowait fails immediately."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "It is true; running it shows the awaited put blocking and put_nowait raising QueueFull."
+      }
+    ],
+    "explanation": "A bounded asyncio.Queue is a simple backpressure primitive: await put() suspends a producer while the queue is full, so it naturally slows to the consumer's speed. put_nowait() never waits and raises asyncio.QueueFull instead, which lets code choose to drop, shed load or report overload.",
+    "reference": "Python docs: asyncio.Queue"
+  },
+  {
+    "id": "CON-AIO-025",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A server writes a 10 MB response to a slow client over a non-blocking socket with one `send()` call and assumes it all went out. Clients receive truncated files. What happened?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "send() always sends 64 KB and silently discards the rest",
+        "why": "It returns how many bytes it accepted; nothing is discarded silently."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "send() accepted only what fit in the socket buffer and returned that count",
+        "why": "The program must keep the rest and send it when the socket is writable."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The kernel split the response into packets that the client then reassembled out of order",
+        "why": "TCP delivers bytes in order; reordering is not the cause."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Non-blocking sockets can't send more than one TCP segment per call",
+        "why": "One call can queue many segments if the buffer has space."
+      }
+    ],
+    "explanation": "A non-blocking send() copies as much as fits in the kernel send buffer and returns that number, which can be far less than requested, or fails with EAGAIN when the buffer is full. Correct code tracks the unsent remainder, registers for writability, and continues when the client has read enough for TCP flow control to free space.",
+    "reference": "man7.org: send(2)"
+  },
+  {
+    "id": "CON-AIO-026",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A downstream client stops reading but keeps its TCP connection open. Your server keeps calling non-blocking `send()` with more data. What eventually happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The kernel drops the excess data and later retransmits it",
+        "why": "TCP never discards accepted data; it waits for window space."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The client's window and your send buffer fill, then send() returns EAGAIN",
+        "why": "TCP flow control pushes the slowdown back to your process."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The connection is reset with an RST as soon as the client stops reading from it",
+        "why": "A peer that stops reading does not trigger a reset."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "send() blocks the event loop until the client resumes reading",
+        "why": "A non-blocking socket never blocks; it returns EAGAIN."
+      }
+    ],
+    "explanation": "TCP flow control: the client advertises a receive window that shrinks as its buffer fills. Once it reaches zero, your kernel stops transmitting, your send buffer fills, and further non-blocking sends fail with EAGAIN. That is backpressure arriving at your server, which should stop producing data for that connection (and possibly time it out) rather than buffering without limit.",
+    "reference": "RFC 9293: TCP flow control; man7.org: send(2)"
+  },
+  {
+    "id": "CON-AIO-027",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What is the \"colored functions\" problem in async/await languages?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Async functions always run on a different thread from the sync functions that call them",
+        "why": "Both usually run on the same loop thread."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Async code can only be awaited from async code, so it spreads upward",
+        "why": "A sync caller can't await; it must block or restructure."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Async functions cannot return values, only callbacks",
+        "why": "They return values through the awaited future or promise."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Debuggers can't display async functions in stack traces",
+        "why": "Modern runtimes show async stack traces."
+      }
+    ],
+    "explanation": "Bob Nystrom's \"What color is your function?\" describes how async functions can only be called with await from other async functions, while sync code can't easily call them without blocking. Async therefore spreads through a codebase, and libraries end up with sync and async variants. Go and Java virtual threads avoid colouring by making blocking calls cheap instead.",
+    "reference": "Bob Nystrom, What Color Is Your Function?"
+  },
+  {
+    "id": "CON-AIO-028",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 3,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each runtime with how it handles waiting on network I/O.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Goroutines call blocking-looking reads; a netpoller parks them and wakes them on readiness"
+      },
+      {
+        "id": "B",
+        "text": "Single-threaded loop on libuv; file system work goes to a thread pool"
+      },
+      {
+        "id": "C",
+        "text": "Work-stealing multi-threaded scheduler polling futures on readiness"
+      },
+      {
+        "id": "D",
+        "text": "Event-loop groups pinning each channel to one loop thread"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Go",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Node.js",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Rust tokio",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Java Netty",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Go hides the event loop: a goroutine calling conn.Read is parked by the runtime netpoller (epoll/kqueue/IOCP) and the OS thread runs other goroutines. Node uses a single JavaScript thread on libuv with a thread pool for fs and DNS lookups. Tokio runs futures on a multi-threaded work-stealing scheduler. Netty assigns each channel to one event loop thread so its handlers never run concurrently.",
+    "reference": "go.dev: runtime netpoll; libuv design; tokio.rs docs; netty.io user guide"
+  },
+  {
+    "id": "CON-AIO-029",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "How does io_uring differ from epoll for a server reading from sockets?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "io_uring only notifies readiness, but with less latency than epoll",
+        "why": "io_uring performs the operation itself and reports completion."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Requests go in a shared submission ring; results come back on a completion ring",
+        "why": "The kernel does the read; the program collects finished results."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "io_uring creates a dedicated kernel thread for each socket and performs blocking reads there",
+        "why": "It is ring-based and doesn't create a thread per descriptor."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "io_uring needs blocking sockets, while epoll needs non-blocking ones",
+        "why": "The difference is completion versus readiness, not socket mode."
+      }
+    ],
+    "explanation": "io_uring uses two ring buffers shared between user space and the kernel: the program places operations (read, write, accept, and more) in the submission queue, and the kernel posts results to the completion queue. Because it is completion-based, it can batch many operations per system call and also handle regular-file I/O asynchronously, which epoll cannot.",
+    "reference": "kernel.dk: Efficient IO with io_uring; man7.org: io_uring(7)"
+  },
+  {
+    "id": "CON-AIO-030",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer tries to make disk reads non-blocking by adding a regular file's descriptor to an epoll instance. What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The file is always reported as ready, but the reads themselves still block on the disk",
+        "why": "epoll doesn't accept the file at all."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "epoll_ctl fails with EPERM because regular files don't support epoll",
+        "why": "Event loops use thread pools or io_uring for file I/O instead."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The file becomes ready only after the page cache has the data",
+        "why": "Regular files have no readiness notifications in epoll."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "epoll silently ignores the descriptor and never reports it",
+        "why": "The registration fails with an error rather than being ignored."
+      }
+    ],
+    "explanation": "epoll_ctl(2) documents EPERM when the target file does not support epoll, for example a regular file or a directory. Disk reads always \"look ready\" from a readiness point of view but can still block, so runtimes like libuv run file system operations on a thread pool, and newer designs use io_uring for true asynchronous file I/O.",
+    "reference": "man7.org: epoll_ctl(2)"
+  },
+  {
+    "id": "CON-AIO-031",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An event-loop image service must also generate thumbnails, which takes about 200 ms of CPU each. What is the best design?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Declare the thumbnail function async so the event loop can interleave it with requests",
+        "why": "async doesn't add yield points inside CPU-bound code."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Send thumbnail jobs to a bounded worker pool and await their results",
+        "why": "The loop stays responsive and the queue limits overload."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Run each thumbnail on a new thread spawned per request",
+        "why": "Unbounded threads collapse under load; a bounded pool is safer."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Raise the loop's priority so it preempts the thumbnail work",
+        "why": "Priority doesn't help when the CPU work runs on the loop thread."
+      }
+    ],
+    "explanation": "CPU-bound work must leave the event-loop thread. A bounded pool of worker threads or processes (sized to the cores, and processes where a GIL prevents parallel threads) lets the loop await results while still handling I/O. The bound on the pool and its queue keeps overload from exhausting memory and turns it into backpressure or explicit rejection.",
+    "reference": "Node.js docs: Don't Block the Event Loop; Python docs: run_in_executor"
+  },
+  {
+    "id": "CON-AIO-032",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 3,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In Go, a goroutine blocked in `conn.Read()` on a network socket does not keep an OS thread blocked, because the runtime parks the goroutine and uses its netpoller to resume it when data arrives.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: the netpoller turns network waits into parked goroutines."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "It is true; Go sets sockets non-blocking and parks goroutines on EAGAIN."
+      }
+    ],
+    "explanation": "The Go runtime puts network descriptors in non-blocking mode. When a read would block, the goroutine is parked and its OS thread picks up other goroutines; the netpoller (epoll, kqueue or IOCP) wakes it when the socket is ready. That is how Go gives a blocking programming model with event-loop efficiency. Blocking system calls such as some file I/O can still tie up a thread, which the scheduler compensates for by adding threads.",
+    "reference": "go.dev: The Go scheduler and netpoller (runtime/netpoll.go)"
+  },
+  {
+    "id": "CON-AIO-033",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An async service caps database access with a pool of 10 connections. A handler acquires a connection, runs a query, then awaits a 2-second call to a payment API before releasing the connection. Under load, throughput collapses at about 5 requests per second. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The event loop can't await a database call and an HTTP call together",
+        "why": "One loop can have both awaits outstanding across tasks."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Each request holds a connection over 2 s, so 10 connections give about 5 per second",
+        "why": "Release the connection before the slow external call."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The database is slow at running 10 concurrent queries and queues the rest internally",
+        "why": "The queries are quick; the connections are idle during the payment call."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The payment API rate-limits the service to 5 calls per second",
+        "why": "Nothing in the stem limits the payment API; the pool is the bottleneck."
+      }
+    ],
+    "explanation": "Pool capacity is consumed by holding time, not query time. Holding each of 10 connections for about 2 s gives at most 10 / 2 = 5 requests per second, regardless of how fast the queries are. Scope resource acquisition tightly: get the connection, run the query, release it, then make the slow external call.",
+    "reference": "HikariCP wiki: About pool sizing"
+  },
+  {
+    "id": "CON-AIO-034",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which statements describe structured concurrency (nurseries, task groups, scopes)? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Child tasks can't outlive the block that started them",
+        "why": "The scope waits for every child before exiting."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "An error in one child cancels its siblings and reaches the parent",
+        "why": "Failures aren't silently lost in detached tasks."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Cancelling the parent scope cancels all of its children",
+        "why": "Cancellation flows down the task tree."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Each child task runs on its own OS thread for isolation",
+        "why": "It is about task lifetimes, not threads."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Tasks may keep running after the scope exits if they are slow",
+        "why": "That is exactly what structured concurrency forbids."
+      }
+    ],
+    "explanation": "Structured concurrency ties task lifetimes to lexical scopes, as with Trio nurseries, Python's asyncio.TaskGroup, Kotlin coroutine scopes and Java's StructuredTaskScope. Children finish or are cancelled before the scope returns, errors propagate to the parent, and cancellation flows down. That removes leaked background tasks and lost exceptions.",
+    "reference": "Nathaniel J. Smith, Notes on structured concurrency"
+  },
+  {
+    "id": "CON-AIO-035",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A request handler calls three services, each with its own 5-second timeout, one after another. The client gives up after 3 seconds. Which changes address the real problems? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Pass the remaining deadline to each call instead of fixed timeouts",
+        "why": "Each step then knows how much of the caller's budget is left."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Cancel the in-flight calls when the client disconnects or the deadline passes",
+        "why": "Otherwise the server keeps working on answers nobody will receive."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Raise each service timeout to 10 seconds so fewer calls fail",
+        "why": "That makes wasted work after the client has left even longer."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Retry each service call twice before failing",
+        "why": "Retries inside an already blown budget add load without helping."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Run the three calls on separate threads to finish sooner",
+        "why": "If they depend on each other they still run in sequence."
+      }
+    ],
+    "explanation": "Independent per-call timeouts can add up to 15 s, far beyond the client's 3 s budget. Deadline propagation passes the absolute deadline (or remaining time) down the call chain, as gRPC does, and cancellation stops work whose result will be discarded. Together they keep servers from doing work for requests that have already failed.",
+    "reference": "gRPC docs: Deadlines; Google SRE book: Handling overload"
+  },
+  {
+    "id": "CON-AIO-036",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "In this asyncio code, the caller cancels the task while it is sleeping. What is printed?\n\n```python\nimport asyncio\n\nasync def worker(log):\n    try:\n        log.append(\"start\")\n        await asyncio.sleep(10)\n    finally:\n        log.append(\"cleanup\")\n\nasync def main():\n    log = []\n    t = asyncio.create_task(worker(log))\n    await asyncio.sleep(0)\n    t.cancel()\n    try:\n        await t\n    except asyncio.CancelledError:\n        log.append(\"caught in caller\")\n    print(log, t.cancelled())\n\nasyncio.run(main())\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`['start', 'caught in caller'] True`",
+        "why": "Cancellation raises inside the task, so its finally block runs first."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`['start', 'cleanup', 'caught in caller'] True`",
+        "why": "CancelledError unwinds the worker, running finally, then reaches the awaiter."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`['start', 'cleanup'] False`",
+        "why": "Awaiting a cancelled task re-raises CancelledError in the caller."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`['start', 'cleanup', 'caught in caller'] False`",
+        "why": "The task did end in the cancelled state, so t.cancelled() returns True."
+      }
+    ],
+    "explanation": "cancel() injects CancelledError at the task's current await. It propagates through the coroutine, so finally blocks and context managers run their cleanup, and the task ends in the cancelled state. Awaiting it raises CancelledError in the caller. Code that catches CancelledError and doesn't re-raise breaks this chain and can make shutdown hang.",
+    "reference": "Python docs: Task cancellation"
+  },
+  {
+    "id": "CON-AIO-037",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A coroutine wraps a blocking library call with `await asyncio.wait_for(asyncio.to_thread(slow_call), timeout=0.05)`. The timeout fires. What happens to `slow_call`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Its thread is killed, and any partial work is rolled back",
+        "why": "Python can't forcibly stop a running thread."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It keeps running on its thread; only the awaiting coroutine is cancelled",
+        "why": "Running it shows the thread finishing 300 ms later."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It is paused and then resumed the next time the coroutine awaits it again",
+        "why": "Threads aren't paused by asyncio cancellation."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It receives a CancelledError at its next line of Python code",
+        "why": "Cancellation only reaches coroutines, not threads."
+      }
+    ],
+    "explanation": "Cancellation is cooperative and only affects coroutines. The thread running slow_call can't be interrupted, so it runs to completion in the background even though the awaiting coroutine already got TimeoutError. That can exhaust the thread pool or apply side effects after the caller gave up. Blocking work needs its own cancellation mechanism, such as a timeout passed into the library.",
+    "reference": "Python docs: asyncio.to_thread, asyncio.wait_for"
+  },
+  {
+    "id": "CON-AIO-038",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Several threads wait on one epoll instance with edge-triggered sockets. Occasionally two threads process the same connection's data at once and corrupt its state. Which flag fixes this, and what does it require?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "EPOLLEXCLUSIVE, with no other changes to the handlers or the registration",
+        "why": "It avoids waking every epoll instance, not duplicate events on one."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "EPOLLONESHOT, re-arming the socket with EPOLL_CTL_MOD after each event",
+        "why": "The socket is disabled after one event until its handler re-arms it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "EPOLLRDHUP, closing the socket after each read",
+        "why": "It only reports peer shutdown; it doesn't serialise handlers."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "EPOLLPRI, so only urgent data wakes a thread",
+        "why": "It concerns out-of-band data, not concurrency control."
+      }
+    ],
+    "explanation": "With several threads in epoll_wait, a new edge can arrive while another thread is still handling the previous one, so two threads end up working on one connection. EPOLLONESHOT disables the descriptor after it is reported once; the handler re-enables it with epoll_ctl(EPOLL_CTL_MOD) when finished, guaranteeing a single active handler per connection.",
+    "reference": "man7.org: epoll(7), epoll_ctl(2)"
+  },
+  {
+    "id": "CON-AIO-039",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A single-threaded event loop serves 1,000 requests per second, each needing 0.5 ms of CPU. Once a second, a 100 ms CPU task runs on the loop. Roughly what does this do to request latency?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing, because the loop is only 60% busy on average",
+        "why": "The average hides the stall; requests wait behind the long task."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "About 100 requests arriving during the task each wait up to 100 ms",
+        "why": "That spike lands in p90–p99 latency even though the mean is fine."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Every request slows down by about 100 ms, because the loop is shared",
+        "why": "Only requests arriving during the stall are delayed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Requests get rejected while the long task runs",
+        "why": "They queue rather than being rejected, unless a limit is set."
+      }
+    ],
+    "explanation": "At 1,000 requests per second, about 100 requests arrive during a 100 ms stall, and each waits for the long task, then for the backlog ahead of it. That is roughly 10% of requests delayed by up to 100 ms or more, which dominates tail latency while average CPU stays low. Splitting the long task into chunks or offloading it removes the spike.",
+    "reference": "Dean & Barroso, The Tail at Scale"
+  },
+  {
+    "id": "CON-AIO-040",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which statements about pull-based backpressure, as in Reactive Streams `request(n)` or async iterators, are correct? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The consumer signals how many items it can take, so the producer never outruns it",
+        "why": "Demand flows upstream; data flows downstream."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A pipeline's overall rate settles at its slowest stage",
+        "why": "Each stage only pulls what it can process."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "A producer that ignores demand needs to buffer, drop or fail",
+        "why": "Hot sources like sensors can't simply be paused."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Unbounded buffers between stages make backpressure unnecessary",
+        "why": "They move the problem into memory until it runs out."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Backpressure only works if every stage runs on its own thread",
+        "why": "It is a protocol between stages, independent of threads."
+      }
+    ],
+    "explanation": "In pull-based designs the consumer requests n items and the producer sends at most n, so demand propagates upstream and the slowest stage sets the pace. Sources that can't be paused, such as market data, need an explicit strategy: bounded buffering, dropping or sampling, or failing fast. Unbounded buffers only postpone the failure.",
+    "reference": "Reactive Streams specification"
+  },
+  {
+    "id": "CON-AIO-041",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An async web server keeps one HTTP/1.1 connection per client and handles requests on it strictly in order. A client pipelines a slow report request followed by ten fast ones. What does the client see?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The fast responses arrive first because the server finishes them earlier",
+        "why": "HTTP/1.1 responses on one connection must return in request order."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The fast responses wait behind the slow one on that connection",
+        "why": "Head-of-line blocking; HTTP/2 multiplexing or separate connections avoid it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The server rejects pipelining and closes the connection",
+        "why": "Servers may support pipelining; the issue is response ordering."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The slow request times out so the fast ones can proceed",
+        "why": "Nothing in the setup times out the slow request."
+      }
+    ],
+    "explanation": "HTTP/1.1 requires responses on a connection in the same order as the requests, so a slow first response holds back everything behind it, even if the server computed them concurrently. This is application-level head-of-line blocking. HTTP/2 multiplexes independent streams over one connection; TCP-level head-of-line blocking still remains until HTTP/3 over QUIC.",
+    "reference": "RFC 9112: HTTP/1.1 pipelining; RFC 9113: HTTP/2"
+  },
+  {
+    "id": "CON-AIO-042",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 4,
+    "type": "fill",
+    "select": 1,
+    "stem": "Go starts each goroutine with a 2 KiB stack. Ignoring growth, about how many MiB of stack do 100,000 parked goroutines need at minimum? Type a whole number.",
+    "options": [],
+    "accepted": [
+      "195",
+      "196",
+      "195 MiB",
+      "196 MiB"
+    ],
+    "explanation": "100,000 × 2 KiB = 200,000 KiB ≈ 195.3 MiB. The same number of OS threads would reserve far more, since Linux thread stacks commonly default to 8 MiB of address space each, plus kernel scheduling state. Small growable stacks are why goroutine-per-connection designs scale to hundreds of thousands of connections.",
+    "reference": "go.dev: runtime stack size (_StackMin = 2048)"
+  },
+  {
+    "id": "CON-AIO-043",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A completion-based I/O design (IOCP or io_uring) submits a read into a buffer, and the handler that submitted it times out and frees the buffer before the completion arrives. What is the danger?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "None, because the kernel only copies the data at the moment the program asks for it",
+        "why": "The kernel writes directly into the buffer you handed it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The kernel may still write into freed memory, corrupting whatever reuses it",
+        "why": "The buffer must stay valid until the completion arrives or the operation is cancelled."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The read is cancelled automatically when the buffer is freed",
+        "why": "Freeing memory doesn't cancel an in-flight kernel operation."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The completion is reported as EAGAIN and safely ignored",
+        "why": "Completions report the outcome of the operation, not EAGAIN."
+      }
+    ],
+    "explanation": "In readiness models the program owns the buffer during its own read() call. In completion models it lends the buffer to the kernel for the whole operation, so it must stay alive until the completion is consumed or the operation is confirmed cancelled. Freeing it early causes use-after-free bugs. This is a major reason Rust's io_uring libraries pass owned buffers to the runtime.",
+    "reference": "man7.org: io_uring(7); tokio-uring design notes"
+  },
+  {
+    "id": "CON-AIO-044",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A handler starts an audit-log write as a detached background task and returns. During deploys, some audit entries go missing and their errors never appear in the logs. What fixes the root cause?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Wrap the background task in a broad try/except that logs nothing and ignores errors",
+        "why": "Swallowing errors hides failures and still loses entries."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Run it in a task group owned by the server and drain it at shutdown",
+        "why": "Its errors surface and shutdown waits for it to finish."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Give the task a higher scheduling priority on the event loop",
+        "why": "Priority doesn't keep a detached task alive past shutdown."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Await the write inside the request handler with a 1 s sleep first",
+        "why": "A sleep adds latency without guaranteeing completion."
+      }
+    ],
+    "explanation": "Fire-and-forget tasks have no owner: nothing waits for them at shutdown and their exceptions have nowhere to go. Structured concurrency gives each background task a parent scope that outlives the work, here a server-level task group, so shutdown drains or cancels it deliberately and failures propagate. Alternatively, write audit records durably within the request.",
+    "reference": "Nathaniel J. Smith, Notes on structured concurrency"
+  },
+  {
+    "id": "CON-AIO-045",
+    "domain": 3,
+    "skill": "async-io",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Python asyncio service calls an async database driver, but a profiler shows the loop blocked for 30 ms inside `getaddrinfo` on every new connection. Connection pooling is off. What is happening, and what fixes it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "asyncio always resolves DNS on the loop thread; fix it by raising the system resolver timeout",
+        "why": "A longer timeout makes the stall worse, not better."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The driver resolves the host synchronously per connection; pool or resolve off-loop",
+        "why": "Fewer new connections means fewer blocking lookups on the loop."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "getaddrinfo is always asynchronous in asyncio, so the profiler is wrong",
+        "why": "loop.getaddrinfo uses a thread pool, but a driver may call the blocking API directly."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The database is slow to accept TCP connections during the handshake",
+        "why": "The profile shows time in name resolution, not in connect."
+      }
+    ],
+    "explanation": "getaddrinfo is a blocking C call. asyncio's own loop.getaddrinfo offloads it to a thread pool, but a library that calls socket.getaddrinfo directly blocks the loop on every new connection. Pooling connections (or caching the resolved address, or resolving through loop.getaddrinfo) removes the repeated stall. Hidden blocking calls like this are a common cause of unexplained latency in async services.",
+    "reference": "Python docs: loop.getaddrinfo; Developing with asyncio"
+  }
+]

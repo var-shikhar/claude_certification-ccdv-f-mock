@@ -103,8 +103,10 @@ at delivery, so explanations should describe options rather than cite letters.
 enforces it along with item-writing checks.
 
 The catalog currently holds CCDV-F, CCAO-F, CCAR-F and CCAR-P (Anthropic
-certification mocks), System Design, JavaScript, TypeScript, React, Node.js, Python and Next.js interview
-mocks (450 questions each, Basic to Expert levels), and a short JavaScript Essentials quiz
+certification mocks), 13 interview mocks of 450–500 questions each (System Design,
+JavaScript, TypeScript, React, Node.js, Python, Next.js, Docker, SQL, Kubernetes,
+Git & GitHub, DSA, and a senior Concurrency & Parallel Processing track), and a
+short JavaScript Essentials quiz
 that exercises every question type and a case study. [`docs/ROADMAP.md`](docs/ROADMAP.md) lists the
 subjects coming next.
 
