@@ -14,6 +14,8 @@ export interface LlmsExam {
   meta: { tagline?: string };
   config: Pick<ExamConfig, 'itemCount' | 'timeLimitMinutes' | 'scale' | 'domains' | 'skills'>;
   notes: Record<string, StudyNote>;
+  /** how many questions the public sample page shows (0 hides the link) */
+  samples: number;
 }
 
 const SECTIONS: [category: string, heading: string][] = [
@@ -48,7 +50,10 @@ export function buildLlmsTxt(exams: LlmsExam[]): string {
   for (const [heading, group] of sections) {
     if (!group.length) continue;
     out.push(`## ${heading}`, '');
-    for (const e of group) out.push(`- [${examPageTitle(e)}](${siteUrl(`/exams/${e.id}`)}): ${format(e)}`);
+    for (const e of group) {
+      out.push(`- [${examPageTitle(e)}](${siteUrl(`/exams/${e.id}`)}): ${format(e)}`);
+      if (e.samples) out.push(`  - [${e.samples} sample questions with answers and explanations](${siteUrl(`/exams/${e.id}/sample-questions`)})`);
+    }
     out.push('');
   }
 

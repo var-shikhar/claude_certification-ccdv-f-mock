@@ -3,6 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { exam, studyNote } from '@/db/schema';
 import { siteUrl } from '@/lib/site';
+import { getSampleQuestions } from '@/server/exams';
 
 // Rendered on request (not at build time), so deploys never need the database during the build.
 export const dynamic = 'force-dynamic';
@@ -18,8 +19,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       db.select({ examId: studyNote.examId, skillId: studyNote.skillId, updatedAt: studyNote.updatedAt })
         .from(studyNote).innerJoin(exam, and(eq(exam.id, studyNote.examId), eq(exam.isPublished, true))),
     ]);
+    const samples = await Promise.all(exams.map(async (e) => ({ ...e, count: (await getSampleQuestions(e.id)).length })));
     pages.push(
       ...exams.map((e) => ({ url: siteUrl(`/exams/${e.id}`), lastModified: e.updatedAt, changeFrequency: 'weekly' as const, priority: 0.9 })),
+      ...samples.filter((e) => e.count > 0).map((e) => ({ url: siteUrl(`/exams/${e.id}/sample-questions`), lastModified: e.updatedAt, changeFrequency: 'monthly' as const, priority: 0.7 })),
       ...notes.map((n) => ({ url: siteUrl(`/exams/${n.examId}/study/${n.skillId}`), lastModified: n.updatedAt, changeFrequency: 'monthly' as const, priority: 0.5 })),
     );
   } catch (err) {

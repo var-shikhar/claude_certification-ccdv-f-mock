@@ -2,7 +2,7 @@
 // Structured data tells search and AI answer engines what a page is (a course, its
 // syllabus, its FAQ) instead of leaving them to guess from the markup.
 
-import type { ExamConfig } from '@/lib/engine/types';
+import type { ExamConfig, Question } from '@/lib/engine/types';
 import { SITE_NAME, siteUrl } from './site';
 
 type Ld = Record<string, unknown>;
@@ -109,6 +109,42 @@ export function studyNoteLd(ex: Pick<ExamLike, 'id' | 'code'>, skill: { id: stri
     about: skill.name,
     isPartOf: { '@id': siteUrl(`/exams/${ex.id}#course`) },
     publisher: { '@id': siteUrl('/#organization') },
+  };
+}
+
+export function sampleQuestionsTitle(ex: Pick<ExamLike, 'code' | 'title' | 'category'>) {
+  return `${ex.category === 'certification' ? ex.code : ex.title} sample questions with answers`;
+}
+
+/** Question text as plain prose for structured data: code fences and inline markers dropped. */
+export function plainText(md: string) {
+  return md.replace(/```[\w-]*\n?/g, '').replace(/`/g, '').replace(/\*\*|__/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/** The sample questions as a schema.org Quiz (practice problems with accepted answers and explanations). */
+export function sampleQuizLd(ex: Pick<ExamLike, 'id' | 'code' | 'title' | 'category'>, questions: Question[]): Ld {
+  const path = `/exams/${ex.id}/sample-questions`;
+  return {
+    '@type': 'Quiz',
+    '@id': siteUrl(`${path}#quiz`),
+    name: sampleQuestionsTitle(ex),
+    url: siteUrl(path),
+    inLanguage: 'en',
+    educationalUse: 'practice',
+    isAccessibleForFree: true,
+    isPartOf: { '@id': siteUrl(`/exams/${ex.id}#course`) },
+    publisher: { '@id': siteUrl('/#organization') },
+    hasPart: questions.map((q) => ({
+      '@type': 'Question',
+      eduQuestionType: q.type === 'multi' ? 'Checkbox' : 'Multiple choice',
+      text: plainText(q.stem),
+      suggestedAnswer: q.options.filter((o) => !o.correct).map((o) => ({ '@type': 'Answer', text: plainText(o.text) })),
+      acceptedAnswer: q.options.filter((o) => o.correct).map((o) => ({
+        '@type': 'Answer',
+        text: plainText(o.text),
+        answerExplanation: { '@type': 'Comment', text: plainText(q.explanation) },
+      })),
+    })),
   };
 }
 

@@ -22,7 +22,7 @@ import { examFaq } from '@/lib/exam-faq';
 import { breadcrumbLd, courseLd, examDescription, examPageTitle, faqLd, graph } from '@/lib/seo';
 import { cn } from '@/lib/utils';
 import { getExamHubData, type ExamHubData } from '@/server/analytics';
-import { getExam, getPoolCounts, getSkillCounts, getStudyNotes } from '@/server/exams';
+import { getExam, getPoolCounts, getSampleQuestions, getSkillCounts, getStudyNotes } from '@/server/exams';
 import { getStudyPlan } from '@/server/plan';
 import { getUser } from '@/server/session';
 import { WeekPlan } from '@/components/plan/study-plan';
@@ -57,7 +57,7 @@ export default async function ExamHubPage({ params, searchParams }: { params: Pr
   const cfg = ex.config;
   // Catalogue data is cached in-process, so the public page renders straight into the first HTML
   // (what crawlers read). Only the learner's own progress streams in afterwards.
-  const [counts, notes, pools] = await Promise.all([getSkillCounts(ex.id), getStudyNotes(ex.id), getPoolCounts(ex.id)]);
+  const [counts, notes, pools, samples] = await Promise.all([getSkillCounts(ex.id), getStudyNotes(ex.id), getPoolCounts(ex.id), getSampleQuestions(ex.id)]);
   const studySkills = Object.keys(notes);
   const faqs = examFaq(ex);
 
@@ -100,6 +100,18 @@ export default async function ExamHubPage({ params, searchParams }: { params: Pr
           <LearnerSyllabus exam={cfg} counts={counts} studySkills={studySkills} />
         </Suspense>
       </Reveal>
+
+      {samples.length > 0 && (
+        <Reveal>
+          <section className="flex flex-col items-start justify-between gap-4 rounded-2xl border bg-card p-5 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="font-semibold">Sample questions with answers</h2>
+              <p className="text-sm text-muted-foreground">{samples.length} questions from the {ex.code} bank, with an explanation for every option. No sign-up needed.</p>
+            </div>
+            <Button asChild variant="outline"><Link href={`/exams/${ex.id}/sample-questions`}>See sample questions <ArrowRight data-icon="inline-end" /></Link></Button>
+          </section>
+        </Reveal>
+      )}
 
       <Suspense fallback={null}>
         <RecentAttempts examId={ex.id} />

@@ -110,6 +110,38 @@ export const getSkillCounts = (examId: string) => cached(`catalog:skills:${examI
   return Object.fromEntries(rows.map((r) => [r.skill, r.n])) as Record<string, number>;
 });
 
+/**
+ * A fixed public set of questions for an exam's sample-questions page. Only the
+ * exam's own reviewed bank: imported third-party pools never appear, and nor do
+ * items copied from a vendor's official guide (their provenance says so). Only
+ * items that stand alone (no case study, no ordering/matching/fill-in), medium
+ * difficulty first, spread across domains in order of weight. The choice is
+ * stable from request to request, so search engines see the same page.
+ */
+export const getSampleQuestions = (examId: string, limit = 10) => cached(`catalog:samples:${examId}:${limit}`, async () => {
+  const ex = await getExam(examId);
+  if (!ex) return [];
+  const res = await db.execute<{ id: string; domain: number }>(sql`
+    select id, domain from (
+      select id, domain, row_number() over (partition by domain order by abs(difficulty - 2.5), md5(id)) as n
+      from ${question}
+      where exam_id = ${examId} and status = 'published' and pool = 'bank' and case_id is null
+        and type in ('single', 'multi', 'truefalse')
+        and (provenance is null or provenance not ilike '%official%')
+    ) ranked
+    where n <= ${limit}
+    order by domain, n`);
+  const byDomain = new Map<number, string[]>();
+  for (const r of res.rows) byDomain.set(Number(r.domain), [...(byDomain.get(Number(r.domain)) ?? []), r.id]);
+  // Round-robin over domains, heaviest first, until the page is full.
+  const queues = [...ex.config.domains].sort((a, b) => b.weight - a.weight).map((d) => byDomain.get(d.id) ?? []);
+  const picked: string[] = [];
+  for (let round = 0; picked.length < limit && queues.some((q) => q.length > round); round++) {
+    for (const q of queues) if (q[round] && picked.length < limit) picked.push(q[round]);
+  }
+  return getQuestionsByIds(picked);
+});
+
 /** Published question counts per pool (the reviewed bank vs. imported practice sets). */
 export const getPoolCounts = (examId: string) => cached(`catalog:pools:${examId}`, async () => {
   const rows = await db

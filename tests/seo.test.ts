@@ -5,7 +5,7 @@ import { JsonLd } from '@/components/seo/json-ld';
 import { loadExamBundle } from '@/lib/content/load';
 import { examFaq } from '@/lib/exam-faq';
 import { buildLlmsTxt } from '@/lib/llms-txt';
-import { clip, courseLd, examPageTitle } from '@/lib/seo';
+import { clip, courseLd, examPageTitle, plainText, sampleQuizLd } from '@/lib/seo';
 import { DEFAULT_SITE_URL, siteUrl } from '@/lib/site';
 
 const original = process.env.SITE_URL;
@@ -75,14 +75,35 @@ describe('exam FAQ', () => {
 });
 
 describe('llms.txt', () => {
-  test('lists every exam under its category and links study notes', () => {
+  test('lists every exam under its category and links sample questions and study notes', () => {
     const txt = buildLlmsTxt([
-      { ...asExam(cert), notes: cert.study },
-      { ...asExam(interview), notes: {} },
+      { ...asExam(cert), notes: cert.study, samples: 10 },
+      { ...asExam(interview), notes: {}, samples: 0 },
     ]);
     expect(txt.startsWith('# quizzMonkey\n\n> ')).toBe(true);
     expect(txt).toContain(`## Certification practice exams\n\n- [CCDV-F practice exam: Claude Certified Developer – Foundations](${DEFAULT_SITE_URL}/exams/ccdv-f)`);
+    expect(txt).toContain(`  - [10 sample questions with answers and explanations](${DEFAULT_SITE_URL}/exams/ccdv-f/sample-questions)`);
+    expect(txt).not.toContain('/exams/javascript/sample-questions');
     expect(txt).toContain('## Interview prep');
     for (const skillId of Object.keys(cert.study)) expect(txt).toContain(`${DEFAULT_SITE_URL}/exams/ccdv-f/study/${skillId})`);
+  });
+});
+
+describe('sample questions structured data', () => {
+  test('a Quiz with accepted answers and their explanations', () => {
+    const qs = cert.questions.filter((q) => q.type === 'single' || q.type === 'multi').slice(0, 3);
+    const ld = sampleQuizLd(asExam(cert), qs);
+    expect(ld).toMatchObject({ '@type': 'Quiz', name: 'CCDV-F sample questions with answers', url: `${DEFAULT_SITE_URL}/exams/ccdv-f/sample-questions` });
+    const parts = ld.hasPart as { eduQuestionType: string; acceptedAnswer: { text: string }[]; suggestedAnswer: unknown[] }[];
+    expect(parts).toHaveLength(3);
+    parts.forEach((p, i) => {
+      expect(p.acceptedAnswer).toHaveLength(qs[i].options.filter((o) => o.correct).length);
+      expect(p.suggestedAnswer.length + p.acceptedAnswer.length).toBe(qs[i].options.length);
+      expect(p.eduQuestionType).toBe(qs[i].type === 'multi' ? 'Checkbox' : 'Multiple choice');
+    });
+  });
+
+  test('plain text drops code fences and inline markers', () => {
+    expect(plainText('Run **this**:\n```js\nconst a = `x`;\n```\nthen `stop`.')).toBe('Run this: const a = x; then stop.');
   });
 });
