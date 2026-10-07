@@ -1,18 +1,23 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { BadgeCheck } from 'lucide-react';
 import { CertificateActions } from '@/components/certificates/certificate-actions';
 import { CertificateCard } from '@/components/certificates/certificate-card';
+import { siteUrl } from '@/lib/site';
 import { getCertificate } from '@/server/certificates';
 import { getUser } from '@/server/session';
 
+// Shareable by link, but it names a person, so search engines shouldn't index it.
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const cert = await getCertificate((await params).id);
   return cert
-    ? { title: `${cert.candidateName} · ${cert.examCode} readiness certificate`, description: `Verified quizzMonkey readiness certificate: ${cert.scaled} on ${cert.examTitle}.` }
-    : { title: 'Certificate not found' };
+    ? {
+      title: `${cert.candidateName} · ${cert.examCode} readiness certificate`,
+      description: `Verified quizzMonkey readiness certificate: ${cert.scaled} on ${cert.examTitle}.`,
+      robots: { index: false, follow: true },
+    }
+    : { title: 'Certificate not found', robots: { index: false } };
 }
 
 export default async function CertificatePage({ params }: { params: Promise<{ id: string }> }) {
@@ -20,9 +25,8 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
   const cert = await getCertificate(id);
   if (!cert) notFound();
   const user = await getUser();
-  const h = await headers();
-  const origin = `${h.get('x-forwarded-proto') ?? 'http'}://${h.get('host') ?? 'localhost:3000'}`;
-  const verifyUrl = `${origin}/verify/${cert.id}`;
+  // The public address, not whichever host served this page (a preview deployment, localhost…).
+  const verifyUrl = siteUrl(`/verify/${cert.id}`);
   const mine = user?.id === cert.userId;
 
   return (

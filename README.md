@@ -56,7 +56,8 @@ Every setting is documented in [`.env.example`](.env.example).
 | Setting | Needed for |
 |---|---|
 | `DATABASE_URL` | Neon pooled connection string (or omit for local PGlite) |
-| `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` | Sessions; the URL is also used for links in the sitemap |
+| `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` | Sessions and sign-in; the URL is the address the app runs on |
+| `SITE_URL` | The public address for canonical links, the sitemap, robots.txt, llms.txt, structured data and certificate links. Defaults to `https://quizzmonkey.vercel.app`; change it when the site moves to its own domain |
 | `ADMIN_EMAILS` | Accounts that start as admins |
 | `GOOGLE_*`, `GITHUB_*` | Optional social sign-in (buttons appear when both values are set) |
 | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `AI_MODEL` | AI tutor, mock interviews and question drafts. Point the base URL at a LiteLLM proxy's `/v1` to use any provider |
@@ -144,7 +145,8 @@ progress moves to the account when a guest signs up.
 
 1. Create a Neon project and copy the pooled connection string.
 2. Import the repository into Vercel and add the environment variables from
-   `.env.example`. Set `BETTER_AUTH_URL` to your production URL.
+   `.env.example`. Set `BETTER_AUTH_URL` to your production URL, and `SITE_URL`
+   too if it isn't `https://quizzmonkey.vercel.app` (for example, a custom domain).
 3. Run `npm run db:setup` once against the production database (locally with
    the production `DATABASE_URL`, or from CI). Run `npm run db:migrate` again
    whenever the schema changes, and `npm run db:seed` whenever content changes.

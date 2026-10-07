@@ -4,7 +4,8 @@ import { BadgeCheck, ShieldX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getCertificate } from '@/server/certificates';
 
-export const metadata: Metadata = { title: 'Certificate verification' };
+// A result about one person: useful to whoever holds the code, not to search engines.
+export const metadata: Metadata = { title: 'Certificate verification', robots: { index: false, follow: true } };
 
 export default async function VerifyCodePage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;

@@ -5,7 +5,7 @@ import { enabledSocialProviders } from '@/lib/auth';
 import { safeRedirectPath } from '@/lib/safe-redirect';
 import { getUser } from '@/server/session';
 
-export const metadata: Metadata = { title: 'Sign in' };
+export const metadata: Metadata = { title: 'Sign in', robots: { index: false, follow: true } };
 
 export default async function SignInPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const { next } = await searchParams;

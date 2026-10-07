@@ -4,7 +4,11 @@ import { ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-export const metadata: Metadata = { title: 'Verify a certificate' };
+export const metadata: Metadata = {
+  title: 'Verify a certificate',
+  description: 'Check that a quizzMonkey readiness certificate is genuine using the code printed on it.',
+  alternates: { canonical: '/verify' },
+};
 
 export default async function VerifyPage({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
   const { code } = await searchParams;

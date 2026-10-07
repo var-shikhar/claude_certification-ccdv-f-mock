@@ -8,9 +8,12 @@ import { cn } from '@/lib/utils';
 import { getChallenge } from '@/server/challenges';
 import { getUser } from '@/server/session';
 
+// Shared by link; its leaderboard shows people's names, so it stays out of search results.
 export async function generateMetadata({ params }: { params: Promise<{ code: string }> }): Promise<Metadata> {
   const c = await getChallenge((await params).code);
-  return c ? { title: c.title, description: `Take the same ${c.itemCount} ${c.examCode} questions and beat the leaderboard.` } : { title: 'Challenge not found' };
+  return c
+    ? { title: c.title, description: `Take the same ${c.itemCount} ${c.examCode} questions and beat the leaderboard.`, robots: { index: false, follow: true } }
+    : { title: 'Challenge not found', robots: { index: false } };
 }
 
 const fmt = (ms: number) => { const m = Math.round(ms / 60_000); return m < 1 ? '<1 min' : `${m} min`; };

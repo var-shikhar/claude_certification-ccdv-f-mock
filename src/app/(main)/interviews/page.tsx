@@ -9,7 +9,11 @@ import { aiEnabled } from '@/server/ai/client';
 import { listInterviews } from '@/server/ai/interviews';
 import { getUser, isStaff } from '@/server/session';
 
-export const metadata: Metadata = { title: 'Mock interviews' };
+export const metadata: Metadata = {
+  title: 'AI mock interviews',
+  description: 'An AI interviewer asks one question at a time, follows up when an answer is thin, and scores you against a clear rubric at the end.',
+  alternates: { canonical: '/interviews' },
+};
 
 export default async function InterviewsPage() {
   const user = await getUser();

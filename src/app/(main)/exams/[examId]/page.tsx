@@ -1,17 +1,25 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { cache, Suspense } from 'react';
 import { ArrowRight, CalendarClock, ChevronRight, Clock, ExternalLink, FileQuestion, Layers, Play, Target, Trophy } from 'lucide-react';
 import { Reveal } from '@/components/common/reveal';
+import { ExamFaq } from '@/components/exam-hub/exam-faq';
 import { ExamDateButton, GuestDiagnosticButton, OpenSetupButton } from '@/components/exam-hub/hub-actions';
 import { PracticeOptions } from '@/components/exam-hub/practice-options';
 import { ReadinessGauge } from '@/components/exam-hub/readiness-gauge';
 import { Syllabus } from '@/components/exam-hub/syllabus';
 import { StartButton } from '@/components/results/start-button';
+import { Breadcrumbs } from '@/components/seo/breadcrumbs';
+import { JsonLd } from '@/components/seo/json-ld';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { KINDS } from '@/lib/attempt-kinds';
 import { daysUntil } from '@/lib/dates';
+import type { ExamConfig } from '@/lib/engine/types';
+import { examFaq } from '@/lib/exam-faq';
+import { breadcrumbLd, courseLd, examDescription, examPageTitle, faqLd, graph } from '@/lib/seo';
 import { cn } from '@/lib/utils';
 import { getExamHubData, type ExamHubData } from '@/server/analytics';
 import { getExam, getPoolCounts, getSkillCounts, getStudyNotes } from '@/server/exams';
@@ -19,34 +27,47 @@ import { getStudyPlan } from '@/server/plan';
 import { getUser } from '@/server/session';
 import { WeekPlan } from '@/components/plan/study-plan';
 
-export async function generateMetadata({ params }: { params: Promise<{ examId: string }> }): Promise<Metadata> {
-  const ex = await getExam((await params).examId);
-  return ex ? { title: `${ex.code} practice exams`, description: ex.meta.tagline ?? ex.title } : { title: 'Exam not found' };
+async function publishedExam(examId: string) {
+  const ex = await getExam(examId);
+  return ex?.isPublished ? ex : null;
 }
+
+export async function generateMetadata({ params }: { params: Promise<{ examId: string }> }): Promise<Metadata> {
+  const ex = await publishedExam((await params).examId);
+  if (!ex) return { title: 'Exam not found', robots: { index: false } };
+  const title = examPageTitle(ex);
+  const description = examDescription(ex);
+  const path = `/exams/${ex.id}`;
+  return { title, description, alternates: { canonical: path }, openGraph: { title, description, url: path } };
+}
+
+/** The learner's own hub data, loaded once per request and shared by the sections that stream in. */
+const learnerHub = cache(async (examId: string) => {
+  const user = await getUser();
+  if (!user) return null;
+  const [hub, plan] = await Promise.all([getExamHubData(user.id, examId), getStudyPlan(user.id, examId)]);
+  return { user, hub, plan };
+});
 
 export default async function ExamHubPage({ params, searchParams }: { params: Promise<{ examId: string }>; searchParams: Promise<{ start?: string }> }) {
   const { examId } = await params;
   const { start } = await searchParams;
-  const [ex, user] = await Promise.all([getExam(examId), getUser()]);
-  if (!ex || !ex.isPublished) notFound();
+  const ex = await publishedExam(examId);
+  if (!ex) notFound(); // before anything streams, so unknown exams get a real 404
   const cfg = ex.config;
-  const [hub, counts, notes, pools, plan] = await Promise.all([
-    user ? getExamHubData(user.id, ex.id) : Promise.resolve(null),
-    getSkillCounts(ex.id),
-    getStudyNotes(ex.id),
-    getPoolCounts(ex.id),
-    user ? getStudyPlan(user.id, ex.id) : Promise.resolve(null),
-  ]);
+  // Catalogue data is cached in-process, so the public page renders straight into the first HTML
+  // (what crawlers read). Only the learner's own progress streams in afterwards.
+  const [counts, notes, pools] = await Promise.all([getSkillCounts(ex.id), getStudyNotes(ex.id), getPoolCounts(ex.id)]);
+  const studySkills = Object.keys(notes);
+  const faqs = examFaq(ex);
 
   return (
     <div className="mx-auto max-w-6xl space-y-10 px-4 py-8 sm:px-6 sm:py-10">
+      <JsonLd data={graph(courseLd(ex), breadcrumbLd([{ name: 'Explore', path: '/explore' }, { name: ex.code, path: `/exams/${ex.id}` }]), faqLd(faqs))} />
+
       {/* ---------------- header */}
       <Reveal className="space-y-4">
-        <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-sm text-muted-foreground">
-          <Link href="/explore" className="hover:text-foreground">Explore</Link>
-          <ChevronRight className="size-3.5" />
-          <span className="text-foreground">{ex.code}</span>
-        </nav>
+        <Breadcrumbs items={[{ name: 'Explore', href: '/explore' }, { name: ex.code }]} />
         <div className="flex flex-wrap items-center gap-2">
           <Badge className="bg-gradient-brand text-white">{ex.code}</Badge>
           {ex.vendor && <Badge variant="secondary">{ex.vendor}</Badge>}
@@ -68,17 +89,47 @@ export default async function ExamHubPage({ params, searchParams }: { params: Pr
         </div>
       </Reveal>
 
-      {/* ---------------- progress */}
+      {/* ---------------- the learner's own sections stream in behind the public page */}
+      <Suspense fallback={<LearnerSectionsSkeleton />}>
+        <LearnerSections examId={ex.id} exam={cfg} counts={counts} hasImported={pools.imported > 0} start={start} />
+      </Suspense>
+
+      <Reveal delay={0.1}>
+        {/* The public syllabus is the fallback, so it is in the first HTML; the learner's mastery replaces it. */}
+        <Suspense fallback={<Syllabus exam={cfg} mastery={null} counts={counts} studySkills={studySkills} signedIn={false} pending />}>
+          <LearnerSyllabus exam={cfg} counts={counts} studySkills={studySkills} />
+        </Suspense>
+      </Reveal>
+
+      <Suspense fallback={null}>
+        <RecentAttempts examId={ex.id} />
+      </Suspense>
+
+      <Reveal>
+        <ExamFaq faqs={faqs} />
+      </Reveal>
+    </div>
+  );
+}
+
+async function LearnerSections({ examId, exam, counts, hasImported, start }: {
+  examId: string; exam: ExamConfig; counts: Record<string, number>; hasImported: boolean; start?: string;
+}) {
+  const learner = await learnerHub(examId);
+  const user = learner?.user ?? null;
+  const hub = learner?.hub ?? null;
+  return (
+    <>
       <Reveal delay={0.05}>
-        {user && hub ? <ProgressCard examId={ex.id} hub={hub} passing={cfg.scale.passing} /> : <VisitorCard examId={ex.id} />}
+        {user && hub ? <ProgressCard examId={examId} hub={hub} passing={exam.scale.passing} /> : <VisitorCard examId={examId} />}
       </Reveal>
 
       <Reveal delay={0.1}>
         <PracticeOptions
-          exam={cfg}
+          exam={exam}
           signedIn={Boolean(user)}
           defaultName={user && !user.isAnonymous ? user.name : ''}
-          hasImported={pools.imported > 0}
+          hasImported={hasImported}
           skillCounts={counts}
           due={hub?.due ?? 0}
           mistakes={hub?.mistakes ?? 0}
@@ -86,41 +137,58 @@ export default async function ExamHubPage({ params, searchParams }: { params: Pr
         />
       </Reveal>
 
-      {plan && <Reveal delay={0.1}><WeekPlan plan={plan} /></Reveal>}
+      {learner?.plan && <Reveal delay={0.1}><WeekPlan plan={learner.plan} /></Reveal>}
+    </>
+  );
+}
 
-      <Reveal delay={0.1}>
-        <Syllabus exam={cfg} mastery={hub?.readiness?.skills ?? null} counts={counts} studySkills={Object.keys(notes)} signedIn={Boolean(user)} />
-      </Reveal>
+function LearnerSectionsSkeleton() {
+  return (
+    <>
+      <Skeleton className="h-52 rounded-3xl" />
+      <div className="space-y-4" aria-hidden>
+        <div className="space-y-2"><Skeleton className="h-6 w-44" /><Skeleton className="h-4 w-72 max-w-full" /></div>
+        <div className="grid gap-3 md:grid-cols-3">{Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-40 rounded-2xl" />)}</div>
+      </div>
+    </>
+  );
+}
 
-      {hub && hub.recent.length > 0 && (
-        <Reveal>
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Recent attempts</h2>
-              <Button asChild variant="ghost" size="sm"><Link href={`/progress?exam=${ex.id}`}>All history <ArrowRight data-icon="inline-end" /></Link></Button>
-            </div>
-            <ul className="divide-y overflow-hidden rounded-2xl border bg-card">
-              {hub.recent.map((a) => (
-                <li key={a.id}>
-                  <Link href={`/attempt/${a.id}/result`} className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-accent/30 sm:px-5">
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium">{KINDS[a.kind].label}</span>
-                      <span className="block text-xs text-muted-foreground">{new Date(a.startedAt).toLocaleDateString(undefined, { dateStyle: 'medium' })} · {a.correctCount ?? 0}/{a.itemCount} correct</span>
-                    </span>
-                    {KINDS[a.kind].scored && a.scaled != null ? (
-                      <span className={cn('rounded-full px-2.5 py-1 text-sm font-semibold tabular-nums', a.passed ? 'bg-success/12 text-success' : 'bg-secondary')}>{a.scaled}</span>
-                    ) : (
-                      <span className="rounded-full bg-secondary px-2.5 py-1 text-sm font-semibold tabular-nums">{a.itemCount ? Math.round(((a.correctCount ?? 0) / a.itemCount) * 100) : 0}%</span>
-                    )}
-                    <ChevronRight className="size-4 text-muted-foreground" />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        </Reveal>
-      )}
-    </div>
+async function LearnerSyllabus({ exam, counts, studySkills }: { exam: ExamConfig; counts: Record<string, number>; studySkills: string[] }) {
+  const learner = await learnerHub(exam.id);
+  return <Syllabus exam={exam} mastery={learner?.hub.readiness?.skills ?? null} counts={counts} studySkills={studySkills} signedIn={Boolean(learner)} />;
+}
+
+async function RecentAttempts({ examId }: { examId: string }) {
+  const recent = (await learnerHub(examId))?.hub.recent ?? [];
+  if (!recent.length) return null;
+  return (
+    <Reveal>
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Recent attempts</h2>
+          <Button asChild variant="ghost" size="sm"><Link href={`/progress?exam=${examId}`}>All history <ArrowRight data-icon="inline-end" /></Link></Button>
+        </div>
+        <ul className="divide-y overflow-hidden rounded-2xl border bg-card">
+          {recent.map((a) => (
+            <li key={a.id}>
+              <Link href={`/attempt/${a.id}/result`} className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-accent/30 sm:px-5">
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium">{KINDS[a.kind].label}</span>
+                  <span className="block text-xs text-muted-foreground">{new Date(a.startedAt).toLocaleDateString(undefined, { dateStyle: 'medium' })} · {a.correctCount ?? 0}/{a.itemCount} correct</span>
+                </span>
+                {KINDS[a.kind].scored && a.scaled != null ? (
+                  <span className={cn('rounded-full px-2.5 py-1 text-sm font-semibold tabular-nums', a.passed ? 'bg-success/12 text-success' : 'bg-secondary')}>{a.scaled}</span>
+                ) : (
+                  <span className="rounded-full bg-secondary px-2.5 py-1 text-sm font-semibold tabular-nums">{a.itemCount ? Math.round(((a.correctCount ?? 0) / a.itemCount) * 100) : 0}%</span>
+                )}
+                <ChevronRight className="size-4 text-muted-foreground" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </Reveal>
   );
 }
 

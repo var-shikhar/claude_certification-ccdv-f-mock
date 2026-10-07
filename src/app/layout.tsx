@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from 'next';
 import { Bricolage_Grotesque, Geist, Geist_Mono } from 'next/font/google';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Providers } from '@/components/providers/providers';
+import { JsonLd } from '@/components/seo/json-ld';
+import { graph, organizationLd, websiteLd } from '@/lib/seo';
+import { SITE_NAME, siteUrl } from '@/lib/site';
 import { cn } from '@/lib/utils';
 import './globals.css';
 
@@ -10,11 +13,14 @@ const display = Bricolage_Grotesque({ subsets: ['latin'], variable: '--font-disp
 // Only timers and code use it, so don't make every page preload it.
 const mono = Geist_Mono({ subsets: ['latin'], variable: '--font-mono', preload: false });
 
+// No canonical here: it would be inherited by every page. Pages set their own.
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.BETTER_AUTH_URL ?? 'http://localhost:3000'),
+  metadataBase: new URL(siteUrl()),
   title: { default: 'quizzMonkey · Mock exams, quizzes & interview practice', template: '%s · quizzMonkey' },
   description: 'Timed certification mocks, practice drills, readiness analytics and AI mock interviews, all in one place.',
-  applicationName: 'quizzMonkey',
+  applicationName: SITE_NAME,
+  openGraph: { siteName: SITE_NAME, type: 'website', locale: 'en_US' },
+  twitter: { card: 'summary_large_image' },
 };
 
 export const viewport: Viewport = {
@@ -29,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning className={cn(sans.variable, display.variable, mono.variable)}>
       <body className="min-h-dvh">
+        <JsonLd data={graph(organizationLd(), websiteLd())} />
         <Providers>{children}</Providers>
         <SpeedInsights />
       </body>
