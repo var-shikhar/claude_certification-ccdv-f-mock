@@ -1,0 +1,24 @@
+{
+  "language-models": {
+    "summary": "Every major runtime gives you cheap concurrency, but the unit, the safety net and the failure modes differ. Know which runtimes run threads in parallel, how each one shares data safely, and how each cancels work, because interviews probe exactly where they diverge.",
+    "points": [
+      "Go: goroutines on an M:N scheduler; channels for communication (send on closed or close twice panics, nil channels block forever); `sync.WaitGroup.Add` must happen before `Wait`; never copy a `sync.Mutex`; cancellation travels through `context.Context`.",
+      "Java: since Java 21, virtual threads are cheap; create one per task and never pool them, and limit scarce resources with a `Semaphore`. On JDK 21, blocking inside `synchronized` pins the carrier; JDK 24 (JEP 491) removed that.",
+      "Java futures: `submit` hides exceptions until `get()`; `join()` throws `CompletionException`; use `thenCompose` for functions that return futures; `supplyAsync` without an executor shares `ForkJoinPool.commonPool()`.",
+      "Rust: `Send` (move to another thread) and `Sync` (share `&T`) are checked at compile time, so data races are impossible in safe code. Deadlocks and logic races are not. Use `Arc<Mutex<T>>` for shared mutable state, and don't hold a `std::sync::MutexGuard` across `.await`.",
+      "Python and Node.js: standard CPython runs one thread of bytecode at a time (the GIL), and Node runs JavaScript on one event loop. Both are cooperative: a CPU loop that never yields blocks everything else. Parallelism needs processes (Python) or `worker_threads` (Node).",
+      "C#: `async void` and `.Result`/`.Wait()` cause deadlocks under a SynchronizationContext, and thread-pool starvation even without one; go async all the way and use `ConfigureAwait(false)` in library code.",
+      "Erlang/Elixir: isolated processes, copied messages, preemption by reductions, and supervisors (`one_for_one`, `one_for_all`, `rest_for_one`) that recover by restarting; always handle unexpected messages so selective receive stays fast."
+    ],
+    "traps": [
+      "Cancellation is cooperative everywhere: `ctx.Done()`, `Thread.interrupt()`, `Task.cancel()` and `AbortSignal` only signal, and code that never checks keeps running.",
+      "`volatile` in Java gives visibility, not atomicity: `count++` on a volatile field still loses updates.",
+      "A plain `sync.Once` treats a panicking function as done and never retries; `CompletableFuture.allOf` never cancels the other futures when one fails."
+    ],
+    "docs": [
+      { "title": "The Go Memory Model", "url": "https://go.dev/ref/mem" },
+      { "title": "JEP 444: Virtual Threads", "url": "https://openjdk.org/jeps/444" },
+      { "title": "The Rust Book: Fearless Concurrency", "url": "https://doc.rust-lang.org/book/ch16-00-concurrency.html" }
+    ]
+  }
+}

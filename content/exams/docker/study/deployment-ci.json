@@ -1,0 +1,33 @@
+{
+  "deployment-ci": {
+    "summary": "Build one immutable image per commit, test it, promote the same digest through every environment, and run it as a stateless, disposable process with config injected at run time.",
+    "points": [
+      "Tag CI images with the commit SHA (for example via docker/metadata-action) and deploy by that tag or, better, by digest; mutable tags like `latest` drift between deploys.",
+      "Build once, test that image, and promote the same digest to staging and production; per-environment builds ship untested bytes and make rollbacks rebuilds.",
+      "Give Buildx a persistent cache in CI (`cache-from`/`cache-to` with `type=gha` or a registry) because each hosted runner starts empty.",
+      "Graceful shutdown: stop routing traffic, deliver SIGTERM to the real app process (exec-form CMD or an init), drain in-flight work, exit before the grace period (10 seconds by default) ends in SIGKILL.",
+      "Run database migrations once per release as a separate step or job, not in every replica's startup command.",
+      "Language specifics: `npm ci` for reproducible Node installs (watch NODE_ENV omitting devDependencies), `PYTHONUNBUFFERED=1` for Python logs, static Go binaries with `CGO_ENABLED=0` for scratch images, and JVM heaps sized below the container limit.",
+      "Managed platforms like Cloud Run expect the app to listen on `$PORT`, keep no local state, and may throttle CPU outside requests."
+    ],
+    "traps": [
+      "A HEALTHCHECK on standalone Docker only reports status; it doesn't restart containers or gate traffic.",
+      "The json-file logging driver doesn't rotate by default, so busy containers can fill the host disk.",
+      "Swarm rolling updates default to `stop-first`, which leaves a single-replica service briefly with nothing running."
+    ],
+    "docs": [
+      {
+        "title": "GitHub Actions with Docker",
+        "url": "https://docs.docker.com/build/ci/github-actions/"
+      },
+      {
+        "title": "Cache management with GitHub Actions",
+        "url": "https://docs.docker.com/build/ci/github-actions/cache/"
+      },
+      {
+        "title": "Deploy a stack to a swarm",
+        "url": "https://docs.docker.com/engine/swarm/stack-deploy/"
+      }
+    ]
+  }
+}

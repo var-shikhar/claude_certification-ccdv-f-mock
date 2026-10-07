@@ -1,0 +1,1317 @@
+[
+  {
+    "id": "PYM-GAP-001",
+    "domain": 1,
+    "skill": "collections",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print?\n\n```python\nitems = [\n    'alpha',\n    'beta'\n    'gamma',\n]\nprint(len(items), items)\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`3 ['alpha', 'beta', 'gamma']`",
+        "why": "A comma is missing after `'beta'`, so only two elements are created."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`2 ['alpha', 'betagamma']`",
+        "why": "Adjacent string literals are joined at compile time into one string."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A `SyntaxError` because a comma is missing in the list",
+        "why": "Two string literals side by side are valid syntax: they are concatenated."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`3 ['alpha', 'beta', 'gamma']` with a `SyntaxWarning`",
+        "why": "No warning is raised; the literals are silently merged into one element."
+      }
+    ],
+    "explanation": "Python joins adjacent string literals at compile time, so `'beta' 'gamma'` becomes `'betagamma'`. The missing comma silently turns three intended elements into two. This is a classic bug in long lists of strings, which linters such as ruff flag (implicit string concatenation, ISC rules). Verified on Python 3.13.",
+    "reference": "Python docs: String literal concatenation"
+  },
+  {
+    "id": "PYM-GAP-002",
+    "domain": 1,
+    "skill": "functions-scope",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What happens when this module is imported?\n\n```python\nNOT_FOUND = 404\n\ndef check(code):\n    match code:\n        case NOT_FOUND:\n            return 'not found'\n        case _:\n            return 'other'\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It imports fine, and `check(200)` returns `'other'`",
+        "why": "A bare name in a case is a capture pattern, not a comparison with the constant."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`SyntaxError`: the name capture `NOT_FOUND` makes the remaining patterns unreachable",
+        "why": "A bare name always matches, so the compiler rejects any case after it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It imports fine, but `check(200)` raises `NameError` for `NOT_FOUND`",
+        "why": "The pattern binds `NOT_FOUND` as a new local rather than reading the global."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It imports fine, and `check(404)` returns `'not found'` while `check(200)` returns `'other'`",
+        "why": "That needs a value pattern such as a dotted name; a bare name captures."
+      }
+    ],
+    "explanation": "In `match`, a bare name like `NOT_FOUND` is a capture pattern: it matches anything and binds the subject to that name. Because it can never fail, a later `case _:` is unreachable, and CPython raises `SyntaxError: name capture 'NOT_FOUND' makes remaining patterns unreachable` at compile time. To compare against a constant, use a dotted name (`HTTPStatus.NOT_FOUND`, `codes.NOT_FOUND`) or a guard (`case x if x == NOT_FOUND`). Verified on Python 3.13.",
+    "reference": "PEP 636: Structural Pattern Matching tutorial"
+  },
+  {
+    "id": "PYM-GAP-003",
+    "domain": 1,
+    "skill": "functions-scope",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print?\n\n```python\nNOT_FOUND = 404\n\ndef check(code):\n    match code:\n        case NOT_FOUND:\n            return 'not found'\n\nprint(check(200), NOT_FOUND)\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`None 404`",
+        "why": "The case does match: a bare name is a capture pattern that matches any value."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`not found 404`",
+        "why": "The capture binds a local `NOT_FOUND` inside `check`; the global keeps 404."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`not found 200`",
+        "why": "The binding is local to the function, so the global name is not changed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A `SyntaxError`, because a capture pattern needs a wildcard after it",
+        "why": "With no case after it, an irrefutable capture is allowed."
+      }
+    ],
+    "explanation": "`case NOT_FOUND:` is a capture pattern, so it matches 200 and binds the name `NOT_FOUND` to 200, as a local variable of `check`, because pattern captures are assignments. The function returns `'not found'`, and the module-level `NOT_FOUND` is still 404. Nothing errors here, because no case follows the irrefutable one. It's a silent bug: every input looks like a 404. Use a dotted constant (`HTTPStatus.NOT_FOUND`) to compare by value. Verified on Python 3.13.",
+    "reference": "Python docs: The match statement (capture patterns)"
+  },
+  {
+    "id": "PYM-GAP-004",
+    "domain": 1,
+    "skill": "data-model",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print?\n\n```python\na, b, c, d = 0, 5, False, 9\nx = a or b if c else d\nprint(x)\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`5`",
+        "why": "That parses as `a or (b if c else d)`; the conditional expression binds more loosely."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`9`",
+        "why": "It parses as `(a or b) if c else d`, and `c` is false."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`0`",
+        "why": "`or` never returns its falsy left operand when the right one is truthy."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`True`",
+        "why": "`or` returns one of its operands, not a bool."
+      }
+    ],
+    "explanation": "The conditional expression `X if C else Y` has the lowest precedence of the expression operators except `lambda`, so the line is `(a or b) if c else d`. `c` is `False`, so the result is `d`, which is 9. Write parentheses whenever you mix `or`/`and` with a conditional expression. Verified on Python 3.13.",
+    "reference": "Python docs: Operator precedence"
+  },
+  {
+    "id": "PYM-GAP-005",
+    "domain": 2,
+    "skill": "iterators-generators",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print?\n\n```python\ndef find(xs, target):\n    for i, v in enumerate(xs):\n        if v == target:\n            print('found', i)\n            break\n    else:\n        print('missing')\n\nfind([1, 2, 3], 2)\nfind([1, 2, 3], 9)\nfind([], 1)\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`found 1`, `missing`, and nothing for the empty list",
+        "why": "The `else` runs whenever the loop ends without `break`, including after zero iterations."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`found 1`, `missing`, `missing`",
+        "why": "`else` runs when the loop finishes without hitting `break`; an empty loop counts."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`found 1`, `missing`, `missing`, `missing`",
+        "why": "`else` is skipped when `break` runs, so the first call prints only once."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`found 1 missing`, `missing`, `missing`",
+        "why": "After `break`, the `else` block is skipped entirely."
+      }
+    ],
+    "explanation": "A loop's `else` clause runs when the loop terminates normally, meaning it ran out of items, including when there were none, and is skipped when the loop exits via `break`. That makes it a natural search-failed branch: the first call breaks, so it prints only `found 1`, while the other two calls fall through to `missing`. Verified on Python 3.13.",
+    "reference": "Python docs: break and continue statements, and else clauses on loops"
+  },
+  {
+    "id": "PYM-GAP-006",
+    "domain": 1,
+    "skill": "functions-scope",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What happens when this runs at module level?\n\n```python\nfor i in range(3):\n    i = 10\nprint(i)\n\nfor k in []:\n    pass\nprint(k)\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It prints `2`, then `None`",
+        "why": "Reassigning `i` keeps the last assigned value, and an unbound `k` raises rather than printing None."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It prints `10`, then raises `NameError` for `k`",
+        "why": "The loop variable leaks with its last value, but an empty loop never binds `k`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It prints `2`, then raises `NameError` for `k`",
+        "why": "Assigning to `i` inside the body changes `i` until the next iteration rebinds it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It raises `NameError` for `i`, because loop variables are block-scoped",
+        "why": "Python has no block scope; loop variables live on after the loop."
+      }
+    ],
+    "explanation": "Python has no block scope, so the loop variable is an ordinary name in the enclosing scope. Each iteration rebinds `i` from the iterator, and assigning 10 inside the body changes `i` only until the next rebinding. After the last iteration it stays 10, which is what gets printed. Rebinding never affects which values `range` produces. A loop over an empty iterable never binds its variable, so `print(k)` raises `NameError: name 'k' is not defined`. Verified on Python 3.13.",
+    "reference": "Python docs: The for statement"
+  },
+  {
+    "id": "PYM-GAP-007",
+    "domain": 1,
+    "skill": "functions-scope",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print?\n\n```python\ndef f1():\n    \"real doc\"\n\ndef f2():\n    x = 1\n    \"not a doc\"\n\nname = 'x'\ndef f3():\n    f\"doc for {name}\"\n\nprint(repr(f1.__doc__), repr(f2.__doc__), repr(f3.__doc__))\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`'real doc' 'not a doc' 'doc for x'`",
+        "why": "Only a plain string literal as the first statement becomes the docstring."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`'real doc' None None`",
+        "why": "A later string is just an expression, and an f-string is never a docstring."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`'real doc' None 'doc for x'`",
+        "why": "f-strings are evaluated at call time, so they are not stored as `__doc__`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`'real doc' 'not a doc' None`",
+        "why": "A string after other statements is an unused expression, not documentation."
+      }
+    ],
+    "explanation": "A docstring is a string literal that is the first statement in a module, class or function body; the compiler stores it as `__doc__`. In `f2` the literal comes after an assignment, so it's an unused expression. In `f3` the first statement is an f-string, which is an expression evaluated at run time, so it isn't a docstring and `__doc__` is `None`. Comments (`#`) are discarded entirely and never appear in `__doc__`. Verified on Python 3.13.",
+    "reference": "PEP 257: Docstring Conventions"
+  },
+  {
+    "id": "PYM-GAP-008",
+    "domain": 1,
+    "skill": "collections",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What happens when this runs?\n\n```python\nfrom array import array\nnums = array('b', [100, 200])\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It wraps 200 to `-56` silently, like a C signed char",
+        "why": "The `array` module range-checks values instead of wrapping them."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`OverflowError`: signed char is greater than maximum",
+        "why": "Type code `'b'` is a signed byte (-128 to 127), and the module checks the range."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It stores both values, because `'b'` means unsigned byte",
+        "why": "Unsigned bytes use type code `'B'`; lowercase `'b'` is signed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It upgrades the array to a wider type to fit 200",
+        "why": "An array has a fixed item type chosen at creation and never widens."
+      }
+    ],
+    "explanation": "`array.array` stores raw C values of one fixed type, given by the type code. That makes it far more compact than a list of int objects. `'b'` is a signed char with range -128..127, so 200 raises `OverflowError: signed char is greater than maximum`; `'B'` (unsigned) would accept it. Unlike NumPy, the `array` module checks values on insertion instead of wrapping. It also rejects floats in an int array (`TypeError`). Verified on Python 3.13.",
+    "reference": "Python docs: array — Efficient arrays of numeric values"
+  },
+  {
+    "id": "PYM-GAP-009",
+    "domain": 1,
+    "skill": "collections",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "`to_list` returns a list's values in order. What does the last line print?\n\n```python\nclass Node:\n    def __init__(self, v, nxt=None):\n        self.v, self.next = v, nxt\n\ndef reverse(head):\n    prev = None\n    cur = head\n    while cur:\n        cur.next = prev\n        prev = cur\n        cur = cur.next\n    return prev\n\nprint(to_list(reverse(Node(1, Node(2, Node(3))))))\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`[3, 2, 1]`",
+        "why": "Advancing with `cur.next` after overwriting it loses the rest of the list."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`[1]`",
+        "why": "`cur.next` is set to `None` first, so `cur = cur.next` ends the loop at once."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`[1, 2, 3]`",
+        "why": "The first node is relinked to `prev`, so the original order is not kept."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It loops forever",
+        "why": "The loop ends after one pass because `cur` becomes `None`."
+      }
+    ],
+    "explanation": "The loop overwrites `cur.next` before saving it. On the first pass `cur.next = None`, then `cur = cur.next` reads that `None`, so the loop stops and returns node 1 alone, losing nodes 2 and 3. The correct in-place reversal saves the successor first: `nxt = cur.next; cur.next = prev; prev, cur = cur, nxt`, which gives `[3, 2, 1]` in O(n) time and O(1) space. Verified on Python 3.13.",
+    "reference": "Data structures: reversing a singly linked list"
+  },
+  {
+    "id": "PYM-GAP-010",
+    "domain": 1,
+    "skill": "collections",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Keys are inserted into an empty, unbalanced binary search tree in this order: `50, 30, 70, 20, 40, 60, 80`. What is the pre-order traversal (node, left, right)?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`20, 30, 40, 50, 60, 70, 80`",
+        "why": "That is the in-order traversal, which always yields a BST's keys in sorted order."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`50, 30, 20, 40, 70, 60, 80`",
+        "why": "Visit the root, then the whole left subtree, then the right subtree."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`50, 30, 70, 20, 40, 60, 80`",
+        "why": "That is level-order (breadth-first), which visits the tree level by level."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`20, 40, 30, 60, 80, 70, 50`",
+        "why": "That is post-order, which visits both children before the node itself."
+      }
+    ],
+    "explanation": "The inserts build a perfectly balanced tree: 50 at the root, 30 and 70 below it, then 20, 40, 60 and 80 as leaves. Pre-order visits a node and then its left and right subtrees, giving `50, 30, 20, 40, 70, 60, 80`. In-order gives the sorted keys, post-order gives `20, 40, 30, 60, 80, 70, 50`, and level-order gives the insertion order here. Verified with a small Python BST.",
+    "reference": "Data structures: binary search tree traversals"
+  },
+  {
+    "id": "PYM-GAP-011",
+    "domain": 1,
+    "skill": "collections",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A plain (non-self-balancing) binary search tree receives the keys `1, 2, 3, 4, 5, 6, 7` in that order. What is its height, and what does that mean for lookups?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Height 3, so lookups stay O(log n)",
+        "why": "A plain BST does not rebalance; sorted input never produces a balanced shape."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Height 7, so the tree is a chain and lookups are O(n)",
+        "why": "Each key goes right of the previous one, forming a single chain."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Height 4, because inserts alternate between subtrees",
+        "why": "Every new key is larger than all existing keys, so it always goes right."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Height 1, because equal-depth keys share a level",
+        "why": "Each key becomes the right child of the previous one, adding a level each time."
+      }
+    ],
+    "explanation": "Inserting sorted keys into a BST with no rebalancing puts each new key as the right child of the previous one. The tree becomes a chain of height 7, and search, insert and delete degrade from O(log n) to O(n). Self-balancing trees (AVL, red-black) or randomised insertion order keep the height logarithmic. Python's standard library has no balanced BST; common alternatives are `bisect` on a sorted list, `heapq`, or the third-party `sortedcontainers`. Verified with a small Python BST.",
+    "reference": "Data structures: binary search tree balance"
+  },
+  {
+    "id": "PYM-GAP-012",
+    "domain": 4,
+    "skill": "stdlib-tooling",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A directory contains `a.py`, `pkg/b.py` and `pkg/deep/c.py`. What does `glob.glob(\"**/*.py\")` return when run from that directory?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "All three files, because `**` matches any number of directories",
+        "why": "`**` is only recursive when you also pass `recursive=True`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Only `pkg/b.py`, since `**` acts like `*` without `recursive=True`",
+        "why": "Each `*` matches one path segment, so the pattern means one directory level down."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Only `a.py`, because `**` matches zero directories",
+        "why": "Matching zero or more directories needs `recursive=True` too."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An empty list, because `**` is not valid glob syntax",
+        "why": "`**` is valid; without the flag it behaves like `*`."
+      }
+    ],
+    "explanation": "In `glob.glob`, `**` matches any files and zero or more directories only when `recursive=True` is passed. Otherwise it behaves like a single `*`, so `**/*.py` means exactly one directory level down: `pkg/b.py`. With `recursive=True` you get all three files. `pathlib.Path.rglob('*.py')` is recursive by default. Verified on Python 3.13 (Windows prints backslash separators).",
+    "reference": "Python docs: glob — Unix style pathname pattern expansion"
+  },
+  {
+    "id": "PYM-GAP-013",
+    "domain": 4,
+    "skill": "stdlib-tooling",
+    "difficulty": 3,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "A project contains `a.py` and a hidden file `.hidden.py`. In Python 3.13, `glob.glob(\"**/*.py\", recursive=True)` and `list(Path(\".\").rglob(\"*.py\"))` return the same files.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "`glob` skips names starting with a dot unless `include_hidden=True`, while `rglob` includes them."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: `rglob` returns `.hidden.py`, but `glob.glob` leaves it out by default."
+      }
+    ],
+    "explanation": "`glob.glob` follows shell conventions: wildcards don't match names that start with a dot unless you pass `include_hidden=True` (added in 3.11). `pathlib`'s `glob`/`rglob` have no such rule and do return dotfiles. Code that switches from one to the other can suddenly start, or stop, picking up `.hidden.py`-style files. Verified on Python 3.13.",
+    "reference": "Python docs: glob and pathlib.Path.rglob"
+  },
+  {
+    "id": "PYM-GAP-014",
+    "domain": 4,
+    "skill": "errors-testing",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A docstring contains this doctest. What happens when you run `python -m doctest` on the module?\n\n```python\n>>> 0.1 + 0.2\n0.3\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It passes, because doctest compares numbers with a tolerance",
+        "why": "doctest compares the printed text exactly; it knows nothing about numbers."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It fails: the repr is `0.30000000000000004`, which isn't `0.3`",
+        "why": "doctest matches the `repr` of the result against the expected text."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It is skipped, because expressions without `print` produce no output",
+        "why": "An expression statement in a doctest prints its `repr`, like the REPL does."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It passes only when the module also passes `optionflags=ELLIPSIS`",
+        "why": "ELLIPSIS needs `...` in the expected output; there is none here."
+      }
+    ],
+    "explanation": "doctest runs each `>>>` line like the interactive interpreter and compares the displayed output, the `repr` of the value, character by character with the expected text. `0.1 + 0.2` displays `0.30000000000000004`, so the example fails. For floats, print a rounded value (`round(x, 2)`), compare explicitly (`math.isclose(...)` printing `True`), or use `+ELLIPSIS` with `0.3...`. Verified on Python 3.13.",
+    "reference": "Python docs: doctest — How it works"
+  },
+  {
+    "id": "PYM-GAP-015",
+    "domain": 4,
+    "skill": "errors-testing",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "This doctest fails because the actual output is `[0, 1, 4]`. Which change makes it pass?\n\n```python\n>>> [sq(i) for i in range(3)]\n[0,1,4]\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add `# doctest: +NORMALIZE_WHITESPACE` to the example line",
+        "why": "It only treats runs of whitespace as equal; it does not ignore missing spaces."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Write the expected line as `[0, 1, 4]`, matching the repr",
+        "why": "doctest compares text, so the expected text must match the repr."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add `# doctest: +IGNORE_EXCEPTION_DETAIL`",
+        "why": "That flag only relaxes how raised exceptions are compared."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add `# doctest: +SKIP` so the result is checked loosely",
+        "why": "SKIP does not run the example at all, so nothing is checked."
+      }
+    ],
+    "explanation": "doctest compares output text. `NORMALIZE_WHITESPACE` makes any run of whitespace equal to any other run, which helps when wrapping long output over lines, but `[0,1,4]` has no whitespace where the real output has spaces, so it still fails. The fix is to write the exact repr `[0, 1, 4]`. `ELLIPSIS` with `[0, ...]` would also pass. Verified on Python 3.13.",
+    "reference": "Python docs: doctest option flags"
+  },
+  {
+    "id": "PYM-GAP-016",
+    "domain": 4,
+    "skill": "errors-testing",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What happens when this test class runs?\n\n```python\nimport unittest\n\nclass TestDB(unittest.TestCase):\n    def setUpClass(cls):\n        cls.db = connect()\n\n    def test_query(self):\n        self.assertTrue(self.db.ok)\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It works: unittest calls `setUpClass` once with the class",
+        "why": "unittest calls it on the class, so without `@classmethod` the `cls` argument is never filled."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A `TypeError` for the missing `cls`; it needs `@classmethod`",
+        "why": "unittest calls `cls.setUpClass()`, which needs the method to be a classmethod."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "unittest calls it before every test, like `setUp`",
+        "why": "`setUp` runs per test; `setUpClass` runs once per class and must be a classmethod."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It is silently skipped, and the test fails with `AttributeError` on `self.db`",
+        "why": "It isn't skipped: calling it raises a `TypeError`, reported as a class-level error."
+      }
+    ],
+    "explanation": "`setUpClass` and `tearDownClass` run once per test class and must be declared with `@classmethod`. unittest invokes `TestDB.setUpClass()` with no arguments, so a plain function raises `TypeError: TestDB.setUpClass() missing 1 required positional argument: 'cls'`. That is reported as an error, and none of the class's tests run. Verified on Python 3.13.",
+    "reference": "Python docs: unittest — Class and Module Fixtures"
+  },
+  {
+    "id": "PYM-GAP-017",
+    "domain": 4,
+    "skill": "errors-testing",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "How does unittest report this test?\n\n```python\nclass T(unittest.TestCase):\n    def test_even(self):\n        for i in range(4):\n            with self.subTest(i=i):\n                self.assertEqual(i % 2, 0)\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "1 test run, 1 failure: the loop stops at `i=1`",
+        "why": "Without `subTest` it would stop at `i=1`; `subTest` records the failure and continues."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "1 test run, 2 failures, for `i=1` and `i=3`",
+        "why": "Each failing subtest is reported separately, and the loop keeps going."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "4 tests run, 2 failures",
+        "why": "`subTest` doesn't create separate tests; `testsRun` still counts one method."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "1 test run, 1 failure listing both `i=1` and `i=3`",
+        "why": "Each failing subtest is a separate entry in the failure list."
+      }
+    ],
+    "explanation": "`subTest` marks a block whose failure is recorded with its parameters, then lets the test continue. The method still counts as one test (`testsRun == 1`), but the result holds two failures, labelled `(i=1)` and `(i=3)`. Without `subTest`, the first failing `assertEqual` raises and ends the method, giving one failure and hiding the second. pytest users get the same effect with `@pytest.mark.parametrize`. Verified on Python 3.13.",
+    "reference": "Python docs: unittest — Distinguishing test iterations using subtests"
+  },
+  {
+    "id": "PYM-GAP-018",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Django app has 3 authors with 2 books each (`Book.author` is a `ForeignKey`, `related_name=\"books\"`). How many SQL queries do these two lines run?\n\n```python\n[b.author.name for b in Book.objects.all()]\n[list(a.books.all()) for a in Author.objects.prefetch_related(\"books\")]\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "2 and 2",
+        "why": "Each `b.author` access lazily loads that book's author, one query per book."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "7 and 2",
+        "why": "The first is 1 + 6 (N+1); `prefetch_related` uses one extra query for all books."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "7 and 4",
+        "why": "`prefetch_related` batches the reverse lookups into one query, not one per author."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "1 and 1",
+        "why": "Neither line joins in SQL; the first is N+1 and prefetch needs a second query."
+      }
+    ],
+    "explanation": "Iterating books and touching `b.author` runs one query for the books plus one per book for its author: the classic N+1 problem, 1 + 6 = 7 queries. `select_related('author')` fixes forward foreign keys with a SQL JOIN (1 query). For reverse relations and many-to-many fields, `prefetch_related('books')` runs one query for authors and one `IN (...)` query for all their books (2 queries), then joins them in Python. Verified with Django 6.1 on SQLite by counting `connection.queries`.",
+    "reference": "Django docs: QuerySet API — select_related and prefetch_related"
+  },
+  {
+    "id": "PYM-GAP-019",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "How many SQL queries does each snippet run in Django?\n\n```python\n# Snippet 1\nq = Book.objects.filter(title__startswith=\"b\")\nlist(q)\nlist(q)\n\n# Snippet 2\nq = Book.objects.filter(title__startswith=\"b\")\nq[0]\nq[0]\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "2 and 2",
+        "why": "Evaluating a QuerySet caches its results, so the second `list(q)` reuses them."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "1 and 2",
+        "why": "Full evaluation fills the result cache; indexing an unevaluated QuerySet queries each time."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "1 and 1",
+        "why": "Indexing an unevaluated QuerySet runs a fresh `LIMIT 1` query and does not fill the cache."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "0 and 0",
+        "why": "Building a QuerySet is lazy, but `list()` and indexing both evaluate it."
+      }
+    ],
+    "explanation": "QuerySets are lazy: `filter()` runs nothing. The first `list(q)` evaluates the query and stores the rows in the QuerySet's result cache, so the second `list(q)` makes no query (1 total). Indexing or slicing an unevaluated QuerySet issues a new `LIMIT` query each time and doesn't populate the cache, so `q[0]` twice is 2 queries. Evaluate once and reuse the list when you need the data repeatedly. Verified with Django 6.1.",
+    "reference": "Django docs: QuerySets — Caching and QuerySets"
+  },
+  {
+    "id": "PYM-GAP-020",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "To avoid N+1 queries when listing every author with their books, a developer writes `Author.objects.select_related(\"books\")`, where `books` is the reverse side of `Book.author`. What happens when the QuerySet is evaluated?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "One query with a LEFT JOIN, returning each author once with books attached",
+        "why": "`select_related` can only follow single-valued relations, so it can't join a one-to-many."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`FieldError`; reverse relations need `prefetch_related`",
+        "why": "Reverse foreign keys and many-to-many fields need `prefetch_related`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It silently ignores `books` and still runs N+1 queries later",
+        "why": "Django raises an error for a field `select_related` can't follow."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "One query per author, which is the same as not using it",
+        "why": "It fails before running any query, because the field name is rejected."
+      }
+    ],
+    "explanation": "`select_related` builds a SQL JOIN and can only follow forward `ForeignKey` and `OneToOneField` relations, which give at most one related row each. Asking it to follow a reverse foreign key raises `FieldError: Invalid field name(s) given in select_related: 'books'`. Use `prefetch_related('books')`, which runs a second query and joins the results in Python. Verified with Django 6.1.",
+    "reference": "Django docs: QuerySet API — select_related"
+  },
+  {
+    "id": "PYM-GAP-021",
+    "domain": 4,
+    "skill": "stdlib-tooling",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A background script imports a Flask app and calls a helper that reads `current_app.config[\"DB_URL\"]`. It crashes with `RuntimeError: Working outside of application context.` What is the fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Import `current_app` from the app module instead of from `flask`",
+        "why": "`current_app` is a context-local proxy; where you import it from doesn't matter."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Run the helper inside a `with app.app_context():` block",
+        "why": "That pushes an application context, so `current_app` points at the app."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Start the app with `app.run()` before calling the helper",
+        "why": "That blocks to serve requests and doesn't give the script a context."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Set `FLASK_DEBUG=1` so Flask creates a context automatically",
+        "why": "Debug mode doesn't change how application contexts are pushed."
+      }
+    ],
+    "explanation": "`current_app`, `g`, `request` and `session` are context-local proxies. Flask pushes an application context (and a request context) automatically while handling a request. Code that runs outside one, such as CLI scripts, background jobs or tests, must push it explicitly with `with app.app_context():`, or a test request context for `request`. Otherwise accessing the proxy raises `RuntimeError: Working outside of application context.` Verified with Flask 3.1.",
+    "reference": "Flask docs: The Application Context"
+  },
+  {
+    "id": "PYM-GAP-022",
+    "domain": 4,
+    "skill": "stdlib-tooling",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Why is running a Flask app with `debug=True` (or `FLASK_DEBUG=1`) on a public server dangerous?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It disables HTTPS, so traffic is sent in plain text",
+        "why": "Debug mode doesn't control TLS; that depends on how the server is deployed."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Its Werkzeug debugger can run arbitrary code for anyone",
+        "why": "The interactive traceback console executes code, so exposing it risks remote code execution."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It logs every request body, including passwords, to stdout",
+        "why": "Request logging isn't what debug mode adds; the danger is the debugger."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It turns off the template auto-escaping that prevents XSS",
+        "why": "Auto-escaping stays on in debug mode."
+      }
+    ],
+    "explanation": "Debug mode enables the reloader and Werkzeug's interactive debugger. When an exception occurs, the browser gets a traceback page with a console that runs arbitrary Python in the server process. A PIN guards it, but exposing it publicly is still a remote-code-execution risk. Flask's docs say never to use the development server or debug mode in production; serve the app with a production WSGI server such as Gunicorn or Waitress.",
+    "reference": "Flask docs: Debugging Application Errors"
+  },
+  {
+    "id": "PYM-GAP-023",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "In FastAPI, one endpoint is declared `def report()` and calls a blocking database driver; another is `async def search()` and calls `time.sleep(0.3)`. Under load, which one hurts every other request, and why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`report`, because sync endpoints run on the event loop",
+        "why": "FastAPI runs `def` endpoints in a worker thread pool, off the event loop."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`search`: `time.sleep` blocks the event loop it runs on",
+        "why": "While it sleeps, the loop can't serve any other request."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Neither, because FastAPI runs every endpoint in its own thread",
+        "why": "Only `def` endpoints go to the thread pool; `async def` ones run on the loop."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Both equally, because the GIL serialises them anyway",
+        "why": "Blocking I/O releases the GIL; the issue is blocking the single event loop."
+      }
+    ],
+    "explanation": "FastAPI (via Starlette and AnyIO) runs plain `def` path operations in a thread pool, so blocking calls there tie up one worker thread. `async def` path operations run directly on the event loop, so any blocking call inside them, such as `time.sleep`, `requests.get` or a sync DB driver, freezes the whole server until it returns. Use `await asyncio.sleep`, async drivers, or move the blocking work to `def` or `run_in_threadpool`. Verified with FastAPI 0.142: the `def` endpoint ran in an \"AnyIO worker thread\".",
+    "reference": "FastAPI docs: Concurrency and async / await"
+  },
+  {
+    "id": "PYM-GAP-024",
+    "domain": 4,
+    "skill": "typing",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does `POST /users` return for the body `{\"name\": \"ann\", \"password\": \"s3cret\"}`?\n\n```python\nclass UserIn(BaseModel):\n    name: str\n    password: str\n\nclass UserOut(BaseModel):\n    name: str\n\n@app.post(\"/users\", response_model=UserOut)\ndef create(u: UserIn):\n    return u\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`{\"name\": \"ann\", \"password\": \"s3cret\"}`, because the handler returns the input model",
+        "why": "`response_model` filters the returned data to the declared fields."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`{\"name\": \"ann\"}`",
+        "why": "FastAPI validates and serialises the return value through `UserOut`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A 500 error, because the handler returns `UserIn` instead of `UserOut`",
+        "why": "The value is converted to `UserOut`; extra fields are dropped, not rejected."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A 422 error, because the response has an extra field",
+        "why": "422 is for invalid request input; output is filtered, not rejected."
+      }
+    ],
+    "explanation": "`response_model` makes FastAPI validate the handler's return value against `UserOut` and serialise only its fields, so `password` is dropped. That's the standard way to stop secrets leaking in responses. Separately, the request body is validated against `UserIn`: omitting `password` returns 422 Unprocessable Entity. Verified with FastAPI 0.142 and Pydantic 2.13.",
+    "reference": "FastAPI docs: Response Model"
+  },
+  {
+    "id": "PYM-GAP-025",
+    "domain": 4,
+    "skill": "stdlib-tooling",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "In FastAPI, `get_db` is used as `db = Depends(get_db)` in a path operation. Put these events in the order they happen for one request.\n\n```python\ndef get_db():\n    db = open_session()\n    try:\n        yield db\n    finally:\n        db.close()\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`open_session()` runs",
+        "why": "The dependency runs before the handler."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The path operation function runs with `db`",
+        "why": "The handler receives the yielded value."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`db.close()` runs in the `finally` block",
+        "why": "Cleanup runs after the handler has finished."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C"
+    ],
+    "explanation": "A dependency with `yield` works like a context manager. The code before `yield` runs first, the yielded value is injected into the path operation, and the code after `yield` runs once the handler is done. Putting it in `finally` makes sure the session closes even when the handler raises. Verified with FastAPI 0.142: the log read `open`, `handler`, `close`.",
+    "reference": "FastAPI docs: Dependencies with yield"
+  },
+  {
+    "id": "PYM-GAP-026",
+    "domain": 4,
+    "skill": "stdlib-tooling",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A worker calls `requests.get(url)` in a loop. One day the remote server accepts the connection but never responds, and the worker stops processing jobs. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "requests times out after 30 seconds by default, but retries forever",
+        "why": "requests has no default timeout and doesn't retry on its own."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "requests has no default timeout, so the call can wait forever",
+        "why": "Without `timeout=`, a stalled server blocks the call indefinitely."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The GIL is held during the network read, freezing the process",
+        "why": "Blocking socket reads release the GIL; the call simply never returns."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "requests caches the connection and replays the failed response",
+        "why": "There is no response caching; the call is still waiting."
+      }
+    ],
+    "explanation": "`requests` sets no timeout unless you pass one: the default is `None`, which means wait forever. Always pass `timeout=` with a connect and read value, such as `timeout=(3.05, 27)`, and handle `requests.Timeout`. Add retries with backoff through `urllib3.Retry` on a `Session` adapter if needed. Verified with requests 2.34: the `timeout` parameter of `Session.request` defaults to `None`.",
+    "reference": "Requests docs: Timeouts"
+  },
+  {
+    "id": "PYM-GAP-027",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "With NumPy, what happens with `np.ones((3, 1)) + np.arange(4)` and with `np.ones((3, 2)) + np.ones(3)`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both raise `ValueError`, because the shapes differ",
+        "why": "Broadcasting allows different shapes when trailing dimensions are equal or 1."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The first gives shape `(3, 4)`; the second raises `ValueError`",
+        "why": "Trailing dims 1 and 4 broadcast; 2 and 3 are neither equal nor 1."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The first gives shape `(3, 1)`; the second gives shape `(3, 2)`",
+        "why": "Broadcast results take the larger size in each dimension."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The first raises `ValueError`; the second gives shape `(3, 2)`",
+        "why": "Compare from the right: 1 vs 4 works, and 2 vs 3 fails."
+      }
+    ],
+    "explanation": "NumPy compares shapes from the trailing dimension. Two sizes are compatible if they're equal or one of them is 1, and a missing dimension counts as 1. `(3, 1)` with `(4,)` gives `(3, 4)`: each row of the column is paired with the whole range. `(3, 2)` with `(3,)` compares 2 with 3, which fails with `ValueError: operands could not be broadcast together with shapes (3,2) (3,)`. Reshape with `[:, None]` to align the axis you mean. Verified with NumPy 2.5.",
+    "reference": "NumPy docs: Broadcasting"
+  },
+  {
+    "id": "PYM-GAP-028",
+    "domain": 3,
+    "skill": "performance-internals",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print?\n\n```python\nimport numpy as np\nx = np.array([1, 2, 3], dtype=np.int8)\nprint((x * 100).tolist())\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`[100, 200, 300]`",
+        "why": "The result stays `int8`, which can only hold -128 to 127."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`[100, -56, 44]`",
+        "why": "Array arithmetic wraps around silently in the fixed-width type."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "An `OverflowError` for the second element",
+        "why": "NumPy array arithmetic wraps on overflow instead of raising."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`[100, 127, 127]`",
+        "why": "NumPy integer arithmetic wraps; it doesn't saturate at the maximum."
+      }
+    ],
+    "explanation": "NumPy arrays use fixed-width machine integers, and array arithmetic wraps on overflow, modulo 2^8 for `int8`, without any error. 200 becomes -56 and 300 becomes 44. Python `int` is arbitrary precision, so this surprises people moving data into arrays. Pick a wide enough dtype (`int64`) or check ranges explicitly. Verified with NumPy 2.5: the result dtype stays `int8`.",
+    "reference": "NumPy docs: Data types — Overflow errors"
+  },
+  {
+    "id": "PYM-GAP-029",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An async scraper does `async with aiohttp.ClientSession() as s: await s.get(url)` separately for each of 10,000 URLs. What is the main problem?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing: sessions are cheap, and this is the recommended pattern",
+        "why": "aiohttp's docs recommend one session per application, not per request."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Each session has its own pool, so no connection is ever reused",
+        "why": "Creating a session per request discards keep-alive connections and repeats setup."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`ClientSession` is not safe inside `async with`, so connections leak",
+        "why": "`async with` is the correct way to close a session; the issue is creating thousands."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "aiohttp allows only one session per event loop and raises an error",
+        "why": "You can create several sessions; it's just wasteful."
+      }
+    ],
+    "explanation": "A `ClientSession` owns a connection pool (its connector), plus cookies and default headers. Creating one per request throws away keep-alive connections, so every call repeats DNS, TCP and TLS setup. Create one session for the app's lifetime, reuse it for all requests, and cap concurrency with a semaphore or the connector's `limit`. A session that's never closed also logs `Unclosed client session`. Verified with aiohttp 3.14.",
+    "reference": "aiohttp docs: Client Quickstart — Make a Request"
+  },
+  {
+    "id": "PYM-GAP-030",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A gevent-based worker calls `gevent.monkey.patch_all()` at the top of `tasks.py`, but `main.py` imports `requests` and `tasks` in that order, and the network calls still block every greenlet. What is the most likely cause?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "gevent cannot patch `socket`, so requests always blocks",
+        "why": "Patching `socket` is exactly what `patch_all()` does."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`requests` imported the blocking modules before patching",
+        "why": "Monkey patching must happen first, before other modules import socket, ssl or threading."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Greenlets need `async def` functions, and requests is synchronous",
+        "why": "gevent makes ordinary blocking code cooperative; it doesn't use async/await."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`patch_all()` only takes effect in a new process",
+        "why": "It patches the running process, but only modules imported after it see the change."
+      }
+    ],
+    "explanation": "gevent gives cooperative concurrency by replacing blocking stdlib primitives (socket, ssl, threading, time.sleep) with greenlet-aware versions. Modules that imported the originals before patching, or captured references to them, keep the blocking versions. The rule is to call `from gevent import monkey; monkey.patch_all()` as the very first thing in the entry point, before any other import. Servers like gunicorn's gevent worker do this for you.",
+    "reference": "gevent docs: Monkey patching"
+  },
+  {
+    "id": "PYM-GAP-031",
+    "domain": 4,
+    "skill": "stdlib-tooling",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Black formats these two snippets with default settings. What does each become?\n\n```python\n# Snippet 1\nx = [\n    1,\n    2,\n]\n\n# Snippet 2\nx = [\n    1,\n    2\n]\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both collapse to `x = [1, 2]`",
+        "why": "A trailing comma tells Black to keep the collection one item per line."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Snippet 1 stays exploded; snippet 2 becomes `x = [1, 2]`",
+        "why": "Black's magic trailing comma keeps the exploded layout."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Both stay exploded, because Black preserves your line breaks",
+        "why": "Black reflows code and ignores your original line breaks, except for the trailing comma."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Snippet 2 gains a trailing comma and stays exploded",
+        "why": "It fits on one line, so Black joins it rather than exploding it."
+      }
+    ],
+    "explanation": "Black is deterministic and ignores most existing formatting, but it treats a pre-existing trailing comma in a collection or call as a signal to keep one item per line: the \"magic trailing comma\". Without it, anything that fits within the line length is joined onto one line. The same rule applies to `ruff format`. Verified with Black 26.10.",
+    "reference": "Black docs: The Black code style — Magic trailing comma"
+  },
+  {
+    "id": "PYM-GAP-032",
+    "domain": 4,
+    "skill": "stdlib-tooling",
+    "difficulty": 2,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each tool with the job it is mainly used for in a Python project.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Fast linter (replacing flake8, isort and more) that can also format code",
+        "why": "ruff"
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Opinionated code formatter with almost no options",
+        "why": "black"
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Static type checker",
+        "why": "mypy"
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Runs the test suite in several isolated environments, such as different Python versions",
+        "why": "tox"
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Project and package manager with a universal lockfile",
+        "why": "uv"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "ruff",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "black",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "mypy",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "tox",
+        "answer": "D"
+      },
+      {
+        "id": "P5",
+        "text": "uv",
+        "answer": "E"
+      }
+    ],
+    "explanation": "Typical modern Python projects combine these:\n- ruff, a Rust-based linter that also offers `ruff format`, replaces flake8, isort and many plugins.\n- black is the opinionated formatter.\n- mypy (or pyright) checks types.\n- tox (or nox, configured in Python) runs tests across several interpreters and dependency sets.\n- uv manages Python versions, virtual environments, dependencies and a cross-platform `uv.lock`.",
+    "reference": "Docs of ruff, black, mypy, tox and uv"
+  },
+  {
+    "id": "PYM-GAP-033",
+    "domain": 4,
+    "skill": "stdlib-tooling",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "You published `mypkg 1.2.0` to PyPI, found a packaging mistake, deleted the release, rebuilt it, and tried to upload `mypkg-1.2.0` again. The upload is rejected. Why, and what is the fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "PyPI needs 24 hours after a deletion before a version can be reused",
+        "why": "There is no waiting period; a deleted file's name can never be reused."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "File names can never be reused; release `1.2.1` or `1.2.0.post1`",
+        "why": "Released files are immutable so installers can trust them."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The wheel must be signed with the original key before PyPI accepts it again",
+        "why": "Signing isn't what blocks it; PyPI forbids re-uploading the same file name."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "You must first `yank` the old release, then the upload succeeds",
+        "why": "Yanking hides a release from resolvers but still doesn't allow reusing its files."
+      }
+    ],
+    "explanation": "PyPI treats uploaded distribution files as immutable: once a file name such as `mypkg-1.2.0-py3-none-any.whl` has been used, it can never be uploaded again, even if you delete it. That guarantees anyone pinning a version gets the same bytes. Bump the version (`1.2.1`) or use a post-release (`1.2.0.post1`). Rehearse on TestPyPI, and prefer yanking over deleting so pinned users aren't broken.",
+    "reference": "PyPI help: Why am I getting a \"This filename has already been used\" error?"
+  },
+  {
+    "id": "PYM-GAP-034",
+    "domain": 4,
+    "skill": "stdlib-tooling",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A team switches from `pip install -r requirements.txt` to uv. Which statement about `uv.lock` is correct?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It records only the packages installed on the machine that created it",
+        "why": "uv.lock is universal: it resolves for all supported platforms and Python versions."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A cross-platform lockfile you commit; `uv sync` and `uv run` use it",
+        "why": "Committing it gives everyone, and CI, the same resolved versions."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It replaces `pyproject.toml`, so dependencies are declared only in the lockfile",
+        "why": "Dependencies are declared in `pyproject.toml`; the lockfile records the resolution."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It should be git-ignored, because uv regenerates it on every install",
+        "why": "The lockfile should be committed so resolutions are reproducible."
+      }
+    ],
+    "explanation": "In a uv project you declare dependencies in `pyproject.toml`, and uv writes the full resolution to `uv.lock`. It's a universal lockfile covering every platform and Python version the project supports, unlike a `pip freeze` captured on one machine. Commit it. `uv sync` installs exactly the locked versions, and `uv run` checks the lock and environment are up to date before running a command.",
+    "reference": "uv docs: Projects — Lockfile"
+  },
+  {
+    "id": "PYM-GAP-035",
+    "domain": 1,
+    "skill": "data-model",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print?\n\n```python\nimport numpy as np\na = np.array([[1, 2], [3, 4]])\nprint((a * a).tolist(), (a @ a).tolist())\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`[[7, 10], [15, 22]] [[7, 10], [15, 22]]`",
+        "why": "`*` on NumPy arrays is element-wise; only `@` does matrix multiplication."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`[[1, 4], [9, 16]] [[7, 10], [15, 22]]`",
+        "why": "`*` multiplies element by element; `@` is the matrix product."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`[[1, 4], [9, 16]] [[1, 4], [9, 16]]`",
+        "why": "`@` calls `__matmul__`, which NumPy implements as the matrix product."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`[[7, 10], [15, 22]] [[1, 4], [9, 16]]`",
+        "why": "The two operators are the other way round."
+      }
+    ],
+    "explanation": "PEP 465 (Python 3.5) added the `@` operator, which calls `__matmul__`/`__rmatmul__`. The language gives it no built-in meaning: lists raise `TypeError: unsupported operand type(s) for @`, while NumPy implements it as matrix multiplication. With NumPy arrays, `*` is element-wise: [[1,4],[9,16]]. `@` gives the matrix product: [[1·1+2·3, 1·2+2·4], [3·1+4·3, 3·2+4·4]] = [[7,10],[15,22]]. Any class can define `__matmul__` to support `@`. Verified on Python 3.13 with NumPy 2.5.",
+    "reference": "PEP 465: A dedicated infix operator for matrix multiplication"
+  }
+]

@@ -1,0 +1,24 @@
+{
+  "patterns-design": {
+    "summary": "Senior concurrency design is about choosing who owns state, how work flows between stages, and what happens under overload, failure and shutdown. The patterns are well known; the bugs live in their edges.",
+    "points": [
+      "Bound every queue. A bounded producer-consumer queue turns a rate mismatch into backpressure; an unbounded one turns it into an out-of-memory crash later.",
+      "Avoid locks by removing sharing or mutation: confine state to one thread or actor, or make it immutable and publish new versions (copy-on-write with an atomic reference).",
+      "Keep per-key order by partitioning: route each key to one sequential worker. Changing the number of partitions moves keys, so drain or hand off before resizing.",
+      "Shut pipelines down in data-flow order. Each stage must emit as many stop signals as the next stage has workers, or use a shared stop event plus timeouts.",
+      "Futures carry errors: unobserved futures swallow exceptions. Structured concurrency ties child tasks to a scope so errors and cancellation propagate and nothing is orphaned.",
+      "Scatter-gather and hedging need one overall deadline and cancellation of losers; per-future timeouts add up, and uncancelled duplicates multiply load.",
+      "Shared helpers such as caches, coalescers, rate limiters and circuit breakers are shared mutable state: re-check under the lock, claim slots atomically, and remove finished entries."
+    ],
+    "traps": [
+      "One poison pill for N consumers stops only one of them; the rest block forever in get().",
+      "A cycle of bounded queues (for example retries fed back into an upstream queue) can deadlock once both fill.",
+      "Running a coalesced or shared computation on the first caller's context lets one cancelled client fail every waiter."
+    ],
+    "docs": [
+      { "title": "Python docs: queue — A synchronized queue class", "url": "https://docs.python.org/3/library/queue.html" },
+      { "title": "Go blog: Go Concurrency Patterns — Pipelines and cancellation", "url": "https://go.dev/blog/pipelines" },
+      { "title": "Akka docs: Interaction patterns", "url": "https://doc.akka.io/libraries/akka-core/current/typed/interaction-patterns.html" }
+    ]
+  }
+}

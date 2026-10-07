@@ -1,0 +1,1661 @@
+[
+  {
+    "id": "CON-SYN-001",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Two threads each run `count = count + 1` one million times on a shared integer, and the final value is often below two million. Which primitive most directly fixes this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A barrier so both threads start the loop at the same moment",
+        "why": "Starting together changes nothing: the read-add-write steps can still interleave."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A mutex held around each read-add-write of the counter",
+        "why": "The mutex makes the whole read-modify-write a critical section, so no update is lost."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A condition variable that the threads notify after each update",
+        "why": "Notifying wakes waiters but does not stop two threads updating at once."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A latch initialised to 2 that each thread counts down at the end",
+        "why": "A latch only signals completion; it gives no exclusion during the loop."
+      }
+    ],
+    "explanation": "`count = count + 1` is a read, an add and a write. If two threads read the same old value, one increment is lost. Wrapping the three steps in a mutex turns them into a critical section that only one thread executes at a time, which is exactly what mutual exclusion is for.",
+    "reference": "OSTEP: Locks"
+  },
+  {
+    "id": "CON-SYN-002",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In CPython, a `threading.Lock` acquired by one thread can be released by a different thread without raising an error.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: a plain Lock has no owner, so any thread may release it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "A plain Lock is not owner-tracked; only RLock raises when another thread releases it."
+      }
+    ],
+    "explanation": "The docs say a Lock \"is not owned by a particular thread\" and `release()` \"can be called from any thread\". Running it confirms: thread B released thread A's Lock and `locked()` became False. `RLock` is different: releasing it from a non-owner raises `RuntimeError: cannot release un-acquired lock`.",
+    "reference": "Python docs: threading"
+  },
+  {
+    "id": "CON-SYN-003",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "A counting semaphore lets at most N threads pass at once. To what initial value do you set it so that it behaves like a binary semaphore (one thread at a time)? Type a number.",
+    "options": [],
+    "accepted": [
+      "1"
+    ],
+    "explanation": "A semaphore initialised to 1 has only two states, available or taken, so it admits one thread at a time like a lock. Unlike a mutex, though, it has no owner: any thread can release it.",
+    "reference": "Python docs: Semaphore objects"
+  },
+  {
+    "id": "CON-SYN-004",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each requirement with the primitive that fits it best.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Mutex"
+      },
+      {
+        "id": "B",
+        "text": "Counting semaphore"
+      },
+      {
+        "id": "C",
+        "text": "Condition variable"
+      },
+      {
+        "id": "D",
+        "text": "Barrier"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Only one thread may update the shared map at a time",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "At most 10 threads may hold a database connection at once",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "A consumer sleeps until the queue becomes non-empty",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Eight workers must all finish phase 1 before any starts phase 2",
+        "answer": "D"
+      }
+    ],
+    "explanation": "A mutex gives exclusive access. A counting semaphore caps how many threads proceed at once. A condition variable lets a thread sleep until some state changes, always paired with a lock. A barrier holds every party until all of them arrive, which is how phased parallel algorithms keep in step.",
+    "reference": "OSTEP: Condition Variables and Semaphores"
+  },
+  {
+    "id": "CON-SYN-005",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What is the state of `lk` after this code runs?\n\n```python\nimport threading\nlk = threading.Lock()\ntry:\n    with lk:\n        raise ValueError(\"boom\")\nexcept ValueError:\n    pass\nprint(lk.locked())\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`True`, because the exception skipped the release",
+        "why": "The context manager releases in `__exit__`, which runs even when an exception escapes."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`False`, because `with` releases the lock on any exit",
+        "why": "Leaving the block by exception still calls `__exit__`, which releases the lock."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A `RuntimeError` is raised, because the lock is released twice",
+        "why": "The lock is released exactly once, by `__exit__`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The program hangs, because the lock is never released",
+        "why": "Nothing waits on the lock here, and it is released anyway."
+      }
+    ],
+    "explanation": "Scoped locking (`with lk:` in Python, RAII guards in C++, `defer mu.Unlock()` in Go, try/finally in Java) guarantees the release on every exit path, including exceptions. It prints `False`. A manual `acquire()` with no `finally` would have left the lock held forever and hung every later caller.",
+    "reference": "Python docs: threading"
+  },
+  {
+    "id": "CON-SYN-006",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What happens when `transfer()` is called?\n\n```python\nimport threading\nlock = threading.Lock()\n\ndef log(msg):\n    with lock:\n        print(msg)\n\ndef transfer():\n    with lock:\n        log(\"moving funds\")\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It prints the message, because the same thread already owns the lock",
+        "why": "A plain Lock tracks no owner, so the second acquire simply blocks."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The thread blocks forever on the second acquire of its own lock",
+        "why": "A non-reentrant lock deadlocks when its holder tries to acquire it again."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It raises `RuntimeError: cannot re-acquire lock` at once",
+        "why": "CPython does not detect this; the acquire just waits."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It prints twice, once for each `with` block that is entered",
+        "why": "Only `log` prints, and it never gets the chance."
+      }
+    ],
+    "explanation": "A non-reentrant mutex does not know which thread holds it, so a nested acquire by the holder waits for itself: self-deadlock. Fixes are a reentrant lock (`threading.RLock`), or better, restructuring so internal helpers assume the lock is already held (for example `_log_locked`).",
+    "reference": "Python docs: threading"
+  },
+  {
+    "id": "CON-SYN-007",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A consumer waits like this, and there are several consumer threads:\n\n```python\nwith cond:\n    if not queue:\n        cond.wait()\n    item = queue.popleft()\n```\n\nWhy should the `if` be a `while`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Because `wait()` returns immediately unless it is called in a loop",
+        "why": "`wait()` blocks normally; the loop is about what is true when it returns."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The item may be gone when it wakes, or the wakeup was spurious",
+        "why": "After waking, the predicate may be false again, so it must be re-checked."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Because `while` releases the lock while the thread is waiting",
+        "why": "`wait()` itself releases and reacquires the lock; the loop keyword does not."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Because `notify()` can only wake threads that wait inside loops",
+        "why": "`notify()` wakes waiters regardless of how the waiting code is written."
+      }
+    ],
+    "explanation": "With Mesa-style condition variables (Python, Java, pthreads, Go), a woken thread re-competes for the lock. By the time it runs, another consumer may already have emptied the queue (a stolen wakeup), and implementations may also wake threads spuriously. Re-checking the predicate in a `while` loop, or using `cond.wait_for(lambda: queue)`, is the standard fix.",
+    "reference": "Python docs: Condition objects"
+  },
+  {
+    "id": "CON-SYN-008",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two statements correctly distinguish a counting semaphore from a mutex? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A semaphore has no owner, so any thread may release it",
+        "why": "Ownership is the defining property of a mutex; semaphores only track a count."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A semaphore can admit several threads at once when its count exceeds 1",
+        "why": "That is its main use: bounding concurrency rather than giving exclusion."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A semaphore is reentrant, so its holder can acquire it again freely",
+        "why": "Each acquire decrements the count; re-acquiring can block like any other."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A semaphore always performs better than a mutex under contention",
+        "why": "Performance depends on the implementation; it is not a reason to choose one."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "A semaphore releases itself automatically when its thread exits",
+        "why": "Nothing is released automatically; a lost release leaks a permit forever."
+      }
+    ],
+    "explanation": "A mutex is an ownership token: the thread that locks it is the one that unlocks it, which is what makes reentrancy, priority inheritance and error checks possible. A semaphore is a counter of permits with no owner, so it fits resource pools and cross-thread signalling. Using a binary semaphore as a mutex loses those ownership checks.",
+    "reference": "OSTEP: Semaphores"
+  },
+  {
+    "id": "CON-SYN-009",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print?\n\n```python\nimport threading\ns = threading.Semaphore(2)\ns.acquire(); s.acquire()\ns.release(); s.release(); s.release()   # one release too many\nprint(s.acquire(blocking=False), s.acquire(blocking=False), s.acquire(blocking=False))\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`True True True`",
+        "why": "The extra release silently raised the count to 3, so three acquires succeed."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`True True False`",
+        "why": "That would hold only if the count were capped at its initial value of 2."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It raises `ValueError` on the third release",
+        "why": "`BoundedSemaphore` raises that; a plain `Semaphore` does not check."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It raises `RuntimeError` on the third release",
+        "why": "No error is raised; the counter simply grows past its initial value."
+      }
+    ],
+    "explanation": "A plain `Semaphore` lets the count grow past its initial value, so a release bug quietly widens the limit: three acquires now succeed. `threading.BoundedSemaphore` raises `ValueError: Semaphore released too many times` instead, which is why the docs recommend it for resource pools.",
+    "reference": "Python docs: BoundedSemaphore"
+  },
+  {
+    "id": "CON-SYN-010",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "In Python, a producer calls `cond.notify()` without first entering `with cond:`. What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The notification is queued and delivered to the next thread that waits",
+        "why": "Condition variables keep no memory of signals; nothing is queued."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`RuntimeError: cannot notify on un-acquired lock` is raised",
+        "why": "notify() requires the caller to hold the condition's underlying lock."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It wakes one waiter, but the waiter cannot run until the lock is free",
+        "why": "It never gets that far: the call fails before waking anyone."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Nothing happens, because notify() is silently ignored without the lock",
+        "why": "CPython checks lock ownership and raises instead of ignoring the call."
+      }
+    ],
+    "explanation": "Python enforces the rule that both `wait()` and `notify()` are called with the lock held; it raises `RuntimeError` otherwise (verified: \"cannot notify on un-acquired lock\"). Java does the same with `IllegalMonitorStateException`. Holding the lock is what makes \"check the state, then wait\" and \"change the state, then notify\" atomic with respect to each other.",
+    "reference": "Python docs: threading"
+  },
+  {
+    "id": "CON-SYN-011",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the steps of a correct consumer using a condition variable in order.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Acquire the lock associated with the condition"
+      },
+      {
+        "id": "B",
+        "text": "While the queue is empty, call wait()"
+      },
+      {
+        "id": "C",
+        "text": "Remove an item from the queue"
+      },
+      {
+        "id": "D",
+        "text": "Notify waiting producers that space is free"
+      },
+      {
+        "id": "E",
+        "text": "Release the lock"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "The predicate check and the wait both happen under the lock; `wait()` atomically releases it while sleeping and reacquires it before returning. After taking the item while still holding the lock, the consumer signals producers that space is free and only then releases. Notifying while holding the lock is allowed and avoids races on the shared state.",
+    "reference": "Python docs: Condition objects"
+  },
+  {
+    "id": "CON-SYN-012",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two statements about Java's `CountDownLatch` and `CyclicBarrier` are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A CountDownLatch is one-shot: its count cannot be reset",
+        "why": "The Javadoc calls it a one-shot phenomenon and points to CyclicBarrier for reuse."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A CyclicBarrier can be reused after all parties have been released",
+        "why": "That is what \"cyclic\" means: it resets for the next round automatically."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A CountDownLatch requires every counting thread to also wait on it",
+        "why": "Counting down and awaiting are independent; producers rarely await."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A CyclicBarrier lets one thread count down several times for others",
+        "why": "Each party calls await() once per round; it has no countDown()."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Both reset automatically when the last waiting thread is released",
+        "why": "Only the barrier resets; the latch stays at zero forever."
+      }
+    ],
+    "explanation": "A latch decouples who counts down from who waits: N workers count down once each, and any number of threads can `await()` the zero. Once it reaches zero it stays open. A `CyclicBarrier` makes a fixed number of parties all wait for each other and then resets, which suits iterative phases.",
+    "reference": "Java docs: CountDownLatch, CyclicBarrier"
+  },
+  {
+    "id": "CON-SYN-013",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A spinlock is used on a single-core machine with preemptive scheduling. Thread A holds the lock and is preempted; thread B starts spinning on it. What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "B gets the lock quickly, because spinning avoids a costly context switch",
+        "why": "A cannot release the lock while B occupies the only core."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "B burns its whole time slice, because A cannot run to release the lock",
+        "why": "On one core the holder can only progress after the spinner is preempted."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The spinlock detects the single core and puts B to sleep instead",
+        "why": "A plain spinlock has no such logic; adaptive mutexes are a different design."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A and B both enter the critical section, because spinning is not atomic",
+        "why": "The test-and-set is atomic; the problem is wasted CPU, not lost exclusion."
+      }
+    ],
+    "explanation": "Spinning only pays off when the holder is running on another core and will release soon. On a single core the holder cannot run while the spinner holds the CPU, so every spin until preemption is pure waste. That is why kernels disable preemption while holding spinlocks, and why user space uses blocking or adaptive mutexes.",
+    "reference": "OSTEP: Locks"
+  },
+  {
+    "id": "CON-SYN-014",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "With Java `wait`/`notify` and Python `Condition`, a thread woken by `notify()` runs immediately, before the notifying thread continues, so the condition it waited for is guaranteed still true.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "That describes Hoare semantics, which these languages do not use."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: they use Mesa semantics, so the woken thread must re-check its condition."
+      }
+    ],
+    "explanation": "Under Hoare semantics the signalled thread takes over the monitor at once and the condition is guaranteed to hold. Java, Python, pthreads and Go use Mesa semantics: `notify()` only moves a waiter to the \"ready\" state; the notifier keeps running and other threads may enter first. The woken thread must re-check its predicate in a loop.",
+    "reference": "OSTEP: Condition Variables"
+  },
+  {
+    "id": "CON-SYN-015",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A service caps outbound calls to a partner API at 20 concurrent requests using `sem = threading.BoundedSemaphore(20)`. Which two statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Each call should be wrapped in `with sem:` so the permit is returned on errors",
+        "why": "Without scoped release, an exception would leak a permit and shrink the pool."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A 21st concurrent caller blocks until one of the 20 permits is released",
+        "why": "acquire() waits while the count is zero."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The semaphore also serialises the calls so they never overlap",
+        "why": "It allows up to 20 overlapping calls; that is the point of a counting semaphore."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Releasing from a thread that did not acquire raises RuntimeError",
+        "why": "Semaphores have no owner; any thread may release a permit."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Callers waiting on the semaphore are guaranteed first-in, first-out order",
+        "why": "Python makes no FIFO guarantee for which waiter is released next."
+      }
+    ],
+    "explanation": "A counting semaphore bounds concurrency: up to N holders proceed and the rest wait. Because it has no ownership, release discipline is up to you. Scoped acquisition (`with sem:`) guarantees the permit returns even when the call raises, and `BoundedSemaphore` catches accidental double releases.",
+    "reference": "Python docs: Semaphore example"
+  },
+  {
+    "id": "CON-SYN-016",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Two consumer threads use this code; a producer appends one item and calls `cond.notify_all()`. What can go wrong?\n\n```python\nwith cond:\n    if not items:\n        cond.wait()\n    x = items.pop()\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both consumers get a copy of the same item",
+        "why": "`pop()` removes the item, so the second consumer does not see it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The second consumer to run calls `pop()` on an empty list",
+        "why": "Both wake, the first takes the item, and the second skips the re-check."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Neither consumer wakes, because notify_all needs a loop",
+        "why": "notify_all wakes every waiter; the problem is what happens afterwards."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The producer deadlocks, because notify_all blocks until both run",
+        "why": "notify_all never blocks the caller."
+      }
+    ],
+    "explanation": "`notify_all()` wakes both consumers. They reacquire the lock one at a time: the first pops the only item, and the second, having used `if`, falls straight through to `pop()` and raises `IndexError: pop from empty list`. A `while not items:` loop (or `cond.wait_for(lambda: items)`) makes the second consumer go back to sleep.",
+    "reference": "Python docs: Condition objects"
+  },
+  {
+    "id": "CON-SYN-017",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A worker thread runs `with cond: cond.wait()` and then processes a job. The main thread starts the worker and immediately runs `with cond: cond.notify()`. Occasionally the worker never processes the job. Why, and what is the fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "notify() sometimes picks no thread; call notify() twice to be safe",
+        "why": "Two notifies before the wait are lost just the same."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The notify may precede the wait; wait on a shared \"job ready\" flag",
+        "why": "Signals are not remembered, so the waiter needs shared state to check first."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The worker must hold the lock for longer before waiting",
+        "why": "Holding it longer doesn't help if the notify already happened."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Condition variables need a timeout; pass wait(1) to recover",
+        "why": "A timeout papers over the bug with latency instead of fixing it."
+      }
+    ],
+    "explanation": "This is the lost-wakeup bug. A condition variable is stateless: a `notify()` with no waiters does nothing. If the main thread notifies before the worker reaches `wait()`, the worker then sleeps forever. The fix is a predicate: set `job_ready = True` under the lock before notifying, and have the worker `wait_for(lambda: job_ready)`, which returns at once if the flag is already set.",
+    "reference": "OSTEP: Condition Variables"
+  },
+  {
+    "id": "CON-SYN-018",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Two threads each hold a read lock on the same reader-writer lock. Each then tries to acquire the write lock without releasing its read lock (\"upgrade\"). What happens with a typical reader-writer lock such as Java's `ReentrantReadWriteLock`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "One thread wins the write lock and the other gets it next",
+        "why": "Neither can win: each write request waits for the other reader to leave."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Both threads block forever, each waiting for the other's read lock",
+        "why": "A writer needs zero readers, and each holds a read lock the other needs released."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The lock upgrades both readers to writers at the same time",
+        "why": "Write access is exclusive, so two writers can never coexist."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The lock throws an exception because read-to-write upgrades are rejected",
+        "why": "The Java lock just blocks; it doesn't detect the upgrade attempt."
+      }
+    ],
+    "explanation": "A write lock requires that no readers are active. When two readers both ask to upgrade, each waits for the other to release its read lock, and neither will: a classic deadlock. Java's docs say upgrading from read to write \"is not possible\". Release the read lock, acquire the write lock, then re-validate the state, or use an explicitly upgradable mode such as `StampedLock.tryConvertToWriteLock`, which can fail.",
+    "reference": "Java docs: java.util.concurrent.locks"
+  },
+  {
+    "id": "CON-SYN-019",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A cache uses a reader-preference reader-writer lock. Reads arrive continuously and overlap, so there is always at least one active reader. A config reload needs the write lock. What happens to the reload?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It runs during the next short gap of a few microseconds between two reads",
+        "why": "With overlapping readers there is never a moment with zero readers."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It can wait indefinitely, because new readers keep entering ahead of it",
+        "why": "Reader preference admits new readers while a writer waits: writer starvation."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It preempts the active readers and runs at once",
+        "why": "Reader-writer locks never revoke a lock that is already held."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It fails immediately with a lock-timeout error",
+        "why": "Blocking acquisition waits; it doesn't fail without a timeout."
+      }
+    ],
+    "explanation": "With reader preference, a waiting writer does not stop new readers from entering, so under steady overlapping reads the reader count never reaches zero and the writer starves. Writer-preference or fair modes block new readers once a writer is queued, which bounds writer latency at some cost to read throughput.",
+    "reference": "OSTEP: Reader-Writer Locks"
+  },
+  {
+    "id": "CON-SYN-020",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A hash map protected by one global lock is the bottleneck under 32 threads. The team moves to lock striping: 16 locks, each guarding the buckets whose hash maps to it. Which two statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Operations on keys in different stripes can now run in parallel",
+        "why": "Each stripe is independent, so unrelated keys no longer contend."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Whole-map operations like resize must take all stripes, in a fixed order",
+        "why": "A fixed order avoids deadlock between two whole-map operations."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Each put now needs all 16 locks, so writes get slower",
+        "why": "A single-key operation only takes the one stripe its hash maps to."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Striping removes contention even when every request hits one hot key",
+        "why": "A hot key always maps to the same stripe, so it still serialises."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Striping makes the map lock-free, so no thread ever blocks",
+        "why": "Threads still block on contended stripes; lock-free is a different design."
+      }
+    ],
+    "explanation": "Lock striping trades one coarse lock for N finer ones, so contention drops roughly by the number of stripes for uniformly spread keys. Operations that span the whole map (size, resize, iteration snapshots) must acquire every stripe, always in the same order. A single hot key still funnels through one stripe. The original `ConcurrentHashMap` used 16 segments this way.",
+    "reference": "Java Concurrency in Practice: Lock striping"
+  },
+  {
+    "id": "CON-SYN-021",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A request handler does this, and p99 latency spikes whenever the downstream service slows down:\n\n```python\nwith state_lock:\n    snapshot = dict(state)\n    resp = http_post(audit_url, snapshot)   # ~200 ms\n    state[\"last_audit\"] = resp.status\n```\n\nWhat is the best fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Replace the lock with an RLock so that nested and repeated calls do not block",
+        "why": "Reentrancy is not the issue; other threads still wait out the 200 ms."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Copy state under the lock, call HTTP unlocked, relock to apply the result",
+        "why": "The slow I/O no longer sits inside the critical section other threads wait on."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add a timeout to acquire() so waiting threads give up after 50 ms",
+        "why": "That turns latency into failures without fixing the long hold time."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use a semaphore of size 4 so four handlers can enter together",
+        "why": "Several threads would then mutate `state` concurrently, which the lock prevented."
+      }
+    ],
+    "explanation": "A lock should guard short in-memory work. Holding it across network I/O makes every other thread wait for the slowest downstream call, so a slow dependency becomes a global stall. Copy what you need, release, do the I/O, then reacquire to apply the result, checking it is still valid (for example with a version number) because the state may have changed meanwhile.",
+    "reference": "Java Concurrency in Practice: Avoid holding locks during lengthy operations"
+  },
+  {
+    "id": "CON-SYN-022",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An event bus calls listeners while holding its internal lock:\n\n```python\ndef publish(self, event):\n    with self._lock:\n        for cb in self._listeners:\n            cb(event)\n```\n\nA listener sometimes calls `bus.subscribe()`, which takes the same lock, from a thread it spawns and waits on. The system hangs. What is the root problem and fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The listener list should be a set; switch the data structure",
+        "why": "The container type has nothing to do with the hang."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Callbacks run under the lock; snapshot listeners, release, then call them",
+        "why": "Calling unknown code while locked lets it block on that same lock."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The lock must be an RLock so that the spawned listener thread can reenter it",
+        "why": "Reentrancy only applies to the same thread; a spawned thread still blocks."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "subscribe() must use a timeout so it fails instead of waiting",
+        "why": "That hides the deadlock as a spurious failure; the design is still unsafe."
+      }
+    ],
+    "explanation": "Calling \"alien\" code (callbacks, listeners, overridable methods) while holding a lock is a classic deadlock source: you can't know what locks it takes or which threads it waits on. Here the callback waits for a thread that needs the bus lock, which `publish` holds. Take a snapshot of the listeners under the lock, release it, then invoke them; this is the \"open call\" pattern.",
+    "reference": "Java Concurrency in Practice: Open calls"
+  },
+  {
+    "id": "CON-SYN-023",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A fair (FIFO) mutex protects a counter that many threads increment in a tight loop. Throughput collapses compared with an unfair lock. Which two explanations are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Fairness hands the lock to a sleeping waiter, forcing a context switch each time",
+        "why": "The running thread must stop and wait while a parked thread is woken."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Threads queue behind each other in a convoy, so the lock is rarely uncontended",
+        "why": "Once a queue forms, every acquire waits its turn instead of barging in."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Fair locks use spinning, which wastes CPU under contention",
+        "why": "Fairness is about ordering; whether waiters spin or park is a separate choice."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Fair locks are not reentrant, so each increment deadlocks briefly",
+        "why": "Fairness and reentrancy are independent; nothing deadlocks."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The OS forbids fair locks from running on more than one core",
+        "why": "No such rule exists; fair locks run normally on multicore machines."
+      }
+    ],
+    "explanation": "An unfair lock lets the currently running thread re-grab the lock it just released (\"barging\"), avoiding a context switch and keeping caches warm. A fair lock instead wakes the longest waiter, so each handoff costs a wakeup and a switch, and waiters form a convoy. Java's docs note fair locks give \"lower overall throughput\". Use fairness only when starvation is a real risk.",
+    "reference": "Java docs: java.util.concurrent.locks"
+  },
+  {
+    "id": "CON-SYN-024",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "In Python, `bar = threading.Barrier(3, timeout=0.05)`. Only two threads call `bar.wait()`, and the timeout expires. What exception class do the waiting threads get? Type just the class name.",
+    "options": [],
+    "accepted": [
+      "BrokenBarrierError",
+      "threading.BrokenBarrierError"
+    ],
+    "explanation": "When a wait times out, the barrier enters the broken state and every thread waiting on it, or calling `wait()` later, gets `threading.BrokenBarrierError` until someone calls `reset()`. Verified on Python 3.13: the timeout raised BrokenBarrierError and `bar.broken` was True.",
+    "reference": "Python docs: Barrier objects"
+  },
+  {
+    "id": "CON-SYN-025",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "In Go, a `sync.Once` guards loading a config. The first call to `once.Do(load)` panics because a file is missing, and the panic is recovered higher up. What happens on the next `once.Do(load)` call?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`load` runs again, because a panic does not count as completion",
+        "why": "Go treats a panicking function as having returned."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`load` is not called again; Do returns as if it had succeeded",
+        "why": "The docs say a panic in f counts as completion, so the config stays unloaded."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Do panics again with the original error for every caller",
+        "why": "Once does not record or replay the panic."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Do blocks forever, because the Once is still marked in progress",
+        "why": "The panic still marks the Once as done, so nothing blocks."
+      }
+    ],
+    "explanation": "The `sync` docs state: \"if f panics, Do considers it to have returned; future calls of Do return without calling f.\" A failed initialisation therefore stays failed for the life of the Once. Return errors explicitly (for example with `sync.OnceValues`) or design retries yourself.",
+    "reference": "Go docs: package sync"
+  },
+  {
+    "id": "CON-SYN-026",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Five philosophers each pick up their left fork, then their right fork, using one mutex per fork, and sometimes all five freeze. Which change prevents the deadlock while still letting several philosophers eat at once?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Make every fork mutex reentrant so a philosopher can re-lock it",
+        "why": "Reentrancy doesn't help: the forks are held by other philosophers."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Add a semaphore initialised to 4 that a philosopher acquires before any fork",
+        "why": "With at most 4 seated, at least one of them can always get both forks."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Make every philosopher pick up the right fork first instead of the left fork",
+        "why": "All of them would still wait in a cycle, just in the other direction."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Replace the five fork mutexes with one global lock for all forks",
+        "why": "That prevents deadlock but lets only one philosopher eat at a time."
+      }
+    ],
+    "explanation": "Deadlock needs a cycle of waits. If at most N-1 philosophers try to eat, the pigeonhole principle guarantees at least one can acquire both forks, finish and release them, so the cycle can't close. The other standard fix is resource ordering (always take the lower-numbered fork first). Reversing everyone's order keeps the cycle; a global lock is safe but serialises everyone.",
+    "reference": "OSTEP: Dining philosophers"
+  },
+  {
+    "id": "CON-SYN-027",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print?\n\n```python\nimport threading\nc = threading.Condition()\nready = False\nwith c:\n    r = c.wait_for(lambda: ready, timeout=0.01)\nprint(r)\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`None`, because wait_for returns nothing on timeout",
+        "why": "wait_for returns the last value of the predicate, not None."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`False`, the predicate's value when the timeout expired",
+        "why": "wait_for returns the last predicate result, so the caller can tell it timed out."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`True`, because wait_for returns True once the wait finishes",
+        "why": "Only `Event.wait` has that shape; wait_for reports the predicate."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It raises `TimeoutError` after 10 ms",
+        "why": "Condition waits never raise on timeout; they report it through the return value."
+      }
+    ],
+    "explanation": "`Condition.wait_for(predicate, timeout)` loops on `wait()` until the predicate is true or the timeout passes, then returns the predicate's last value. Here nothing sets `ready`, so it prints `False` (verified on Python 3.13). Checking the return value is how you distinguish \"condition met\" from \"gave up\".",
+    "reference": "Python docs: Condition.wait_for"
+  },
+  {
+    "id": "CON-SYN-028",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A Java service creates `new ReentrantLock(true)` (fair) and calls `lock.tryLock()` (the untimed version) in a hot path. What does the Javadoc say about fairness here?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "tryLock() joins the FIFO wait queue and blocks until its turn comes",
+        "why": "tryLock() never waits; it returns immediately."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It ignores fairness and can barge ahead of queued threads",
+        "why": "The docs say it succeeds whenever the lock is free, even with threads queued."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "tryLock() throws IllegalStateException on a fair lock",
+        "why": "tryLock() is fully supported on fair locks."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "tryLock() always fails while any thread is waiting",
+        "why": "It fails only when the lock is held; queued waiters don't stop it."
+      }
+    ],
+    "explanation": "The `ReentrantLock` docs: \"the untimed tryLock() method does not honor the fairness setting. It will succeed if the lock is available even if other threads are waiting.\" To respect fairness, use `tryLock(0, TimeUnit.SECONDS)`, which is almost equivalent and does honour it.",
+    "reference": "Java docs: java.util.concurrent.locks"
+  },
+  {
+    "id": "CON-SYN-029",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 3,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each classic synchronization problem with the textbook solution structure.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Two counting semaphores (empty, full) plus a mutex"
+      },
+      {
+        "id": "B",
+        "text": "A reader-writer lock, or a reader count protected by a mutex"
+      },
+      {
+        "id": "C",
+        "text": "Semaphores for customers and the server plus a mutex on the waiting count"
+      },
+      {
+        "id": "D",
+        "text": "One lock per shared resource, acquired in a global order"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Bounded buffer between producers and consumers",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Many readers may share data, but writers need it alone",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Sleeping barber with a fixed number of waiting chairs",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Dining philosophers sharing forks",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Bounded buffer: `empty` counts free slots, `full` counts items, and a mutex protects the buffer itself. Readers-writers: a shared/exclusive lock. Sleeping barber: the barber sleeps on a \"customers\" semaphore, customers wait on a \"barber ready\" semaphore, and a mutex guards the free-chair count. Dining philosophers: per-fork locks taken in a consistent order to break the cycle.",
+    "reference": "The Little Book of Semaphores"
+  },
+  {
+    "id": "CON-SYN-030",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which three statements about condition variables in Python, Java and pthreads are correct? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "wait() must be called while holding the associated lock",
+        "why": "All three APIs require it and raise or behave undefined otherwise."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "wait() atomically releases the lock and reacquires it before returning",
+        "why": "This prevents a lost wakeup between checking the state and sleeping."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "A thread may wake from wait() even though nobody notified it",
+        "why": "Spurious wakeups are permitted, which is another reason to loop."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A notify() with no waiters is saved for the next thread that waits",
+        "why": "Condition variables keep no memory; that signal is simply lost."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "After notify_all(), every woken thread runs inside the lock at once",
+        "why": "They reacquire the lock one at a time."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "wait() keeps holding the lock so the state cannot change while asleep",
+        "why": "If it kept the lock, no other thread could make the predicate true."
+      }
+    ],
+    "explanation": "Condition variables pair with a lock: you check the predicate under the lock, and `wait()` releases it atomically while sleeping so a notifier can change the state, then reacquires it before returning. Signals are not remembered, woken threads serialise on the lock, and spurious wakeups are allowed, so predicates must be re-checked in a loop.",
+    "reference": "man7.org: pthread_cond_wait"
+  },
+  {
+    "id": "CON-SYN-031",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What happens when this Java method is called?\n\n```java\nvoid awaitReady() throws InterruptedException {\n    while (!ready) {\n        this.wait();\n    }\n}\n```\n\n`awaitReady` is not `synchronized`, and no caller holds `this`'s monitor.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It waits normally until another thread calls notify()",
+        "why": "wait() needs the monitor and fails without it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "wait() throws IllegalMonitorStateException",
+        "why": "Calling wait() without owning the object's monitor is rejected at run time."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It compiles with an error because wait() needs synchronized",
+        "why": "The compiler doesn't check this; it fails when the method runs."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It spins on `ready` without sleeping, burning CPU",
+        "why": "It never gets to spin: the first wait() throws."
+      }
+    ],
+    "explanation": "`Object.wait()`, `notify()` and `notifyAll()` require the calling thread to own the object's monitor, by being inside a `synchronized` block on that object. Otherwise they throw `IllegalMonitorStateException`. The check exists for the same reason Python raises `RuntimeError`: checking the predicate and sleeping must be atomic with respect to the notifier.",
+    "reference": "Java docs: Object.wait"
+  },
+  {
+    "id": "CON-SYN-032",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A bounded buffer uses ONE condition variable for both \"not full\" and \"not empty\", and calls `notify()` (wake one) instead of `notify_all()`. Both checks use `while` loops. With 2 producers and 2 consumers the system sometimes freezes with everyone asleep. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The `while` loops can spin forever without releasing the lock",
+        "why": "wait() inside the loop releases the lock, so the loops never spin."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "notify() can wake the wrong kind of thread, leaving everyone asleep",
+        "why": "With one shared condition, notify() may pick a thread that cannot make progress."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "notify() wakes waiters in LIFO order, so the oldest never runs",
+        "why": "Wake order is unspecified; ordering is not why the system freezes."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Two producers can write the same slot at once, corrupting the buffer state",
+        "why": "The lock still serialises the buffer updates."
+      }
+    ],
+    "explanation": "With a single condition shared by producers and consumers, `notify()` may wake a thread of the wrong kind. Example: the buffer is empty, a consumer takes the last item and notifies, the other consumer wakes, finds it empty and waits; the producers were never woken, so everyone sleeps. Use two conditions (`not_full`, `not_empty`) or `notify_all()`.",
+    "reference": "OSTEP: Condition Variables (the producer/consumer problem)"
+  },
+  {
+    "id": "CON-SYN-033",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "In Go:\n\n```go\ntype Account struct { mu sync.Mutex; bal int }\n\nfunc (a *Account) Balance() int { a.mu.Lock(); defer a.mu.Unlock(); return a.bal }\nfunc (a *Account) Withdraw(n int) {\n    a.mu.Lock(); defer a.mu.Unlock()\n    if a.Balance() >= n { a.bal -= n }\n}\n```\n\nWhat happens when a goroutine calls `Withdraw(10)`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It works, because Go mutexes are reentrant for the goroutine holding them",
+        "why": "Go mutexes are not reentrant and don't track a holding goroutine."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The goroutine blocks forever on the second Lock inside Balance",
+        "why": "Locking an already-locked sync.Mutex blocks, even from the same goroutine."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The runtime panics with \"sync: reentrant lock\"",
+        "why": "Go has no reentrancy check; the second Lock simply blocks."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Balance gets a stale value but the withdraw still completes",
+        "why": "Balance never returns, so the withdraw never completes."
+      }
+    ],
+    "explanation": "Go's `sync.Mutex` is deliberately not reentrant; the docs even note that a Mutex \"is not associated with a particular goroutine\". A nested `Lock()` from the holder blocks forever. If every goroutine ends up blocked the runtime reports \"all goroutines are asleep - deadlock!\", but in a busy server it just hangs. The idiom is an unexported `balanceLocked()` that assumes the lock is held.",
+    "reference": "Go docs: package sync"
+  },
+  {
+    "id": "CON-SYN-034",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "With Java's `ReentrantReadWriteLock`, which lock transition is supported?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Hold the read lock, then acquire the write lock (upgrade)",
+        "why": "The Javadoc says upgrading from read to write \"is not possible\"; it blocks."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Hold the write lock, acquire the read lock, then release the write lock",
+        "why": "Downgrading is explicitly supported through reentrancy."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Hold the read lock and then let a different thread release it on your behalf",
+        "why": "Read locks are tracked per thread; another thread cannot release yours."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Hold two write locks at once from two different threads",
+        "why": "The write lock is exclusive; only one thread can hold it."
+      }
+    ],
+    "explanation": "The `ReentrantReadWriteLock` docs: \"Reentrancy also allows downgrading from the write lock to a read lock, by acquiring the write lock, then the read lock and then releasing the write lock. However, upgrading from a read lock to the write lock is not possible.\" Downgrading lets you publish an update and keep reading a consistent view without a gap in which another writer could slip in.",
+    "reference": "Java docs: java.util.concurrent.locks"
+  },
+  {
+    "id": "CON-SYN-035",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two statements about spinning versus blocking are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Spinning wins when the expected wait is shorter than a context switch on a multicore",
+        "why": "A short spin avoids the cost of parking and waking the thread."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Adaptive mutexes spin briefly, then park the thread if the lock is still held",
+        "why": "They get spinning's low latency without wasting CPU on long waits."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Spinlocks suit oversubscribed systems with more threads than cores",
+        "why": "The holder may be descheduled, so spinners waste whole time slices."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A spinlock gives waiters FIFO fairness by design",
+        "why": "A plain test-and-set spinlock has no ordering; ticket locks add it."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Spinning lowers power use because the CPU never sleeps",
+        "why": "Busy-waiting burns power; parking lets the core idle."
+      }
+    ],
+    "explanation": "Spinning trades CPU for latency, which is only worth it when the holder is running on another core and will release within roughly a context switch (microseconds). Oversubscription, long critical sections or a single core make spinning wasteful. Modern mutexes (glibc adaptive mutexes, Java's locks, Go's Mutex) spin a little and then park.",
+    "reference": "OSTEP: Locks (spin vs. sleep)"
+  },
+  {
+    "id": "CON-SYN-036",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "On Linux, a futex-based mutex is locked and unlocked by one thread a million times with no other thread involved. Roughly how many system calls does the locking itself make?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Two million: one futex call to lock and one to unlock each time",
+        "why": "That would make uncontended locking cost two syscalls per round trip."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "About zero: the uncontended path is a user-space atomic",
+        "why": "futex syscalls happen only when a thread must sleep or wake a waiter."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "One million, because only lock() needs the kernel to record ownership",
+        "why": "Ownership lives in a user-space word, not in the kernel."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "One per scheduler tick, while the kernel polls the lock word",
+        "why": "The kernel does not poll futexes; it acts only when asked."
+      }
+    ],
+    "explanation": "A futex (\"fast userspace mutex\") keeps the lock state in a shared integer. Acquiring an uncontended lock is a single atomic compare-and-swap in user space. Only when the CAS shows contention does the thread call `futex(FUTEX_WAIT)`, and the unlocker calls `futex(FUTEX_WAKE)` only if waiters exist. Uncontended locking is therefore cheap; contention is what costs.",
+    "reference": "man7.org: futex(2)"
+  },
+  {
+    "id": "CON-SYN-037",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 4,
+    "type": "order",
+    "select": 1,
+    "stem": "A bounded buffer uses semaphores `empty` (free slots), `full` (items) and a mutex `m`. Put the PRODUCER's steps in the order that cannot deadlock.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Wait on (decrement) `empty`"
+      },
+      {
+        "id": "B",
+        "text": "Acquire mutex `m`"
+      },
+      {
+        "id": "C",
+        "text": "Put the item into the buffer"
+      },
+      {
+        "id": "D",
+        "text": "Release mutex `m`"
+      },
+      {
+        "id": "E",
+        "text": "Signal (increment) `full`"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "The producer must wait for a free slot BEFORE taking the mutex. If it locked `m` first and then blocked on `empty` with a full buffer, it would sleep holding the mutex, and no consumer could get in to free a slot: deadlock. After inserting, release the mutex and signal `full` so a consumer can proceed.",
+    "reference": "The Little Book of Semaphores: Producer-consumer"
+  },
+  {
+    "id": "CON-SYN-038",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A colleague \"optimises\" the producer of a semaphore-based bounded buffer to lock the mutex first:\n\n```text\nlock(m)\nwait(empty)      # decrement free slots\nbuffer.put(x)\nunlock(m)\nsignal(full)\n```\n\nConsumers do `wait(full); lock(m); take; unlock(m); signal(empty)`. What happens when the buffer is full?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The producer waits briefly until a consumer takes an item",
+        "why": "No consumer can take one: the producer sleeps holding `m`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Deadlock: the producer sleeps on `empty` holding `m`, which consumers need",
+        "why": "The waiting producer blocks the only path that could free a slot."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The producer overwrites an unread item, losing data",
+        "why": "`wait(empty)` still blocks it when no slot is free."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It works, because semaphores automatically release the held mutex while waiting",
+        "why": "Semaphores know nothing about the mutex; only condition variables do that."
+      }
+    ],
+    "explanation": "A thread must never block on a resource while holding a lock that the thread able to provide that resource needs. Here the producer holds `m` while waiting for a free slot, and every consumer needs `m` to remove an item. Wait on the counting semaphore first, then take the mutex for the short buffer update. Condition variables avoid this because `wait()` releases the lock.",
+    "reference": "The Little Book of Semaphores: Producer-consumer"
+  },
+  {
+    "id": "CON-SYN-039",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Shared flag `done` is written under lock `a`, but the waiter uses a condition built on a different lock `b`:\n\n```python\ncv = threading.Condition(b)\n# setter:  with a: done = True\n#          with cv: cv.notify()\n# waiter:  with cv:\n#              while not done: cv.wait()\n```\n\nWhy can the waiter still hang occasionally?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Because `done` is a bool, and Python bools are not thread-safe",
+        "why": "Reading and writing one variable is not the issue; the gap between steps is."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The notify can land between the check and the wait and be lost",
+        "why": "The state change isn't made under the condition's lock, so check-then-wait isn't atomic."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Because Condition(b) cannot be notified from another thread",
+        "why": "Any thread holding `b` can notify the condition."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Because the waiter must call notify() itself before waiting",
+        "why": "Waiters don't notify; the setter does."
+      }
+    ],
+    "explanation": "The predicate guarded by a condition variable must be changed while holding that condition's own lock. Here `done` changes under `a`, so this interleaving is possible: the waiter reads `done == False`, the setter sets `done` and notifies with no waiter yet, then the waiter calls `wait()` and sleeps forever. Set `done` inside `with cv:` before notifying.",
+    "reference": "OSTEP: Condition Variables"
+  },
+  {
+    "id": "CON-SYN-040",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A striped map takes 16 stripe locks. `resize()` and `size()` lock every stripe. Which two practices are required to keep this correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Acquire the stripes in one fixed global order, such as by index",
+        "why": "Two whole-map operations locking in different orders could deadlock."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Hold all stripes for the whole resize, not one stripe at a time",
+        "why": "Moving entries while other stripes stay writable would expose torn state."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Make single-key put() also lock every stripe to stay consistent",
+        "why": "That would throw away all the parallelism striping provides."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Release each stripe as soon as it is locked, to reduce contention",
+        "why": "Releasing early makes the whole-map view inconsistent."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Use a different random lock order on each call to spread the load",
+        "why": "Random ordering is exactly how lock-order deadlocks happen."
+      }
+    ],
+    "explanation": "Operations that need every stripe must take them in a consistent order, otherwise two concurrent resizes can each hold some stripes and wait for the rest. They must also hold them all for the duration to present an atomic view. Single-key operations keep taking only their own stripe, which preserves the benefit of striping.",
+    "reference": "Java Concurrency in Practice: Lock striping"
+  },
+  {
+    "id": "CON-SYN-041",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 4,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In Python, `threading.Barrier(3, action=f)` calls `f` exactly once per round, in one of the arriving threads, before any of the three threads is released from `wait()`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: one thread runs the action, then all parties are released."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "The docs guarantee a single call per round, made before the threads are released."
+      }
+    ],
+    "explanation": "The `Barrier` docs: if an action was provided, \"one of the threads will have called it prior to being released\". That makes the action a safe place for per-phase bookkeeping, such as swapping buffers between iterations. If the action raises, the barrier is put into the broken state.",
+    "reference": "Python docs: Barrier objects"
+  },
+  {
+    "id": "CON-SYN-042",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A `threading.Barrier(3, timeout=1)` breaks because one worker crashed and only two threads ever arrived. Which two statements describe what happens? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The two waiting threads get BrokenBarrierError when the timeout expires",
+        "why": "A timeout breaks the barrier and wakes every waiter with the error."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Later wait() calls fail at once with BrokenBarrierError until reset() is called",
+        "why": "A broken barrier stays broken; reset() returns it to the empty state."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The barrier lowers its party count to 2 and releases the two threads",
+        "why": "The party count is fixed at construction."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The barrier resets itself after the timeout and starts a new round",
+        "why": "Python never resets a broken barrier automatically."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Only the thread whose timeout fired first sees an error",
+        "why": "Every waiting thread is woken with BrokenBarrierError."
+      }
+    ],
+    "explanation": "Python docs: on timeout \"the barrier is put into the broken state\", waiting threads receive `BrokenBarrierError`, and \"any future calls to wait() will fail with BrokenBarrierError\" until `reset()`. Verified on 3.13: after the timeout, `bar.broken` was True. Java's `CyclicBarrier` behaves the same way with `BrokenBarrierException`.",
+    "reference": "Python docs: Barrier objects"
+  },
+  {
+    "id": "CON-SYN-043",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "What is the bug in this Go handler, and what is the idiomatic fix?\n\n```go\nfunc (s *Store) Update(k string, v int) error {\n    s.mu.Lock()\n    if v < 0 {\n        return errors.New(\"negative\")\n    }\n    s.data[k] = v\n    s.mu.Unlock()\n    return nil\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The map write races; replace the mutex with an RWMutex",
+        "why": "The write happens under the lock; the problem is the early return."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The early return leaks the lock; add `defer s.mu.Unlock()` after Lock",
+        "why": "With defer, every return path releases the lock, including panics."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Lock must be called in a separate goroutine to avoid blocking",
+        "why": "Moving Lock to another goroutine would break mutual exclusion."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "errors.New panics while holding a lock; return the error after unlocking",
+        "why": "errors.New never panics; the lock is just never released."
+      }
+    ],
+    "explanation": "Any path that leaves a function without unlocking leaks the lock, and every later caller then blocks forever. In Go, `mu.Lock(); defer mu.Unlock()` ties the release to function exit, including early returns and panics. This is the same guarantee as `with` in Python and RAII guards in C++.",
+    "reference": "Go docs: package sync"
+  },
+  {
+    "id": "CON-SYN-044",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 4,
+    "type": "fill",
+    "select": 1,
+    "stem": "A thread calls `acquire()` three times on the same `threading.RLock`. How many `release()` calls must that thread make before another thread can acquire the lock? Type a number.",
+    "options": [],
+    "accepted": [
+      "3",
+      "three"
+    ],
+    "explanation": "An RLock keeps an owner and a recursion count: each `acquire()` by the owner increments it and each `release()` decrements it. The lock becomes free only when the count returns to zero, so 3 releases are needed. One release too many raises `RuntimeError: cannot release un-acquired lock` (verified on Python 3.13).",
+    "reference": "Python docs: RLock objects"
+  },
+  {
+    "id": "CON-SYN-045",
+    "domain": 1,
+    "skill": "synchronization",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A textbook monitor uses `if (count == 0) wait(notEmpty);` and is correct under Hoare semantics. The same code is ported to Java. Why does it become incorrect?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Java has no condition variables at all, so the ported code cannot wait on anything",
+        "why": "Java has wait/notify and Condition objects on explicit locks."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Java uses Mesa semantics, so the woken thread must re-check the condition",
+        "why": "Other threads may run between the signal and the wakeup and change the state."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Hoare monitors are reentrant, but Java monitors are not",
+        "why": "Java synchronized monitors are reentrant; that isn't the difference."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Java signals wake threads in LIFO order instead of FIFO",
+        "why": "Wake order is not the issue; validity of the condition is."
+      }
+    ],
+    "explanation": "Under Hoare semantics the signaller hands the monitor straight to the woken thread, so the condition that triggered the signal is guaranteed to hold and `if` suffices. Java, like pthreads, Python and Go, uses Mesa semantics: the signal is only a hint, and the woken thread reacquires the lock later, possibly after others have changed the state. Spurious wakeups are allowed too, so the check must be a `while` loop.",
+    "reference": "OSTEP: Condition Variables (Mesa vs. Hoare)"
+  }
+]

@@ -1,0 +1,1681 @@
+[
+  {
+    "id": "K8S-WRK-001",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Two containers run in the same Pod. Which statement about what they share is correct?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "One network namespace (IP and ports), and any volumes both of them mount",
+        "why": "Containers in a Pod share the Pod IP and port space, so they talk over localhost, and can mount the same volumes."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "One filesystem: files written by one appear in the other automatically",
+        "why": "Each container has its own root filesystem; only explicitly shared volumes are visible to both."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Nothing by default; each gets its own IP and must use a Service to talk",
+        "why": "That describes two separate Pods. Containers in one Pod share a single IP."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "One process table, so each container can always see and signal the others",
+        "why": "PID namespace sharing is opt-in via shareProcessNamespace; it is off by default."
+      }
+    ],
+    "explanation": "A Pod is the smallest deployable unit: its containers are co-scheduled on one node and share a network namespace (one IP, one port space, localhost between them) plus any volumes they both mount. Root filesystems stay separate, and the PID namespace is only shared when `shareProcessNamespace: true` is set.",
+    "reference": "Kubernetes docs: Pods"
+  },
+  {
+    "id": "K8S-WRK-002",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "A bare Pod (one created directly, not by a Deployment, Job or other controller) is automatically recreated on another node if its node fails.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Nothing owns a bare Pod, so nothing recreates it; Pods themselves are not self-healing."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: replacement is a controller's job. A bare Pod on a failed node is simply lost."
+      }
+    ],
+    "explanation": "Pods are ephemeral and are bound to one node for their lifetime. Self-healing comes from controllers (ReplicaSet, Deployment, StatefulSet, Job…) that notice a missing Pod and create a new one. That is why production workloads are almost never run as bare Pods.",
+    "reference": "Kubernetes docs: Pods (Working with Pods)"
+  },
+  {
+    "id": "K8S-WRK-003",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "In a current cluster, what does `kubectl run web --image=nginx` create?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A Deployment named `web` that manages one replica of the nginx image",
+        "why": "Older kubectl versions generated a Deployment; since kubectl 1.18 `run` only creates a Pod."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A single bare Pod named `web` running the nginx image",
+        "why": "`kubectl run` creates one Pod. Use `kubectl create deployment` for a managed workload."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A Deployment plus a ClusterIP Service named `web` exposing port 80",
+        "why": "Exposing needs `kubectl expose` (or `--expose` with `--port`); no Deployment is created either way."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A Job named `web` that runs the nginx container once to completion",
+        "why": "Jobs come from `kubectl create job`; `run` creates a long-running Pod with restartPolicy Always."
+      }
+    ],
+    "explanation": "Since kubectl 1.18, `kubectl run` only creates a Pod. To get a self-healing, scalable workload use `kubectl create deployment web --image=nginx --replicas=3`, then `kubectl expose deployment web --port=80` for a Service.",
+    "reference": "kubectl reference: kubectl run"
+  },
+  {
+    "id": "K8S-WRK-004",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "A Pod spec does not set `terminationGracePeriodSeconds`. How many seconds does the kubelet wait after SIGTERM before force-killing the containers? Type a number.",
+    "options": [],
+    "accepted": [
+      "30",
+      "30 seconds",
+      "30s"
+    ],
+    "explanation": "The default `terminationGracePeriodSeconds` is 30. When a Pod is deleted, the kubelet runs any preStop hook and sends SIGTERM; if containers are still running when the grace period ends, they receive SIGKILL. Raise the value for apps that need longer to drain.",
+    "reference": "Kubernetes docs: Pod lifecycle (Termination of Pods)"
+  },
+  {
+    "id": "K8S-WRK-005",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each workload with the controller that fits it best.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "DaemonSet",
+        "why": "Runs one copy on every (eligible) node."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Job",
+        "why": "Runs Pods until a task completes successfully."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "StatefulSet",
+        "why": "Gives each replica a stable name and storage."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Deployment",
+        "why": "Manages interchangeable replicas with rolling updates."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "A log collector that must run on every node",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "A one-off database migration that must finish",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "A three-member etcd cluster whose members need stable identities",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "A stateless REST API with five identical replicas",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Pick the controller by the workload's shape: per-node agents → DaemonSet; run-to-completion tasks → Job (or CronJob on a schedule); replicas needing stable identity and storage → StatefulSet; interchangeable stateless replicas → Deployment.",
+    "reference": "Kubernetes docs: Workload Management"
+  },
+  {
+    "id": "K8S-WRK-006",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A Pod's readiness probe starts failing while its liveness probe keeps passing. What does Kubernetes do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Restarts the container, because any failing probe triggers a restart",
+        "why": "Only liveness (and startup) probe failures restart a container."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Stops routing Service traffic to the Pod but leaves the container running",
+        "why": "Readiness gates traffic: the Pod is marked not Ready and removed from Service endpoints."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Deletes the Pod so its controller schedules a fresh one elsewhere",
+        "why": "Probes never delete Pods; they only change readiness or restart containers."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Nothing at all, because readiness is only checked once when the Pod starts",
+        "why": "Readiness probes run periodically for the whole life of the container."
+      }
+    ],
+    "explanation": "Readiness answers \"should this Pod receive traffic now?\". When it fails, the Pod's Ready condition becomes False and it is removed from Service endpoints; when it passes again, traffic returns. Liveness answers \"is this process stuck?\" and restarts the container when it fails.",
+    "reference": "Kubernetes docs: Liveness, Readiness, and Startup Probes"
+  },
+  {
+    "id": "K8S-WRK-007",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A report must be generated at 02:00 every night and the process exits when done. Which object should run it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A Deployment whose container sleeps until 02:00 each night",
+        "why": "A long-running Pod that sleeps wastes resources and gets restarted if it exits."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A DaemonSet so one node is always ready to run the report",
+        "why": "DaemonSets run continuously on every node, not on a schedule."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "A CronJob with the schedule `0 2 * * *`",
+        "why": "A CronJob creates a Job on a cron schedule; the Job runs the Pod to completion."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A bare Pod with `restartPolicy: Always` and a cron daemon inside",
+        "why": "Exiting would trigger restarts, and a lost node would lose the Pod entirely."
+      }
+    ],
+    "explanation": "CronJob → Job → Pod is the scheduled-batch chain: the CronJob creates a Job at each scheduled time, and the Job retries failed Pods until the task succeeds. Its Pods use restartPolicy Never or OnFailure because exiting is the expected outcome.",
+    "reference": "Kubernetes docs: CronJob"
+  },
+  {
+    "id": "K8S-WRK-008",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which of these are Pod phases (values of `status.phase`)? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Pending",
+        "why": "A phase: accepted by the cluster but not all containers are running yet."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Succeeded",
+        "why": "A phase: all containers terminated successfully and will not restart."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "CrashLoopBackOff",
+        "why": "A container waiting reason shown by kubectl, not a Pod phase."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Terminating",
+        "why": "kubectl shows this when a deletion timestamp is set; it is not a phase."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "ContainerCreating",
+        "why": "A container waiting reason, not one of the five phases."
+      }
+    ],
+    "explanation": "The five Pod phases are Pending, Running, Succeeded, Failed and Unknown. Strings like CrashLoopBackOff, ContainerCreating or ImagePullBackOff are container state reasons, and \"Terminating\" is how kubectl displays a Pod with a deletion timestamp.",
+    "reference": "Kubernetes docs: Pod lifecycle (Pod phase)"
+  },
+  {
+    "id": "K8S-WRK-009",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A container keeps exiting a few seconds after it starts, and `kubectl get pods` shows `CrashLoopBackOff`. With default kubelet settings, what is happening?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The scheduler is retrying placement on other nodes every 10 seconds",
+        "why": "The Pod is already bound to a node; restarts happen in place on that node."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The kubelet restarts it with growing delays (10s, 20s, 40s…) capped at 5 minutes",
+        "why": "CrashLoopBackOff is the waiting state between restarts; the delay doubles up to 300 s."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Kubernetes has given up and will not restart the container again",
+        "why": "Back-off never gives up for restartPolicy Always; it just waits longer between tries."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The image cannot be pulled from the registry, so the container never actually starts running",
+        "why": "That shows ImagePullBackOff; CrashLoopBackOff means the container ran and exited."
+      }
+    ],
+    "explanation": "When a container exits and restartPolicy allows a restart, the kubelet restarts it with an exponential back-off delay (10s, 20s, 40s, …) capped at 300 seconds. `CrashLoopBackOff` is the waiting reason shown during that delay. Check `kubectl logs --previous` and the last state's exit code to find the cause.",
+    "reference": "Kubernetes docs: Pod lifecycle (Container restarts)"
+  },
+  {
+    "id": "K8S-WRK-010",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "A Pod has two init containers (`init-db`, then `init-config`) and one app container. Put the start-up events in order.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The scheduler binds the Pod to a node",
+        "why": "Nothing starts until the Pod has a node."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`init-db` runs and exits successfully",
+        "why": "Init containers run one at a time, in spec order."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`init-config` runs and exits successfully",
+        "why": "The second init container starts only after the first succeeds."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The app container starts",
+        "why": "App containers start only after every init container succeeds."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The readiness probe passes and the Pod becomes Ready",
+        "why": "Readiness follows the app container starting."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "The kubelet runs regular init containers sequentially and each must exit successfully before the next starts. Only when all have completed are the app containers started; the Pod becomes Ready once their readiness checks pass.",
+    "reference": "Kubernetes docs: Init Containers"
+  },
+  {
+    "id": "K8S-WRK-011",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A slow-starting app has this probe configuration. What is the longest it can take to start before the kubelet kills the container?\n\n```yaml\nstartupProbe:\n  httpGet: { path: /healthz, port: 8080 }\n  periodSeconds: 10\n  failureThreshold: 30\nlivenessProbe:\n  httpGet: { path: /healthz, port: 8080 }\n  periodSeconds: 10\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 30 seconds, because liveness fails after 3 checks",
+        "why": "Liveness does not run at all until the startup probe has succeeded."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "About 300 seconds (30 failures × 10 s)",
+        "why": "failureThreshold × periodSeconds is the startup budget; liveness takes over afterwards."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Indefinitely, since startup probes never kill containers",
+        "why": "When a startup probe exhausts its failureThreshold the kubelet kills the container."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 10 seconds, the startup probe's period",
+        "why": "periodSeconds is only the interval between checks, not the total budget."
+      }
+    ],
+    "explanation": "While a startup probe is configured and has not yet succeeded, liveness and readiness probes are not executed. The app gets roughly failureThreshold × periodSeconds = 30 × 10 = 300 s to start; if the startup probe still fails, the container is killed and handled by its restart policy. After it succeeds, the liveness probe runs with its own (shorter) settings.",
+    "reference": "Kubernetes docs: Configure Liveness, Readiness and Startup Probes"
+  },
+  {
+    "id": "K8S-WRK-012",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about Deployments and their ReplicaSets are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Changing the Pod template makes the Deployment create a new ReplicaSet",
+        "why": "Each template change produces a new ReplicaSet (and a new revision)."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`kubectl rollout undo` relies on old ReplicaSets kept by revisionHistoryLimit",
+        "why": "Rollback scales an old ReplicaSet back up; if it was cleaned up, there is nothing to roll back to."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Scaling the Deployment from 3 to 5 replicas creates a new revision",
+        "why": "Scaling changes replicas on the current ReplicaSet; it is not a template change."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Editing the image directly on the owned ReplicaSet is the safe way to deploy",
+        "why": "The Deployment controller manages that ReplicaSet; change the Deployment instead."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Deployment Pods can use `restartPolicy: OnFailure` to avoid restart loops",
+        "why": "Only Always is allowed in a Deployment's Pod template."
+      }
+    ],
+    "explanation": "A Deployment owns ReplicaSets, one per Pod-template version (identified by the `pod-template-hash` label). Rollouts scale the new ReplicaSet up and old ones down; rollbacks scale an old one back up. `revisionHistoryLimit` (default 10) controls how many old ReplicaSets are kept for that purpose.",
+    "reference": "Kubernetes docs: Deployments"
+  },
+  {
+    "id": "K8S-WRK-013",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A Job has `completions: 6` and `parallelism: 2`, and every Pod succeeds. How does it run?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Two Pods run once, and the Job completes after both succeed",
+        "why": "completions is the number of successful Pods required, here 6."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "At most two Pods run at a time until six have succeeded",
+        "why": "parallelism caps concurrency; completions sets the success count."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Six Pods start at once, and two of them must succeed",
+        "why": "That swaps the meaning of the two fields."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Twelve Pods run in total: two batches of six",
+        "why": "The Job stops creating Pods once six have succeeded."
+      }
+    ],
+    "explanation": "For a fixed-completion-count Job, `.spec.completions` is how many Pods must succeed and `.spec.parallelism` is the maximum running at once. Here the controller keeps up to two Pods running until six successful completions are recorded, so roughly three \"waves\".",
+    "reference": "Kubernetes docs: Jobs (Parallel execution)"
+  },
+  {
+    "id": "K8S-WRK-014",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A team copies a Deployment's Pod template into a Job and applies it. The template contains `restartPolicy: Always`. What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The Job runs forever, restarting the Pod after every success",
+        "why": "The API never gets that far; the spec is invalid for a Job."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The Job silently changes the policy to OnFailure and runs",
+        "why": "Kubernetes does not rewrite an invalid restartPolicy; it rejects the object."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The API server rejects it: Jobs allow only Never or OnFailure",
+        "why": "Validation fails because a Job's Pods must be able to finish."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It runs once, because Jobs ignore the template's restartPolicy",
+        "why": "The field is validated, not ignored."
+      }
+    ],
+    "explanation": "A Job's Pod template must set restartPolicy to Never or OnFailure; `Always` would prevent the Pod from ever completing, so validation rejects it. The reverse also holds: Deployments, ReplicaSets, StatefulSets and DaemonSets accept only `Always`.",
+    "reference": "Kubernetes docs: Jobs (Pod template)"
+  },
+  {
+    "id": "K8S-WRK-015",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A container has a `postStart` hook that runs a migration script, and the main process expects the migration to be finished before it starts serving. Sometimes the app starts before the migration completes. What does the documentation say about `postStart`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It runs after the ENTRYPOINT has fully started, so the app must be failing for another reason",
+        "why": "The docs say there is no guarantee the main process has started (or not) when the hook runs."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It always runs to completion before the ENTRYPOINT is started, so this race simply cannot happen here",
+        "why": "The hook and the ENTRYPOINT are triggered at the same time; neither waits for the other."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "It fires at the same moment as the ENTRYPOINT, so use an init container to order them",
+        "why": "Init containers finish before app containers start, which gives the ordering this app needs."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It runs only after the readiness probe first succeeds",
+        "why": "Readiness probes and lifecycle hooks are independent; postStart does not wait for readiness."
+      }
+    ],
+    "explanation": "Per the container lifecycle hooks docs, the PostStart handler is initiated when the container is created, meaning the ENTRYPOINT and the hook are triggered simultaneously. The container also doesn't reach Running until the hook finishes, and if the hook fails the container is killed. Work that must complete before the app starts belongs in an init container, which runs to completion first.",
+    "reference": "Kubernetes docs: Container Lifecycle Hooks"
+  },
+  {
+    "id": "K8S-WRK-016",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Two containers in the same Pod can talk to each other over `localhost`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: they share one network namespace, so localhost reaches the other container."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "They do share the network namespace; they just cannot both bind the same port."
+      }
+    ],
+    "explanation": "All containers in a Pod share one network namespace, so a sidecar proxy can reach the app at `localhost:8080`. The flip side is that two containers in one Pod cannot listen on the same port.",
+    "reference": "Kubernetes docs: Pods (Pod networking)"
+  },
+  {
+    "id": "K8S-WRK-017",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A StatefulSet named `web` has 3 replicas and `serviceName: nginx` (a headless Service) in namespace `default`. Which DNS name reaches the second replica?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`web-2.nginx.default.svc.cluster.local`",
+        "why": "Ordinals start at 0, so web-2 is the third replica."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`web-1.nginx.default.svc.cluster.local`",
+        "why": "Pods are named web-0, web-1, web-2; the headless Service provides per-Pod DNS."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`nginx-1.web.default.svc.cluster.local`",
+        "why": "The Pod name comes first (StatefulSet name + ordinal), then the Service name."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`web-b2c4x.nginx.default.svc.cluster.local`",
+        "why": "Random suffixes are for ReplicaSet Pods; StatefulSets use ordinals."
+      }
+    ],
+    "explanation": "StatefulSet Pods get ordinal names `<set>-0` … `<set>-(N-1)` and, through the governing headless Service, stable DNS records `<pod>.<service>.<namespace>.svc.<cluster-domain>`. You must create that headless Service yourself.",
+    "reference": "Kubernetes docs: StatefulSets (Stable Network ID)"
+  },
+  {
+    "id": "K8S-WRK-018",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "A container writes a short failure reason before exiting so that it appears in the Pod status as the termination message. If `terminationMessagePath` is not set, which file must the container write to? Type the full path.",
+    "options": [],
+    "accepted": [
+      "/dev/termination-log",
+      "dev/termination-log"
+    ],
+    "explanation": "The kubelet reads the termination message from the file named by `terminationMessagePath`, which defaults to `/dev/termination-log`. The text then shows up under `lastState.terminated.message` in the Pod status and in `kubectl describe pod`. Setting `terminationMessagePolicy: FallbackToLogsOnError` makes Kubernetes use the last chunk of the container log when the file is empty and the container exited with an error.",
+    "reference": "Kubernetes docs: Determine the Reason for Pod Failure"
+  },
+  {
+    "id": "K8S-WRK-019",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "On a kubeadm node, a static Pod `etcd-node1` runs from `/etc/kubernetes/manifests/etcd.yaml`. An engineer runs `kubectl delete pod etcd-node1 -n kube-system`. What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "etcd stops for good until someone runs `kubectl apply` on the manifest again",
+        "why": "The API object is only a mirror; the kubelet still runs the static Pod from disk."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The kubelet keeps the static Pod running; the mirror Pod reappears",
+        "why": "Static Pods are managed by the kubelet from its manifest directory, not by the API."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The scheduler recreates etcd on whichever node has capacity",
+        "why": "Static Pods are bound to the node whose kubelet reads the manifest."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The request is rejected because kube-system Pods are protected",
+        "why": "The delete succeeds against the mirror Pod; it just has no lasting effect."
+      }
+    ],
+    "explanation": "Static Pods are created by a node's kubelet from files in its `staticPodPath`. The kubelet publishes a read-only \"mirror Pod\" to the API so you can see it, but deleting the mirror does not stop the static Pod. To remove it, delete or move the manifest file on the node.",
+    "reference": "Kubernetes docs: Create static Pods"
+  },
+  {
+    "id": "K8S-WRK-020",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Every Pod of an API has this liveness probe. The database has a 2-minute outage. What happens, and what is the fix?\n\n```yaml\nlivenessProbe:\n  httpGet: { path: /health, port: 8080 }  # /health pings the database\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Pods go not-Ready during the outage; fix it by raising the probe timeout",
+        "why": "Liveness failures restart containers; readiness is what marks Pods not Ready."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "All Pods restart repeatedly; make liveness check only the process",
+        "why": "A dependency check in liveness turns one outage into restart storms everywhere."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Nothing, because liveness probes ignore downstream failures",
+        "why": "The probe reports whatever /health returns; it has no idea what the endpoint checks."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The Deployment rolls back, as failing probes block the revision",
+        "why": "Probes do not trigger rollbacks of an already-complete rollout."
+      }
+    ],
+    "explanation": "Liveness should answer \"is this process wedged?\", so only check the process itself. If it checks a shared dependency, a database blip makes every replica fail liveness at once and the kubelet restarts them all, often into CrashLoopBackOff, which prolongs the outage. Dependency-aware checks, if any, belong in readiness, and even there with care.",
+    "reference": "Kubernetes docs: Liveness, Readiness, and Startup Probes"
+  },
+  {
+    "id": "K8S-WRK-021",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which statements about graceful Pod termination are true? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A preStop hook runs before the container receives SIGTERM",
+        "why": "The kubelet runs preStop first, then sends TERM to the main process."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Time spent in preStop counts against terminationGracePeriodSeconds",
+        "why": "The grace period covers the hook and the shutdown together."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Containers still running when the grace period ends get SIGKILL",
+        "why": "After the grace period (plus a one-off 2 s extension for preStop) the runtime kills them."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Endpoint removal is guaranteed to finish before SIGTERM is sent",
+        "why": "Endpoint removal and container shutdown happen concurrently; that is why requests can still arrive."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "SIGTERM is sent first so the app can save state before preStop runs",
+        "why": "The order is preStop, then SIGTERM."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "With a grace period of 0 the kubelet still waits for preStop to finish",
+        "why": "A zero grace period means immediate kill; hooks do not get to finish."
+      }
+    ],
+    "explanation": "On deletion the Pod is marked Terminating. In parallel, it is removed from endpoints while the kubelet runs any preStop hook and then sends SIGTERM. Everything must finish within terminationGracePeriodSeconds (default 30). If a preStop hook overruns, the kubelet grants a single 2-second extension; after that, remaining containers are SIGKILLed.",
+    "reference": "Kubernetes docs: Pod lifecycle (Termination of Pods)"
+  },
+  {
+    "id": "K8S-WRK-022",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "During every rollout, clients see a burst of connection-refused errors, even though new Pods pass readiness before old ones are deleted and the app handles SIGTERM by closing its listener at once. What is the most likely cause and fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Readiness probes run too often; raise periodSeconds to 60",
+        "why": "Slower probes make Pods take longer to become Ready; they do not fix termination."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The image pull is slow; set imagePullPolicy to Always",
+        "why": "Pull time affects start-up, not requests reaching Pods that are shutting down."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Endpoints still route to dying Pods; add a short preStop sleep",
+        "why": "Removal from endpoints races the shutdown; a brief delay lets routing catch up first."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The grace period is too long; set terminationGracePeriodSeconds to 0",
+        "why": "Killing instantly makes in-flight requests fail even more abruptly."
+      }
+    ],
+    "explanation": "When a Pod is deleted, kube-proxy, ingress controllers and load balancers learn about it asynchronously, while the kubelet starts shutdown at the same time. If the app closes its listener immediately on SIGTERM, traffic that is still being routed to it fails. A few seconds of preStop sleep (and draining in-flight requests on SIGTERM) gives the routing layer time to stop sending traffic first.",
+    "reference": "Kubernetes docs: Pod lifecycle (Termination of Pods)"
+  },
+  {
+    "id": "K8S-WRK-023",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A bare Pod labelled `app: web` is already running with no owner. You then create this ReplicaSet. How many new Pods does it create?\n\n```yaml\nkind: ReplicaSet\nspec:\n  replicas: 3\n  selector:\n    matchLabels: { app: web }\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Three, because a ReplicaSet only counts Pods created from its own template",
+        "why": "ReplicaSets acquire any ownerless Pod matching their selector."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Two, because it adopts the matching bare Pod as one of its replicas",
+        "why": "The orphan Pod gets an ownerReference to the ReplicaSet and counts toward replicas."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Zero, because the existing Pod blocks the selector until removed",
+        "why": "Matching Pods are adopted, not treated as conflicts."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Three, and then it deletes the bare Pod to leave exactly three",
+        "why": "It adopts the bare Pod rather than replacing it, so only two are created."
+      }
+    ],
+    "explanation": "A ReplicaSet is not limited to Pods it created: any Pod without a controller ownerReference that matches its selector is acquired. Here it adopts the bare Pod and creates two more. If you instead create matching bare Pods after the ReplicaSet is satisfied, it adopts and then deletes them as surplus. That is why bare Pods should never carry labels that match a controller's selector.",
+    "reference": "Kubernetes docs: ReplicaSet (Non-Template Pod acquisitions)"
+  },
+  {
+    "id": "K8S-WRK-024",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An engineer edits an `apps/v1` Deployment and changes `spec.selector.matchLabels` from `app: web` to `app: web-v2` (updating the template labels to match). What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A rollout starts and new Pods carry the new label",
+        "why": "The update never applies; the selector cannot be changed."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The old Pods are orphaned and keep running unmanaged",
+        "why": "That can happen with other controllers, but here the change is rejected first."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The API rejects the update: the selector is immutable",
+        "why": "In apps/v1 a Deployment's selector cannot change after creation."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It succeeds only when performed with `kubectl replace --force`",
+        "why": "Replace --force deletes and recreates the object; it is not an in-place change."
+      }
+    ],
+    "explanation": "In apps/v1 a Deployment's `.spec.selector` is immutable after creation; kubectl edit, apply, patch and Helm upgrades all fail validation. To change it you delete and recreate the Deployment (for example with `kubectl delete --cascade=orphan` and a careful recreate). Plan selectors up front.",
+    "reference": "Kubernetes docs: Deployments (Label selector updates)"
+  },
+  {
+    "id": "K8S-WRK-025",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A Job has `backoffLimit: 6` and `activeDeadlineSeconds: 60`. Its Pods fail after about 15 seconds each. What does the Job end with?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "BackoffLimitExceeded, after six failed Pods",
+        "why": "With back-off delays, six failures take far longer than 60 seconds."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "DeadlineExceeded, once 60 seconds have passed",
+        "why": "activeDeadlineSeconds takes precedence over backoffLimit."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Complete, because the deadline resets with each new Pod",
+        "why": "The deadline applies to the Job's whole duration, not to each Pod."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It keeps retrying until six Pods fail, ignoring the deadline",
+        "why": "The deadline wins: no new Pods are created once it is reached."
+      }
+    ],
+    "explanation": "activeDeadlineSeconds limits the Job's total run time no matter how many Pods it creates. When it is reached, running Pods are terminated and the Job fails with reason DeadlineExceeded, even if retries remain under backoffLimit. Failed Pods are retried with exponential back-off (10s, 20s, 40s…), so six retries could not fit in 60 seconds here anyway.",
+    "reference": "Kubernetes docs: Jobs (Job termination and cleanup)"
+  },
+  {
+    "id": "K8S-WRK-026",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A CronJob runs every 10 minutes with `concurrencyPolicy: Forbid`. One run takes 25 minutes. What happens to the runs scheduled while it is still running?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "They queue up and run back-to-back as soon as it finishes",
+        "why": "Forbid skips them; nothing is queued for later."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The running Job is cancelled and replaced by the new run",
+        "why": "That is concurrencyPolicy Replace."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "They run concurrently, because Forbid only limits the number of retries",
+        "why": "Allow (the default) permits concurrency; Forbid prevents it."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "They are skipped, and scheduling resumes after it finishes",
+        "why": "Forbid skips any run that is due while the previous Job is still running."
+      }
+    ],
+    "explanation": "concurrencyPolicy controls overlap: Allow (default) runs Jobs concurrently, Forbid skips the new run if the previous one has not finished, and Replace cancels the running Job and starts the new one. With Forbid, long runs simply cause missed schedule slots; startingDeadlineSeconds still governs whether a late run may start.",
+    "reference": "Kubernetes docs: CronJob (Concurrency policy)"
+  },
+  {
+    "id": "K8S-WRK-027",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "A StatefulSet `db` with the default pod management policy is scaled from 3 replicas to 0. Put the Pod terminations in the order they happen.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`db-2` is terminated",
+        "why": "The highest ordinal goes first."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`db-1` is terminated",
+        "why": "It waits until db-2 is fully shut down."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`db-0` is terminated",
+        "why": "The lowest ordinal goes last."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C"
+    ],
+    "explanation": "With OrderedReady (the default) a StatefulSet creates Pods in order 0…N-1 and removes them in reverse, N-1…0, waiting for each successor to shut down completely before terminating the next. `podManagementPolicy: Parallel` relaxes this ordering.",
+    "reference": "Kubernetes docs: StatefulSets (Deployment and Scaling Guarantees)"
+  },
+  {
+    "id": "K8S-WRK-028",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 3,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each probe situation with what the kubelet does.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Restarts the container (subject to restartPolicy)",
+        "why": "The response to a failing liveness probe."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Marks the Pod not Ready, removing it from Service endpoints",
+        "why": "The response to a failing readiness probe."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Skips liveness and readiness checks for now",
+        "why": "What happens before the startup probe succeeds."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Kills the container because it never finished starting",
+        "why": "What happens when the startup probe exhausts failureThreshold."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "The liveness probe fails failureThreshold times in a row",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "The readiness probe fails failureThreshold times in a row",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "A startup probe is configured and has not succeeded yet",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "The startup probe fails failureThreshold times in a row",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Startup probes protect slow starters: until they succeed, liveness and readiness are not run, and if they never succeed the container is killed. Liveness failures restart containers. Readiness failures only stop traffic.",
+    "reference": "Kubernetes docs: Liveness, Readiness, and Startup Probes"
+  },
+  {
+    "id": "K8S-WRK-029",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A Pod has `restartPolicy: Never` and an init container that exits with code 1. What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The kubelet retries the init container until it eventually succeeds",
+        "why": "That is the behaviour with restartPolicy Always or OnFailure."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The app containers start anyway, since init containers are optional",
+        "why": "App containers never start unless every init container succeeds."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The Pod is marked Failed and the app containers never start",
+        "why": "With restartPolicy Never, a failed init container fails the whole Pod."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The scheduler moves the Pod to another node and tries again",
+        "why": "Pods are not rescheduled; a controller would have to create a new Pod."
+      }
+    ],
+    "explanation": "If an init container fails, the kubelet restarts it repeatedly when restartPolicy is Always or OnFailure (you see `Init:CrashLoopBackOff`). With restartPolicy Never, Kubernetes treats the whole Pod as failed. In a Job, the Job controller may then create a replacement Pod subject to backoffLimit.",
+    "reference": "Kubernetes docs: Init Containers"
+  },
+  {
+    "id": "K8S-WRK-030",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about native sidecar containers (stable since Kubernetes 1.33) are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "They are declared in `initContainers` with `restartPolicy: Always`",
+        "why": "That container-level restartPolicy is what makes an init container a sidecar."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "They start before later init containers and keep running afterwards",
+        "why": "Unlike regular init containers, they stay up for the Pod's whole life."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "They stop a Job's Pod from completing until they exit by themselves",
+        "why": "Native sidecars do not block completion; they are stopped once the main containers finish."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "They are terminated before the main containers when a Pod shuts down",
+        "why": "The kubelet stops sidecars after the main containers, in reverse order."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "They cannot define probes, just like regular init containers",
+        "why": "Sidecars support liveness, readiness and startup probes."
+      }
+    ],
+    "explanation": "A native sidecar is an init container with `restartPolicy: Always`. It starts in init order (later init containers wait until it is started), keeps running alongside the app, supports probes, and is shut down only after the main containers have stopped, in reverse spec order. The feature has been stable since 1.33 (on by default since 1.29).",
+    "reference": "Kubernetes docs: Sidecar Containers"
+  },
+  {
+    "id": "K8S-WRK-031",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A ReplicaSet runs 5 Pods on one node and is scaled down to 4. Before scaling, you annotate one Pod with `controller.kubernetes.io/pod-deletion-cost: \"-100\"` and leave the others unannotated. Which Pod does the controller prefer to delete?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The newest Pod, because ReplicaSets always remove the most recently created Pod first",
+        "why": "Age is only a tiebreaker; the deletion-cost annotation is considered before it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The Pod annotated with -100, because Pods with a lower deletion cost are removed first",
+        "why": "Unannotated Pods count as cost 0, so the Pod at -100 sorts ahead of them for deletion."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "An unannotated Pod, because the annotation marks the -100 Pod as protected from scale-down",
+        "why": "A negative cost does the opposite: it makes that Pod a preferred victim, not a protected one."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A random Pod, because the annotation only applies to Deployments and is ignored by ReplicaSets",
+        "why": "The annotation is honoured by the ReplicaSet controller, which Deployments use under the hood."
+      }
+    ],
+    "explanation": "When a ReplicaSet scales down it ranks Pods: unscheduled and not-ready Pods go first, then Pods with a lower `controller.kubernetes.io/pod-deletion-cost` (default 0), then Pods on nodes with more replicas, then newer Pods. Setting a negative cost on a Pod therefore makes it the preferred victim. The docs stress it is best-effort, not a guarantee, and that updating it frequently (for example on every metric change) is an anti-pattern because each update is an API write.",
+    "reference": "Kubernetes docs: ReplicaSet (Pod deletion cost)"
+  },
+  {
+    "id": "K8S-WRK-032",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "A startup probe has `periodSeconds: 5` and `failureThreshold: 24`. At most how many seconds does the app get to start before the container is killed? Type a number.",
+    "options": [],
+    "accepted": [
+      "120",
+      "120 seconds",
+      "120s"
+    ],
+    "explanation": "The startup budget is failureThreshold × periodSeconds = 24 × 5 = 120 seconds (plus any initialDelaySeconds). Size it for the worst-case start-up time so liveness never runs against a container that is still booting.",
+    "reference": "Kubernetes docs: Configure Liveness, Readiness and Startup Probes"
+  },
+  {
+    "id": "K8S-WRK-033",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A logging DaemonSet runs on every worker node but not on the kubeadm control-plane node. Why, and what fixes it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "DaemonSets never run on control-plane nodes, by design",
+        "why": "They can; they just need to tolerate the control-plane taint."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The control-plane node needs label `node-role=worker` added",
+        "why": "Labels are not the blocker; the control-plane taint is."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add `nodeName` for the control-plane node to the Pod template",
+        "why": "A fixed nodeName would pin every daemon Pod to one node."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "It has a NoSchedule taint; add a matching toleration",
+        "why": "Tolerating `node-role.kubernetes.io/control-plane` lets the daemon Pod land there."
+      }
+    ],
+    "explanation": "kubeadm taints control-plane nodes with `node-role.kubernetes.io/control-plane:NoSchedule`. A DaemonSet creates one Pod per eligible node, and a node is only eligible if the Pod tolerates its taints. Add a toleration for that key (operator Exists, effect NoSchedule), as the official fluentd DaemonSet example does.",
+    "reference": "Kubernetes docs: DaemonSet (Taints and tolerations)"
+  },
+  {
+    "id": "K8S-WRK-034",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A container crash-looped this morning and its restart delay reached 5 minutes. It was then fixed and ran healthily for 15 minutes before crashing once more. With default kubelet settings, roughly how long until the kubelet restarts it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 5 minutes, the capped delay it had reached earlier",
+        "why": "The back-off is reset once a container runs cleanly for 10 minutes."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "About 10 minutes, double the previous capped delay",
+        "why": "The delay never exceeds the 300-second cap, and here it has been reset."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "About 10 seconds, because the back-off was reset",
+        "why": "Running 10 minutes without problems resets the back-off timer."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Never, because the container exhausted its restart budget",
+        "why": "restartPolicy Always has no restart budget; it keeps retrying."
+      }
+    ],
+    "explanation": "The kubelet restarts exited containers with an exponential back-off (10s, 20s, 40s, …) capped at 300 seconds, and resets the timer once a container has executed for 10 minutes without problems. A crash after 15 healthy minutes is treated as a first crash, so the next restart comes after about 10 seconds.",
+    "reference": "Kubernetes docs: Pod lifecycle (Container restarts)"
+  },
+  {
+    "id": "K8S-WRK-035",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about a Job's `podFailurePolicy` are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "It requires the Pod template to use `restartPolicy: Never`",
+        "why": "The Job controller must see Pod failures, so in-place restarts are not allowed."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A matching `Ignore` rule keeps that failure out of the backoffLimit count",
+        "why": "Useful for disruptions such as preemption or node drains."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Every rule that matches a failure is applied, in order",
+        "why": "Rules are evaluated in order and the first match wins."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A `FailJob` rule allows one more retry before failing the Job",
+        "why": "FailJob fails the Job immediately and terminates its running Pods."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "It works with `restartPolicy: OnFailure` to retry in place",
+        "why": "OnFailure is not allowed together with podFailurePolicy."
+      }
+    ],
+    "explanation": "A Pod failure policy lets a Job react to why a Pod failed. Rules are checked in order (first match wins) with actions FailJob, Ignore, Count, or FailIndex for Indexed Jobs. Ignore excludes disruptions from the retry budget, and FailJob stops fast on non-retriable exit codes. The Pod template must use restartPolicy Never.",
+    "reference": "Kubernetes docs: Jobs (Pod failure policy)"
+  },
+  {
+    "id": "K8S-WRK-036",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Job sets `completionMode: Indexed`, `completions: 5` and `parallelism: 5`. Its Pod with index 3 fails once and is replaced, and the replacement succeeds. When is the Job complete?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "After any five Pods have succeeded, whatever their index",
+        "why": "Indexed Jobs track success per index, not just a total count."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "When each index 0–4 has one successful Pod, index 3 via its replacement",
+        "why": "Completion requires one success per index; the retry keeps index 3."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Never, because one failure fails an Indexed Job",
+        "why": "Failures are retried within backoffLimit or backoffLimitPerIndex."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "After five Pods succeed, with the failed index 3 simply skipped over for good",
+        "why": "Indexes are not skipped; each must succeed once."
+      }
+    ],
+    "explanation": "In an Indexed Job every Pod gets a completion index (exposed as `JOB_COMPLETION_INDEX` and an annotation), so each Pod can process its own shard. The Job is complete when there is one successful Pod for each index; failed indexes are retried with the same index.",
+    "reference": "Kubernetes docs: Jobs (Completion mode)"
+  },
+  {
+    "id": "K8S-WRK-037",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A CronJob runs every minute and has no `startingDeadlineSeconds`. After the controller manager was down for two hours, the CronJob logs \"too many missed start times\" and creates no Job. Which change lets it recover on its own next time?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Set `concurrencyPolicy: Replace` so that missed runs simply replace each other",
+        "why": "Concurrency policy does not change how missed schedules are counted."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Raise `successfulJobsHistoryLimit` so more missed runs are kept",
+        "why": "History limits only control how many finished Jobs are retained."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Set `startingDeadlineSeconds` (e.g. 200) to bound the counting window",
+        "why": "With a deadline, only misses inside that window count, so it stays under 100."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add `CRON_TZ=UTC` to the schedule string to fix clock skew",
+        "why": "CRON_TZ in the schedule is unsupported and now fails validation."
+      }
+    ],
+    "explanation": "The CronJob controller counts how many schedules were missed since the last scheduled time; if more than 100, it does not start a Job and logs \"too many missed start times\". When startingDeadlineSeconds is set, it only counts misses within that many seconds, so after an outage it can start the most recent run instead of giving up.",
+    "reference": "Kubernetes docs: CronJob (Job creation)"
+  },
+  {
+    "id": "K8S-WRK-038",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An app's liveness probe uses the defaults (`periodSeconds: 10`, `timeoutSeconds: 1`, `failureThreshold: 3`). Under load, its health endpoint sometimes takes 2 seconds to answer. What is the risk?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "None: slow answers count as passes as long as they arrive",
+        "why": "A response slower than timeoutSeconds counts as a failure."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "One slow answer immediately restarts the container",
+        "why": "It takes failureThreshold consecutive failures, three by default."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "About 30 s of slow answers gets the container restarted under load",
+        "why": "Three timed-out probes 10 s apart trigger a restart, adding load to the rest."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The Pod is just marked not Ready until the endpoint speeds up",
+        "why": "That is readiness; a failing liveness probe restarts the container."
+      }
+    ],
+    "explanation": "A probe that does not respond within timeoutSeconds (default 1 s) fails. Three consecutive failures (failureThreshold) at the default 10-second period, so roughly 30 seconds of slowness, make the kubelet restart the container. Under load this sheds capacity exactly when you need it and can cascade across replicas. Give liveness generous timeouts, and keep the endpoint cheap.",
+    "reference": "Kubernetes docs: Configure Liveness, Readiness and Startup Probes"
+  },
+  {
+    "id": "K8S-WRK-039",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A StatefulSet `kafka` (default pod management policy, 3 replicas) is being created. `kafka-1`'s readiness probe is misconfigured and never passes. What is the state a few minutes later?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "All three Pods run; only kafka-1 is excluded from traffic",
+        "why": "Ordered creation waits on readiness, so kafka-2 is never created."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "kafka-0 Ready, kafka-1 Running but not Ready, kafka-2 never created",
+        "why": "With OrderedReady, each Pod waits for its predecessor to be Running and Ready."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "kafka-1 is deleted and recreated until it becomes Ready",
+        "why": "The controller does not churn a Pod because it is not Ready."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The StatefulSet skips kafka-1 and creates kafka-2 instead",
+        "why": "Ordinals are never skipped; identity is tied to the ordinal."
+      }
+    ],
+    "explanation": "With the default OrderedReady policy, Pods are created one at a time, and Pod N is created only after Pod N-1 is Running and Ready. A readiness bug on kafka-1 therefore stalls the whole set. `podManagementPolicy: Parallel` would create all Pods at once, while still keeping the identity guarantees.",
+    "reference": "Kubernetes docs: StatefulSets (Pod Management Policies)"
+  },
+  {
+    "id": "K8S-WRK-040",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Two Deployments, `web` and `web-canary`, both use the selector `app: web` and their Pods carry only that label. What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The API server rejects the second Deployment for a duplicate selector",
+        "why": "Kubernetes does not stop you from overlapping selectors."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Each Deployment safely tracks only its own Pods via ownerReferences",
+        "why": "Pod counting and adoption go through labels, so overlap confuses both."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The newer Deployment gets all the Pods and the older one goes idle",
+        "why": "There is no such precedence rule; behaviour is undefined."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "The controllers may fight over the Pods and behave unpredictably",
+        "why": "The docs warn that overlapping selectors make controllers conflict."
+      }
+    ],
+    "explanation": "Controllers find the Pods they manage through label selectors. Kubernetes does not prevent overlapping selectors, but if two controllers match the same Pods they can conflict and behave unexpectedly. Give each workload a distinguishing label (for example `track: canary`) and include it in the selector.",
+    "reference": "Kubernetes docs: Deployments (Creating a Deployment)"
+  },
+  {
+    "id": "K8S-WRK-041",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 4,
+    "type": "order",
+    "select": 1,
+    "stem": "A Pod with a preStop hook is deleted with the default grace period. Put the steps in order.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The API server sets a deletion timestamp; the Pod shows Terminating",
+        "why": "Deletion starts by recording the grace period on the object."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The kubelet runs the container's preStop hook",
+        "why": "The hook runs before any signal is sent."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The kubelet sends SIGTERM to the container's main process",
+        "why": "TERM follows the hook."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "If still running when the grace period ends, the container gets SIGKILL",
+        "why": "Force-kill is the last resort."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The Pod object is removed from the API server",
+        "why": "Removal happens once the containers have stopped."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "Deleting a Pod records a deletion timestamp and grace period (default 30 s); kubectl shows it as Terminating and it is removed from endpoints in parallel. The kubelet runs preStop hooks, then sends SIGTERM, then SIGKILL if the grace period expires. When the containers are gone, the Pod object is deleted.",
+    "reference": "Kubernetes docs: Pod lifecycle (Termination of Pods)"
+  },
+  {
+    "id": "K8S-WRK-042",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Job uses `restartPolicy: OnFailure` and `backoffLimit: 3`. Its container crashes every time. After the Job fails, the team cannot find any logs for the crashes. Why, and what helps?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "OnFailure disables container logging; switch to Always",
+        "why": "Logging is unaffected, and Always is not allowed in a Job anyway."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "At the limit the Pod is terminated; use Never so failed Pods remain",
+        "why": "With OnFailure the Pod is killed at the backoff limit, which makes debugging harder."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "backoffLimit deletes all logs once reached; raise it to 10",
+        "why": "A higher limit only delays the same outcome; no logs are deleted."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The logs exist but are on a different node; use `kubectl logs --all-nodes`",
+        "why": "There is no such flag, and the Pod no longer exists."
+      }
+    ],
+    "explanation": "With OnFailure the container restarts in place and those restarts count toward backoffLimit. When the limit is reached, the Pod running the Job is terminated, taking its logs with it. The docs recommend restartPolicy Never while debugging (each failure leaves a failed Pod to inspect) or shipping logs to a logging system.",
+    "reference": "Kubernetes docs: Jobs (Pod backoff failure policy)"
+  },
+  {
+    "id": "K8S-WRK-043",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Job's Pod runs the task in one container and a log shipper as a second regular container in `containers`. The task exits 0 but the Job never completes. What is the best fix on Kubernetes 1.33+?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Set `restartPolicy: Never` so the task exit ends the Pod",
+        "why": "The Pod stays Running while any regular container runs."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add `activeDeadlineSeconds` so the Job finishes when time is up",
+        "why": "A deadline fails the Job; it does not mark it complete."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Have the task `kill` the shipper process over a shared PID namespace",
+        "why": "Possible, but a brittle workaround for a problem now solved natively."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Move the shipper to `initContainers` with `restartPolicy: Always`",
+        "why": "A native sidecar is stopped automatically once the main containers finish."
+      }
+    ],
+    "explanation": "A Pod only reaches Succeeded when all its regular containers have terminated, so a never-ending second container blocks Job completion. Native sidecar containers (an init container with restartPolicy Always, stable since 1.33) are designed for this: they run alongside the task and are shut down once the main containers finish, letting the Job complete.",
+    "reference": "Kubernetes docs: Sidecar Containers"
+  },
+  {
+    "id": "K8S-WRK-044",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 4,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "The node running `db-1` (a StatefulSet Pod) becomes unreachable. The StatefulSet controller immediately creates a replacement `db-1` on a healthy node.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Doing so could run two Pods with the same identity; the controller waits instead."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: the old Pod stays Terminating or Unknown until it is confirmed gone, to keep at-most-one semantics."
+      }
+    ],
+    "explanation": "StatefulSets guarantee at most one Pod per identity. Pods on an unreachable node are not deleted automatically: they go Terminating or Unknown, and the controller will not create a new `db-1` until the old one is removed, for example by the node coming back, the Node object being deleted, or a force delete. Force-deleting is risky because the original might still be running and writing to the same storage.",
+    "reference": "Kubernetes docs: Force Delete StatefulSet Pods"
+  },
+  {
+    "id": "K8S-WRK-045",
+    "domain": 1,
+    "skill": "workloads",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about CronJob scheduling are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`concurrencyPolicy: Replace` stops the running Job and starts the new one",
+        "why": "Replace swaps the in-progress run for the newly scheduled one."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`spec.timeZone: \"Asia/Kolkata\"` makes the schedule use that zone",
+        "why": "Without it, the controller manager's local time zone is used."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Writing `CRON_TZ=UTC 0 2 * * *` as the schedule is the supported way to set a zone",
+        "why": "CRON_TZ/TZ in the schedule is unsupported and fails validation."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`concurrencyPolicy: Forbid` queues the skipped run to start afterwards",
+        "why": "Forbid skips the run; it is not queued."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "By default a CronJob keeps its 10 most recent successful Jobs",
+        "why": "successfulJobsHistoryLimit defaults to 3 (failedJobsHistoryLimit to 1)."
+      }
+    ],
+    "explanation": "Without `.spec.timeZone`, schedules are read in the kube-controller-manager's local time zone; set an IANA name like `Etc/UTC` or `Asia/Kolkata` to be explicit. Putting CRON_TZ or TZ inside the schedule was never supported and is rejected. Replace cancels the current run, Forbid skips new ones, and Allow (default) overlaps them. History limits default to 3 successful and 1 failed Job.",
+    "reference": "Kubernetes docs: CronJob"
+  }
+]

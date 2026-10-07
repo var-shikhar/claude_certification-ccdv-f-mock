@@ -1,0 +1,1664 @@
+[
+  {
+    "id": "SQL-AGG-001",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `t` has one integer column `x` holding the values 1, NULL and 3. What does this return?\n\n```sql\nSELECT COUNT(*) AS star, COUNT(x) AS cx FROM t;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`star = 3, cx = 3`",
+        "why": "COUNT(x) skips rows where x is NULL, so it cannot match COUNT(*) here."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`star = 3, cx = 2`",
+        "why": "COUNT(*) counts rows; COUNT(x) counts only non-NULL values of x."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`star = 2, cx = 2`",
+        "why": "COUNT(*) counts every row, including the one whose x is NULL."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`star = 3, cx = NULL`",
+        "why": "COUNT never returns NULL; with no qualifying values it returns 0."
+      }
+    ],
+    "explanation": "`COUNT(*)` counts rows regardless of their contents, so it returns 3. `COUNT(x)` counts the rows where `x` is not NULL, so it returns 2. This difference is the usual reason two \"row counts\" in a report disagree.",
+    "reference": "PostgreSQL docs: Aggregate Functions"
+  },
+  {
+    "id": "SQL-AGG-002",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Column `w.x` holds 10, NULL and 20. What does `SELECT AVG(x) FROM w;` return in PostgreSQL?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "10, because the NULL counts as zero",
+        "why": "Aggregates ignore NULL inputs instead of treating them as 0."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "NULL, because one input is NULL",
+        "why": "One NULL input does not make the aggregate NULL; it is just skipped."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "15, because the NULL row is skipped",
+        "why": "AVG divides 30 by the 2 non-NULL values."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An error, because AVG cannot read NULLs",
+        "why": "NULL inputs are legal and simply ignored by AVG."
+      }
+    ],
+    "explanation": "Like most aggregates, `AVG` ignores NULL inputs: it averages only the non-NULL values, (10 + 20) / 2 = 15. If missing values should count as zero, write `AVG(COALESCE(x, 0))`, which gives 10. PostgreSQL returns it as `numeric` (15.0000000000000000).",
+    "reference": "PostgreSQL docs: Aggregate Functions"
+  },
+  {
+    "id": "SQL-AGG-003",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "Column `u.x` holds 1, 1, 2 and NULL. What number does `SELECT COUNT(DISTINCT x) FROM u;` return? Type a number.",
+    "options": [],
+    "accepted": [
+      "2"
+    ],
+    "explanation": "`COUNT(DISTINCT x)` counts the distinct non-NULL values. The values are 1, 1, 2 and NULL: the duplicate 1 collapses and the NULL is ignored, leaving {1, 2}, so the result is 2.",
+    "reference": "PostgreSQL docs: Aggregate Expressions"
+  },
+  {
+    "id": "SQL-AGG-004",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Which query lists every email address that appears more than once in `users(id, email)`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`SELECT email FROM users WHERE COUNT(*) > 1 GROUP BY email;`",
+        "why": "WHERE runs before grouping, so it cannot contain an aggregate."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`SELECT email FROM users GROUP BY email HAVING COUNT(*) > 1;`",
+        "why": "HAVING filters the groups after COUNT(*) is computed for each email."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`SELECT DISTINCT email FROM users HAVING COUNT(*) > 1;`",
+        "why": "Without GROUP BY, HAVING sees the whole table as one group."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`SELECT email, COUNT(*) AS n FROM users ORDER BY COUNT(*) > 1;`",
+        "why": "This sorts but does not filter, and email isn't grouped."
+      }
+    ],
+    "explanation": "Group the rows by `email`, then keep the groups whose size is above 1 with `HAVING COUNT(*) > 1`. Aggregates are not allowed in WHERE, because WHERE filters individual rows before any groups exist.",
+    "reference": "PostgreSQL docs: GROUP BY and HAVING Clauses"
+  },
+  {
+    "id": "SQL-AGG-005",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What is the difference between `WHERE` and `HAVING` in a grouped query?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "They are synonyms; HAVING is just the older, more verbose keyword",
+        "why": "They run at different stages and accept different expressions."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "WHERE filters groups and HAVING filters rows",
+        "why": "This is reversed: rows are filtered first, groups afterwards."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "WHERE filters rows before grouping; HAVING filters groups after",
+        "why": "So only HAVING can test aggregate results such as SUM()."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "HAVING may only be used together with ORDER BY",
+        "why": "HAVING belongs with grouping and has nothing to do with sorting."
+      }
+    ],
+    "explanation": "WHERE is applied to individual rows before GROUP BY, so it cannot reference aggregates. HAVING is applied to the groups after the aggregates are computed, so it can test conditions like `SUM(amount) > 100`. Filtering rows early in WHERE also makes queries cheaper.",
+    "reference": "PostgreSQL docs: GROUP BY and HAVING Clauses"
+  },
+  {
+    "id": "SQL-AGG-006",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "`SELECT SUM(amount) FROM orders WHERE status = 'none';` returns 0 when no rows match the WHERE clause.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "SUM over zero rows returns NULL, not 0."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: with no input rows SUM returns NULL; wrap it in COALESCE(SUM(amount), 0) to get 0."
+      }
+    ],
+    "explanation": "Every aggregate except `COUNT` returns NULL when it has no non-NULL input, and that includes `SUM` over zero rows. Reports usually want 0, so write `COALESCE(SUM(amount), 0)`. `COUNT(*)` on the same empty input returns 0.",
+    "reference": "PostgreSQL docs: Aggregate Functions"
+  },
+  {
+    "id": "SQL-AGG-007",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each expression with what it computes over a column `x`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Number of rows, including rows where x is NULL",
+        "why": "COUNT(*) counts rows."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Number of non-NULL values of x",
+        "why": "COUNT(x) skips NULLs."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Number of different non-NULL values of x",
+        "why": "Duplicates collapse before counting."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Total of the non-NULL values of x",
+        "why": "SUM skips NULLs."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`COUNT(*)`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`COUNT(x)`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`COUNT(DISTINCT x)`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`SUM(x)`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "`COUNT(*)` counts rows, `COUNT(x)` counts non-NULL values, `COUNT(DISTINCT x)` counts distinct non-NULL values, and `SUM(x)` adds the non-NULL values. Only `COUNT(*)` looks at rows rather than values, which is why it is the only one that NULLs never affect.",
+    "reference": "PostgreSQL docs: Aggregate Functions"
+  },
+  {
+    "id": "SQL-AGG-008",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 2,
+    "stem": "Column `x` contains some NULLs. Which two expressions skip the NULL values when computing their result? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`AVG(x)`",
+        "why": "AVG ignores NULL inputs and averages the rest."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`COUNT(*)`",
+        "why": "COUNT(*) counts rows, so NULL-valued rows still count."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`MAX(x)`",
+        "why": "MAX compares only the non-NULL values."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`COUNT(*) - COUNT(x)`",
+        "why": "This expression is the number of NULLs, so it depends on them."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`x IS NULL`",
+        "why": "This is a per-row test, not an aggregate that skips anything."
+      }
+    ],
+    "explanation": "All the standard aggregates except `COUNT(*)` ignore NULL inputs: `AVG`, `SUM`, `MIN`, `MAX` and `COUNT(x)` only look at non-NULL values. `COUNT(*) - COUNT(x)` is a handy way to count the NULLs themselves.",
+    "reference": "PostgreSQL docs: Aggregate Functions"
+  },
+  {
+    "id": "SQL-AGG-009",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "No row in `orders` has `status = 'none'`. What does this return?\n\n```sql\nSELECT COUNT(*) AS c, SUM(amount) AS s\nFROM orders\nWHERE status = 'none';\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Zero rows",
+        "why": "Without GROUP BY, an aggregate query always returns exactly one row."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "One row: `c = 0, s = NULL`",
+        "why": "COUNT of no rows is 0; SUM of no rows is NULL."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "One row: `c = 0, s = 0`",
+        "why": "SUM returns NULL, not 0, when it has no input."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "One row: `c = NULL, s = NULL`",
+        "why": "COUNT never returns NULL; it returns 0 for empty input."
+      }
+    ],
+    "explanation": "An aggregate query without GROUP BY treats the whole (possibly empty) input as one group, so it always returns one row. `COUNT(*)` of that empty group is 0, while `SUM` returns NULL. Add `COALESCE(SUM(amount), 0)` if callers expect 0.",
+    "reference": "PostgreSQL docs: Aggregate Functions"
+  },
+  {
+    "id": "SQL-AGG-010",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Adding `GROUP BY status` to the previous query (where no row matches the WHERE clause) still returns one row with a count of 0.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "With GROUP BY there is one row per group, and there are no groups."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: grouping zero rows produces zero groups, so the query returns no rows at all."
+      }
+    ],
+    "explanation": "With `GROUP BY`, the result has one row per group. Zero input rows form zero groups, so the query returns an empty result, not a row with 0. Dashboards that need a 0 for every status must start from a list of statuses and LEFT JOIN the counts onto it.",
+    "reference": "PostgreSQL docs: GROUP BY and HAVING Clauses"
+  },
+  {
+    "id": "SQL-AGG-011",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What happens when you run this in PostgreSQL?\n\n```sql\nSELECT customer, status, SUM(amount)\nFROM orders\nGROUP BY customer;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It returns one row per customer, with the status of an arbitrary row",
+        "why": "That is MySQL with ONLY_FULL_GROUP_BY off, or SQLite; PostgreSQL rejects it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It returns one row per (customer, status) pair",
+        "why": "Only customer is grouped; status is not added automatically."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Error: column \"orders.status\" must appear in the GROUP BY clause",
+        "why": "status is neither grouped nor aggregated, so its value per group is undefined."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It returns the status of the first row in each group",
+        "why": "SQL rows have no inherent order, and PostgreSQL refuses to guess."
+      }
+    ],
+    "explanation": "Every column in the select list must either be in GROUP BY, be wrapped in an aggregate, or be functionally dependent on the grouped primary key. `status` can differ within one customer's group, so PostgreSQL raises error 42803. SQLite and MySQL (without ONLY_FULL_GROUP_BY) would silently pick a value from an arbitrary row.",
+    "reference": "PostgreSQL docs: GROUP BY and HAVING Clauses"
+  },
+  {
+    "id": "SQL-AGG-012",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "`orders.customer` holds `ann`, `ann`, `bob`, NULL and NULL. How many rows does `SELECT customer, COUNT(*) FROM orders GROUP BY customer;` return?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "2, because rows with a NULL customer are dropped",
+        "why": "GROUP BY keeps NULLs; it does not filter them out."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "3, because the two NULLs form one group",
+        "why": "GROUP BY treats NULLs as equal, giving ann, bob and NULL."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "4, because each NULL forms its own group",
+        "why": "For grouping purposes NULLs are considered not distinct."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "5, one row per input row",
+        "why": "Grouping collapses equal values into a single row."
+      }
+    ],
+    "explanation": "Although `NULL = NULL` is not true in comparisons, GROUP BY (like DISTINCT) treats NULLs as not distinct from each other. All NULL customers land in one group, giving three rows: ann (2), bob (1) and NULL (2).",
+    "reference": "PostgreSQL docs: GROUP BY and HAVING Clauses"
+  },
+  {
+    "id": "SQL-AGG-013",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Given the `orders` rows below, what does the query return?\n\n```\n id | customer | amount | status\n  1 | ann      |    100 | paid\n  2 | ann      |     50 | refunded\n  3 | bob      |     70 | paid\n  4 | NULL     |     30 | paid\n  5 | NULL     |     20 | paid\n```\n\n```sql\nSELECT SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) AS paid,\n       SUM(CASE WHEN status = 'refunded' THEN amount END)     AS ref\nFROM orders;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`paid = 220, ref = 50`",
+        "why": "Paid amounts 100 + 70 + 30 + 20 = 220; the refund is 50."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`paid = 170, ref = 50`",
+        "why": "Rows with a NULL customer are still summed; customer isn't in the condition."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`paid = 220, ref = NULL`",
+        "why": "One row matches, so SUM adds its 50; the other CASEs are NULL and skipped."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`paid = 270, ref = 50`",
+        "why": "The ELSE 0 adds nothing for the refunded row, so 50 is not included."
+      }
+    ],
+    "explanation": "Conditional aggregation puts a CASE inside the aggregate. In `paid`, non-paid rows contribute 0. In `ref`, non-refunded rows produce NULL (there is no ELSE), and SUM skips NULLs. Both styles give correct totals here; they only differ when no row matches, where the ELSE 0 version returns 0 and the NULL version returns NULL.",
+    "reference": "PostgreSQL docs: Aggregate Expressions"
+  },
+  {
+    "id": "SQL-AGG-014",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "Using the same five `orders` rows (four `paid`, one `refunded`), what number does this return? Type a number.\n\n```sql\nSELECT COUNT(*) FILTER (WHERE status = 'paid') FROM orders;\n```",
+    "options": [],
+    "accepted": [
+      "4"
+    ],
+    "explanation": "The `FILTER (WHERE …)` clause feeds only matching rows into that one aggregate. Four rows are `paid`, so the result is 4. It is the standard SQL equivalent of `COUNT(CASE WHEN status = 'paid' THEN 1 END)`, and it lets one query compute several differently-filtered counts in a single pass.",
+    "reference": "PostgreSQL docs: Aggregate Expressions"
+  },
+  {
+    "id": "SQL-AGG-015",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does PostgreSQL do with this query?\n\n```sql\nSELECT customer, SUM(amount) AS total\nFROM orders\nGROUP BY customer\nHAVING total > 100;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Returns the customers whose total exceeds 100",
+        "why": "That works in MySQL and SQLite, which accept output aliases in HAVING."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Error: column \"total\" does not exist",
+        "why": "HAVING is evaluated before the select list, so the alias isn't visible yet."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Returns every customer, because the alias is ignored",
+        "why": "An unknown name is an error, not something PostgreSQL ignores."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Error: HAVING requires an ORDER BY clause",
+        "why": "HAVING has no dependency on ORDER BY."
+      }
+    ],
+    "explanation": "In PostgreSQL, HAVING cannot reference output column aliases, because logically it runs before the SELECT list assigns them. Repeat the expression: `HAVING SUM(amount) > 100`. ORDER BY, which runs after SELECT, is the clause that can use aliases. MySQL and SQLite accept the alias as an extension.",
+    "reference": "PostgreSQL docs: GROUP BY and HAVING Clauses"
+  },
+  {
+    "id": "SQL-AGG-016",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "The `orders` rows with a non-NULL customer are (id, customer, amount): (1, ann, 100), (2, ann, 50), (3, bob, 70). What does this return?\n\n```sql\nSELECT STRING_AGG(customer, ',' ORDER BY amount DESC)\nFROM orders\nWHERE customer IS NOT NULL;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`ann,ann,bob`",
+        "why": "That is ordering by id, not by amount descending."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`ann,bob`",
+        "why": "STRING_AGG keeps duplicates unless you write DISTINCT."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`ann,bob,ann`",
+        "why": "Amounts 100, 70, 50 in descending order map to ann, bob, ann."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`bob,ann,ann`",
+        "why": "That would be ascending order of amount."
+      }
+    ],
+    "explanation": "An ORDER BY inside the aggregate call controls the order in which values are concatenated, independently of the query's own ORDER BY. Sorted by amount descending, the rows are 100 (ann), 70 (bob), 50 (ann), giving `ann,bob,ann`. Without the inner ORDER BY the order is unspecified.",
+    "reference": "PostgreSQL docs: Aggregate Expressions"
+  },
+  {
+    "id": "SQL-AGG-017",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "`w.x` holds 10, NULL and 20, and the business rule says a missing value means 0. What does `SELECT AVG(COALESCE(x, 0)) FROM w;` return?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "15, because AVG still ignores the NULL value entirely",
+        "why": "COALESCE turns the NULL into 0 before AVG ever sees it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "10, because the average is now (10 + 0 + 20) / 3",
+        "why": "The third row now counts as a 0."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "NULL, because COALESCE runs after the average",
+        "why": "COALESCE is inside AVG, so it runs per row first."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "30, because COALESCE makes AVG behave like SUM",
+        "why": "Replacing NULL with 0 changes the inputs, not the function."
+      }
+    ],
+    "explanation": "Plain `AVG(x)` skips the NULL and returns 15. `AVG(COALESCE(x, 0))` converts it to 0 per row first, so the denominator becomes 3 and the result is 10. Which one is right is a business decision, so ask whether \"unknown\" should count as zero.",
+    "reference": "PostgreSQL docs: Aggregate Functions"
+  },
+  {
+    "id": "SQL-AGG-018",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "Column `u.x` holds 1, 1, 2 and NULL. Order these expressions from the smallest result to the largest.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`COUNT(DISTINCT x)`",
+        "why": "Distinct non-NULL values: 1 and 2, so 2."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`COUNT(x)`",
+        "why": "Non-NULL values: 1, 1 and 2, so 3."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`COUNT(*)`",
+        "why": "Every row: 4."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`SUM(x) + 1`",
+        "why": "SUM is 1 + 1 + 2 = 4, plus 1 is 5."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "explanation": "`COUNT(DISTINCT x)` = 2, `COUNT(x)` = 3, `COUNT(*)` = 4 and `SUM(x) + 1` = 5. The three counts differ only because of the duplicate 1 and the NULL, which is why choosing the wrong COUNT form silently changes a metric.",
+    "reference": "PostgreSQL docs: Aggregate Functions"
+  },
+  {
+    "id": "SQL-AGG-019",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "With the five `orders` amounts 100, 50, 70, 30 and 20, what does this return?\n\n```sql\nSELECT CASE WHEN amount >= 50 THEN 'big' ELSE 'small' END AS size,\n       COUNT(*)\nFROM orders\nGROUP BY 1\nORDER BY 1;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`big | 2` and `small | 3`",
+        "why": "50 satisfies amount >= 50, so it counts as big."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`big | 3` and `small | 2`",
+        "why": "100, 50 and 70 are big; 30 and 20 are small."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "An error, because GROUP BY cannot use a column position",
+        "why": "GROUP BY 1 refers to the first select-list expression, which is allowed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Five rows, one per amount",
+        "why": "Grouping by the CASE result collapses rows into two buckets."
+      }
+    ],
+    "explanation": "You can group by an expression, here referenced by its position `1`. Amounts 100, 50 and 70 satisfy `>= 50` and fall into `big` (3 rows); 30 and 20 are `small` (2 rows). Bucketing with CASE is the standard way to build histograms in SQL.",
+    "reference": "PostgreSQL docs: GROUP BY and HAVING Clauses"
+  },
+  {
+    "id": "SQL-AGG-020",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "`customers(id PRIMARY KEY, name, email)` is joined to orders. Does this run in PostgreSQL?\n\n```sql\nSELECT c.id, c.name, SUM(o.amount)\nFROM customers c\nJOIN co o ON o.customer_id = c.id\nGROUP BY c.id;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "No: `c.name` must also be listed in the GROUP BY clause",
+        "why": "PostgreSQL recognises that name depends on the grouped primary key."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Yes: `c.name` is functionally dependent on the primary key `c.id`",
+        "why": "Grouping by a table's PK lets you select its other columns."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Yes, but `c.name` is taken from an arbitrary row",
+        "why": "It isn't arbitrary: one id has exactly one name."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "No: you cannot GROUP BY a primary key column",
+        "why": "Grouping by a primary key is perfectly legal."
+      }
+    ],
+    "explanation": "Since version 9.1, PostgreSQL allows ungrouped columns of a table when that table's primary key is in GROUP BY, because they are functionally dependent on it: one `id` has exactly one `name`. This matches the SQL:1999 rule and saves listing every customer column.",
+    "reference": "PostgreSQL docs: GROUP BY and HAVING Clauses"
+  },
+  {
+    "id": "SQL-AGG-021",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `g(region, product, qty)` has four rows: every combination of regions east and west with products pen and ink. How many rows does this return?\n\n```sql\nSELECT region, product, SUM(qty)\nFROM g\nGROUP BY ROLLUP (region, product);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "4",
+        "why": "That is only the detail level; ROLLUP adds subtotal rows."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "6",
+        "why": "That misses the grand-total row."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "7",
+        "why": "4 detail rows + 2 region subtotals + 1 grand total."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "9",
+        "why": "That is CUBE, which also adds per-product subtotals."
+      }
+    ],
+    "explanation": "`ROLLUP (region, product)` means `GROUPING SETS ((region, product), (region), ())`: 4 region-product rows, 2 region subtotals and 1 grand total, so 7 rows. In the subtotal rows the rolled-up columns appear as NULL.",
+    "reference": "PostgreSQL docs: GROUPING SETS, CUBE, and ROLLUP"
+  },
+  {
+    "id": "SQL-AGG-022",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A ROLLUP report shows a row with `region = NULL`. How can the query tell a grand-total row apart from a real region whose value is NULL?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Filter those rows with `WHERE region IS NULL` first",
+        "why": "Both kinds of row have NULL there, so this can't separate them."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Select `GROUPING(region)`; it returns 1 for rolled-up rows",
+        "why": "GROUPING() marks super-aggregate rows, not data NULLs."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Use `COALESCE(region, 'Total')`",
+        "why": "This would also relabel a genuine NULL region as Total."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Check whether `COUNT(*)` equals 1",
+        "why": "The count says nothing about whether the row is a subtotal."
+      }
+    ],
+    "explanation": "`GROUPING(region)` returns 1 in rows where `region` was aggregated away by ROLLUP, CUBE or GROUPING SETS, and 0 in normal rows, including rows where the data value itself is NULL. Use it to label totals reliably: `CASE WHEN GROUPING(region) = 1 THEN 'All regions' ELSE region END`.",
+    "reference": "PostgreSQL docs: GROUPING SETS, CUBE, and ROLLUP"
+  },
+  {
+    "id": "SQL-AGG-023",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "Using the same four-row table `g` (regions east/west × products pen/ink), how many rows does `GROUP BY CUBE (region, product)` return? Type a number.",
+    "options": [],
+    "accepted": [
+      "9"
+    ],
+    "explanation": "`CUBE (region, product)` produces every subset of the grouping columns: (region, product) gives 4 rows, (region) gives 2, (product) gives 2 and () gives the grand total, 1 row. That is 4 + 2 + 2 + 1 = 9 rows.",
+    "reference": "PostgreSQL docs: GROUPING SETS, CUBE, and ROLLUP"
+  },
+  {
+    "id": "SQL-AGG-024",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `s(x)` holds 1, 2, 3 and 4. What does this return?\n\n```sql\nSELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY x) AS pc,\n       percentile_disc(0.5) WITHIN GROUP (ORDER BY x) AS pd\nFROM s;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`pc = 2, pd = 2`",
+        "why": "percentile_cont interpolates between 2 and 3."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`pc = 2.5, pd = 2.5`",
+        "why": "percentile_disc always returns an actual input value."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`pc = 2.5, pd = 2`",
+        "why": "cont interpolates; disc returns the first value at or above the 50th percentile."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`pc = 3, pd = 2`",
+        "why": "Interpolating halfway between 2 and 3 gives 2.5, not 3."
+      }
+    ],
+    "explanation": "`percentile_cont` treats the data as continuous and interpolates, so the median of 1, 2, 3, 4 is 2.5. `percentile_disc` returns the first input value whose cumulative position reaches the fraction, here 2. Pick `disc` when the answer must be a value that exists, such as a real price.",
+    "reference": "PostgreSQL docs: Aggregate Functions"
+  },
+  {
+    "id": "SQL-AGG-025",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Integer column `v.x` holds 2 and 3. What does PostgreSQL return?\n\n```sql\nSELECT SUM(x) / COUNT(x) AS manual, AVG(x) AS builtin FROM v;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`manual = 2.5, builtin = 2.5000000000000000`",
+        "why": "SUM and COUNT are both integers here, so `/` is integer division."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`manual = 2, builtin = 2.5000000000000000`",
+        "why": "bigint / bigint truncates; AVG of integers returns numeric."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`manual = 3, builtin = 2.5`",
+        "why": "Integer division truncates toward zero, it doesn't round."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`manual = 2, builtin = 2`",
+        "why": "AVG on an integer column returns numeric, keeping the fraction."
+      }
+    ],
+    "explanation": "`SUM(int)` and `COUNT(*)` both return `bigint`, and dividing two integers truncates, so 5 / 2 = 2. `AVG(int)` returns `numeric`, so it gives 2.5. If you compute a ratio by hand, cast first: `SUM(x)::numeric / COUNT(x)`. SQLite behaves the same way for the manual version.",
+    "reference": "PostgreSQL docs: Aggregate Functions"
+  },
+  {
+    "id": "SQL-AGG-026",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "`sales(region, rep, total)` has ann = 100 and bob = 100 in east, and the query below should \"return the top seller\". What is the problem?\n\n```sql\nSELECT rep, total FROM sales ORDER BY total DESC LIMIT 1;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It errors, because LIMIT needs an aggregate",
+        "why": "LIMIT works on any ordered result."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It returns the lowest total instead of the highest",
+        "why": "ORDER BY total DESC sorts highest first."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "With a tie it returns just one of ann or bob, arbitrarily",
+        "why": "Use WHERE total = (SELECT MAX(total) …) to return every tied rep."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It double-counts reps whose sales appear in more than one region",
+        "why": "No aggregation is happening, so nothing is double-counted."
+      }
+    ],
+    "explanation": "`LIMIT 1` keeps exactly one row, and ties on `total` are broken arbitrarily, so the \"winner\" can change between runs. To return everyone tied for first, compare to the maximum (`WHERE total = (SELECT MAX(total) FROM sales)`), use `RANK()`, or `FETCH FIRST 1 ROWS WITH TIES`. If one row is truly required, add a deterministic tiebreaker to ORDER BY.",
+    "reference": "PostgreSQL docs: Aggregate Functions"
+  },
+  {
+    "id": "SQL-AGG-027",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `t` has 3 rows. What does this return?\n\n```sql\nSELECT COUNT(*) FROM t HAVING COUNT(*) > 10;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "One row containing 3",
+        "why": "HAVING filters out the single group, because 3 is not above 10."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "One row containing 0",
+        "why": "HAVING doesn't change the count; it removes the whole group."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Zero rows",
+        "why": "Without GROUP BY the table is one group, and HAVING rejects it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An error, because HAVING requires GROUP BY",
+        "why": "HAVING without GROUP BY is valid and treats the table as one group."
+      }
+    ],
+    "explanation": "Without GROUP BY, an aggregate query forms a single group from all rows. HAVING then decides whether that one group is returned: 3 is not greater than 10, so the result is empty. With `HAVING COUNT(*) > 1` you would get one row containing 3.",
+    "reference": "PostgreSQL docs: GROUP BY and HAVING Clauses"
+  },
+  {
+    "id": "SQL-AGG-028",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Customer Cy has no orders. With `customers c LEFT JOIN co o ON o.customer_id = c.id GROUP BY c.id`, what do `COUNT(*)` and `COUNT(o.id)` return for Cy?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "0 and 0",
+        "why": "COUNT(*) counts the NULL-extended row the LEFT JOIN produced."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "1 and 0",
+        "why": "One NULL-padded row exists, but o.id is NULL in it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "1 and 1",
+        "why": "COUNT(o.id) skips NULLs, and o.id is NULL for Cy."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "NULL and 0",
+        "why": "COUNT never returns NULL."
+      }
+    ],
+    "explanation": "A LEFT JOIN keeps Cy with one row whose order columns are all NULL. `COUNT(*)` counts that row (1), while `COUNT(o.id)` counts non-NULL order ids (0). For \"orders per customer\", count a column from the right-hand table, never `*`.",
+    "reference": "PostgreSQL docs: Aggregate Functions"
+  },
+  {
+    "id": "SQL-AGG-029",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which three statements about aggregates and NULL are true in PostgreSQL? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`COUNT(DISTINCT x)` ignores NULL values",
+        "why": "NULLs are excluded before distinct values are counted."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`MAX(x)` over a column with only NULLs returns NULL",
+        "why": "No non-NULL input means the result is NULL."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`SUM(x)` returns NULL if any input value is NULL",
+        "why": "NULL inputs are skipped; the sum of the rest is returned."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "GROUP BY puts all NULL values of the key in a single group",
+        "why": "For grouping, NULLs are treated as not distinct."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`COUNT(x)` returns NULL when every x is NULL",
+        "why": "COUNT returns 0, never NULL."
+      }
+    ],
+    "explanation": "NULL inputs are skipped by aggregates. When nothing non-NULL remains, aggregates return NULL except `COUNT`, which returns 0. GROUP BY and DISTINCT treat NULLs as equal, so they form one group. `SUM` does not become NULL because of a single NULL input.",
+    "reference": "PostgreSQL docs: Aggregate Functions"
+  },
+  {
+    "id": "SQL-AGG-030",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Boolean column `b.flag` holds TRUE and NULL. What does `SELECT bool_and(flag), bool_or(flag) FROM b;` return?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`NULL, TRUE`",
+        "why": "bool_and ignores the NULL rather than propagating it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`TRUE, TRUE`",
+        "why": "With the NULL skipped, the only input is TRUE."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`FALSE, TRUE`",
+        "why": "NULL is not treated as FALSE by these aggregates."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`NULL, NULL`",
+        "why": "Aggregates skip NULL inputs; one non-NULL value remains."
+      }
+    ],
+    "explanation": "`bool_and` (also spelled `every`) and `bool_or` follow the normal aggregate rule of skipping NULL inputs. Only TRUE remains, so both return TRUE. If NULL should mean \"not confirmed\", write `bool_and(COALESCE(flag, false))`. Over zero rows both return NULL.",
+    "reference": "PostgreSQL docs: Aggregate Functions"
+  },
+  {
+    "id": "SQL-AGG-031",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 3,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In MySQL with the `ONLY_FULL_GROUP_BY` SQL mode disabled, `SELECT customer, status, SUM(amount) FROM orders GROUP BY customer` runs and may return the status of any row in each group.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: MySQL then picks an indeterminate value for nonaggregated columns."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "With the mode disabled MySQL does accept it, returning an indeterminate value for status."
+      }
+    ],
+    "explanation": "MySQL 5.7+ enables `ONLY_FULL_GROUP_BY` by default and then rejects the query, like PostgreSQL. With the mode disabled, MySQL accepts nonaggregated columns and the server may choose any value from the group, so the result is nondeterministic. SQLite also allows such \"bare columns\".",
+    "reference": "MySQL docs: MySQL Handling of GROUP BY"
+  },
+  {
+    "id": "SQL-AGG-032",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A report runs `SELECT region, SUM(amount) FROM …` and shows NULL for regions that have no matching sales rows. Which two changes make it show 0 instead? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Wrap the aggregate as `COALESCE(SUM(amount), 0)`",
+        "why": "COALESCE replaces the NULL result with 0."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Replace `SUM(amount)` with `COUNT(amount)`",
+        "why": "That returns the number of sales, not their total."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Alias the sum as `s` in a subquery and select `COALESCE(s, 0)` outside it",
+        "why": "Same fix applied one level up: the NULL total becomes 0."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add `WHERE amount IS NOT NULL`",
+        "why": "Removing rows can only make more groups empty, not fewer."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Add `ORDER BY 2 NULLS LAST`",
+        "why": "Sorting moves the NULLs but doesn't replace them."
+      }
+    ],
+    "explanation": "SUM over a group with no non-NULL input returns NULL. Wrapping the result in `COALESCE(…, 0)`, either directly or in an outer query, turns that NULL into 0. COUNT would change the metric, a WHERE filter only removes more rows, and ORDER BY only moves the NULLs. (When the empty regions come from an outer join, `SUM(COALESCE(amount, 0))` also works, because the NULL-padded row contributes a 0.)",
+    "reference": "PostgreSQL docs: Aggregate Functions"
+  },
+  {
+    "id": "SQL-AGG-033",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "The `orders` table has 5 rows, and `customer` is NULL in 2 of them. Which two expressions both return 5? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`COUNT(*)`",
+        "why": "Counts every row."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`COUNT(1)`",
+        "why": "The constant 1 is never NULL, so every row counts."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`COUNT(customer)`",
+        "why": "Skips the 2 NULL customers, giving 3."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`COUNT(DISTINCT customer)`",
+        "why": "Distinct non-NULL customers: ann and bob, so 2."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`SUM(1) FILTER (WHERE customer IS NOT NULL)`",
+        "why": "The filter keeps 3 rows, so this sums to 3."
+      }
+    ],
+    "explanation": "`COUNT(*)` and `COUNT(1)` are equivalent: the constant 1 is never NULL, so every row is counted; `COUNT(*)` is the idiomatic form. `COUNT(customer)` = 3, `COUNT(DISTINCT customer)` = 2, and the filtered `SUM(1)` = 3.",
+    "reference": "PostgreSQL docs: Aggregate Functions"
+  },
+  {
+    "id": "SQL-AGG-034",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "`customers` has `id` as PRIMARY KEY and `email` as `UNIQUE NOT NULL`. What happens in PostgreSQL?\n\n```sql\nSELECT c.email, c.name, SUM(o.amount)\nFROM customers c\nJOIN co o ON o.customer_id = c.id\nGROUP BY c.email;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It runs, because a UNIQUE NOT NULL email determines the name",
+        "why": "PostgreSQL only infers functional dependency from a primary key."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Error: column \"c.name\" must appear in the GROUP BY clause",
+        "why": "Grouping by a unique column isn't enough; only a PK enables the shortcut."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It runs and returns one row per name instead of per email",
+        "why": "GROUP BY email decides the groups, not the select list."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It runs but returns an arbitrary name per email",
+        "why": "PostgreSQL never picks arbitrary values for ungrouped columns."
+      }
+    ],
+    "explanation": "Logically `email` determines `name`, but PostgreSQL's functional-dependency check recognises only the table's primary key, not UNIQUE constraints, even NOT NULL ones. Grouping by `c.email` therefore raises error 42803 for `c.name`. Group by `c.id` (the PK), or add `c.name` to GROUP BY.",
+    "reference": "PostgreSQL docs: GROUP BY and HAVING Clauses"
+  },
+  {
+    "id": "SQL-AGG-035",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "`users(id, email)` has emails a@x, a@x, NULL, NULL and b@x. The data team runs the duplicate check below. What does it report, and what does the result reveal?\n\n```sql\nSELECT email, COUNT(*)\nFROM users\nGROUP BY email\nHAVING COUNT(*) > 1;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Only `a@x | 2`, because NULL emails are dropped",
+        "why": "GROUP BY keeps the NULLs as one group of size 2."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`a@x | 2` and `NULL | 2`, flagging missing emails as a \"duplicate\"",
+        "why": "The two NULLs form one group, which HAVING keeps."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Nothing, because a UNIQUE constraint would have blocked the duplicate rows",
+        "why": "There is no constraint, and UNIQUE allows multiple NULLs anyway."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`a@x | 2`, `NULL | 1` and `NULL | 1`",
+        "why": "NULLs are grouped together, not one group each."
+      }
+    ],
+    "explanation": "GROUP BY puts both NULL emails in one group of size 2, so the check reports a NULL \"duplicate\" that isn't really one. Add `WHERE email IS NOT NULL` to find real duplicates. Note the contrast: a UNIQUE constraint treats NULLs as distinct and allows many of them, unless the index uses `NULLS NOT DISTINCT` (PG15+).",
+    "reference": "PostgreSQL docs: GROUP BY and HAVING Clauses"
+  },
+  {
+    "id": "SQL-AGG-036",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Class `a` has one score, 100; class `b` has scores 50, 60 and 70. A dashboard shows \"average score across all students\" as the average of the per-class averages. What does it show, and what is the true student average?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It shows 70, which is correct",
+        "why": "70 is the true per-student average; the dashboard computes something else."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It shows 80, while the true average is 70",
+        "why": "avg(100, 60) = 80, but (100 + 50 + 60 + 70) / 4 = 70."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It shows 60, while the true average is 70",
+        "why": "The class averages are 100 and 60, whose mean is 80."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Both are 80, because averaging is associative across groups",
+        "why": "Averages of unequal-sized groups don't combine that way."
+      }
+    ],
+    "explanation": "An average of averages gives each group equal weight regardless of size, so the single student in class a counts as much as all three in class b: (100 + 60) / 2 = 80. The true per-student average is 280 / 4 = 70. Combine `SUM(score) / COUNT(score)` across groups, or average the raw rows.",
+    "reference": "PostgreSQL docs: Aggregate Functions"
+  },
+  {
+    "id": "SQL-AGG-037",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "What does PostgreSQL do with this query?\n\n```sql\nSELECT STRING_AGG(DISTINCT customer, ',' ORDER BY amount)\nFROM orders;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Returns distinct customers sorted by their smallest amount",
+        "why": "Postgres can't sort distinct values by a column that isn't aggregated."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Returns distinct customers in an arbitrary order, silently ignoring the ORDER BY clause",
+        "why": "PostgreSQL rejects the combination instead of ignoring it."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Error: in an aggregate with DISTINCT, ORDER BY expressions must appear in argument list",
+        "why": "Each distinct value may come from rows with different amounts."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Returns every customer including duplicates, sorted by amount",
+        "why": "DISTINCT is honoured, so the problem is the ORDER BY key."
+      }
+    ],
+    "explanation": "With DISTINCT, each output value may stand for several rows with different `amount`s, so there's no single sort key per value. PostgreSQL requires ORDER BY expressions to appear in the argument list (error 42P10). `STRING_AGG(DISTINCT customer, ',' ORDER BY customer)` works. To sort by amount, aggregate in a subquery first, for example ordering by `MIN(amount)` per customer.",
+    "reference": "PostgreSQL docs: Aggregate Expressions"
+  },
+  {
+    "id": "SQL-AGG-038",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `people(name)` holds `Ann`, `ann` and `BOB`. What does this return in PostgreSQL?\n\n```sql\nSELECT LOWER(name) AS name, COUNT(*)\nFROM people\nGROUP BY name\nORDER BY 1;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`ann | 2` and `bob | 1`",
+        "why": "That needs grouping by LOWER(name); GROUP BY name picks the input column."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`ann | 1`, `ann | 1` and `bob | 1`",
+        "why": "GROUP BY name binds to the table column, so Ann and ann stay separate groups."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "An error, because the alias shadows a column",
+        "why": "The name is ambiguous, but PostgreSQL resolves it rather than erroring."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`Ann | 1`, `ann | 1` and `BOB | 1`",
+        "why": "The select list still applies LOWER() to each group's name."
+      }
+    ],
+    "explanation": "In GROUP BY, PostgreSQL resolves a bare name to an input column before it considers output aliases. This is the opposite of ORDER BY. So `GROUP BY name` groups by the raw column, giving three groups, and LOWER() is applied afterwards, giving two rows that both show `ann`. Use a distinct alias (`AS lname … GROUP BY lname`) or `GROUP BY LOWER(name)` to get `ann | 2`.",
+    "reference": "PostgreSQL docs: GROUP BY and HAVING Clauses"
+  },
+  {
+    "id": "SQL-AGG-039",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Which GROUP BY clause produces exactly the same set of grouping combinations as `GROUP BY ROLLUP (region, product)`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`GROUPING SETS ((region, product), (region), (product), ())`",
+        "why": "Adding (product) makes it CUBE, not ROLLUP."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`GROUPING SETS ((region, product), (product), ())`",
+        "why": "ROLLUP drops columns from the right, giving (region), not (product)."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`GROUPING SETS ((region, product), (region), ())`",
+        "why": "ROLLUP removes trailing columns one at a time down to ()."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`GROUPING SETS ((region), (product))`",
+        "why": "That lacks both the detail level and the grand total."
+      }
+    ],
+    "explanation": "`ROLLUP (a, b)` is shorthand for the hierarchical prefixes `(a, b), (a), ()`. `CUBE (a, b)` produces all subsets: `(a, b), (a), (b), ()`. Column order matters for ROLLUP, so `ROLLUP (product, region)` would give per-product subtotals instead.",
+    "reference": "PostgreSQL docs: GROUPING SETS, CUBE, and ROLLUP"
+  },
+  {
+    "id": "SQL-AGG-040",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Four `orders` rows are `paid` and one is `refunded`. What does this return?\n\n```sql\nSELECT COUNT(*) FILTER (WHERE status = 'refunded') AS refunds,\n       COUNT(*)                                      AS total\nFROM orders\nWHERE status = 'paid';\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`refunds = 1, total = 4`",
+        "why": "The refunded row is removed by WHERE before FILTER sees anything."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`refunds = 0, total = 4`",
+        "why": "WHERE keeps only paid rows, so the FILTER never matches."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`refunds = 1, total = 5`",
+        "why": "WHERE runs first and drops the refunded row from both counts."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`refunds = NULL, total = 4`",
+        "why": "COUNT with a FILTER that matches nothing returns 0, not NULL."
+      }
+    ],
+    "explanation": "WHERE filters rows before aggregation, and FILTER only narrows the rows each aggregate receives from what is left. Since WHERE keeps only `paid` rows, the refund count is always 0. To report both in one pass, drop the WHERE and filter each aggregate separately.",
+    "reference": "PostgreSQL docs: Aggregate Expressions"
+  },
+  {
+    "id": "SQL-AGG-041",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `pr(a, b)` holds (1, NULL), (1, NULL) and (2, 3). What does `SELECT COUNT(DISTINCT (a, b)) FROM pr;` return in PostgreSQL?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "1, because rows containing a NULL are ignored",
+        "why": "The row value (1, NULL) itself is not NULL, so it is counted."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "2, because the two (1, NULL) rows count as one distinct row",
+        "why": "DISTINCT treats the NULL fields as equal."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "3, because the NULL fields make every one of the rows unique",
+        "why": "For DISTINCT purposes NULLs compare as not distinct."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An error, because COUNT takes only one column",
+        "why": "PostgreSQL accepts a row constructor as a single argument."
+      }
+    ],
+    "explanation": "PostgreSQL lets you count distinct combinations with a row constructor. A row value is only NULL if all its fields are NULL, so `(1, NULL)` is counted. DISTINCT treats NULLs as equal, so the two `(1, NULL)` rows collapse, giving 2. By contrast, `COUNT(DISTINCT b)` is 1, because only the value 3 is non-NULL.",
+    "reference": "PostgreSQL docs: Aggregate Expressions"
+  },
+  {
+    "id": "SQL-AGG-042",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "`sales(region, rep, total)` has a tie in east (ann and bob both 100). Which two queries return every top rep per region, including both tied reps? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`SELECT s.* FROM sales s JOIN (SELECT region, MAX(total) m FROM sales GROUP BY region) x ON x.region = s.region AND s.total = x.m`",
+        "why": "Joining back to the per-region maximum keeps every row that equals it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`SELECT region, rep, MAX(total) FROM sales GROUP BY region`",
+        "why": "rep is not grouped, so PostgreSQL raises an error."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`SELECT * FROM (SELECT *, RANK() OVER (PARTITION BY region ORDER BY total DESC) r FROM sales) z WHERE r = 1`",
+        "why": "RANK gives tied rows the same rank 1."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`SELECT DISTINCT ON (region) * FROM sales ORDER BY region, total DESC`",
+        "why": "DISTINCT ON keeps exactly one row per region, dropping the tie."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`SELECT * FROM sales ORDER BY total DESC LIMIT 2`",
+        "why": "This ignores regions and just returns two rows overall."
+      }
+    ],
+    "explanation": "An aggregate alone can't tell you which row holds the maximum. Either join the rows back to the per-group `MAX(total)`, or rank them with `RANK() OVER (PARTITION BY region …)`. Both keep ties. `DISTINCT ON` and `ROW_NUMBER()` keep exactly one row per group, so they silently drop tied reps.",
+    "reference": "PostgreSQL docs: Aggregate Functions"
+  },
+  {
+    "id": "SQL-AGG-043",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "Integer column `big.x` holds 2,000,000,000 twice. Which two statements are true in PostgreSQL? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`SUM(x)` returns 4000000000 because SUM over int returns bigint",
+        "why": "PostgreSQL widens the result type to avoid overflow."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`SUM(x)` raises \"integer out of range\"",
+        "why": "The accumulator and result are bigint, so 4e9 fits."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`AVG(x)` returns a numeric value",
+        "why": "AVG over integer types returns numeric."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`COUNT(*)` returns an int, so it overflows past 2^31 rows",
+        "why": "COUNT returns bigint."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`SUM(x)::int` returns 4000000000",
+        "why": "Casting 4e9 back to int overflows, raising an error."
+      }
+    ],
+    "explanation": "PostgreSQL picks wider result types for aggregates: `SUM(smallint/int)` returns `bigint`, `SUM(bigint)` returns `numeric`, `AVG` of integer types returns `numeric`, and `COUNT` returns `bigint`. So the sum of two 2e9 values is fine, but casting it back to `int` fails with \"integer out of range\". Other engines differ: SQL Server's SUM(int) returns int and can overflow.",
+    "reference": "PostgreSQL docs: Aggregate Functions"
+  },
+  {
+    "id": "SQL-AGG-044",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 4,
+    "type": "order",
+    "select": 1,
+    "stem": "Table `bk(x)` holds 1, 1, 2, 2 and 3. Order these expressions from the smallest result to the largest.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`mode() WITHIN GROUP (ORDER BY x)`",
+        "why": "Both 1 and 2 appear twice; PostgreSQL returns the first, 1."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`ROUND(AVG(x), 2)`",
+        "why": "9 / 5 = 1.80."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`percentile_cont(0.5) WITHIN GROUP (ORDER BY x)`",
+        "why": "The middle of 1, 1, 2, 2, 3 is 2."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`SUM(DISTINCT x)`",
+        "why": "1 + 2 + 3 = 6."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`SUM(x)`",
+        "why": "1 + 1 + 2 + 2 + 3 = 9."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "Here `mode()` = 1: with a tie between 1 and 2, PostgreSQL arbitrarily returns the first in sort order. `AVG` = 1.80, the median = 2, `SUM(DISTINCT x)` = 6 and `SUM(x)` = 9. Mode, mean and median differ even on tiny data, so name the one you mean in a requirement.",
+    "reference": "PostgreSQL docs: Aggregate Functions"
+  },
+  {
+    "id": "SQL-AGG-045",
+    "domain": 2,
+    "skill": "aggregation",
+    "difficulty": 4,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each requirement with the clause that implements it in a single PostgreSQL query over `orders`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`WHERE status <> 'test'`",
+        "why": "Removes rows before any grouping or aggregation."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`HAVING SUM(amount) > 1000`",
+        "why": "Keeps or drops whole groups after aggregation."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`COUNT(*) FILTER (WHERE status = 'refunded')`",
+        "why": "Narrows the input of one aggregate only."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`GROUP BY ROLLUP (region)`",
+        "why": "Adds a grand-total row next to the per-region rows."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Exclude test orders from every calculation",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Show only regions whose revenue exceeds 1000",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Report refund count next to the total order count",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Append an all-regions total row to the report",
+        "answer": "D"
+      }
+    ],
+    "explanation": "WHERE filters rows for the whole query. HAVING filters groups after aggregation. FILTER narrows a single aggregate's input, so several metrics can share one pass. ROLLUP adds super-aggregate rows. Picking the wrong one either errors (an aggregate in WHERE) or silently changes other metrics (a status filter in WHERE when only one count needed it).",
+    "reference": "PostgreSQL docs: GROUPING SETS, CUBE, and ROLLUP"
+  }
+]

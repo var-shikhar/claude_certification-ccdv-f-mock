@@ -20,12 +20,12 @@ built one subject at a time, in this order:
 | 5 | Node.js | `nodejs` | Done (7 Oct 2026): 450 items, 58% Advanced or Expert, verified on Node 24 |
 | 6 | Python | `python` | Done (7 Oct 2026): 450 items, 58% Advanced or Expert, verified on CPython 3.13 |
 | 7 | Next.js | `nextjs` | Done (7 Oct 2026): 450 items, 58% Advanced or Expert, based on the bundled Next.js 16.3 docs |
-| 8 | Docker | `docker` | Next up |
-| 9 | SQL | `sql` | Next up |
-| 10 | Kubernetes | `kubernetes` | Next up |
-| 11 | Git | `git` | Next up |
-| 12 | Data Structures and Algorithms | `dsa` | Next up |
-| 13 | Concurrency and Parallel Processing (senior level) | `concurrency` | Next up |
+| 8 | Docker | `docker` | Done (7 Oct 2026): 450 items, based on the official Docker docs |
+| 9 | SQL | `sql` | Done (7 Oct 2026): 450 items, run on PostgreSQL 18 and SQLite |
+| 10 | Kubernetes | `kubernetes` | Done (7 Oct 2026): 450 items, based on kubernetes.io |
+| 11 | Git & GitHub | `vcs` | Done (7 Oct 2026): 450 items, checked against real Git 2.55 |
+| 12 | Data Structures and Algorithms | `dsa` | Done (7 Oct 2026): 450 items, code run on Python 3.13 |
+| 13 | Concurrency and Parallel Processing (senior level) | `concurrency` | Done (7 Oct 2026): 450 items, two-thirds Advanced or Expert |
 | … | Further subjects (AWS, Linux, networking, …) | | Later |
 
 Subjects 8–13 were added to the pipeline on 7 October 2026. Each one follows
@@ -38,6 +38,8 @@ locks and lock-free techniques, memory models and visibility, deadlock,
 livelock and starvation, the actor model, async I/O, multiprocessing and
 worker pools, parallel algorithms, and the concurrency models of Go, Java,
 Python and Node.js.
+
+The Git & GitHub exam uses the id `vcs` because tooling in this repo treats paths containing "git" specially.
 
 Each bank uses the standard layout under `content/exams/<id>/`: `exam.json`
 with the blueprint and four levels, `questions/`, and `study/`. It must pass
@@ -53,19 +55,19 @@ under `roadmaps/<name>/content/`.
 
 | Subject | roadmap.sh roadmap | Topics | Coverage |
 |---|---|---|---|
-| System Design | `system-design` | 147 | To audit |
-| JavaScript | `javascript` | 126 | To audit |
-| TypeScript | `typescript` | 93 | To audit |
-| React | `react` | 83 | To audit |
-| Node.js | `nodejs` | 113 | To audit |
-| Python | `python` | 87 | To audit |
-| Next.js | `nextjs` | 94 | To audit |
-| Docker | `docker` | 56 | Use as the blueprint when writing |
-| SQL | `sql` | 112 | Use as the blueprint when writing |
-| Kubernetes | `kubernetes` | 67 | Use as the blueprint when writing |
-| Git | `git-github` | 155 | Use as the blueprint when writing |
-| DSA | `datastructures-and-algorithms` | 107 | Use as the blueprint when writing |
-| Concurrency | none (parts of `computer-science` and `backend`) | — | Use as the blueprint when writing |
+| System Design | `system-design` | 147 | 77% → 100% (+37 questions) |
+| JavaScript | `javascript` | 126 | 83% → 100% (+48 questions) |
+| TypeScript | `typescript` | 93 | 91% → 100% (+29 questions) |
+| React | `react` | 83 | 53% → 91% (+39 questions) |
+| Node.js | `nodejs` | 113 | 86% → 100% (+27 questions) |
+| Python | `python` | 87 | 74% → 95% (+35 questions) |
+| Next.js | `nextjs` | 94 | 71% → 98% (+44 questions) |
+| Docker | `docker` | 56 | Written from the roadmap |
+| SQL | `sql` | 112 | Written from the roadmap |
+| Kubernetes | `kubernetes` | 67 | Written from the roadmap |
+| Git & GitHub | `git-github` | 155 | Written from the roadmap |
+| DSA | `datastructures-and-algorithms` | 107 | Written from the roadmap |
+| Concurrency | none (parts of `computer-science` and `backend`) | — | Written from those roadmaps |
 
 Audit steps:
 1. Pull each roadmap's topic list.

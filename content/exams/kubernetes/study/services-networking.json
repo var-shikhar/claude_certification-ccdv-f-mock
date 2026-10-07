@@ -1,0 +1,33 @@
+{
+  "services-networking": {
+    "summary": "Every Pod gets a routable IP from the CNI plugin; Services add a stable virtual IP and DNS name in front of a changing set of ready Pods, and Ingress or Gateway API route external HTTP traffic to them.",
+    "points": [
+      "Service types stack: ClusterIP (default, internal) ⊂ NodePort (30000–32767 on every node) ⊂ LoadBalancer (cloud LB in front). ExternalName is only a DNS CNAME, and headless (`clusterIP: None`) returns Pod IPs directly.",
+      "Endpoints come from the selector plus readiness: Pods must match every selector label and be Ready. A named `targetPort` is resolved per Pod.",
+      "kube-proxy balances per connection (iptables or nftables; IPVS is deprecated since v1.35), so long-lived HTTP/2 or gRPC connections pin to one Pod unless you balance at L7.",
+      "`externalTrafficPolicy: Cluster` SNATs and may add a hop; `Local` preserves client IPs but drops traffic on nodes without local Pods and splits load per node.",
+      "DNS: `<svc>.<ns>.svc.cluster.local`; bare names resolve only in your own namespace. `ndots:5` makes external names try every search domain first.",
+      "Ingress needs a controller and `ingressClassName`; `pathType: Prefix` matches whole path elements. Gateway API (GatewayClass, Gateway, HTTPRoute, ReferenceGrant) is the role-oriented successor, and Ingress NGINX was retired in March 2026.",
+      "Pods are non-isolated until a NetworkPolicy selects them; a default-deny egress policy also blocks DNS on port 53."
+    ],
+    "traps": [
+      "ClusterIPs often don't answer ping: test with the real protocol and port.",
+      "hostNetwork Pods need `dnsPolicy: ClusterFirstWithHostNet` to use cluster DNS.",
+      "Endpoint removal and SIGTERM happen in parallel: add a short `preStop` delay or drain on SIGTERM to avoid 502s during rollouts."
+    ],
+    "docs": [
+      {
+        "title": "Service",
+        "url": "https://kubernetes.io/docs/concepts/services-networking/service/"
+      },
+      {
+        "title": "Virtual IPs and Service Proxies",
+        "url": "https://kubernetes.io/docs/reference/networking/virtual-ips/"
+      },
+      {
+        "title": "DNS for Services and Pods",
+        "url": "https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/"
+      }
+    ]
+  }
+}

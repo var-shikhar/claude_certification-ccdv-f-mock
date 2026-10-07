@@ -1,0 +1,1637 @@
+[
+  {
+    "id": "SQL-SUB-001",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this return in PostgreSQL when no employee has `id = 999`?\n\n```sql\nSELECT (SELECT name FROM emp WHERE id = 999) AS n;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Zero rows, because the subquery found nothing",
+        "why": "The outer SELECT has no FROM and no filter, so it always produces exactly one row."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "One row whose `n` is NULL",
+        "why": "A scalar subquery that returns no rows evaluates to NULL; the outer query still returns its single row."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "An error: the subquery returned no rows",
+        "why": "Only more than one row is an error for a scalar subquery; zero rows simply yields NULL."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "One row whose `n` is an empty string",
+        "why": "SQL has no implicit empty-string default; the missing value is NULL."
+      }
+    ],
+    "explanation": "A scalar subquery (one used where a single value is expected) yields NULL when it returns zero rows and raises an error when it returns more than one. The outer `SELECT` without `FROM` always produces exactly one row, so the result is a single row with `n = NULL`.",
+    "reference": "PostgreSQL docs: Scalar Subqueries"
+  },
+  {
+    "id": "SQL-SUB-002",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "How many rows does this query return? Type a number.\n\n```sql\nSELECT x FROM (VALUES (1), (1), (2)) AS t(x)\nUNION\nSELECT 2;\n```",
+    "options": [],
+    "accepted": [
+      "2"
+    ],
+    "explanation": "`UNION` removes duplicate rows from the combined result, not just between the two branches. The inputs are 1, 1, 2 and 2, so the distinct result is {1, 2}: two rows. `UNION ALL` would have returned all four.",
+    "reference": "PostgreSQL docs: Combining Queries (UNION, INTERSECT, EXCEPT)"
+  },
+  {
+    "id": "SQL-SUB-003",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "A common table expression defined in a `WITH` clause can be referenced by later statements in the same session, like a temporary table.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "A CTE belongs to the single statement it is attached to and disappears when that statement ends."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: a CTE is scoped to one statement. Use a temporary table or a view if several statements need the result."
+      }
+    ],
+    "explanation": "A `WITH` query is a named subquery that exists only for the statement it prefixes. A temporary table lasts for the session (or transaction), and a view persists in the schema. Referencing a CTE name from a later statement fails with \"relation does not exist\".",
+    "reference": "PostgreSQL docs: WITH Queries (Common Table Expressions)"
+  },
+  {
+    "id": "SQL-SUB-004",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Tables `customers(id, name, email)` with ids 1, 2, 3, and `orders(order_id, customer_id, amount)`:\n\n| order_id | customer_id |\n|---|---|\n| 10 | 1 |\n| 11 | 1 |\n| 12 | 1 |\n| 13 | NULL |\n\nWhich query lists the customers that have at least one order?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`SELECT * FROM customers WHERE id IN (SELECT customer_id FROM orders);`",
+        "why": "IN keeps a customer when its id appears anywhere in the subquery result, and returns each customer once."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`SELECT * FROM customers WHERE id = (SELECT customer_id FROM orders);`",
+        "why": "With `=` the subquery must return at most one row; here it returns four, so the query errors."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`SELECT * FROM customers WHERE EXISTS (SELECT customer_id FROM orders);`",
+        "why": "This EXISTS is not correlated to the customer, so it is true for every row and returns all customers."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`SELECT * FROM customers WHERE id NOT IN (SELECT customer_id FROM orders);`",
+        "why": "NOT IN asks the opposite question, and with the NULL customer_id it returns no rows at all."
+      }
+    ],
+    "explanation": "`IN (subquery)` is a semi-join: each outer row is kept once if a match exists. `=` with a multi-row subquery raises an error, and an EXISTS subquery must be correlated (`WHERE orders.customer_id = customers.id`) to test each customer.",
+    "reference": "PostgreSQL docs: Subquery Expressions (IN)"
+  },
+  {
+    "id": "SQL-SUB-005",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `emp`:\n\n| id | name | dept | salary | manager_id |\n|---|---|---|---|---|\n| 1 | Ana | Eng | 300 | NULL |\n| 2 | Bo | Eng | 300 | 1 |\n| 3 | Cy | Eng | 200 | 1 |\n| 4 | Di | Ops | 100 | 2 |\n| 5 | Ed | Ops | 150 | 4 |\n| 6 | Fay | Sales | 120 | 3 |\n\nWhat happens when you run this?\n\n```sql\nSELECT (SELECT salary FROM emp WHERE dept = 'Eng') AS s;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It returns 300, the salary of the first matching row",
+        "why": "There is no \"first row\" rule for scalar subqueries; SQL refuses to guess which value you meant."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It returns three rows, one for each Eng salary",
+        "why": "A subquery in the SELECT list must produce one value; it cannot multiply the outer row."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "An error: the subquery returns more than one row",
+        "why": "Three Eng rows match, and a scalar subquery may return at most one row."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It returns NULL because the result is ambiguous",
+        "why": "NULL is only the result when the subquery returns zero rows."
+      }
+    ],
+    "explanation": "PostgreSQL raises `more than one row returned by a subquery used as an expression`. Fix it by making the subquery return one value, for example with an aggregate (`max(salary)`), a narrower filter, or `LIMIT 1` with an `ORDER BY` that states which row you want.",
+    "reference": "PostgreSQL docs: Scalar Subqueries"
+  },
+  {
+    "id": "SQL-SUB-006",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each subquery with the kind of subquery it is.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Scalar subquery"
+      },
+      {
+        "id": "B",
+        "text": "Row subquery"
+      },
+      {
+        "id": "C",
+        "text": "Table subquery (derived table)"
+      },
+      {
+        "id": "D",
+        "text": "Column subquery"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`SELECT name, (SELECT max(salary) FROM emp) FROM emp`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`WHERE (dept, salary) = (SELECT dept, salary FROM emp WHERE id = 3)`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`SELECT * FROM (SELECT dept, avg(salary) FROM emp GROUP BY dept) AS d`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`WHERE id IN (SELECT manager_id FROM emp)`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Subqueries are classified by the shape of their result: one value (scalar), one row of several values (row), one column of many rows (used with IN/ANY/ALL), or a whole table (a derived table in FROM). The shape decides where the subquery may appear and what errors it can raise.",
+    "reference": "PostgreSQL docs: Subquery Expressions"
+  },
+  {
+    "id": "SQL-SUB-007",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `emp`:\n\n| id | name | dept | salary | manager_id |\n|---|---|---|---|---|\n| 1 | Ana | Eng | 300 | NULL |\n| 2 | Bo | Eng | 300 | 1 |\n| 3 | Cy | Eng | 200 | 1 |\n| 4 | Di | Ops | 100 | 2 |\n| 5 | Ed | Ops | 150 | 4 |\n| 6 | Fay | Sales | 120 | 3 |\n\nWhat does this return?\n\n```sql\nSELECT max(salary)\nFROM emp\nWHERE salary < (SELECT max(salary) FROM emp);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "300, because two employees earn the top salary",
+        "why": "Every 300 is excluded by `salary < 300`, so 300 cannot be returned."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "200, the second-highest distinct salary",
+        "why": "The subquery finds 300; the outer max over salaries below 300 is 200."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "150, the second-highest salary outside Eng",
+        "why": "The query does not filter by department; Cy in Eng earns 200."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "NULL, because the maximum salary is tied",
+        "why": "Ties at the top are filtered out together, leaving 200 and below."
+      }
+    ],
+    "explanation": "This is the classic \"second highest salary\" query. The subquery returns the top salary (300); the outer query takes the maximum of everything strictly below it. Because it compares values, ties at the top are skipped and the result is the second-highest distinct salary, 200.",
+    "reference": "PostgreSQL docs: Scalar Subqueries"
+  },
+  {
+    "id": "SQL-SUB-008",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two parts are required to write a recursive CTE in PostgreSQL? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The `RECURSIVE` keyword after `WITH`",
+        "why": "PostgreSQL requires `WITH RECURSIVE` before a CTE may refer to itself."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A non-recursive term, then `UNION` or `UNION ALL`, then a recursive term",
+        "why": "The anchor seeds the result and the recursive term reads the rows produced so far."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A `LIMIT` clause to stop the recursion",
+        "why": "Recursion stops when the recursive term returns no new rows; LIMIT is optional."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An `ORDER BY` inside the recursive term",
+        "why": "Ordering is not required; output order is unspecified unless the outer query sorts."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "A primary key on the table being traversed",
+        "why": "Recursive CTEs work on any rows, with or without keys."
+      }
+    ],
+    "explanation": "The shape is `WITH RECURSIVE name AS (anchor UNION [ALL] recursive_term) SELECT … FROM name`. The anchor runs once; the recursive term runs repeatedly against the rows from the previous step until it produces nothing new. Termination comes from the data or a WHERE condition, not from LIMIT.",
+    "reference": "PostgreSQL docs: Recursive Queries"
+  },
+  {
+    "id": "SQL-SUB-009",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Tables `customers(id, name, email)` with ids 1, 2, 3, and `orders(order_id, customer_id, amount)`:\n\n| order_id | customer_id |\n|---|---|\n| 10 | 1 |\n| 11 | 1 |\n| 12 | 1 |\n| 13 | NULL |\n\nHow many rows does this return?\n\n```sql\nSELECT id FROM customers\nWHERE id NOT IN (SELECT customer_id FROM orders);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Two rows: customers 2 and 3",
+        "why": "That is the intended answer, but the NULL in the subquery changes every comparison."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "One row: customer 2 only",
+        "why": "Nothing singles out customer 2; customers 2 and 3 are treated the same."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Zero rows",
+        "why": "For 2 and 3, `NOT IN (1, NULL)` evaluates to NULL, which is not true."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An error, because the subquery contains NULL",
+        "why": "NULLs in a subquery are legal; they only change the logic."
+      }
+    ],
+    "explanation": "`x NOT IN (1, NULL)` means `x <> 1 AND x <> NULL`. The second comparison is always NULL, so the whole condition is either false or NULL, never true. One NULL in the subquery therefore makes `NOT IN` return no rows. Use `NOT EXISTS`, or filter `WHERE customer_id IS NOT NULL` inside the subquery.",
+    "reference": "PostgreSQL docs: Subquery Expressions (NOT IN)"
+  },
+  {
+    "id": "SQL-SUB-010",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Tables `customers(id, name, email)` with ids 1, 2, 3, and `orders(order_id, customer_id, amount)`:\n\n| order_id | customer_id |\n|---|---|\n| 10 | 1 |\n| 11 | 1 |\n| 12 | 1 |\n| 13 | NULL |\n\nWhat does this return?\n\n```sql\nSELECT id FROM customers c\nWHERE NOT EXISTS (\n  SELECT 1 FROM orders o WHERE o.customer_id = c.id\n)\nORDER BY id;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Zero rows, for the same reason NOT IN fails here",
+        "why": "NOT EXISTS only checks whether matching rows exist, so the NULL row never matches anything."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Customers 2 and 3",
+        "why": "Neither has an order whose customer_id equals its id, so both are kept."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Customer 1 only",
+        "why": "Customer 1 has orders, so NOT EXISTS is false for it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Customers 1, 2 and 3",
+        "why": "The correlation filters each customer; only those without orders remain."
+      }
+    ],
+    "explanation": "`NOT EXISTS` is NULL-safe: the correlated subquery returns zero rows for customers 2 and 3 (`NULL = 2` is not true), so NOT EXISTS is true for them. That is why NOT EXISTS is the recommended anti-join and why PostgreSQL can plan it as a hash anti-join.",
+    "reference": "PostgreSQL docs: Subquery Expressions (EXISTS)"
+  },
+  {
+    "id": "SQL-SUB-011",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "How many rows does this return? Type a number.\n\n```sql\nSELECT 1 UNION SELECT 1 UNION ALL SELECT 1;\n```",
+    "options": [],
+    "accepted": [
+      "2"
+    ],
+    "explanation": "Set operators of the same precedence are evaluated left to right, so this is `(SELECT 1 UNION SELECT 1) UNION ALL SELECT 1`. The UNION collapses the first two into one row; UNION ALL then appends the third without removing duplicates, giving two rows.",
+    "reference": "PostgreSQL docs: Combining Queries"
+  },
+  {
+    "id": "SQL-SUB-012",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two statements about derived tables (subqueries in FROM) are true in PostgreSQL 17? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The alias is optional: `SELECT count(*) FROM (SELECT 1)` runs",
+        "why": "Since PostgreSQL 16 a subquery in FROM no longer needs an alias."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "They can refer to earlier FROM items only when marked `LATERAL`",
+        "why": "Without LATERAL, a derived table cannot see columns of other FROM items."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "They cannot contain `ORDER BY` or `LIMIT`",
+        "why": "Both are allowed and useful, for example to keep the top N rows."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "They are always materialized to a temporary table first",
+        "why": "The planner usually flattens derived tables into the outer query."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "They remain available to later statements in the session",
+        "why": "A derived table exists only within the query that defines it."
+      }
+    ],
+    "explanation": "PostgreSQL 16 made the alias on a FROM subquery optional (older versions error with \"subquery in FROM must have an alias\", as other engines still do). A derived table is planned like part of the outer query, may use ORDER BY and LIMIT, and needs `LATERAL` to reference columns from tables listed before it.",
+    "reference": "PostgreSQL docs: Table Expressions (Subqueries in FROM)"
+  },
+  {
+    "id": "SQL-SUB-013",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two statements about `UNION` queries in PostgreSQL are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A final `ORDER BY` sorts the combined result, not the last branch",
+        "why": "ORDER BY at the end applies to the whole UNION; wrap a branch in parentheses to sort it alone."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Result column names come from the first SELECT",
+        "why": "`SELECT 1 AS a UNION SELECT 2 AS b` produces a column named `a`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`SELECT 1 AS a ORDER BY a UNION SELECT 2` is valid",
+        "why": "An unparenthesized ORDER BY before UNION is a syntax error."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Columns are matched by name, so their order may differ",
+        "why": "Columns are matched by position; names in later branches are ignored."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`SELECT 1 UNION SELECT 'a'` returns the rows 1 and a",
+        "why": "PostgreSQL resolves the column type as integer and fails to cast `'a'`."
+      }
+    ],
+    "explanation": "UNION branches must have the same number of columns with compatible types, matched by position; names come from the first branch. A trailing ORDER BY/LIMIT applies to the combined result. PostgreSQL rejects `SELECT 1 UNION SELECT 'a'` with \"invalid input syntax for type integer\", while SQLite accepts it because of its dynamic typing.",
+    "reference": "PostgreSQL docs: Combining Queries; UNION, CASE and Related Constructs"
+  },
+  {
+    "id": "SQL-SUB-014",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Tables `customers(id, name, email)` with ids 1, 2, 3, and `orders(order_id, customer_id, amount)`:\n\n| order_id | customer_id |\n|---|---|\n| 10 | 1 |\n| 11 | 1 |\n| 12 | 1 |\n| 13 | NULL |\n\nHow many rows does each query return?\n\n```sql\n-- Q1\nSELECT c.* FROM customers c WHERE c.id IN (SELECT customer_id FROM orders);\n-- Q2\nSELECT c.* FROM customers c JOIN orders o ON o.customer_id = c.id;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Q1: 3, Q2: 3",
+        "why": "Q1 is a semi-join and never repeats a customer, so it cannot return 3."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Q1: 1, Q2: 3",
+        "why": "IN keeps customer 1 once; the join repeats it for each of its three orders."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Q1: 1, Q2: 1",
+        "why": "An inner join returns one row per matching pair, so customer 1 appears three times."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Q1: 2, Q2: 4",
+        "why": "The order with a NULL customer_id matches no customer in either query."
+      }
+    ],
+    "explanation": "`IN` and `EXISTS` are semi-joins: an outer row is kept once no matter how many matches exist. A join returns one row per matching pair, so a customer with three orders appears three times. Replacing IN with a join and then adding DISTINCT is a common source of slow queries and wrong counts.",
+    "reference": "PostgreSQL docs: Subquery Expressions; Joined Tables"
+  },
+  {
+    "id": "SQL-SUB-015",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the steps PostgreSQL uses to evaluate a `WITH RECURSIVE` query in order.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Evaluate the non-recursive term and place its rows in the result and in a working table"
+      },
+      {
+        "id": "B",
+        "text": "Evaluate the recursive term, substituting the working table for the self-reference"
+      },
+      {
+        "id": "C",
+        "text": "Add the new rows to the result (discarding duplicates for UNION) and make them the new working table"
+      },
+      {
+        "id": "D",
+        "text": "Repeat until the recursive term produces no new rows, then return the accumulated result"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "explanation": "This is the documented algorithm. The important detail is that each iteration only sees the working table, the rows produced by the previous iteration, not the whole result so far. With UNION, rows that duplicate earlier result rows are discarded, which is what lets some cyclic queries terminate.",
+    "reference": "PostgreSQL docs: Recursive Queries (Recursive Query Evaluation)"
+  },
+  {
+    "id": "SQL-SUB-016",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this return?\n\n```sql\nWITH RECURSIVE t(n) AS (\n  SELECT 1\n  UNION ALL\n  SELECT n + 1 FROM t WHERE n < 5\n)\nSELECT sum(n) FROM t;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "10",
+        "why": "That sums 1 to 4; the row for 5 is produced from the row where n = 4."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "15",
+        "why": "The CTE yields 1, 2, 3, 4, 5, and their sum is 15."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "21",
+        "why": "That would include 6, but `n < 5` stops at the row with n = 5."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An error, because the recursion has no LIMIT",
+        "why": "The WHERE condition ends the recursion when it returns no rows."
+      }
+    ],
+    "explanation": "The anchor produces 1. Each step adds n + 1 for rows where n < 5: 2, 3, 4, 5. From the row 5 the condition fails, the recursive term returns nothing, and recursion stops. The sum of 1 to 5 is 15. The same result is checked on PostgreSQL 18 and SQLite.",
+    "reference": "PostgreSQL docs: Recursive Queries"
+  },
+  {
+    "id": "SQL-SUB-017",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Which of these statements fails?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`WITH a AS (SELECT 1 AS x), b AS (SELECT x + 1 AS y FROM a) SELECT * FROM b;`",
+        "why": "A later CTE may reference an earlier one; this returns 2."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`WITH b AS (SELECT * FROM a), a AS (SELECT 1 AS x) SELECT * FROM b;`",
+        "why": "A non-recursive CTE can only see CTEs defined before it, so `a` does not exist yet."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`WITH a AS (SELECT 1 AS x) SELECT * FROM a JOIN a AS a2 USING (x);`",
+        "why": "The main query may reference a CTE several times; this returns one row."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`WITH a AS (SELECT 1 AS x) SELECT (SELECT x FROM a) + 1;`",
+        "why": "A CTE is visible inside subqueries of the main statement."
+      }
+    ],
+    "explanation": "In a plain `WITH` list, each CTE can reference only the CTEs listed before it. Option B fails with `relation \"a\" does not exist`. `WITH RECURSIVE` relaxes the ordering rule, which is one reason it exists even for queries that are not recursive.",
+    "reference": "PostgreSQL docs: WITH Queries"
+  },
+  {
+    "id": "SQL-SUB-018",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two expressions are equivalent to `x IN (SELECT y FROM t)`? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`x = ANY (SELECT y FROM t)`",
+        "why": "IN with a subquery is defined as `= ANY`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`x = SOME (SELECT y FROM t)`",
+        "why": "SOME is a synonym for ANY."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`x = ALL (SELECT y FROM t)`",
+        "why": "ALL requires x to equal every value, which is a different test."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`EXISTS (SELECT y FROM t)`",
+        "why": "Without a correlation to x, this is true whenever t has any row."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`x <> ALL (SELECT y FROM t)`",
+        "why": "That is the definition of NOT IN, the opposite test."
+      }
+    ],
+    "explanation": "`IN (subquery)` is shorthand for `= ANY (subquery)`, and `SOME` is a synonym of `ANY`. `NOT IN` is likewise `<> ALL`, which is why both return no rows when the subquery contains a NULL. SQLite does not support ANY/SOME/ALL, so portable code uses IN or EXISTS.",
+    "reference": "PostgreSQL docs: Subquery Expressions (ANY/SOME, ALL)"
+  },
+  {
+    "id": "SQL-SUB-019",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 2,
+    "type": "match",
+    "select": 1,
+    "stem": "Given `A` with values {1, 1, 2, 3} and `B` with values {2, 3, 3, 4}, match each query with its result.",
+    "options": [
+      {
+        "id": "A",
+        "text": "{1, 2, 3, 4}"
+      },
+      {
+        "id": "B",
+        "text": "Eight rows, duplicates kept"
+      },
+      {
+        "id": "C",
+        "text": "{2, 3}"
+      },
+      {
+        "id": "D",
+        "text": "{1}"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`SELECT v FROM a UNION SELECT v FROM b`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`SELECT v FROM a UNION ALL SELECT v FROM b`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`SELECT v FROM a INTERSECT SELECT v FROM b`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`SELECT v FROM a EXCEPT SELECT v FROM b`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "UNION, INTERSECT and EXCEPT return distinct rows; adding ALL keeps duplicates (EXCEPT ALL and INTERSECT ALL work with counts). EXCEPT is not symmetric: it keeps rows of the left input that are not in the right one.",
+    "reference": "PostgreSQL docs: Combining Queries"
+  },
+  {
+    "id": "SQL-SUB-020",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "Tables `customers(id, name, email)` with ids 1, 2, 3, and `orders(order_id, customer_id, amount)`:\n\n| order_id | customer_id |\n|---|---|\n| 10 | 1 |\n| 11 | 1 |\n| 12 | 1 |\n| 13 | NULL |\n\nWhich three queries correctly return customers 2 and 3, the customers with no orders? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`SELECT id FROM customers c WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id)`",
+        "why": "NOT EXISTS ignores the NULL row and returns 2 and 3."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`SELECT c.id FROM customers c LEFT JOIN orders o ON o.customer_id = c.id WHERE o.customer_id IS NULL`",
+        "why": "Customers without a match get NULLs from orders and are kept."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`SELECT id FROM customers WHERE id NOT IN (SELECT customer_id FROM orders WHERE customer_id IS NOT NULL)`",
+        "why": "Filtering out NULLs inside the subquery makes NOT IN behave."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`SELECT id FROM customers WHERE id NOT IN (SELECT customer_id FROM orders)`",
+        "why": "The NULL customer_id makes every comparison NULL, so it returns nothing."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`SELECT id FROM customers WHERE id <> ALL (SELECT customer_id FROM orders)`",
+        "why": "`<> ALL` is NOT IN under another name and fails the same way."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "`SELECT id FROM customers WHERE id <> ANY (SELECT customer_id FROM orders)`",
+        "why": "This keeps rows that differ from at least one value; it only works here by accident."
+      }
+    ],
+    "explanation": "Anti-joins that are safe with NULLs: `NOT EXISTS`, `LEFT JOIN … WHERE right.key IS NULL`, or `NOT IN` with NULLs filtered out (EXCEPT also works). `NOT IN` and `<> ALL` return nothing when the subquery has a NULL. `<> ANY` happens to return 2 and 3 on this data, but it would also return customer 1 as soon as any order belonged to a different customer, so it does not answer the question.",
+    "reference": "PostgreSQL docs: Subquery Expressions"
+  },
+  {
+    "id": "SQL-SUB-021",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `emp`:\n\n| id | name | dept | salary | manager_id |\n|---|---|---|---|---|\n| 1 | Ana | Eng | 300 | NULL |\n| 2 | Bo | Eng | 300 | 1 |\n| 3 | Cy | Eng | 200 | 1 |\n| 4 | Di | Ops | 100 | 2 |\n| 5 | Ed | Ops | 150 | 4 |\n| 6 | Fay | Sales | 120 | 3 |\n\nWhich employees does this return?\n\n```sql\nSELECT name FROM emp e\nWHERE salary > (\n  SELECT avg(salary) FROM emp e2 WHERE e2.dept = e.dept\n)\nORDER BY name;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Ana and Bo",
+        "why": "Ed also beats his department average: Ops averages 125 and he earns 150."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Ana, Bo and Cy",
+        "why": "Cy earns 200, below the Eng average of about 266.67."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Ana, Bo and Ed",
+        "why": "Eng averages 266.67 (Ana, Bo above), Ops 125 (Ed above), Sales 120 (nobody above)."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Ana, Bo, Ed and Fay",
+        "why": "Fay is the only Sales employee, so she equals her average and is not greater."
+      }
+    ],
+    "explanation": "The subquery is correlated: `e.dept` changes for each outer row, so each employee is compared with the average of their own department. Eng: (300 + 300 + 200) / 3 ≈ 266.67; Ops: 125; Sales: 120. Only Ana, Bo and Ed are strictly above. PostgreSQL can execute such a subquery per row or rewrite it, but the meaning is per outer row.",
+    "reference": "PostgreSQL docs: Subquery Expressions (correlated subqueries)"
+  },
+  {
+    "id": "SQL-SUB-022",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `emp`:\n\n| id | name | dept | salary | manager_id |\n|---|---|---|---|---|\n| 1 | Ana | Eng | 300 | NULL |\n| 2 | Bo | Eng | 300 | 1 |\n| 3 | Cy | Eng | 200 | 1 |\n| 4 | Di | Ops | 100 | 2 |\n| 5 | Ed | Ops | 150 | 4 |\n| 6 | Fay | Sales | 120 | 3 |\n\nThere are no employees in the Legal department. What does this return?\n\n```sql\nSELECT count(*) FROM emp\nWHERE salary > ALL (SELECT salary FROM emp WHERE dept = 'Legal');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "0, because there is nothing to compare against",
+        "why": "For ALL, an empty set means there is no counterexample, so the test passes."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "6, every employee",
+        "why": "`> ALL` over an empty set is true for every row."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "1, the employee with the highest salary",
+        "why": "No maximum is computed; with an empty set each row passes on its own."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "NULL, because the comparison set is empty",
+        "why": "count(*) always returns a number, and ALL over an empty set yields true, not NULL."
+      }
+    ],
+    "explanation": "`x > ALL (S)` is true when no element of S is greater than or equal to x, so it is vacuously true when S is empty. Rewriting it as `x > (SELECT max(salary) …)` is not equivalent: the max of an empty set is NULL, and that version would return 0 rows.",
+    "reference": "PostgreSQL docs: Subquery Expressions (ALL)"
+  },
+  {
+    "id": "SQL-SUB-023",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `emp`:\n\n| id | name | dept | salary | manager_id |\n|---|---|---|---|---|\n| 1 | Ana | Eng | 300 | NULL |\n| 2 | Bo | Eng | 300 | 1 |\n| 3 | Cy | Eng | 200 | 1 |\n| 4 | Di | Ops | 100 | 2 |\n| 5 | Ed | Ops | 150 | 4 |\n| 6 | Fay | Sales | 120 | 3 |\n\nTwo Legal employees are added with salaries 100 and NULL. What does this now return?\n\n```sql\nSELECT count(*) FROM emp\nWHERE salary > ALL (SELECT salary FROM emp WHERE dept = 'Legal');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "6, every employee who earns more than 100",
+        "why": "The NULL makes each comparison unknown, so no row is counted."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "7, including the Legal employee who earns 100",
+        "why": "Even ignoring the NULL, 100 is not greater than 100."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "0",
+        "why": "Each `salary > NULL` is NULL, so ALL is never true."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An error, because the subquery contains NULL",
+        "why": "NULLs are allowed; they only change the result to unknown."
+      }
+    ],
+    "explanation": "`x > ALL (100, NULL)` is `x > 100 AND x > NULL`. The second part is NULL, so the whole condition is NULL or false, never true, and WHERE discards the row. This mirrors the NOT IN trap: a single NULL in the set disables ALL comparisons.",
+    "reference": "PostgreSQL docs: Subquery Expressions (ALL)"
+  },
+  {
+    "id": "SQL-SUB-024",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "How many rows does this return? Type a number.\n\n```sql\nSELECT x FROM (VALUES (1), (1), (2), (3)) AS a(x)\nEXCEPT ALL\nSELECT 3;\n```",
+    "options": [],
+    "accepted": [
+      "3"
+    ],
+    "explanation": "`EXCEPT ALL` subtracts by count: each right-hand row cancels one matching left-hand row. Removing one 3 from {1, 1, 2, 3} leaves 1, 1, 2, three rows. Plain `EXCEPT` would first remove duplicates and return just 1 and 2.",
+    "reference": "PostgreSQL docs: Combining Queries (EXCEPT ALL)"
+  },
+  {
+    "id": "SQL-SUB-025",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `emp`:\n\n| id | name | dept | salary | manager_id |\n|---|---|---|---|---|\n| 1 | Ana | Eng | 300 | NULL |\n| 2 | Bo | Eng | 300 | 1 |\n| 3 | Cy | Eng | 200 | 1 |\n| 4 | Di | Ops | 100 | 2 |\n| 5 | Ed | Ops | 150 | 4 |\n| 6 | Fay | Sales | 120 | 3 |\n\nHow many rows does this return?\n\n```sql\nWITH RECURSIVE sub AS (\n  SELECT id FROM emp WHERE manager_id = 2\n  UNION ALL\n  SELECT e.id FROM emp e JOIN sub s ON e.manager_id = s.id\n)\nSELECT count(*) FROM sub;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "1, only Di, who reports directly to Bo",
+        "why": "The recursive term then adds Ed, who reports to Di."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "2: Di and Ed",
+        "why": "Di reports to Bo; Ed reports to Di; nobody reports to Ed."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "3: Bo, Di and Ed",
+        "why": "The anchor selects people whose manager is 2, so Bo himself is not included."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "5, everyone except Ana",
+        "why": "Only Bo's reporting chain is walked, not the whole tree."
+      }
+    ],
+    "explanation": "The anchor finds Bo's direct reports (Di, id 4). The recursive term finds people managed by anyone already found (Ed, id 5). The next step finds nobody managed by Ed, so recursion stops with two rows. To include the starting manager, seed the anchor with `WHERE id = 2` instead.",
+    "reference": "PostgreSQL docs: Recursive Queries"
+  },
+  {
+    "id": "SQL-SUB-026",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `edges` holds the cycle 1 → 2, 2 → 3, 3 → 1. Which query terminates?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`WITH RECURSIVE r(n) AS (SELECT 1 UNION ALL SELECT e.dst FROM edges e JOIN r ON e.src = r.n) SELECT * FROM r`",
+        "why": "UNION ALL never discards rows, so it walks the cycle forever."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`WITH RECURSIVE r(n) AS (SELECT 1 UNION SELECT e.dst FROM edges e JOIN r ON e.src = r.n) SELECT * FROM r`",
+        "why": "UNION discards the repeated 1, the working table empties and recursion stops."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`WITH RECURSIVE r(n, d) AS (SELECT 1, 0 UNION SELECT e.dst, d + 1 FROM edges e JOIN r ON e.src = r.n) SELECT * FROM r`",
+        "why": "Adding a depth column makes every row unique, so UNION never finds a duplicate."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "None of them; recursive CTEs cannot read cyclic data",
+        "why": "They can; you just need duplicate elimination or cycle detection."
+      }
+    ],
+    "explanation": "With UNION, rows that duplicate any earlier result row are discarded before the next iteration. The query reaches 1, 2, 3, then 1 again, which is dropped, so it ends with three rows. Add a changing column such as depth or a path and every row is new, so UNION no longer stops the loop. Then you need the CYCLE clause or an explicit check.",
+    "reference": "PostgreSQL docs: Recursive Queries (Cycle Detection)"
+  },
+  {
+    "id": "SQL-SUB-027",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "In PostgreSQL 12 or later, which two of these make the planner materialize a non-recursive CTE instead of inlining it into the main query? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The main query references the CTE twice",
+        "why": "A CTE used more than once is computed once and stored by default."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The CTE calls a volatile function such as `random()`",
+        "why": "Volatile CTEs are evaluated once, so they are not inlined."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The main query filters the CTE with `WHERE id = 42`",
+        "why": "A filter on a once-referenced CTE is pushed down and can use an index."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The CTE joins two tables",
+        "why": "Joins inside a side-effect-free CTE do not prevent inlining."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The CTE is written `AS NOT MATERIALIZED`",
+        "why": "That keyword asks for inlining, the opposite."
+      }
+    ],
+    "explanation": "Since PostgreSQL 12, a CTE that is non-recursive, has no side effects (no data modification, no volatile functions) and is referenced once is folded into the main query, so `WHERE id = 42` can use an index. A CTE referenced several times, a volatile one, or one marked `MATERIALIZED` is computed once into a CTE Scan. EXPLAIN shows `CTE Scan` when materialized.",
+    "reference": "PostgreSQL docs: WITH Queries (CTE Materialization)"
+  },
+  {
+    "id": "SQL-SUB-028",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 3,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In PostgreSQL, a data-modifying statement in `WITH`, such as `WITH d AS (DELETE FROM u RETURNING *) SELECT 1`, still runs to completion even if the main query never reads `d`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: data-modifying CTEs are executed exactly once, regardless of whether their output is used."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "Unlike SELECT CTEs, which may be skipped if unused, DELETE/INSERT/UPDATE in WITH always runs fully."
+      }
+    ],
+    "explanation": "The documentation guarantees that data-modifying statements in WITH are executed exactly once and always to completion, independently of how much of their output the main query reads. Running the example deletes every row of `u` while the main query returns just `1`.",
+    "reference": "PostgreSQL docs: Data-Modifying Statements in WITH"
+  },
+  {
+    "id": "SQL-SUB-029",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Why does this query fail, and what fixes it?\n\n```sql\nSELECT c.name, o.amount\nFROM customers c,\n     (SELECT amount FROM orders o\n      WHERE o.customer_id = c.id\n      ORDER BY created_at DESC LIMIT 2) o;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A derived table may not use LIMIT; move it to the outer query",
+        "why": "LIMIT inside a derived table is allowed and needed for top-N per group."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The subquery cannot see `c`; add `LATERAL` before it",
+        "why": "Without LATERAL, a FROM subquery cannot reference earlier FROM items."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The comma join needs an ON clause; switch to JOIN … ON",
+        "why": "The error is about the reference to `c` inside the subquery, not the join syntax."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Both tables are aliased `o`; rename one of them",
+        "why": "The inner `o` is local to the subquery, so the names do not clash."
+      }
+    ],
+    "explanation": "PostgreSQL reports `invalid reference to FROM-clause entry for table \"c\"`. A plain derived table is evaluated independently of other FROM items. Marking it `LATERAL` makes it run per row of `customers`, which is the standard way to fetch the top N rows per group. Use `LEFT JOIN LATERAL (…) ON true` to keep customers with no orders.",
+    "reference": "PostgreSQL docs: LATERAL Subqueries"
+  },
+  {
+    "id": "SQL-SUB-030",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `one` has a single row with `salary = 100`. What do the two queries return?\n\n```sql\n-- Q1\nSELECT DISTINCT salary FROM one ORDER BY salary DESC LIMIT 1 OFFSET 1;\n-- Q2\nSELECT (SELECT DISTINCT salary FROM one ORDER BY salary DESC LIMIT 1 OFFSET 1) AS second;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Q1: no rows; Q2: one row with NULL",
+        "why": "Wrapping the query as a scalar subquery turns \"no row\" into a NULL value."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Q1: one row with NULL; Q2: one row with NULL",
+        "why": "Q1 is a plain query; OFFSET past the end simply yields an empty result."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Q1: no rows; Q2: no rows",
+        "why": "A scalar subquery in the SELECT list always yields one value per outer row."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Q1: no rows; Q2: an error for the empty subquery",
+        "why": "A scalar subquery with zero rows is NULL, not an error."
+      }
+    ],
+    "explanation": "This is why the classic \"second highest salary\" answer wraps the LIMIT/OFFSET query in a scalar subquery: graders often expect a single NULL row when there is no second value. The `DISTINCT` matters too: without it, a tie at the top would make OFFSET 1 return the top salary again.",
+    "reference": "PostgreSQL docs: LIMIT and OFFSET; Scalar Subqueries"
+  },
+  {
+    "id": "SQL-SUB-031",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `emp`:\n\n| id | name | dept | salary | manager_id |\n|---|---|---|---|---|\n| 1 | Ana | Eng | 300 | NULL |\n| 2 | Bo | Eng | 300 | 1 |\n| 3 | Cy | Eng | 200 | 1 |\n| 4 | Di | Ops | 100 | 2 |\n| 5 | Ed | Ops | 150 | 4 |\n| 6 | Fay | Sales | 120 | 3 |\n\nWhat does this return?\n\n```sql\nSELECT name FROM emp\nWHERE (dept, salary) IN (\n  SELECT dept, max(salary) FROM emp GROUP BY dept\n)\nORDER BY name;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Ana, Ed and Fay, one top earner per department",
+        "why": "Both Ana and Bo earn the Eng maximum of 300, and IN keeps every match."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Ana, Bo, Ed and Fay",
+        "why": "Each employee whose (dept, salary) pair equals a department maximum is kept, ties included."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Ana and Bo only",
+        "why": "Ops and Sales also have maxima (Ed, 150; Fay, 120)."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An error: a row value cannot be compared with IN",
+        "why": "Row constructors may be compared with a multi-column subquery."
+      }
+    ],
+    "explanation": "A row comparison `(dept, salary) IN (SELECT dept, max(salary) …)` matches a pair against each row of the subquery. The department maxima are (Eng, 300), (Ops, 150) and (Sales, 120), so the result includes both tied Eng employees. Use a window function or DISTINCT ON if you need exactly one row per department.",
+    "reference": "PostgreSQL docs: Row-wise Comparison"
+  },
+  {
+    "id": "SQL-SUB-032",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this return?\n\n```sql\nWITH RECURSIVE f(a, b) AS (\n  SELECT 0, 1\n  UNION ALL\n  SELECT b, a + b FROM f WHERE b < 20\n)\nSELECT max(a), count(*) FROM f;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "max 8, count 7",
+        "why": "The row (8, 13) still has b < 20, so it produces (13, 21)."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "max 13, count 8",
+        "why": "Rows: (0,1) (1,1) (1,2) (2,3) (3,5) (5,8) (8,13) (13,21)."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "max 21, count 9",
+        "why": "The value 21 appears only in column b; recursion stops at that row."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "max 13, count 7",
+        "why": "The row (13, 21) is produced before the condition fails, so there are eight rows."
+      }
+    ],
+    "explanation": "The WHERE clause is checked on the row being read, not on the row being produced. From (8, 13), b = 13 < 20, so (13, 21) is emitted. From (13, 21), the condition fails and recursion ends. That gives eight rows with max(a) = 13.",
+    "reference": "PostgreSQL docs: Recursive Queries"
+  },
+  {
+    "id": "SQL-SUB-033",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Each customer row needs the date and amount of that customer's latest order, in one pass, keeping customers with no orders. Which two queries do that? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`… FROM customers c LEFT JOIN LATERAL (SELECT created_at, amount FROM orders o WHERE o.customer_id = c.id ORDER BY created_at DESC LIMIT 1) o ON true`",
+        "why": "One lateral lookup returns both columns from the same latest row."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`… FROM customers c LEFT JOIN (SELECT DISTINCT ON (customer_id) customer_id, created_at, amount FROM orders ORDER BY customer_id, created_at DESC) o ON o.customer_id = c.id`",
+        "why": "DISTINCT ON keeps the latest row per customer, then a LEFT JOIN attaches it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`… FROM customers c LEFT JOIN orders o ON o.customer_id = c.id GROUP BY c.id` selecting `max(o.created_at), max(o.amount)`",
+        "why": "The two maxima can come from different orders; the largest amount need not be the latest."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`… FROM customers c CROSS JOIN LATERAL (SELECT created_at, amount FROM orders o WHERE o.customer_id = c.id ORDER BY created_at DESC LIMIT 1) o`",
+        "why": "CROSS JOIN LATERAL drops customers whose subquery returns no row."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`… FROM customers c JOIN LATERAL (SELECT created_at, amount FROM orders o WHERE o.customer_id = c.id ORDER BY created_at DESC LIMIT 1) o ON true`",
+        "why": "An inner lateral join also removes customers without orders."
+      }
+    ],
+    "explanation": "Two correlated scalar subqueries (one for the date, one for the amount) repeat the same lookup and can even pick different rows on ties. `LEFT JOIN LATERAL … LIMIT 1 ON true` fetches the whole latest row once per customer, and `DISTINCT ON` precomputes the latest row per customer. The GROUP BY version mixes values from different orders: for customer 1 it reports the latest date with an amount of 70, from an older order.",
+    "reference": "PostgreSQL docs: LATERAL Subqueries; SELECT DISTINCT ON"
+  },
+  {
+    "id": "SQL-SUB-034",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `edges` holds the cycle 1 → 2 → 3 → 1. This query tracks depth, so UNION cannot stop it. What does adding the `CYCLE` clause do?\n\n```sql\nWITH RECURSIVE r(n, depth) AS (\n  SELECT 1, 0\n  UNION ALL\n  SELECT e.dst, r.depth + 1 FROM edges e JOIN r ON e.src = r.n\n) CYCLE n SET is_cycle USING path\nSELECT n, depth, is_cycle FROM r;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It stops before revisiting node 1, so it returns 3 rows",
+        "why": "The row that closes the cycle is emitted with is_cycle = true; recursion stops after it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "4 rows; node 1 at depth 3 comes back with is_cycle = true",
+        "why": "CYCLE tracks visited n values in `path`, marks the repeat, and does not recurse from it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It removes rows with duplicate n, keeping only the first visit",
+        "why": "CYCLE flags the repeated row rather than deleting it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It raises an error as soon as a cycle is found",
+        "why": "CYCLE is for terminating cleanly, not for raising errors."
+      }
+    ],
+    "explanation": "The SQL-standard `CYCLE col SET flag USING path` clause (PostgreSQL 14+) maintains an array of visited values, sets the flag when a row repeats one, and stops recursing from flagged rows. The output is (1,0), (2,1), (3,2) and (1,3,true); filter with `WHERE NOT is_cycle` to hide the closing row.",
+    "reference": "PostgreSQL docs: Recursive Queries (Cycle Detection)"
+  },
+  {
+    "id": "SQL-SUB-035",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `t` has rows 1, 2, 3, 4. What does this return?\n\n```sql\nWITH d AS (DELETE FROM t WHERE x < 3 RETURNING *)\nSELECT (SELECT count(*) FROM t) AS seen,\n       (SELECT count(*) FROM d) AS deleted;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "seen = 2, deleted = 2",
+        "why": "The main query does not see the CTE's changes to `t`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "seen = 4, deleted = 2",
+        "why": "All parts of the statement share one snapshot taken before the DELETE."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "seen = 4, deleted = 0",
+        "why": "RETURNING passes the two deleted rows to the main query through `d`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An error: t cannot be read while it is being modified",
+        "why": "Reading and modifying the same table in one WITH statement is allowed."
+      }
+    ],
+    "explanation": "Sub-statements in WITH run concurrently with each other and the main query, all with the same snapshot, so they cannot see one another's effects on the target tables. The only way to pass changed rows on is `RETURNING`. After the statement, `t` really has two rows left.",
+    "reference": "PostgreSQL docs: Data-Modifying Statements in WITH"
+  },
+  {
+    "id": "SQL-SUB-036",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 4,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "`customers.email` is NULL for some rows and `blocked` is empty. `SELECT count(*) FROM customers WHERE email NOT IN (SELECT email FROM blocked)` counts the customers with a NULL email too.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: `NULL NOT IN (empty set)` is true, because there is nothing for NULL to be compared with."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "NULL compared with values is unknown, but with an empty list there are no comparisons, so the result is true."
+      }
+    ],
+    "explanation": "`x NOT IN (empty)` is true for any x, including NULL, because it is an AND over zero comparisons. So when `blocked` is empty every customer is counted. Once `blocked` has even one row, customers with NULL email drop out, because `NULL <> v` is NULL. Verified on PostgreSQL 18 and SQLite.",
+    "reference": "PostgreSQL docs: Subquery Expressions (NOT IN)"
+  },
+  {
+    "id": "SQL-SUB-037",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 4,
+    "type": "fill",
+    "select": 1,
+    "stem": "Table `bom(parent, child, qty)` holds: bike→wheel 2, bike→frame 1, wheel→spoke 36, wheel→hub 1, hub→screw 4, frame→screw 6. How many screws does one bike need? Type a number.\n\n```sql\nWITH RECURSIVE parts(part, qty) AS (\n  SELECT 'bike'::text, 1\n  UNION ALL\n  SELECT b.child, p.qty * b.qty\n  FROM bom b JOIN parts p ON b.parent = p.part\n)\nSELECT sum(qty) FROM parts WHERE part = 'screw';\n```",
+    "options": [],
+    "accepted": [
+      "14"
+    ],
+    "explanation": "Quantities multiply down the tree. Through the wheels: 1 bike × 2 wheels × 1 hub × 4 screws = 8. Through the frame: 1 × 1 × 6 = 6. The two screw rows sum to 14. This is a bill-of-materials explosion, a classic recursive CTE; it uses UNION ALL because the same part legitimately appears on several paths.",
+    "reference": "PostgreSQL docs: Recursive Queries"
+  },
+  {
+    "id": "SQL-SUB-038",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "In PostgreSQL 18, how do these two plans differ for a large `customers` table and an `orders.customer_id` column that is nullable?\n\n```sql\n-- Q1\nSELECT id FROM customers c WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id);\n-- Q2\nSELECT id FROM customers WHERE id NOT IN (SELECT customer_id FROM orders);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both become a Hash Anti Join, because the planner treats them as equivalent",
+        "why": "NOT IN and NOT EXISTS mean different things when NULLs exist, so they cannot share a plan."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Q1 is a Hash Anti Join; Q2 filters with a hashed SubPlan",
+        "why": "NOT IN cannot be turned into an anti-join because of its NULL semantics."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Q1 runs the subquery once per customer; Q2 runs it once",
+        "why": "NOT EXISTS is decorrelated into a join; it is not executed per row."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Both run a nested loop that probes orders once per customer",
+        "why": "The planner chooses hash strategies here; neither is a per-row nested loop."
+      }
+    ],
+    "explanation": "EXPLAIN on PostgreSQL 18 shows `Hash Anti Join` for NOT EXISTS, while NOT IN becomes `Filter: (NOT (ANY (id = (hashed SubPlan 1).col1)))`. The hashed SubPlan must fit in work_mem; if it does not, PostgreSQL falls back to a plain SubPlan rescanned per row, which can be catastrophically slow. That, plus the NULL trap, is why NOT EXISTS is preferred.",
+    "reference": "PostgreSQL docs: Using EXPLAIN; Subquery Expressions"
+  },
+  {
+    "id": "SQL-SUB-039",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which three recursive terms does PostgreSQL reject in `WITH RECURSIVE t(n) AS (SELECT 1 UNION ALL <recursive term>)`? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`SELECT count(*)::int FROM t WHERE n < 3`",
+        "why": "Aggregate functions are not allowed in a recursive query's recursive term."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`SELECT a.n + 1 FROM t a JOIN t b ON a.n = b.n WHERE a.n < 3`",
+        "why": "The recursive reference must not appear more than once."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`SELECT e.id FROM emp e LEFT JOIN t ON e.manager_id = t.n WHERE t.n IS NULL`",
+        "why": "The recursive reference must not appear within an outer join on its nullable side."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`SELECT n + 1 FROM t WHERE n < (SELECT 3)`",
+        "why": "An uncorrelated subquery in the condition is fine."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`(SELECT n + 1 FROM t WHERE n < 3 ORDER BY n)`",
+        "why": "A parenthesized ORDER BY in the recursive term is accepted by PostgreSQL 18."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "`SELECT n + 1 FROM t WHERE n < 3`",
+        "why": "A plain filter on the working table is the standard pattern."
+      }
+    ],
+    "explanation": "The recursive term may reference the CTE once, and not inside an aggregate or on the nullable side of an outer join, because each step must be computable from the working table alone. PostgreSQL 18 reports \"aggregate functions are not allowed in a recursive query's recursive term\", \"recursive reference to query \"t\" must not appear more than once\" and \"…must not appear within an outer join\".",
+    "reference": "PostgreSQL docs: Recursive Queries"
+  },
+  {
+    "id": "SQL-SUB-040",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 4,
+    "type": "order",
+    "select": 1,
+    "stem": "Table `tree(id, parent, name)` holds: root (1), a (2, parent 1), b (3, parent 1), a1 (4, parent 2), b1 (5, parent 3), a2 (6, parent 2). Put the names in the order this query returns them.\n\n```sql\nWITH RECURSIVE t AS (\n  SELECT id, name FROM tree WHERE parent IS NULL\n  UNION ALL\n  SELECT c.id, c.name FROM tree c JOIN t ON c.parent = t.id\n) SEARCH DEPTH FIRST BY id SET ord\nSELECT name FROM t ORDER BY ord;\n```",
+    "options": [
+      {
+        "id": "A",
+        "text": "root"
+      },
+      {
+        "id": "B",
+        "text": "a"
+      },
+      {
+        "id": "C",
+        "text": "a1"
+      },
+      {
+        "id": "D",
+        "text": "a2"
+      },
+      {
+        "id": "E",
+        "text": "b"
+      },
+      {
+        "id": "F",
+        "text": "b1"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "explanation": "`SEARCH DEPTH FIRST BY id SET ord` (PostgreSQL 14+) builds an ordering column holding the path of ids, so sorting by it walks each subtree completely before its next sibling: root, a, a1, a2, b, b1. `SEARCH BREADTH FIRST` would give root, a, b, a1, b1, a2. Without SEARCH and ORDER BY, recursive output order is not guaranteed.",
+    "reference": "PostgreSQL docs: Recursive Queries (Search Order)"
+  },
+  {
+    "id": "SQL-SUB-041",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "`orders` has columns `order_id`, `customer_id` and `amount`, and no column named `id`. What does this return when `customers` has 3 rows and `orders` is not empty?\n\n```sql\nSELECT count(*) FROM customers\nWHERE id IN (SELECT id FROM orders);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "An error: column \"id\" does not exist in orders",
+        "why": "Name resolution falls back to the outer query, so no error is raised."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "0, because no order has a matching id column",
+        "why": "The inner `id` is resolved as customers.id, so every customer matches itself."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "3, every customer",
+        "why": "Inside the subquery, `id` refers to the outer `customers.id`, making the test trivially true."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The number of customers that have at least one order",
+        "why": "That needs `SELECT customer_id`; the typo silently changes the meaning."
+      }
+    ],
+    "explanation": "An unqualified column in a subquery is first looked up in the subquery's own tables, then in the outer query. Here `id` becomes `customers.id`, so the subquery returns the current customer's id once per order row and IN is true for everyone (whenever orders is non-empty). Always qualify columns in subqueries (`o.customer_id`) so a typo fails loudly.",
+    "reference": "PostgreSQL docs: Subquery Expressions; Column References"
+  },
+  {
+    "id": "SQL-SUB-042",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "This report worked in staging, where each customer had at most one order, but fails in production. Why?\n\n```sql\nSELECT c.name,\n       (SELECT o.amount FROM orders o WHERE o.customer_id = c.id) AS amount\nFROM customers c;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Correlated subqueries are disabled for large tables in production",
+        "why": "There is no such limit; the failure depends only on the data."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A customer with several orders makes the subquery return several rows",
+        "why": "The error appears only when a row hits a customer with two or more orders."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Customers without orders produce NULL, which aborts the query",
+        "why": "Zero rows in a scalar subquery give NULL, which is valid."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The subquery must have an alias in the SELECT list",
+        "why": "An alias is optional and unrelated to the runtime error."
+      }
+    ],
+    "explanation": "A correlated scalar subquery is checked per outer row, so the \"more than one row returned by a subquery used as an expression\" error appears only once the data contains such a customer. Fix the intent explicitly: aggregate (`sum(o.amount)`), pick one row with `ORDER BY … LIMIT 1`, or move to a LATERAL join.",
+    "reference": "PostgreSQL docs: Scalar Subqueries"
+  },
+  {
+    "id": "SQL-SUB-043",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "`live` has ids 1, 2, 3; `archive` already contains id 2 and has a primary key on id. What happens?\n\n```sql\nWITH moved AS (\n  DELETE FROM live WHERE id < 3 RETURNING id\n)\nINSERT INTO archive SELECT id FROM moved;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Id 1 is moved; id 2 stays in live because its insert failed",
+        "why": "Statements are atomic; there is no per-row partial success."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Ids 1 and 2 are deleted from live, and only id 1 reaches archive",
+        "why": "The DELETE and INSERT are one statement, so they succeed or fail together."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The statement fails on the duplicate key, and live keeps all three rows",
+        "why": "The unique violation aborts the whole statement, including the DELETE."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Id 2 in archive is overwritten by the moved row",
+        "why": "A plain INSERT never overwrites; that needs ON CONFLICT DO UPDATE."
+      }
+    ],
+    "explanation": "The data-modifying CTE and the INSERT form a single atomic statement. The duplicate key on id 2 raises an error, which rolls back the DELETE as well, so `live` still has 3 rows and `archive` still has 1. To skip conflicts, add `ON CONFLICT (id) DO NOTHING`, but then decide whether the conflicting rows should still be deleted.",
+    "reference": "PostgreSQL docs: Data-Modifying Statements in WITH"
+  },
+  {
+    "id": "SQL-SUB-044",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `g` has edges 1→2, 1→3, 2→4, 3→4, 4→5. How many rows does each version return?\n\n```sql\nWITH RECURSIVE r(n) AS (\n  SELECT 1\n  UNION ALL -- version 2 uses UNION here\n  SELECT g.dst FROM g JOIN r ON g.src = r.n\n)\nSELECT count(*) FROM r;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "UNION ALL: 5, UNION: 5",
+        "why": "UNION ALL reaches node 4 by two paths, and node 5 through both."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "UNION ALL: 7, UNION: 5",
+        "why": "UNION ALL yields 1, 2, 3, 4, 4, 5, 5; UNION keeps each node once."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "UNION ALL: 7, UNION: 6",
+        "why": "UNION drops both the second 4 and the second 5, leaving five rows."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "UNION ALL: 6, UNION: 5",
+        "why": "Both copies of 4 recurse, so node 5 is produced twice."
+      }
+    ],
+    "explanation": "In a diamond-shaped graph, UNION ALL emits a node once per path that reaches it, and every duplicate keeps recursing: 4 appears twice, so 5 appears twice. UNION removes rows that duplicate anything already in the result before the next iteration, so the second 4 never recurses: five rows. On large DAGs this difference can be exponential.",
+    "reference": "PostgreSQL docs: Recursive Queries"
+  },
+  {
+    "id": "SQL-SUB-045",
+    "domain": 2,
+    "skill": "subqueries-ctes",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "What do the two queries return?\n\n```sql\n-- Q1\nWITH r AS (SELECT random() AS v)\nSELECT a.v = b.v AS same FROM r a, r b;\n-- Q2\nSELECT (SELECT random()) = (SELECT random()) AS same;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Q1: true; Q2: almost always false",
+        "why": "The CTE is evaluated once and read twice; each subquery calls random() separately."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Q1: almost always false; Q2: true",
+        "why": "It is the other way round: the CTE is shared, the subqueries are independent."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Both true, because random() is evaluated once per statement",
+        "why": "random() is volatile and is evaluated at each call."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Both almost always false",
+        "why": "The CTE is referenced twice and volatile, so it is materialized once."
+      }
+    ],
+    "explanation": "A CTE referenced twice (and one containing a volatile function) is materialized: computed once, then scanned by each reference, so both sides see the same value. The two scalar subqueries in Q2 are separate expressions, each calling random() once. This is a practical reason to use a CTE when several parts of a query must agree on one volatile value.",
+    "reference": "PostgreSQL docs: WITH Queries (CTE Materialization)"
+  }
+]

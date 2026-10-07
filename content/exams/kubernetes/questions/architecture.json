@@ -1,0 +1,1721 @@
+[
+  {
+    "id": "K8S-ARC-001",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "In a Kubernetes cluster, which component is the only one that reads from and writes to etcd directly?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "kube-scheduler, which stores its binding decisions there",
+        "why": "The scheduler writes bindings through the API server, never to etcd directly."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "kube-apiserver",
+        "why": "Every other component, kubectl included, goes through the API server, which owns all etcd access."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The kubelet on each control-plane node",
+        "why": "Kubelets report status and watch Pods through the API server; they have no etcd credentials."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "kube-controller-manager, for its reconcile loops",
+        "why": "Controllers read and write objects through the API server like any other client."
+      }
+    ],
+    "explanation": "etcd is the cluster's source of truth, and kube-apiserver is its only client. Everything else (scheduler, controllers, kubelets, kubectl) talks to the API server, which validates, authorizes and runs admission control before persisting. That single gateway is why API server availability matters so much.",
+    "reference": "Kubernetes docs: Cluster Architecture"
+  },
+  {
+    "id": "K8S-ARC-002",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A new Pod has been created but has no node assigned yet. Which control-plane component picks the node it will run on?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "kube-controller-manager",
+        "why": "Controllers create Pods (for example from a ReplicaSet) but do not place them on nodes."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The kubelet that has the most free capacity",
+        "why": "Kubelets only run Pods already bound to their node; they do not compete for unscheduled Pods."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "kube-scheduler",
+        "why": "It watches for Pods with no nodeName, filters and scores nodes, then writes a binding."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "kube-proxy on the chosen worker",
+        "why": "kube-proxy programs Service routing rules and has no part in placement."
+      }
+    ],
+    "explanation": "kube-scheduler watches for Pods whose spec.nodeName is empty, filters out nodes that can't run them, scores the rest, and binds the Pod to the best node through the API server. The kubelet on that node then notices the binding and starts the containers.",
+    "reference": "Kubernetes docs: Kubernetes Scheduler"
+  },
+  {
+    "id": "K8S-ARC-003",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "The kubelet runs on every node in the cluster and makes sure the containers described in the Pods assigned to that node are running and healthy.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "This is the kubelet's core job: it is the node agent that turns PodSpecs into running containers via the container runtime."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "The kubelet is exactly the per-node agent that does this; no control-plane component starts containers itself."
+      }
+    ],
+    "explanation": "The kubelet is the node agent. It watches the API server for Pods bound to its node, asks the container runtime (through the CRI) to start their containers, runs probes, and reports status back. It does not manage containers that Kubernetes didn't create.",
+    "reference": "Kubernetes docs: kubelet"
+  },
+  {
+    "id": "K8S-ARC-004",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "Which consistent, highly available key-value store holds all Kubernetes cluster state (objects, their specs and status)? Type its name.",
+    "options": [],
+    "accepted": [
+      "etcd"
+    ],
+    "explanation": "etcd is the backing store for all cluster data. It uses the Raft consensus algorithm, so a majority of members must be available for writes. Back it up: losing etcd without a backup means losing the cluster's state.",
+    "reference": "Kubernetes docs: Operating etcd clusters for Kubernetes"
+  },
+  {
+    "id": "K8S-ARC-005",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each node or control-plane component with its main job.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Runs containers for Pods bound to its node and reports their status",
+        "why": "This is the kubelet."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Maintains Service routing rules (iptables or nftables) on each node",
+        "why": "This is kube-proxy."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Runs built-in reconcile loops such as the ReplicaSet and Node controllers",
+        "why": "This is kube-controller-manager."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Integrates with a cloud API for load balancers, routes and node metadata",
+        "why": "This is cloud-controller-manager."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "kubelet",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "kube-proxy",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "kube-controller-manager",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "cloud-controller-manager",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Node components (kubelet, kube-proxy, container runtime) run on every node. The controller managers run on the control plane: kube-controller-manager bundles the built-in controllers, and cloud-controller-manager holds the cloud-specific ones so core Kubernetes stays provider-neutral.",
+    "reference": "Kubernetes docs: Kubernetes Components"
+  },
+  {
+    "id": "K8S-ARC-006",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "You run `kubectl apply -f deploy.yaml` with `replicas: 3`. What does Kubernetes actually do with the file?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "kubectl starts three containers on the current node, then registers them with the API server",
+        "why": "kubectl never starts containers; it only sends API requests."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It stores the desired state; controllers then work until the actual state matches it",
+        "why": "Kubernetes is declarative: you record intent, and reconcile loops close the gap."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The API server runs a fixed script of steps once and reports success when they finish",
+        "why": "There is no one-off script; controllers keep reconciling for as long as the object exists."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The scheduler reads the file from disk and places three Pods on suitable nodes",
+        "why": "The scheduler only sees objects in the API, never your local files."
+      }
+    ],
+    "explanation": "Kubernetes is declarative. `kubectl apply` sends the desired state to the API server, which stores it in etcd. Controllers then compare desired with observed state and act to close the gap, and they keep doing so: if a Pod dies later, a replacement is created without anyone re-running the command.",
+    "reference": "Kubernetes docs: Objects In Kubernetes"
+  },
+  {
+    "id": "K8S-ARC-007",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A team stores the Git commit SHA on each Deployment and wants `kubectl get deploy -l ...` to filter by it. Where must the value go?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "In an annotation, because annotations are meant for arbitrary metadata",
+        "why": "Annotations hold arbitrary metadata but cannot be used in selectors or -l filters."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "In a label, because only labels can be matched by label selectors",
+        "why": "Selectors (kubectl -l, Service and Deployment selectors) only match labels."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "In metadata.name, since names are the only indexed field",
+        "why": "Names must be unique and aren't meant to carry changing build data."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "In the status field, which kubectl filters on by default",
+        "why": "Status is written by controllers, and kubectl does not filter on it with -l."
+      }
+    ],
+    "explanation": "Labels are identifying key-value pairs that selectors can match. Annotations hold non-identifying metadata (build info, tool config, long text) and can't be selected. A short value like a commit SHA fits within label value limits (63 characters), so it can be a label when you need to filter by it.",
+    "reference": "Kubernetes docs: Labels and Selectors"
+  },
+  {
+    "id": "K8S-ARC-008",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which of these resource types are cluster-scoped rather than namespaced? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Node",
+        "why": "Nodes belong to the whole cluster, not to any namespace."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "PersistentVolume",
+        "why": "PersistentVolumes are cluster-wide storage; the PersistentVolumeClaims that bind them are namespaced."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Namespace",
+        "why": "A Namespace can't live inside another namespace."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "ConfigMap",
+        "why": "ConfigMaps are namespaced and only usable by Pods in the same namespace."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Service",
+        "why": "Services are namespaced; their DNS name includes the namespace."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "PersistentVolumeClaim",
+        "why": "PVCs are namespaced requests for storage, unlike the PVs they bind to."
+      }
+    ],
+    "explanation": "Most workload objects (Pods, Deployments, Services, ConfigMaps, Secrets, PVCs) are namespaced. Cluster-scoped kinds include Nodes, PersistentVolumes, Namespaces, StorageClasses, ClusterRoles and CRDs. `kubectl api-resources --namespaced=false` lists them for your cluster.",
+    "reference": "Kubernetes docs: Namespaces"
+  },
+  {
+    "id": "K8S-ARC-009",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Kubernetes 1.24 removed dockershim. A cluster upgraded from 1.23 used Docker Engine as its container runtime. What has to change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Every image must be rebuilt with Buildah, since Docker-built images stop working",
+        "why": "Docker builds standard OCI images, which any CRI runtime can run unchanged."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Nothing, because the kubelet now talks to Docker Engine through its REST API instead",
+        "why": "The kubelet only speaks CRI; it has no built-in Docker Engine client any more."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Nodes need a CRI runtime such as containerd or CRI-O, or the cri-dockerd adapter",
+        "why": "With dockershim gone, the kubelet needs a CRI-compliant runtime on each node."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Pods must set runtimeClassName: docker so the kubelet can still find Docker",
+        "why": "There is no built-in docker RuntimeClass; RuntimeClass selects among CRI handlers."
+      }
+    ],
+    "explanation": "The kubelet talks to container runtimes through the Container Runtime Interface (CRI). dockershim was an in-tree adapter for Docker Engine, which isn't a CRI runtime, and it was removed in v1.24. Nodes now run containerd or CRI-O directly, or Docker plus the external cri-dockerd adapter. Images built with `docker build` are OCI images and still run fine.",
+    "reference": "Kubernetes docs: Migrating from dockershim"
+  },
+  {
+    "id": "K8S-ARC-010",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 2,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each kubectl command with what it does when the object already exists in the cluster.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Fails with an AlreadyExists error",
+        "why": "This is kubectl create."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Merges your manifest into the live object and keeps fields you never managed",
+        "why": "This is kubectl apply."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Swaps the whole object for your file, dropping fields that are missing from it",
+        "why": "This is kubectl replace."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Changes only the fields named in a patch you supply on the command line",
+        "why": "This is kubectl patch."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "kubectl create -f app.yaml",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "kubectl apply -f app.yaml",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "kubectl replace -f app.yaml",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "kubectl patch deploy app -p '{...}'",
+        "answer": "D"
+      }
+    ],
+    "explanation": "`create` is imperative and refuses to overwrite. `apply` is the declarative workflow: it merges with the live object and only removes fields it previously applied. `replace` sends a full PUT, so fields missing from the file are removed. `patch` changes just what you name.",
+    "reference": "Kubernetes docs: Declarative Management of Kubernetes Objects Using Configuration Files"
+  },
+  {
+    "id": "K8S-ARC-011",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A production cluster has a 3-member etcd cluster. One etcd member's disk fails. What happens to the Kubernetes API?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The API becomes read-only until the failed member is replaced",
+        "why": "Two of three is still a majority, so writes continue normally."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It keeps working: the 2 surviving members are still a majority",
+        "why": "A 3-member cluster tolerates the loss of exactly 1 member."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The API stops entirely, because etcd needs every member to commit",
+        "why": "Raft needs a majority, not all members, to commit writes."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It keeps working, and the cluster would still survive a second failure",
+        "why": "A second failure leaves 1 of 3, which is not a majority, so writes stop."
+      }
+    ],
+    "explanation": "etcd uses Raft, which needs a majority (quorum) of members to commit writes: floor(n/2) + 1. With 3 members the quorum is 2, so the cluster tolerates one failure. Replace the failed member promptly, because a second failure would leave the cluster unable to accept writes.",
+    "reference": "Kubernetes docs: Operating etcd clusters for Kubernetes"
+  },
+  {
+    "id": "K8S-ARC-012",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "You run `kubectl apply` for a new Deployment with 2 replicas. Put these steps in the order they happen.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The API server authenticates, authorizes, runs admission and stores the Deployment in etcd",
+        "why": "Every request passes these checks before it is persisted."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The Deployment controller notices it and creates a ReplicaSet",
+        "why": "Deployments manage ReplicaSets, not Pods directly."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The ReplicaSet controller creates 2 Pods with no node assigned",
+        "why": "New Pods start out unscheduled."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The scheduler binds each Pod to a node",
+        "why": "Binding sets spec.nodeName through the API server."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The kubelet on each chosen node starts the containers via the CRI",
+        "why": "Only now do containers actually run."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "Each step is a separate component reacting to a change in the API: the API server persists the Deployment, the Deployment controller creates a ReplicaSet, the ReplicaSet controller creates Pods, the scheduler binds them, and kubelets start them. No component calls another directly; they all watch the API server.",
+    "reference": "Kubernetes docs: Deployments"
+  },
+  {
+    "id": "K8S-ARC-013",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "On a cluster built with kubeadm, `kubectl get pods -n kube-system` shows kube-apiserver and etcd Pods. How are they actually run?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "By a Deployment in kube-system, so the scheduler can move them between nodes",
+        "why": "The scheduler needs the API server to exist first, so it can't place the API server itself."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It keeps working, since the 2 surviving members still form a majority",
+        "why": "The kubelet reads those files directly, with no API server needed to start them."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "As systemd services, and kubectl shows them through a compatibility shim",
+        "why": "kubeadm runs these components as static Pods, not as systemd units."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "By a DaemonSet that targets nodes labelled as control-plane nodes",
+        "why": "A DaemonSet also needs a working API server and controller manager to start anything."
+      }
+    ],
+    "explanation": "kubeadm writes manifests for kube-apiserver, kube-controller-manager, kube-scheduler and etcd into /etc/kubernetes/manifests. The kubelet runs static Pods straight from that directory, which solves the bootstrap problem. It also creates read-only mirror Pods in the API so you can see them with kubectl; deleting a mirror Pod doesn't stop the static Pod.",
+    "reference": "Kubernetes docs: Create static Pods"
+  },
+  {
+    "id": "K8S-ARC-014",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "In a kubeconfig file, what does a context combine?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A cluster, a node and a container runtime to use for kubectl exec",
+        "why": "Contexts know nothing about nodes or runtimes."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "As static Pods the kubelet runs from /etc/kubernetes/manifests",
+        "why": "Switching context switches all three at once."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A namespace and a set of RBAC roles granted to that namespace",
+        "why": "RBAC lives in the cluster; kubeconfig only holds credentials."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An API server URL and the etcd endpoints behind it",
+        "why": "kubeconfig never points at etcd; clients only reach the API server."
+      }
+    ],
+    "explanation": "A kubeconfig has three lists (clusters, users, contexts) plus current-context. A context ties one cluster to one user and optionally a namespace. `kubectl config use-context prod` switches all three, which is why running a delete in the wrong context is a classic outage.",
+    "reference": "Kubernetes docs: Organizing Cluster Access Using kubeconfig Files"
+  },
+  {
+    "id": "K8S-ARC-015",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "What is the smallest number of etcd members that keeps a cluster writable after any two members fail? Type a number.",
+    "options": [],
+    "accepted": [
+      "5",
+      "five"
+    ],
+    "explanation": "Quorum is floor(n/2) + 1. With 5 members the quorum is 3, so 2 can fail. A 4-member cluster also needs 3 for quorum, so it tolerates only 1 failure, the same as 3 members. That is why etcd clusters use odd sizes.",
+    "reference": "etcd docs: FAQ (cluster size)"
+  },
+  {
+    "id": "K8S-ARC-016",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "You run `kubectl drain node-7 --ignore-daemonsets` before maintenance. Which two things does it do? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Marks node-7 unschedulable, the same as kubectl cordon",
+        "why": "Drain cordons first so no new Pods land on the node."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Evicts the node's Pods through the Eviction API, honoring PodDisruptionBudgets",
+        "why": "Evictions can be refused when a PDB would be violated, which makes drain wait."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Deletes the Node object so the scheduler forgets about it",
+        "why": "The Node object stays; you uncordon it after maintenance."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Stops the kubelet so no containers can restart during maintenance",
+        "why": "Drain never touches the kubelet process or the machine."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Evicts DaemonSet Pods too and stops them from coming back",
+        "why": "--ignore-daemonsets leaves DaemonSet Pods in place, since their controller would recreate them anyway."
+      }
+    ],
+    "explanation": "Drain cordons the node, then evicts its Pods through the Eviction API. PodDisruptionBudgets can block evictions, so drain may pause. DaemonSet Pods are skipped with --ignore-daemonsets. Afterwards run `kubectl uncordon` to make the node schedulable again.",
+    "reference": "Kubernetes docs: Safely Drain a Node"
+  },
+  {
+    "id": "K8S-ARC-017",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer creates a Service of type LoadBalancer on a local kind cluster. Its EXTERNAL-IP stays `<pending>`. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "No controller assigns LoadBalancer IPs on kind without an add-on such as MetalLB",
+        "why": "External IPs for LoadBalancer Services come from a cloud controller or an add-on."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "kind blocks all Services except ClusterIP, so the Service was never actually created",
+        "why": "kind supports every Service type; the object is created, just never given an address."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The Service needs a NodePort as well, and kind cannot open host ports",
+        "why": "LoadBalancer Services get a NodePort automatically; that is not what is missing."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "kind nodes are VMs without network access, so no address can ever be assigned",
+        "why": "kind nodes are Docker containers, and they do have network access."
+      }
+    ],
+    "explanation": "A LoadBalancer Service only gets an external address when something provisions one: the cloud-controller-manager on a cloud, or an add-on like MetalLB or cloud-provider-kind locally. Without one the Service still works as a NodePort/ClusterIP, but EXTERNAL-IP stays pending.",
+    "reference": "kind docs: LoadBalancer"
+  },
+  {
+    "id": "K8S-ARC-018",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "On managed Kubernetes services such as EKS, GKE and AKS, the cloud provider runs and operates the control plane, including etcd, so you do not manage those machines.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "The provider hosts the API server, etcd and controllers; you manage workloads and, usually, worker node pools."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "Managed offerings exist precisely to take control-plane operation, including etcd, off your hands."
+      }
+    ],
+    "explanation": "With managed Kubernetes you get an API endpoint, and the provider handles control-plane availability, etcd backups and control-plane upgrades. You remain responsible for your workloads, configuration and, in most modes, worker node pools and their upgrades.",
+    "reference": "Kubernetes docs: Production environment"
+  },
+  {
+    "id": "K8S-ARC-019",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Which statement about labels and annotations is correct?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Annotations can be used in Service selectors when the value is short",
+        "why": "No selector of any kind reads annotations, whatever their length."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Labels and annotations are interchangeable; the difference is only a naming convention",
+        "why": "Only labels are indexed for selection, so they are not interchangeable."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Selectors only match labels; annotations are metadata for tools, never selected on",
+        "why": "Annotations are for tools and humans, labels are for grouping and selection."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Annotation values must be short, while label values may be arbitrarily large",
+        "why": "It's the reverse: label values are limited to 63 characters, annotations can be much larger."
+      }
+    ],
+    "explanation": "Labels identify objects and drive selection (Deployments, Services, kubectl -l). Annotations store non-identifying metadata such as build info, tool configuration or the last-applied manifest, can be far larger, and can't be selected on.",
+    "reference": "Kubernetes docs: Annotations"
+  },
+  {
+    "id": "K8S-ARC-020",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A namespace has been stuck in `Terminating` for an hour. Its status mentions remaining resources of a custom kind whose operator was uninstalled last week. What is going on?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Namespace deletion waits for every Pod to reach Succeeded first",
+        "why": "Pods are deleted, not waited on to succeed; their phase is not what blocks here."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Those objects have finalizers only the removed operator would clear",
+        "why": "With nobody to clear the finalizers, the objects and the namespace never finish deleting."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "etcd has lost quorum, so the API cannot record the namespace's deletion",
+        "why": "Without quorum no writes would succeed at all, not just this one deletion."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Namespace deletion is asynchronous and always takes several hours",
+        "why": "Deletion normally finishes in seconds once dependent objects are gone."
+      }
+    ],
+    "explanation": "Deleting a namespace deletes everything in it, and an object with finalizers only disappears after those finalizers are removed, normally by the controller that added them. If the operator is gone, nothing clears them, so the objects and the namespace hang. Fix the root cause by reinstalling the operator, or remove the finalizers deliberately once you know the external cleanup isn't needed. Unavailable aggregated APIServices can also block namespace deletion.",
+    "reference": "Kubernetes docs: Finalizers"
+  },
+  {
+    "id": "K8S-ARC-021",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "You run `kubectl delete deployment web` with no extra flags. What happens to its ReplicaSet and Pods?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "They are orphaned and keep running until you delete them by hand",
+        "why": "That is --cascade=orphan, not the default behaviour."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "They're deleted by the garbage collector, following their ownerReferences",
+        "why": "kubectl deletes with background cascading by default."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The Deployment controller first scales them to zero, then deletes itself last",
+        "why": "The Deployment object is removed straight away; dependents are cleaned up afterwards."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "They are deleted only if every Pod is Ready, so nothing is left half-removed",
+        "why": "Readiness has no effect on garbage collection."
+      }
+    ],
+    "explanation": "The ReplicaSet has an ownerReference to the Deployment, and the Pods have ownerReferences to the ReplicaSet. kubectl uses background cascading deletion by default: the owner is deleted immediately and the garbage collector removes dependents afterwards. `--cascade=foreground` deletes dependents first; `--cascade=orphan` leaves them running.",
+    "reference": "Kubernetes docs: Garbage Collection"
+  },
+  {
+    "id": "K8S-ARC-022",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Two scripts each GET the same ConfigMap (resourceVersion \"5012\"), change different keys, and send a full update (PUT) with that resourceVersion. What happens to the second update?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It succeeds and both changes are kept, because the keys are different",
+        "why": "A PUT replaces the whole object; the API server compares resourceVersion, not keys."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It succeeds and silently overwrites the first script's change",
+        "why": "That lost update is exactly what resourceVersion checks prevent."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "It fails with 409 Conflict because the object changed after the read",
+        "why": "After the first update the stored resourceVersion no longer matches \"5012\"."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It waits until the first update has been applied, then succeeds",
+        "why": "The API server rejects stale updates immediately; it never queues them."
+      }
+    ],
+    "explanation": "Kubernetes uses optimistic concurrency. Every write bumps the object's resourceVersion, and an update that carries an old resourceVersion fails with 409 Conflict. The client should re-read and retry, or use a patch, which doesn't need a resourceVersion and touches only the fields it names.",
+    "reference": "Kubernetes docs: API Concepts (resource versions)"
+  },
+  {
+    "id": "K8S-ARC-023",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A custom controller restarts and resumes its watch from a resourceVersion it saved hours ago. The API server answers with HTTP 410 Gone. What should the controller do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Retry the same watch with exponential backoff until the API server accepts it",
+        "why": "That version has been compacted away, so retrying it fails forever."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Do a fresh LIST, then start a new watch from the returned version",
+        "why": "A relist rebuilds its view, since the change history it asked for is gone."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Treat every object it had cached as deleted and recreate them all",
+        "why": "Recreating objects from a stale cache would undo legitimate changes."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Switch to polling with GET requests, because watches are now disabled",
+        "why": "Watches still work; only that old starting point is no longer available."
+      }
+    ],
+    "explanation": "etcd compacts old revisions, so a watch can only resume from a recent resourceVersion. When it is too old, the API server returns 410 Gone (\"too old resource version\"). Clients must relist to get current state and start a new watch from it. client-go informers do this automatically.",
+    "reference": "Kubernetes docs: API Concepts (efficient detection of changes)"
+  },
+  {
+    "id": "K8S-ARC-024",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Your cluster's kube-apiserver runs v1.33. According to the Kubernetes version skew policy, which two statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A kubelet on v1.30 is still supported",
+        "why": "kubelets may be up to three minor versions older than kube-apiserver."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A kubelet must not be newer than the API server, so v1.34 is unsupported",
+        "why": "kubelet must never be newer than kube-apiserver."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "kube-controller-manager may run v1.34 ahead of the API server",
+        "why": "Controller manager and scheduler must not be newer than the API server they talk to."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "kubectl must be on exactly v1.33 to talk to this cluster",
+        "why": "kubectl is supported within one minor version, older or newer."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "A kubelet on v1.29 is supported as long as it is on the latest patch release",
+        "why": "v1.29 is four minors behind, which is outside the skew policy."
+      }
+    ],
+    "explanation": "Since v1.28 the policy lets kubelets be up to three minor versions older than kube-apiserver, but never newer. kube-controller-manager, kube-scheduler and cloud-controller-manager must not be newer than the API server and may be one minor older. kubectl is supported within one minor version either way. That is why upgrades go control plane first, then nodes.",
+    "reference": "Kubernetes docs: Version Skew Policy"
+  },
+  {
+    "id": "K8S-ARC-025",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "You run `kubectl apply --server-side -f deploy.yaml`, but another tool already owns `spec.template.spec.containers[0].image` as a field manager. Your manifest sets a different image. What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Your value wins silently, because the most recent apply always takes over",
+        "why": "Server-side apply detects ownership conflicts instead of overwriting silently."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The API server merges the two values and stores both images in an array",
+        "why": "A scalar field like image has one value; it is never merged into a list."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "It fails with a conflict naming the other manager unless --force-conflicts",
+        "why": "You must explicitly take ownership of a field someone else manages."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The apply is accepted but your image change is ignored without any message",
+        "why": "Server-side apply reports conflicts; it does not drop changes silently."
+      }
+    ],
+    "explanation": "Server-side apply tracks which field manager owns each field (in metadata.managedFields). Applying a different value to a field owned by another manager is a conflict. You can resolve it by forcing (`--force-conflicts` takes ownership), by dropping the field from your manifest, or by agreeing on a single owner.",
+    "reference": "Kubernetes docs: Server-Side Apply"
+  },
+  {
+    "id": "K8S-ARC-026",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A Deployment was created with client-side `kubectl apply` and had the label `team: web`. You delete that label from the YAML and apply again. What happens to the label on the live object?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "It is removed, because the last-applied annotation still lists it",
+        "why": "apply removes fields that were in the last-applied configuration but are now missing."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It stays, because apply only adds or updates fields and never deletes them",
+        "why": "apply does delete fields it previously managed; that is the point of the annotation."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It is removed only if you also pass --prune on the command line",
+        "why": "--prune deletes whole objects missing from a set, not individual fields."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The apply is rejected because labels can't be changed after creation",
+        "why": "Labels are mutable on most objects, including Deployments."
+      }
+    ],
+    "explanation": "Client-side apply stores your last applied manifest in the kubectl.kubernetes.io/last-applied-configuration annotation and does a three-way merge between that annotation, your new file and the live object. A field present last time but missing now is deleted. A field someone else added that was never in your manifest is left alone.",
+    "reference": "Kubernetes docs: Declarative Management of Kubernetes Objects Using Configuration Files"
+  },
+  {
+    "id": "K8S-ARC-027",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "In a self-managed cluster, etcd loses quorum and the API server can no longer write. What happens to applications that were already running?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Every Pod is stopped at once, because kubelets lose their desired state",
+        "why": "Kubelets don't kill running containers just because the API is unavailable."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Running Pods keep serving, but anything needing an API write stops",
+        "why": "Data-plane traffic continues; scheduling, scaling and updates stop."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Kubelets fall back to reading etcd directly and carry on as normal",
+        "why": "Kubelets have no etcd access; they only talk to the API server."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Pods keep running only on control-plane nodes; workers evict theirs",
+        "why": "Workers don't evict Pods because the control plane is unhealthy."
+      }
+    ],
+    "explanation": "Losing etcd quorum takes down the control plane, not the data plane. Existing containers keep running, kubelets still restart crashed containers locally, and existing Service rules keep routing. But nothing that needs an API write works: no new Pods, no scaling, no rollouts, and no rescheduling if a node dies. Restoring quorum (or etcd from backup) is the fix.",
+    "reference": "Kubernetes docs: Operating etcd clusters for Kubernetes"
+  },
+  {
+    "id": "K8S-ARC-028",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 3,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each tool with how it runs Kubernetes.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Runs each Kubernetes node as a Docker container; popular for CI and testing Kubernetes itself",
+        "why": "This is kind."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Starts a local cluster in a VM or container, with built-in addons such as an ingress controller",
+        "why": "This is minikube."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Wraps the lightweight k3s distribution in Docker containers",
+        "why": "This is k3d."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Bootstraps a real cluster on machines you provide, with init and join commands",
+        "why": "This is kubeadm."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "kind",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "minikube",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "k3d",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "kubeadm",
+        "answer": "D"
+      }
+    ],
+    "explanation": "kind (\"Kubernetes in Docker\"), minikube and k3d are for local development and testing. kubeadm is the upstream tool for bootstrapping conformant clusters on real or virtual machines; it sets up the control plane and joins nodes, but leaves networking add-ons and infrastructure to you.",
+    "reference": "Kubernetes docs: Install Tools"
+  },
+  {
+    "id": "K8S-ARC-029",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Which work belongs to the cloud-controller-manager rather than kube-controller-manager?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Recreating Pods when a ReplicaSet has fewer than its desired replicas",
+        "why": "That is the ReplicaSet controller in kube-controller-manager."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Provisioning a cloud load balancer for a LoadBalancer Service",
+        "why": "The service controller in cloud-controller-manager calls the cloud API."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Deciding which node an unscheduled Pod should run on",
+        "why": "That is kube-scheduler."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Running the namespace controller that deletes a namespace's contents",
+        "why": "The namespace controller is part of kube-controller-manager."
+      }
+    ],
+    "explanation": "cloud-controller-manager holds the controllers that talk to a cloud provider: the node controller (node addresses, deleting nodes whose VM is gone), the route controller and the service controller (load balancers). Moving them out of kube-controller-manager lets providers ship their integrations independently.",
+    "reference": "Kubernetes docs: Cloud Controller Manager"
+  },
+  {
+    "id": "K8S-ARC-030",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Kubernetes controllers are level-triggered: they compare desired state with observed state instead of reacting to individual events. Which two consequences follow? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "If a controller misses an event while restarting, it still converges on its next reconcile",
+        "why": "It works from current state, so a missed event doesn't leave things wrong forever."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Deleting one Pod of a 3-replica ReplicaSet by hand makes the controller create a replacement",
+        "why": "Observed 2 ≠ desired 3, so it acts again."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Each event is processed exactly once, so controllers never repeat work",
+        "why": "Reconciles can run many times; actions must be idempotent."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "If you edit a field managed by a controller, the controller keeps your edit as the new desired state",
+        "why": "Desired state lives in the owner's spec; a controller reverts drift from it."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Controllers need a fully ordered event log to rebuild state after a crash",
+        "why": "They only need to read current state, not replay history."
+      }
+    ],
+    "explanation": "Reconcile loops are idempotent and state-based: read desired state, read actual state, act to reduce the difference, repeat. That makes them robust to missed or duplicated events, and it's why manual changes to managed objects get reverted. Write custom controllers the same way: every reconcile should be safe to run any number of times.",
+    "reference": "Kubernetes docs: Controllers"
+  },
+  {
+    "id": "K8S-ARC-031",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Pods in a namespace carry these labels. Which Pods match the selector `env in (prod, staging), tier!=frontend`?\n\n```text\npod-1  env=prod     tier=backend\npod-2  env=staging  tier=frontend\npod-3  env=dev      tier=backend\npod-4  env=prod     (no tier label)\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "pod-1 only, because pod-4 has no tier label to compare",
+        "why": "A != requirement also matches objects that lack the key entirely."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "pod-1 and pod-4",
+        "why": "Both have env in the set, and neither has tier=frontend."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "pod-1, pod-2 and pod-4",
+        "why": "pod-2 has tier=frontend, which the second requirement excludes."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "pod-1, pod-3 and pod-4",
+        "why": "pod-3 has env=dev, which isn't in the set."
+      }
+    ],
+    "explanation": "Comma-separated requirements are ANDed. `env in (prod, staging)` keeps pods 1, 2 and 4. `tier!=frontend` drops pod-2, and it matches pod-4 because \"not equal\" is also satisfied when the label is absent. Use `tier,tier!=frontend` if the key must exist.",
+    "reference": "Kubernetes docs: Labels and Selectors"
+  },
+  {
+    "id": "K8S-ARC-032",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the steps of adding a worker node to a kubeadm cluster in order.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "On a control-plane node, create a bootstrap token and print the join command",
+        "why": "kubeadm token create --print-join-command does both."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "On the new machine, run kubeadm join with the token and the CA cert hash",
+        "why": "The hash lets the node verify it is talking to the right control plane."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The kubelet uses the token to request a client certificate (TLS bootstrapping)",
+        "why": "The bootstrap token is only used to get real credentials."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The certificate is approved, and the kubelet registers its Node object",
+        "why": "The node now appears in kubectl get nodes."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The Node becomes Ready once its container runtime and CNI networking are working",
+        "why": "Nodes stay NotReady until the network plugin is running."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "kubeadm join uses a short-lived bootstrap token plus the CA public key hash to establish trust. The kubelet then performs TLS bootstrapping to get its own client certificate and registers the Node. The node only turns Ready when the container runtime and the CNI plugin are healthy.",
+    "reference": "Kubernetes docs: kubeadm join"
+  },
+  {
+    "id": "K8S-ARC-033",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 3,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "You can filter `kubectl get` results with `--field-selector` on any field of an object, for example `spec.replicas=3` on Deployments.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Only a small set of fields per resource type supports field selectors."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Field selectors work on a limited, per-resource list such as metadata.name, metadata.namespace and, for Pods, status.phase or spec.nodeName."
+      }
+    ],
+    "explanation": "Field selectors are not general queries. Every resource supports metadata.name and metadata.namespace, and some types add specific fields (Pods support status.phase and spec.nodeName, for example). An unsupported field returns an error. For anything else, filter the output yourself, for example with -o json and jq.",
+    "reference": "Kubernetes docs: Field Selectors"
+  },
+  {
+    "id": "K8S-ARC-034",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "To make the control plane \"highly available\", a team adds a second control-plane node to a kubeadm cluster with stacked etcd, giving 2 etcd members. What have they actually done to fault tolerance?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Doubled it, since either node can now serve the API on its own",
+        "why": "Serving the API needs a working etcd quorum, which two members can't keep through a failure."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Kept it the same as one node, but at least reads can be served from either",
+        "why": "A 2-member etcd that loses one member also loses quorum, so it can't even serve consistent reads."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Made it worse: either node failing now breaks etcd quorum",
+        "why": "Quorum for 2 is 2, so the cluster tolerates zero failures with twice as many machines to fail."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Made it truly highly available, because stacked etcd replicates synchronously",
+        "why": "Synchronous replication doesn't change the majority requirement."
+      }
+    ],
+    "explanation": "etcd needs floor(n/2) + 1 members. With 2 members that is 2, so any single failure stops writes, and having two machines doubles the chance of a failure. HA control planes need at least 3 control-plane nodes with stacked etcd (or 3 external etcd members), and odd numbers.",
+    "reference": "Kubernetes docs: Options for Highly Available Topology"
+  },
+  {
+    "id": "K8S-ARC-035",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A worker node loses network connectivity and becomes `Unknown`/unreachable. It runs a Deployment Pod and a StatefulSet Pod `db-0`. With default settings, what happens after a few minutes?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both Pods are recreated on healthy nodes right away, with the same names",
+        "why": "Replacement only happens after toleration timeouts, and db-0 keeps a single identity."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The Deployment Pod moves, but db-0 waits until its old Pod is truly gone",
+        "why": "A StatefulSet won't start a second db-0 while the old one might still be running."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Nothing happens until an operator runs kubectl drain on the unreachable node",
+        "why": "Taint-based eviction acts automatically after the default tolerationSeconds."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Both Pods are deleted, and neither is replaced until the node comes back",
+        "why": "The Deployment's ReplicaSet does replace its Pod on another node."
+      }
+    ],
+    "explanation": "The node controller taints an unreachable node, and Pods get default tolerations of 300 seconds for node.kubernetes.io/unreachable and not-ready. After that they are marked for deletion, but the kubelet can't confirm it, so they stay Terminating. A ReplicaSet doesn't care about names and creates a replacement. A StatefulSet guarantees at most one db-0, so it waits until the old Pod is really gone (node deleted, or a force delete after you are sure it's down).",
+    "reference": "Kubernetes docs: Taint based Evictions; Force Delete StatefulSet Pods"
+  },
+  {
+    "id": "K8S-ARC-036",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 3,
+    "stem": "The kube-apiserver is down for 20 minutes, while etcd and all nodes stay healthy. Which three statements are true during the outage? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Containers that were already running keep serving traffic",
+        "why": "Kubelets and runtimes don't stop workloads when they lose the API."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The kubelet still restarts a crashed container according to the Pod's restartPolicy",
+        "why": "Container restarts are handled locally on the node."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Existing Service routing rules on nodes keep working",
+        "why": "kube-proxy's programmed rules stay in place; they just can't be updated."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A Pod deleted by its node's eviction logic is replaced on another node",
+        "why": "Replacing it needs the ReplicaSet controller and scheduler, which need the API."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The HorizontalPodAutoscaler still scales Deployments up under load",
+        "why": "Scaling needs writes to the API, which is down."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "New Pods from a CronJob are still scheduled on time",
+        "why": "Creating and scheduling Pods requires the API server."
+      }
+    ],
+    "explanation": "The data plane is designed to survive control-plane outages: workloads run, kubelets restart crashed containers, and existing networking rules keep routing. Anything that needs the API (new Pods, scaling, rescheduling, CronJobs, config changes) waits until the API server is back.",
+    "reference": "Kubernetes docs: Cluster Architecture"
+  },
+  {
+    "id": "K8S-ARC-037",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An operator added the finalizer `example.com/cleanup` to every `Database` custom resource. The team then deleted the operator's Deployment and ran `kubectl delete database orders`. What do they see, and what is the safe response?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The object is deleted at once, because finalizers only run when their controller is present",
+        "why": "Finalizers block deletion until removed, whether or not a controller is running."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The API server rejects the delete because the finalizer's controller is not registered",
+        "why": "The API server accepts the delete and sets deletionTimestamp; it doesn't check for controllers."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "It hangs Terminating; restore the operator, or clean up and then drop the finalizer",
+        "why": "Removing the finalizer blindly skips whatever cleanup it was protecting."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It hangs until etcd compacts the object, after which it disappears on its own",
+        "why": "Compaction removes old revisions, not live objects with finalizers."
+      }
+    ],
+    "explanation": "A delete on an object with finalizers only sets metadata.deletionTimestamp. The object stays until every finalizer is removed, normally by the controller once it has cleaned up external resources (here, perhaps a cloud database). With the operator gone nobody removes it. Reinstall the operator so it finishes cleanup, or clean up manually and then patch the finalizer away.",
+    "reference": "Kubernetes docs: Finalizers"
+  },
+  {
+    "id": "K8S-ARC-038",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Deployment manifest in Git sets `replicas: 3`, and a HorizontalPodAutoscaler manages the same Deployment. After every GitOps sync the replica count drops to 3, then the HPA scales it back up. What is the correct fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Remove replicas from the manifest so only the HPA manages it",
+        "why": "With one owner for spec.replicas, the sync stops resetting it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Set the HPA's minReplicas to 3 so the two values agree",
+        "why": "The sync still resets replicas to 3 whenever the HPA had scaled higher."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Use kubectl replace for syncing so the HPA cannot override the value",
+        "why": "replace also writes replicas: 3 and makes the fight worse."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Raise the HPA's scale-down stabilization window to hide the drop",
+        "why": "This only delays the HPA's reaction; the reset still happens on every sync."
+      }
+    ],
+    "explanation": "Two field managers are fighting over spec.replicas. The fix is a single owner: leave replicas out of the manifest (the API default applies at first creation) and let the HPA own it. With server-side apply the conflict becomes explicit in managedFields, which helps you spot such fights.",
+    "reference": "Kubernetes docs: Horizontal Pod Autoscaling (migrating Deployments to HPA)"
+  },
+  {
+    "id": "K8S-ARC-039",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 4,
+    "type": "order",
+    "select": 1,
+    "stem": "You are upgrading a kubeadm cluster from v1.32 to v1.33. Put these steps in the order that respects the version skew policy.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Upgrade kubeadm and run kubeadm upgrade apply on the first control-plane node",
+        "why": "This upgrades the API server, controller manager, scheduler and etcd there."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Run kubeadm upgrade node on the remaining control-plane nodes",
+        "why": "All API servers should reach the new version before anything depends on it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Upgrade the kubelet and kubectl on the control-plane nodes",
+        "why": "Control-plane kubelets come after their control-plane components."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "For each worker in turn: drain it, upgrade kubeadm config and kubelet, then uncordon it",
+        "why": "kubelets must never be newer than the API server, so workers come last."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "explanation": "Upgrade one minor version at a time, control plane first. kube-apiserver must be upgraded before the components that talk to it, and kubelets must never run a newer minor than the API server. kubeadm automates the control-plane part; workers are drained, upgraded and uncordoned one at a time.",
+    "reference": "Kubernetes docs: Upgrading kubeadm clusters"
+  },
+  {
+    "id": "K8S-ARC-040",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 4,
+    "type": "fill",
+    "select": 1,
+    "stem": "By default, how long is a bootstrap token created by `kubeadm init` or `kubeadm token create` valid for? Type the duration in hours.",
+    "options": [],
+    "accepted": [
+      "24",
+      "24h",
+      "24 hours",
+      "24 hrs"
+    ],
+    "explanation": "kubeadm bootstrap tokens default to a TTL of 24 hours, after which `kubeadm join` with that token fails. Create a new one with `kubeadm token create --print-join-command`, or set `--ttl` (0 means never expires, which is discouraged).",
+    "reference": "Kubernetes docs: kubeadm token"
+  },
+  {
+    "id": "K8S-ARC-041",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A colleague exported a Deployment with `kubectl get deploy web -o yaml > web.yaml` last week, edited the image, and now runs `kubectl replace -f web.yaml`. The Deployment has been modified several times since the export. What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The replace succeeds and only the edited image changes",
+        "why": "replace sends the whole object, including a stale resourceVersion."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It fails with a conflict: the file holds last week's resourceVersion",
+        "why": "The API server refuses to replace an object with a stale version."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It succeeds and quietly undoes the other changes from the past week",
+        "why": "That would happen without the resourceVersion check, but the check rejects it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "kubectl automatically re-reads the object and merges the two versions",
+        "why": "replace does no merging; that is what apply and patch are for."
+      }
+    ],
+    "explanation": "An exported object includes metadata.resourceVersion. A PUT (replace) with a resourceVersion requires it to match the stored one, so a stale file gets 409 Conflict. That prevents silently reverting other people's changes. Strip resourceVersion and use apply, or use patch for targeted edits.",
+    "reference": "Kubernetes docs: API Concepts (resource versions)"
+  },
+  {
+    "id": "K8S-ARC-042",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A 6-person startup is choosing between running its own Kubernetes control plane on VMs and using a managed service like GKE or EKS. Which two are real advantages of the managed option for them? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The provider handles etcd backups, control-plane availability and patching",
+        "why": "That operational work is substantial and easy to get wrong."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Control-plane upgrades become a provider-managed operation instead of a hand-run procedure",
+        "why": "The team still upgrades node pools, but not the control plane itself."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Workloads no longer need resource requests, since the provider sizes nodes",
+        "why": "Requests still drive scheduling and autoscaling on managed clusters."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "There is no longer any need to understand Kubernetes RBAC or networking",
+        "why": "Those remain the team's responsibility on any cluster."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Version skew rules stop applying, because the provider pins one version",
+        "why": "Node pools can still lag the control plane, and the policy still applies."
+      }
+    ],
+    "explanation": "Managed Kubernetes removes control-plane operations (etcd, HA, certificates, control-plane upgrades) from your team. It doesn't remove the need to understand workloads, RBAC, networking or resource management. For a small team, operating a control plane is usually the least valuable place to spend effort.",
+    "reference": "Kubernetes docs: Production environment"
+  },
+  {
+    "id": "K8S-ARC-043",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two situations make a simpler orchestrator (such as Amazon ECS, Cloud Run or HashiCorp Nomad) a reasonable choice over Kubernetes? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A small team runs a handful of stateless HTTP services on one cloud and wants minimal ops",
+        "why": "Kubernetes' flexibility costs operational effort a small team may not need."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The workload mixes containers with plain binaries and VMs that must share one scheduler",
+        "why": "Nomad can schedule non-container workloads alongside containers."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The team needs custom resources and operators for a complex stateful platform",
+        "why": "That extensibility is a core Kubernetes strength."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Workloads must move between several clouds and on-prem with one consistent API",
+        "why": "A consistent API across environments is one of Kubernetes' main draws."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The company wants the largest ecosystem of Helm charts and operators",
+        "why": "That ecosystem belongs to Kubernetes."
+      }
+    ],
+    "explanation": "Kubernetes shines with many teams and services, portability across environments, and extensibility through CRDs and operators. Its power comes with real complexity. For a few stateless services on one cloud, a managed container service can be cheaper to run. Nomad is also attractive when you must schedule non-container workloads.",
+    "reference": "Kubernetes docs: Overview (what Kubernetes is not)"
+  },
+  {
+    "id": "K8S-ARC-044",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Pod `cache-0` has `metadata.finalizers: [\"example.com/flush\"]`. You run `kubectl delete pod cache-0`, and the controller that owns the finalizer is healthy but takes two minutes to flush data. What does the API show during those two minutes?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The Pod is gone at once; the controller flushes using a cached copy of it",
+        "why": "The Pod object stays until its finalizers are cleared."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It still exists with a deletionTimestamp until the finalizer is removed",
+        "why": "Deletion is two-phase: mark first, remove once finalizers are empty."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The delete is rejected with 409 Conflict until the flush is finished",
+        "why": "The delete is accepted; it just can't complete yet."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The Pod is recreated with a new UID while the old copy flushes",
+        "why": "Nothing recreates a bare Pod; deletion just waits."
+      }
+    ],
+    "explanation": "Deleting an object with finalizers sets metadata.deletionTimestamp and leaves the object in place. Controllers see the timestamp, do their cleanup, and remove their finalizer. When the list is empty, the API server deletes the object. Until then, kubectl shows it as Terminating and no new finalizers can be added.",
+    "reference": "Kubernetes docs: Finalizers"
+  },
+  {
+    "id": "K8S-ARC-045",
+    "domain": 1,
+    "skill": "architecture",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Someone created a bare Pod (no owner) labelled `app=web`. Later you create a ReplicaSet with `replicas: 2` and selector `app=web`. What does the ReplicaSet controller do with the bare Pod?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Ignores it, because a ReplicaSet only manages Pods it created itself",
+        "why": "ReplicaSets also acquire matching Pods that have no controller owner."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Adopts it as one of the 2 replicas, so it creates only one new Pod",
+        "why": "An ownerless Pod matching the selector is adopted by setting an ownerReference."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Deletes it and creates two fresh Pods from its own template",
+        "why": "Adoption counts the Pod as a replica rather than replacing it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Fails to create because the selector overlaps an existing Pod",
+        "why": "Overlapping an ownerless Pod is allowed; the controller adopts it."
+      }
+    ],
+    "explanation": "A ReplicaSet manages every Pod matching its selector that has no controller ownerReference, including ones it didn't create. It adopts the bare Pod, counts it, and creates only one more. This can surprise you when the adopted Pod runs a different image than the template. Keep selectors unique, and use Deployments, which add a pod-template-hash label to avoid accidental overlap.",
+    "reference": "Kubernetes docs: ReplicaSet (non-template Pod acquisitions)"
+  }
+]
