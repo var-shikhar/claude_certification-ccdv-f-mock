@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Bricolage_Grotesque, Geist, Geist_Mono } from 'next/font/google';
+import { headers } from 'next/headers';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Providers } from '@/components/providers/providers';
 import { JsonLd } from '@/components/seo/json-ld';
@@ -31,12 +32,14 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Set by proxy.ts for the Content Security Policy (Next applies it to its own scripts).
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
   return (
     <html lang="en" suppressHydrationWarning className={cn(sans.variable, display.variable, mono.variable)}>
       <body className="min-h-dvh">
         <JsonLd data={graph(organizationLd(), websiteLd())} />
-        <Providers>{children}</Providers>
+        <Providers nonce={nonce}>{children}</Providers>
         <SpeedInsights />
       </body>
     </html>

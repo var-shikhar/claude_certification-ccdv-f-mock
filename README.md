@@ -58,6 +58,7 @@ Every setting is documented in [`.env.example`](.env.example).
 | `DATABASE_URL` | Neon pooled connection string (or omit for local PGlite) |
 | `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` | Sessions and sign-in; the URL is the address the app runs on |
 | `SITE_URL` | The public address for canonical links, the sitemap, robots.txt, llms.txt, structured data and certificate links. Defaults to `https://quizzmonkey.vercel.app`; change it when the site moves to its own domain |
+| `CSP_ENFORCE` | Set to `1` to enforce the Content Security Policy; until then it only reports (see Security headers) |
 | `ADMIN_EMAILS` | Accounts that start as admins |
 | `GOOGLE_*`, `GITHUB_*` | Optional social sign-in (buttons appear when both values are set) |
 | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `AI_MODEL` | AI tutor, mock interviews and question drafts. Point the base URL at a LiteLLM proxy's `/v1` to use any provider |
@@ -140,6 +141,23 @@ Answer keys never reach the browser during an attempt: the server sends
 sanitised questions and reveals keys per item (drills) or after submission.
 Deadlines are enforced on the server, autosave merges atomically, and guest
 progress moves to the account when a guest signs up.
+
+## Security headers
+
+Every response is sent with clickjacking protection (`frame-ancestors 'none'`
+and `X-Frame-Options: DENY`), `nosniff`, a strict referrer policy, and a
+permissions policy that allows only fullscreen, clipboard writes and Web Share.
+
+Pages also get a Content Security Policy with a fresh nonce per request
+(`src/lib/csp.ts`, set in `src/proxy.ts`). It is **report-only** for now:
+violations are posted to `/api/csp-report` and appear in the server logs as
+`[csp]` lines, and nothing is blocked. Once the logs stay clean for a week or
+two, set `CSP_ENFORCE=1` and redeploy.
+
+Google Analytics, Tag Manager and AdSense domains are already allowed. When
+you add their tags, put the nonce on the loader script (read it in a server
+component with `(await headers()).get('x-nonce')` and pass it to
+`next/script`'s `nonce` prop); `'strict-dynamic'` then trusts what it loads.
 
 ## Deploying (Vercel + Neon)
 
