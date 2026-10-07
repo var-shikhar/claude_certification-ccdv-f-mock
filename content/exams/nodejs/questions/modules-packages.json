@@ -1,0 +1,1692 @@
+[
+  {
+    "id": "NJS-MOD-001",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A package's `package.json` contains `\"type\": \"module\"`. How does Node.js treat the file `scripts/build.cjs` inside it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "As an ES module, because the package type applies to every file in the package",
+        "why": "The package type only decides `.js` files; explicit extensions override it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "As CommonJS, because the `.cjs` extension always means CommonJS",
+        "why": "`.cjs` and `.mjs` are explicit and win over the `type` field."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "As ES module syntax first, falling back to CommonJS if parsing fails",
+        "why": "Syntax detection only applies to ambiguous `.js` files, not to `.cjs`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It refuses to load it until the type field is removed or changed",
+        "why": "Mixing `.cjs` files into a `\"type\": \"module\"` package is fully supported."
+      }
+    ],
+    "explanation": "Node decides the module system per file. `.mjs` is always ESM and `.cjs` is always CommonJS. Only `.js` (and extensionless) files look at the nearest `package.json` `type` field. That is why a `\"type\": \"module\"` package can still ship CommonJS config or scripts as `.cjs`.",
+    "reference": "Node.js docs: Modules – Determining module system"
+  },
+  {
+    "id": "NJS-MOD-002",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What does `main.js` print?\n\n```js\n// m.js\nexports = { a: 1 };\n\n// main.js\nconsole.log(require('./m'));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`{ a: 1 }`",
+        "why": "Reassigning the local `exports` variable never changes what `require` returns."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`{}`",
+        "why": "`require` returns `module.exports`, which is still the original empty object."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`undefined`",
+        "why": "`module.exports` starts as an empty object, so `require` never returns undefined here."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It throws `TypeError: Assignment to constant variable`",
+        "why": "`exports` is a plain function parameter, so reassigning it is allowed, just useless."
+      }
+    ],
+    "explanation": "Inside the module wrapper, `exports` is a parameter that initially points at `module.exports`. Reassigning `exports` only rebinds that local variable. `require` returns `module.exports`, which is still `{}`. Use `module.exports = { a: 1 }` or add properties with `exports.a = 1`.",
+    "reference": "Node.js docs: Modules – exports shortcut"
+  },
+  {
+    "id": "NJS-MOD-003",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "When two files both call `require('./config')`, the top-level code of `config.js` runs twice, once for each caller.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Modules are cached after the first load, so the second call reuses the cached exports."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "The first `require` runs the file and caches it; later calls return the same `module.exports` object."
+      }
+    ],
+    "explanation": "CommonJS caches each module by its resolved filename in `require.cache`. The top-level code runs once, and every later `require` of the same resolved path returns the same object. ES modules are cached the same way, keyed by URL. This is why a module can hold shared state such as a database pool.",
+    "reference": "Node.js docs: Modules – Caching"
+  },
+  {
+    "id": "NJS-MOD-004",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "In CI you want installs that exactly match the committed `package-lock.json`. What does `npm ci` do that `npm install` does not?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It resolves the newest versions allowed by `package.json` ranges and rewrites the lockfile",
+        "why": "That describes updating dependencies, the opposite of a reproducible install."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It wipes `node_modules`, installs the exact lockfile tree, and errors on any mismatch",
+        "why": "That strictness is what makes CI installs reproducible."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It installs only `dependencies` and always skips `devDependencies`, even when no flag is set",
+        "why": "`npm ci` installs dev dependencies by default; you omit them with `--omit=dev`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It reuses the packages already in `node_modules` and only adds the ones that are missing",
+        "why": "`npm ci` always starts from an empty `node_modules`."
+      }
+    ],
+    "explanation": "`npm ci` requires a lockfile, removes any existing `node_modules`, and installs the exact tree in the lockfile. It never writes to `package.json` or the lockfile. If the two files disagree, it exits with an error instead of resolving new versions. `npm install` may update the lockfile to satisfy `package.json`.",
+    "reference": "npm docs: npm ci"
+  },
+  {
+    "id": "NJS-MOD-005",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each `package.json` field with what it does.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Maps command names to scripts installed into `node_modules/.bin`",
+        "why": "Executables such as a CLI."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Limits which files are included when the package is published",
+        "why": "An allow-list for the tarball."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Declares the Node.js versions the package supports",
+        "why": "npm warns on a mismatch by default."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Defines the public entry points and blocks every other path",
+        "why": "Encapsulates the package."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`bin`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`files`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`engines`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`exports`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "`bin` links executables into `node_modules/.bin` (and onto the PATH for global installs). `files` is an allow-list for what goes into the published tarball. `engines` documents supported runtime versions. `exports` defines entry points and, unlike `main`, makes every unlisted path unreachable.",
+    "reference": "npm docs: package.json"
+  },
+  {
+    "id": "NJS-MOD-006",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "You convert a CommonJS file to an ES module. It used `path.join(__dirname, 'templates')`. What is the simplest replacement in Node.js 22 or later?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`path.join(process.cwd(), 'templates')`",
+        "why": "The working directory depends on where the process was started, not where the file lives."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`path.join(import.meta.dirname, 'templates')`",
+        "why": "`import.meta.dirname` is the directory of the current module file."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Keep `__dirname`, because Node defines it in every module type",
+        "why": "`__dirname` comes from the CommonJS wrapper and is undefined in ES modules."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`path.join(require.main.path, 'templates')`",
+        "why": "`require` does not exist in ES modules, and `require.main` points at the entry file anyway."
+      }
+    ],
+    "explanation": "ES modules have no wrapper function, so `__dirname`, `__filename`, `require` and `module` are not defined. Node 20.11+ provides `import.meta.dirname` and `import.meta.filename`. Before that the idiom was `path.dirname(fileURLToPath(import.meta.url))`.",
+    "reference": "Node.js docs: ECMAScript modules – import.meta"
+  },
+  {
+    "id": "NJS-MOD-007",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A dependency is declared as `\"express\": \"^4.18.2\"`. Which versions can npm install for it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Exactly 4.18.2 and nothing else",
+        "why": "That would be a pinned version without any range operator."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Any 4.18.x patch release, from 4.18.2 up to but not including 4.19.0",
+        "why": "That is what the tilde range `~4.18.2` allows."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Any 4.x release from 4.18.2 up to but not including 5.0.0",
+        "why": "The caret allows changes that keep the left-most non-zero part, here the major version 4."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Any version from 4.18.2 upwards, including future major versions",
+        "why": "That is `>=4.18.2`; the caret never crosses a major version."
+      }
+    ],
+    "explanation": "`^4.18.2` means `>=4.18.2 <5.0.0`: new minor and patch releases are allowed because, under semver, they should not break the API. `~4.18.2` is stricter (`<4.19.0`). Pre-releases such as 4.19.0-beta are excluded unless the range itself names a pre-release.",
+    "reference": "npm docs: semver – Caret ranges"
+  },
+  {
+    "id": "NJS-MOD-008",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "In an ES module, which expression gives you an object with properties such as `url`, `dirname`, `filename` and the `resolve()` method? Type the expression.",
+    "options": [],
+    "accepted": [
+      "import.meta"
+    ],
+    "explanation": "`import.meta` is a per-module object created by the host. In Node it has `url` (a `file:` URL), `dirname` and `filename` (Node 20.11+) and `resolve()` for resolving specifiers. It replaces the CommonJS wrapper variables.",
+    "reference": "Node.js docs: ECMAScript modules – import.meta"
+  },
+  {
+    "id": "NJS-MOD-009",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A library is at version 0.2.3 and you add it as `\"^0.2.3\"`. Its author then releases 0.2.9 and 0.3.0. Which can `npm install` pick?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "0.2.9 but not 0.3.0",
+        "why": "For 0.x versions the caret locks the minor number, because a 0.x minor bump may break the API."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Both 0.2.9 and 0.3.0",
+        "why": "That would be true for a 1.x range, but below 1.0.0 the caret is stricter."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Neither, because caret ranges are exact for 0.x versions",
+        "why": "Only `^0.0.x` ranges collapse to a single patch; `^0.2.3` still accepts patches."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "0.3.0 only, because npm always prefers the highest version available",
+        "why": "npm picks the highest version that satisfies the range, and 0.3.0 does not."
+      }
+    ],
+    "explanation": "The caret keeps the left-most non-zero number fixed. For `^0.2.3` that is the minor version, so the range is `>=0.2.3 <0.3.0`. For `^0.0.3` it is the patch, so only 0.0.3 matches. Semver treats 0.x as unstable, where any minor bump may be breaking.",
+    "reference": "npm docs: semver – Caret ranges"
+  },
+  {
+    "id": "NJS-MOD-010",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "This works when `app.js` is CommonJS. After you switch the package to `\"type\": \"module\"` and change it to `import { parse } from './parser';`, Node fails to start. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Named imports are not allowed from relative files, only from packages in `node_modules`",
+        "why": "Named imports work from any ES module, relative or bare."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "ESM never adds extensions, so `./parser` is not found; write `./parser.js`",
+        "why": "Relative ESM specifiers must name the exact file, which gives ERR_MODULE_NOT_FOUND here."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The file must be renamed to `parser.mjs` because `.js` is only allowed for CommonJS",
+        "why": "With `\"type\": \"module\"`, `.js` files are ES modules."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "ES modules cannot import a sibling file until it is listed in the `exports` field",
+        "why": "`exports` controls how other packages reach yours, not imports inside it."
+      }
+    ],
+    "explanation": "The CommonJS resolver tries `.js`, `.json`, `.node` and `index.js` for you. The ESM resolver follows URL semantics and does none of that: a relative specifier must include the extension, and directory imports are rejected with ERR_UNSUPPORTED_DIR_IMPORT. Bundlers and TypeScript's `bundler` resolution hide this, which is why it surprises people at runtime.",
+    "reference": "Node.js docs: ECMAScript modules – Mandatory file extensions"
+  },
+  {
+    "id": "NJS-MOD-011",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In Node.js 22, `require('test')` loads the built-in test runner, the same as `require('node:test')`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Most built-ins work with or without the prefix, but some newer ones do not."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "`node:test` is one of the built-ins that only exists with the `node:` prefix; `require('test')` looks for an npm package."
+      }
+    ],
+    "explanation": "Classic built-ins such as `fs` resolve with or without `node:`, and both return the same object. Newer modules such as `node:test`, `node:sqlite` and `node:sea` are prefix-only, so the bare name stays free for npm packages. `module.isBuiltin('test')` returns false while `module.isBuiltin('node:test')` returns true. Using the prefix everywhere is the safe habit.",
+    "reference": "Node.js docs: Modules – Built-in modules with mandatory node: prefix"
+  },
+  {
+    "id": "NJS-MOD-012",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this CommonJS script print?\n\n```js\nconst a = require('./m');\nconst b = require('./m');\ndelete require.cache[require.resolve('./m')];\nconst c = require('./m');\nconsole.log(a === b, a === c);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`true true`",
+        "why": "Deleting the cache entry forces the next `require` to run the file again."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`true false`",
+        "why": "The first two calls share the cached object; after the delete, a fresh module object is created."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`false false`",
+        "why": "Repeated `require` calls of the same resolved file return the cached exports."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It throws, because `require.cache` is read-only",
+        "why": "`require.cache` is a plain object, and deleting keys from it is a known (if risky) technique."
+      }
+    ],
+    "explanation": "`require.cache` maps resolved filenames to module records. Deleting an entry makes the next `require` load and run the file again, producing a new exports object, while old references (`a`, `b`) still point at the previous one. This is how some hot-reload tools work. It does not affect ES modules, whose cache cannot be cleared.",
+    "reference": "Node.js docs: Modules – require.cache"
+  },
+  {
+    "id": "NJS-MOD-013",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A package's `package.json` has `\"exports\": { \".\": \"./dist/index.js\" }`. Your code calls `require('the-pkg/dist/utils.js')`, which exists on disk. What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It loads the file, because `exports` only changes what the bare package name resolves to",
+        "why": "Once `exports` exists, it is the complete list of reachable paths."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It throws ERR_PACKAGE_PATH_NOT_EXPORTED, because the subpath is not listed in `exports`",
+        "why": "Any path the `exports` map doesn't list is blocked, even if the file exists."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It loads the file but prints a deprecation warning about deep imports",
+        "why": "There is no warning path; the resolution fails outright."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It falls back to `main` and returns the root entry instead of the utility file",
+        "why": "There is no fallback from a blocked subpath to `main`."
+      }
+    ],
+    "explanation": "The `exports` field encapsulates a package: only listed subpaths can be imported, and everything else throws ERR_PACKAGE_PATH_NOT_EXPORTED, including `pkg/package.json` unless it is exported. Adding `exports` is therefore a breaking change for consumers who used deep imports. Authors expose more with entries like `\"./utils\": \"./dist/utils.js\"` or patterns like `\"./*\"`.",
+    "reference": "Node.js docs: Packages – Package entry points"
+  },
+  {
+    "id": "NJS-MOD-014",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "In an ES module, `import config from './config.json';` fails on Node 22. What is the fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Add `with { type: 'json' }` to the import statement",
+        "why": "JSON modules must be declared with the `type: 'json'` attribute, or Node throws ERR_IMPORT_ATTRIBUTE_MISSING."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Rename the file to `config.json.mjs` so the ESM loader accepts it",
+        "why": "An `.mjs` file is parsed as JavaScript, and a bare JSON object literal is not a valid module."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Use a named import, `import { default as config } from './config.json'`, instead",
+        "why": "The attribute is still missing, so it fails the same way."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Start Node with `--experimental-json-modules`, which is still required",
+        "why": "That flag is no longer needed; the attribute is what Node checks."
+      }
+    ],
+    "explanation": "Importing a non-JavaScript module must say what it expects, so a server can't swap in executable code. Node requires `with { type: 'json' }` and throws ERR_IMPORT_ATTRIBUTE_MISSING without it. JSON modules only have a default export. In CommonJS, `require('./config.json')` still works without any attribute.",
+    "reference": "Node.js docs: ECMAScript modules – JSON modules and import attributes"
+  },
+  {
+    "id": "NJS-MOD-015",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "Node.js runs every CommonJS file inside a wrapper function. Put its parameters in order, first to last.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`exports`"
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`require`"
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`module`"
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`__filename`"
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`__dirname`"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "`require('module').wrapper` shows the wrapper: `(function (exports, require, module, __filename, __dirname) { ... })`. These \"globals\" are really parameters, which is why they are missing in ES modules. The wrapper also gives each file its own scope, so top-level `var`s don't leak onto `globalThis`, and it is called with `this` set to `module.exports`.",
+    "reference": "Node.js docs: Modules – The module wrapper"
+  },
+  {
+    "id": "NJS-MOD-016",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A CommonJS service on Node.js 22.12 or later must use a dependency that ships only as ES modules, with no top-level `await`. Which two approaches work? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`const lib = await import('esm-only-lib')` inside an async function",
+        "why": "Dynamic `import()` works from CommonJS on every supported Node version."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`const lib = require('esm-only-lib')`, which loads a synchronous ES module graph",
+        "why": "Since Node 22.12 (and 20.19), `require()` can load ES modules that have no top-level await."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A static `import lib from 'esm-only-lib'` at the top of the `.cjs` file",
+        "why": "Static `import` declarations are a syntax error in CommonJS."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`require('esm-only-lib', { type: 'module' })` with an options object",
+        "why": "`require` takes no options argument for module type."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`module.createRequire(import.meta.url)`, called from the CommonJS file",
+        "why": "`createRequire` is for getting `require` inside ESM, and `import.meta` doesn't exist in CommonJS."
+      }
+    ],
+    "explanation": "Dynamic `import()` has always worked from CommonJS but is asynchronous, which spreads `await` through the caller. Node 22.12+ and 20.19+ added `require(esm)`: `require()` can synchronously load an ES module graph as long as nothing in it uses top-level `await`. That removed most of the pain of ESM-only packages.",
+    "reference": "Node.js docs: Modules – Loading ECMAScript modules using require()"
+  },
+  {
+    "id": "NJS-MOD-017",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "`ui-kit` declares `\"peerDependencies\": { \"react\": \"^18.0.0\" }`. Your app depends on `react@19` and you run `npm install ui-kit` with npm 10. What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "npm installs a second copy of React 18 nested under `ui-kit` so both versions can coexist",
+        "why": "Peer dependencies are meant to share the host's copy; npm doesn't nest them."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "npm fails with an ERESOLVE conflict unless you pass `--legacy-peer-deps` or `--force`",
+        "why": "Since npm 7, peer dependencies are installed and checked, so an incompatible one fails the install."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "npm prints a warning and installs, because peer dependencies are only advisory",
+        "why": "That was npm 3–6 behaviour; npm 7+ treats peer conflicts as errors."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "npm silently downgrades your app to React 18 to satisfy the peer range",
+        "why": "npm never changes a version you depend on directly."
+      }
+    ],
+    "explanation": "Peer dependencies say \"I need the host to provide this\", which is how plugins share one copy of React or ESLint. npm 7+ installs missing peers automatically and refuses conflicting trees with ERESOLVE. `--legacy-peer-deps` restores the old ignore-peers behaviour, and `--force` installs anyway. The real fix is a version of `ui-kit` whose peer range includes React 19.",
+    "reference": "npm docs: package.json – peerDependencies"
+  },
+  {
+    "id": "NJS-MOD-018",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "A dependency is declared as `\"tiny-lib\": \"^0.0.3\"`. Versions 0.0.3, 0.0.4 and 0.1.0 are published. Which version will npm install? Type the version number.",
+    "options": [],
+    "accepted": [
+      "0.0.3",
+      "v0.0.3"
+    ],
+    "explanation": "The caret keeps the left-most non-zero part fixed. In `^0.0.3` that is the patch number, so the range is `>=0.0.3 <0.0.4` and only 0.0.3 matches. Very early 0.0.x packages are treated as having no compatibility promises at all.",
+    "reference": "npm docs: semver – Caret ranges"
+  },
+  {
+    "id": "NJS-MOD-019",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 2,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each package manager setup with how it lays out dependencies.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A flat, hoisted `node_modules`, so transitive packages are often reachable",
+        "why": "npm's default."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A content-addressable store with symlinks, so only declared dependencies are visible",
+        "why": "pnpm's default."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "No `node_modules` at all; a `.pnp.cjs` file maps requests to zip archives",
+        "why": "Yarn Plug'n'Play."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Pins which package manager and version a project uses, from the `packageManager` field",
+        "why": "Corepack."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "npm (default settings)",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "pnpm (default settings)",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Yarn Berry with Plug'n'Play",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Corepack",
+        "answer": "D"
+      }
+    ],
+    "explanation": "npm hoists as much as possible into one flat `node_modules`, which saves disk but lets code accidentally use packages it never declared. pnpm stores each version once globally and symlinks only declared dependencies, which is strict and fast. Yarn PnP drops `node_modules` and resolves through a generated map. Corepack picks the package manager itself, based on `packageManager` in `package.json`.",
+    "reference": "pnpm docs: Motivation; Yarn docs: Plug'n'Play"
+  },
+  {
+    "id": "NJS-MOD-020",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "On Node.js 22.12, CommonJS code runs `require('./setup.mjs')`, where `setup.mjs` starts with `const cfg = await loadConfig();`. What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The `require` call blocks until the awaited promise settles, then returns the module",
+        "why": "`require` is synchronous and cannot wait on a promise."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It throws ERR_REQUIRE_ASYNC_MODULE, because the module uses top-level await",
+        "why": "`require(esm)` only supports module graphs that can be evaluated synchronously."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It returns a promise for the module namespace, like dynamic `import()`",
+        "why": "Only `import()` returns a promise; `require` throws instead."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It throws ERR_REQUIRE_ESM, because CommonJS can never load ES modules",
+        "why": "Since 22.12, `require` can load ES modules; the problem here is the top-level await."
+      }
+    ],
+    "explanation": "Node 22.12+ and 20.19+ let `require()` load ES modules, but `require` must return synchronously. If the module, or anything it imports, uses top-level `await`, Node throws ERR_REQUIRE_ASYNC_MODULE. The options are to use `await import()` from an async function, or to restructure the module to export an `init()` function instead of awaiting at load time.",
+    "reference": "Node.js docs: Modules – Loading ECMAScript modules using require()"
+  },
+  {
+    "id": "NJS-MOD-021",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print on Node.js 24?\n\n```js\n// e.mjs\nexport default 42;\nexport const n = 1;\n\n// r.cjs\nconst m = require('./e.mjs');\nconsole.log(Object.keys(m), m.default);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`[] 42`, because `require` returns the default export directly",
+        "why": "Without a special export, `require` returns the namespace object, not the default value."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`[ 'n' ] 42`",
+        "why": "The namespace also contains `default`, and Node adds an interop marker."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`[ '__esModule', 'default', 'n' ] 42`",
+        "why": "`require` returns the module namespace, with `__esModule: true` added because there is a default export."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It throws ERR_REQUIRE_ESM",
+        "why": "Node 22.12+ and 24 support `require` of ES modules without top-level await."
+      }
+    ],
+    "explanation": "`require(esm)` returns the module namespace object. When the module has a default export, Node also adds `__esModule: true`, so code transpiled by Babel or TypeScript can read `m.default` the way it reads transpiled ES modules. A module can choose exactly what `require` returns by exporting a binding named `\"module.exports\"`.",
+    "reference": "Node.js docs: Modules – Loading ECMAScript modules using require()"
+  },
+  {
+    "id": "NJS-MOD-022",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An ES module runs `import { a } from './lib.cjs';`. Which version of `lib.cjs` makes this throw `SyntaxError: Named export 'a' not found`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`exports.a = 1;`",
+        "why": "Assignments to `exports.a` are detected statically, so `a` becomes a named export."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`const a = 1; const b = 2; module.exports = { a, b };`",
+        "why": "An object literal with identifier properties is detected as named exports."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`const api = { a: 1 }; module.exports = api;`",
+        "why": "Assigning a variable hides the shape, so static analysis finds no named exports."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`module.exports.a = 1;`",
+        "why": "Property assignments on `module.exports` are detected just like `exports.a`."
+      }
+    ],
+    "explanation": "Node can't run CommonJS code before linking an ES module, so it guesses named exports by statically scanning the source with cjs-module-lexer. It recognises `exports.x =`, `module.exports.x =`, and `module.exports = { x, y }` with identifier values. Assigning a variable or a computed object gives it nothing to find. The default import, which is `module.exports`, always works: `import lib from './lib.cjs'; lib.a`.",
+    "reference": "Node.js docs: ECMAScript modules – CommonJS namespaces"
+  },
+  {
+    "id": "NJS-MOD-023",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which versions of `lib.cjs` let an ES module write `import { a } from './lib.cjs'` on Node 24? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`exports.a = 1;`",
+        "why": "A direct `exports.a =` assignment is the simplest form the lexer detects."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`const a = 1, b = 2; module.exports = { a, b };`",
+        "why": "Shorthand identifier properties in an object literal are detected."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`module.exports.a = 1;`",
+        "why": "Property assignments on `module.exports` are detected too."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`module.exports = { a: 1, b: 2 };`",
+        "why": "Literal values like `1` stop the lexer, so no names are found. (Verified on Node 24.)"
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`const api = { a: 1 }; module.exports = api;`",
+        "why": "Assigning a variable hides the shape from static analysis."
+      }
+    ],
+    "explanation": "Named imports from CommonJS depend on cjs-module-lexer, a fast static scanner, not on running the code. It reliably picks up `exports.name =`, `module.exports.name =`, and `module.exports = { name }` or `{ name: identifier }`. Literal values, variables and computed exports are invisible. Authors who want reliable named imports write the exports in one of the detected forms, or ship real ESM.",
+    "reference": "Node.js docs: ECMAScript modules – CommonJS namespaces; cjs-module-lexer"
+  },
+  {
+    "id": "NJS-MOD-024",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A transpiled CommonJS file sets `exports.__esModule = true; exports.default = 9; exports.z = 1;`. What does `import x from './compiled.cjs'` give an ES module on Node 24?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`9`, because Node honours the `__esModule` flag and uses `exports.default`",
+        "why": "Node's ESM loader does not apply Babel-style default interop."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The whole `module.exports` object, so the value 9 is at `x.default`",
+        "why": "In Node, the default import of CommonJS is always `module.exports`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`undefined`, because a `__esModule` module has no default export",
+        "why": "Every CommonJS module imported into ESM has a default export: `module.exports`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It throws, because `__esModule` modules must be loaded with `require`",
+        "why": "Importing such files works; only the default binding differs from what bundlers do."
+      }
+    ],
+    "explanation": "Bundlers and TypeScript's `esModuleInterop` treat `__esModule: true` as \"this was ESM, so use `exports.default`\". Node deliberately does not: the default import of CommonJS is `module.exports`, giving `x.default === 9`. This mismatch is why code that works in a bundler can break when run directly in Node, and why packages should ship real ESM or use `\"exports\"` conditions.",
+    "reference": "Node.js docs: ECMAScript modules – Interoperability with CommonJS"
+  },
+  {
+    "id": "NJS-MOD-025",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A package declares this. What does `require('pkg')` return on Node 24?\n\n```json\n{\n  \"main\": \"./lib/main.js\",\n  \"exports\": {\n    \".\": { \"default\": \"./lib/def.js\", \"require\": \"./lib/req.js\" }\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`lib/main.js`, because `require` reads `main`",
+        "why": "When `exports` is present, Node ignores `main`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`lib/req.js`, because the `require` condition matches a `require` call",
+        "why": "Conditions are tried in object order, and `default` comes first and always matches."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`lib/def.js`, because the first matching key wins and `default` always matches",
+        "why": "Order matters: `default` must always be listed last."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It throws, because `default` is not allowed before other conditions",
+        "why": "Node accepts the map; it just matches `default` first."
+      }
+    ],
+    "explanation": "Conditional exports are evaluated in the order the keys appear in the object, and the first condition that matches is used. `default` matches every environment, so listing it first shadows `require`, `import` and everything else. Put specific conditions first and `default` last. `main` is only a fallback for runtimes that don't support `exports`.",
+    "reference": "Node.js docs: Packages – Conditional exports"
+  },
+  {
+    "id": "NJS-MOD-026",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A package maps `\"import\"` to `./index.mjs` and `\"require\"` to `./index.cjs`, and each file creates its own in-memory cache. An app's ES code imports it and a CommonJS dependency of the app requires it. What is the risk?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "None, because Node loads a package only once per process whichever condition is used",
+        "why": "The two conditions point at different files, so both are loaded."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Two separate instances load, so caches and `instanceof` checks don't match",
+        "why": "This is the dual-package hazard: one package, two module records, two sets of state."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Node throws ERR_DUAL_PACKAGE at startup when both conditions are used",
+        "why": "There is no such error; the duplication is silent."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The `require` caller is redirected to the ESM file because ESM takes priority",
+        "why": "`require` resolves with the `require` condition and loads `index.cjs`."
+      }
+    ],
+    "explanation": "Shipping separate CJS and ESM builds means both can be loaded in the same process, each with its own classes and module state. A cache warmed by one copy is empty in the other, and errors thrown by one fail `instanceof` against the other. Fixes are to ship only ESM (now loadable with `require(esm)`), make one build a thin wrapper around the other, or keep state outside the module.",
+    "reference": "Node.js docs: Packages – Dual package hazard"
+  },
+  {
+    "id": "NJS-MOD-027",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "A package's `package.json` has an `\"imports\"` field that maps private aliases such as `db` to internal files, so code can write `import db from '…db'` without long relative paths. What character must every key in `\"imports\"` start with? Type it.",
+    "options": [],
+    "accepted": [
+      "#"
+    ],
+    "explanation": "Subpath imports are internal to the package and must start with `#`, for example `\"imports\": { \"#db\": \"./src/internal/db.js\", \"#utils/*\": \"./src/utils/*.js\" }`. Because they start with `#`, they can never clash with npm package names. Unlike TypeScript `paths`, Node resolves them at runtime, and they support conditions like `exports` does.",
+    "reference": "Node.js docs: Packages – Subpath imports"
+  },
+  {
+    "id": "NJS-MOD-028",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A project has a `package.json` with no `\"type\"` field. `src/index.js` uses `import fs from 'node:fs'`. What happens when you run `node src/index.js` on Node 22.12 or later?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It fails with `SyntaxError: Cannot use import statement outside a module`",
+        "why": "That was the behaviour before syntax detection became the default."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It runs as ESM, with a MODULE_TYPELESS_PACKAGE_JSON warning",
+        "why": "Node detects ESM syntax in an ambiguous `.js` file, reparses it as ESM, and warns about the cost."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It runs as CommonJS, because Node converts the import statement into a `require` call",
+        "why": "Node never rewrites module syntax."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It runs silently as an ES module, because detection is free and never warns",
+        "why": "Node warns when a `package.json` exists without `type`, because detection costs a second parse."
+      }
+    ],
+    "explanation": "Node 22.7+ enables syntax detection for ambiguous files (`.js` or extensionless with no `type`). If the file doesn't parse as CommonJS but does as ESM, Node reruns it as ESM. When a `package.json` exists without `type`, Node also prints MODULE_TYPELESS_PACKAGE_JSON, because every such file is parsed twice. Setting `\"type\": \"module\"` makes it explicit and faster.",
+    "reference": "Node.js docs: Packages – Syntax detection"
+  },
+  {
+    "id": "NJS-MOD-029",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "The repo root has `{ \"type\": \"module\" }`, and `tools/` has its own `package.json` containing just `{}`. How is `tools/gen.js`, which uses `require`, loaded?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "As an ES module, because the root says `\"type\": \"module\"` and settings are inherited",
+        "why": "Node only reads the nearest `package.json`; it doesn't merge parents."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "As CommonJS, because the nearest `package.json` has no type and the file has no ESM syntax",
+        "why": "The lookup stops at `tools/package.json`, and its missing `type` means CommonJS."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It fails, because a nested `package.json` must repeat the `type` field",
+        "why": "A nested `package.json` without `type` is valid and simply means CommonJS."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "As an ES module with `require` provided as a compatibility global",
+        "why": "ES modules never get a global `require`; you must use `createRequire`."
+      }
+    ],
+    "explanation": "For a `.js` file, Node walks up from the file and uses the first `package.json` it finds, ignoring any above it. An empty `{}` therefore resets the scope to CommonJS. This is a handy way to keep CommonJS tools inside an ESM repo, and a confusing source of bugs when someone adds a stray `package.json`.",
+    "reference": "Node.js docs: Packages – type"
+  },
+  {
+    "id": "NJS-MOD-030",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "File `/app/src/lib/util.js` calls `require('lodash')`. Put the directories Node checks for `lodash` in order, first to last.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`/app/src/lib/node_modules`"
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`/app/src/node_modules`"
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`/app/node_modules`"
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`/node_modules`"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "explanation": "For a bare specifier, Node starts in the calling file's directory and walks up, appending `node_modules` at each level (you can see the list in `module.paths`). The first match wins, so a nested copy shadows one higher up. After these, Node checks legacy global folders such as `NODE_PATH`, which is discouraged.",
+    "reference": "Node.js docs: Modules – Loading from node_modules folders"
+  },
+  {
+    "id": "NJS-MOD-031",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Code uses `require('debug')` but `debug` is not in the app's `package.json`. It works with npm but fails with \"Cannot find module 'debug'\" after switching to pnpm. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "pnpm installs packages lazily, so `debug` downloads the first time it is required",
+        "why": "pnpm installs everything up front; nothing is fetched at require time."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "npm hoisted `debug`, a dependency of another package, to the top level; pnpm only exposes declared dependencies",
+        "why": "It was a phantom dependency that only worked because of npm's flat layout."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "pnpm only supports ES modules, so every `require` call fails",
+        "why": "pnpm works with CommonJS; the issue is which packages are visible."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "pnpm renames packages in `node_modules` with a version suffix",
+        "why": "Packages keep their names; pnpm just doesn't link undeclared ones."
+      }
+    ],
+    "explanation": "npm flattens the tree, so packages your dependencies use often sit in the top-level `node_modules` where your code can reach them. That is a phantom dependency: it can disappear when another package upgrades. pnpm symlinks only what each package declares, so the mistake surfaces immediately. The fix is to add `debug` to your own dependencies.",
+    "reference": "pnpm docs: Flat node_modules is not the only way"
+  },
+  {
+    "id": "NJS-MOD-032",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "An app depends on `lib1@1` and on `lib2`, and `lib2` has its own nested copy of `lib1@1` in `lib2/node_modules/lib1`. `lib1` exports a `class AppError`. Which two statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "An `AppError` thrown inside `lib2` fails `err instanceof AppError` in the app",
+        "why": "Each copy defines its own class, and `instanceof` compares class identity, not names. (Verified on Node 24.)"
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Module-level state in `lib1`, such as a registry, is not shared between the app and `lib2`",
+        "why": "Two files means two module records, each with its own variables."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Node detects that both copies have the same version and loads only one",
+        "why": "Node caches by resolved file path, not by package name and version."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The second `require` throws, because a package can only be loaded once per process",
+        "why": "Loading multiple copies is allowed and silent."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Running `npm dedupe` cannot help, because nested copies are always required by semver",
+        "why": "`npm dedupe` can often hoist compatible versions into one shared copy."
+      }
+    ],
+    "explanation": "Node identifies modules by their resolved path, so duplicate copies are completely separate instances. That breaks `instanceof` checks, singletons and plugin registries. `npm ls lib1` reveals duplicates, and `npm dedupe` or aligning version ranges can collapse them. For error checks, prefer duck typing such as an `err.code` property over `instanceof` across package boundaries.",
+    "reference": "Node.js docs: Modules – Caching; npm docs: npm dedupe"
+  },
+  {
+    "id": "NJS-MOD-033",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A package declares this. Which of the three `require` calls succeed?\n\n```json\n\"exports\": {\n  \"./*\": \"./src/*.js\",\n  \"./priv/*\": null\n}\n```\n\n```js\nrequire('p5/util');\nrequire('p5/priv/secret');\nrequire('p5');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "All three, because the `./*` pattern covers every path",
+        "why": "More specific keys win, and `null` blocks a path; the root needs its own entry."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`p5/util` and `p5`",
+        "why": "There is no `\".\"` entry, so the bare package name is not exported."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Only `p5/util`; the other two throw ERR_PACKAGE_PATH_NOT_EXPORTED",
+        "why": "`./priv/*` maps to `null`, which blocks it, and the root is not listed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`p5/util` and `p5/priv/secret`",
+        "why": "A `null` target explicitly hides matching paths."
+      }
+    ],
+    "explanation": "Subpath patterns use `*` as a substitution, and the most specific matching key wins. A `null` target is an explicit block, useful for keeping a folder private inside a broad pattern. `\"./*\"` does not match the bare package name, so `require('p5')` fails until you add a `\".\"` entry.",
+    "reference": "Node.js docs: Packages – Subpath patterns"
+  },
+  {
+    "id": "NJS-MOD-034",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "What does `b.js` log, first while `a.js` is still loading and later from `setImmediate`?\n\n```js\n// a.js (entry)\nexports.early = 1;\nconst b = require('./b');\nmodule.exports = { late: 2 };\n\n// b.js\nconst a = require('./a');\nconsole.log('now', JSON.stringify(a));\nsetImmediate(() => console.log('later', JSON.stringify(a)));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`now {\"early\":1}` then `later {\"late\":2}`",
+        "why": "`b` keeps a reference to the old exports object; reassigning `module.exports` in `a` doesn't update it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`now {\"early\":1}` then `later {\"early\":1}`",
+        "why": "The cycle hands `b` the partial exports object, and `a` later swaps in a different object."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`now {}` then `later {\"late\":2}`",
+        "why": "`exports.early` was set before the cycle started, so `b` sees it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It throws, because circular `require` calls are not allowed",
+        "why": "Node allows cycles and returns whatever `exports` holds at that moment."
+      }
+    ],
+    "explanation": "When `b` requires `a` during the cycle, Node returns `a`'s current, unfinished `module.exports` object, which has `early: 1`. `a` then replaces `module.exports` with a brand-new object, but `b` still holds the old one, so it never sees `late`. Node also prints a warning about accessing missing properties inside a circular dependency. Adding properties with `exports.x =` instead of reassigning keeps cycles working, and ES modules avoid the problem with live bindings.",
+    "reference": "Node.js docs: Modules – Cycles"
+  },
+  {
+    "id": "NJS-MOD-035",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A package uses the `module-sync` condition, which Node.js 22.10+ supports. What does `require('p3')` return on Node 24?\n\n```json\n\"exports\": {\n  \"module-sync\": \"./s.mjs\",\n  \"default\": \"./d.cjs\"\n}\n```\n\n`s.mjs` is `export default 'sync'` and `d.cjs` is `module.exports = 'd'`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The string `'d'`, because `require` only matches CommonJS targets",
+        "why": "Node now matches `module-sync` for both `require` and `import`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A module namespace object like `{ __esModule: true, default: 'sync' }`",
+        "why": "The `module-sync` target is chosen, and `require(esm)` returns its namespace."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The string `'sync'`, because `require` unwraps the default export",
+        "why": "Without a `\"module.exports\"` export, `require(esm)` returns the namespace, not the default value."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It throws ERR_PACKAGE_PATH_NOT_EXPORTED, because `module-sync` is not a known condition",
+        "why": "Node 22.10+ and 24 recognise `module-sync`."
+      }
+    ],
+    "explanation": "`module-sync` marks an ES module entry that has no top-level `await`, so it is safe for both `import` and `require(esm)`. Node 22.10+ matches it in both cases, letting a package ship a single ESM build to every caller and avoid the dual-package hazard. Older Nodes skip it and fall through to `default`.",
+    "reference": "Node.js docs: Packages – Conditional exports (module-sync)"
+  },
+  {
+    "id": "NJS-MOD-036",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 4,
+    "type": "order",
+    "select": 1,
+    "stem": "Put these versions in semver precedence order, lowest first.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`1.3.0-alpha.9`"
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`1.3.0-beta.2`"
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`1.3.0-beta.10`"
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`1.3.0-rc.1`"
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`1.3.0`"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "A pre-release always sorts below its release, so `1.3.0` is last. Pre-release identifiers are compared one dot-separated part at a time: text parts compare alphabetically (alpha < beta < rc), and numeric parts compare as numbers, so `beta.2` < `beta.10`. A plain string comparison would wrongly put `beta.10` before `beta.2`. Verified with the `semver` package.",
+    "reference": "Semantic Versioning 2.0.0 – §11 precedence"
+  },
+  {
+    "id": "NJS-MOD-037",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which versions satisfy the range `^1.3.0-beta.1`? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`1.3.0-beta.5`",
+        "why": "A pre-release on the same `1.3.0` tuple as the range's own pre-release is allowed."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`1.3.0`",
+        "why": "Any release from 1.3.0-beta.1 up to (not including) 2.0.0 satisfies the caret."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`1.4.0`",
+        "why": "Normal releases below 2.0.0 are inside the caret range."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`1.4.0-beta.1`",
+        "why": "Pre-releases are only allowed on the exact tuple named in the range, 1.3.0."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`1.3.0-alpha.9`",
+        "why": "alpha sorts below beta, so it is lower than the range minimum."
+      }
+    ],
+    "explanation": "The range is `>=1.3.0-beta.1 <2.0.0`, with one extra rule: a pre-release version only matches if it has the same major.minor.patch as a pre-release in the range. So `1.3.0-beta.5` matches but `1.4.0-beta.1` does not, even though it is numerically inside the range. This stops a `^` range from pulling in unstable builds of later versions. All results verified with the `semver` package.",
+    "reference": "npm docs: semver – Prerelease tags"
+  },
+  {
+    "id": "NJS-MOD-038",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An ESM-only package wants `const fn = require('pkg')` in CommonJS to return its default-exported function directly, not a namespace object. What can the author add on Node.js 22.12+ or 24?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`exports.default = fn` in a separate `.cjs` shim that re-exports it",
+        "why": "That still returns an object with a `default` property to `require` callers."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`\"type\": \"commonjs\"` in `package.json` so that `require` unwraps defaults",
+        "why": "`type` only changes how `.js` files are parsed; it doesn't change interop."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "An export named `\"module.exports\"`, for example `export { fn as \"module.exports\" }`",
+        "why": "Node returns the value of that special export from `require(esm)`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Nothing; `require(esm)` always returns the namespace object",
+        "why": "Node added an escape hatch for this exact case."
+      }
+    ],
+    "explanation": "By default `require(esm)` returns the namespace, so callers must write `require('pkg').default`. If the module exports a binding under the string name `\"module.exports\"`, Node returns that value instead, which lets an ESM package keep the CommonJS shape its users expect. Verified on Node 24: `require` returned the function itself.",
+    "reference": "Node.js docs: Modules – Loading ECMAScript modules using require()"
+  },
+  {
+    "id": "NJS-MOD-039",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A developer edits `package.json` to change `\"zod\": \"^3.22.0\"` to `\"^3.23.0\"` but does not run `npm install` before pushing. CI runs `npm ci`. Which two statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`npm ci` fails, because the lockfile no longer satisfies `package.json`",
+        "why": "It refuses to resolve anything new and exits with an error."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Running `npm install` locally and committing the updated lockfile fixes CI",
+        "why": "`npm install` updates the lockfile to match the new range."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`npm ci` updates the lockfile in CI and continues",
+        "why": "`npm ci` never writes the lockfile."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`npm ci` installs the version in the lockfile and ignores `package.json`",
+        "why": "It checks the two files for consistency and stops on a mismatch."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Deleting `node_modules` in CI before `npm ci` avoids the error",
+        "why": "`npm ci` already deletes `node_modules`; the mismatch is between the two files."
+      }
+    ],
+    "explanation": "`npm ci` is built for reproducibility: it installs exactly what the lockfile lists, and if `package.json` and the lockfile disagree it exits with an error rather than guessing. That catches exactly this mistake. The fix is to run `npm install` locally, which updates the lockfile, and commit both files together.",
+    "reference": "npm docs: npm ci"
+  },
+  {
+    "id": "NJS-MOD-040",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print?\n\n```js\n// x.cjs\nconsole.log(this === module.exports);\n\n// y.mjs\nconsole.log(this);\n```\n\nRun as `node x.cjs` and then `node y.mjs`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`false` then `{}`",
+        "why": "The wrapper is called with `this` bound to `module.exports`, and ESM has no `this` object."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`true` then `undefined`",
+        "why": "CommonJS binds `this` to `module.exports`; ES module top-level code has `this` undefined."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`true` then `globalThis`",
+        "why": "Module code is always strict and is not called as a method, so `this` is undefined."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`false` then `undefined`",
+        "why": "In CommonJS the top-level `this` really is `module.exports`."
+      }
+    ],
+    "explanation": "Node calls the CommonJS wrapper with `this` set to `module.exports`, so `this.x = 1` at the top level adds an export. ES modules are always strict and run as module code, so top-level `this` is `undefined`. Code that relies on top-level `this`, such as old UMD wrappers, breaks when converted to ESM.",
+    "reference": "Node.js docs: Modules – The module wrapper"
+  },
+  {
+    "id": "NJS-MOD-041",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A package declares `\"engines\": { \"node\": \">=22\" }`. Someone on Node 20 runs `npm install the-package` with default npm settings. Which two statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "npm prints an EBADENGINE warning but still installs the package",
+        "why": "By default, `engines` is advisory for npm."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Setting `engine-strict=true` in `.npmrc` turns the mismatch into an install error",
+        "why": "That opt-in makes npm enforce `engines`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "npm refuses to install, because `engines` is always enforced",
+        "why": "Enforcement is off unless `engine-strict` is enabled."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Node refuses to `require` the package at runtime",
+        "why": "Node itself never reads the `engines` field."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "npm automatically installs the latest version that supports Node 20",
+        "why": "npm does not pick versions based on `engines`."
+      }
+    ],
+    "explanation": "`engines` documents what a package supports. npm warns (EBADENGINE) on a mismatch and only fails when `engine-strict` is true, while some other managers are stricter. Node never checks it, so packages that truly need newer features often also check `process.versions.node` at startup.",
+    "reference": "npm docs: package.json – engines; npm config – engine-strict"
+  },
+  {
+    "id": "NJS-MOD-042",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 4,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each npm lifecycle script with when it runs.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Before `npm publish` only",
+        "why": "Not on a plain install."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "On a local `npm install` with no arguments, before packing and publishing, and when installed from git",
+        "why": "The usual place for a build step."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "After the package is installed, including inside every consumer's project",
+        "why": "A common malware vector."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Before a tarball is created by `npm pack` or `npm publish`",
+        "why": "Right before packing."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`prepublishOnly`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`prepare`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`postinstall`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`prepack`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "`prepare` is the usual hook for compiling TypeScript, because it also runs for git dependencies and local installs. `prepublishOnly` is for last checks before publishing. `postinstall` runs on users' machines, which is why attackers abuse it and why `npm install --ignore-scripts` exists. `prepack` runs before any tarball is made.",
+    "reference": "npm docs: scripts – Life cycle scripts"
+  },
+  {
+    "id": "NJS-MOD-043",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A dev server reloads modules on change. For CommonJS it deletes `require.cache` entries. For an ES module `./plugin.mjs`, what makes `import()` load a fresh copy after a change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Delete its entry from `require.cache` before calling `import()` again",
+        "why": "The ESM cache is separate, and ES modules never appear in `require.cache`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Import a new URL each time, such as `import('./plugin.mjs?v=' + Date.now())`",
+        "why": "The ESM loader caches by full URL, so a new query string means a new module instance."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Call `import.meta.resolve()` with `{ reload: true }`",
+        "why": "`resolve` only returns a URL; there is no reload option."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Nothing, because `import()` always re-executes the module",
+        "why": "Repeated `import()` of the same URL returns the cached namespace."
+      }
+    ],
+    "explanation": "ES modules are cached by URL and the cache can't be cleared. Importing the same specifier again returns the same namespace (`a === b` is true). Adding a query string changes the URL, so Node loads and runs a new instance, which is how many ESM hot-reload tools work. The old instances are never freed, so this leaks memory in long-running processes. Verified on Node 24.",
+    "reference": "Node.js docs: ECMAScript modules – URLs"
+  },
+  {
+    "id": "NJS-MOD-044",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 4,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "A package's `exports` maps `\"import\"` to `./e.mjs` and `\"require\"` to `./c.cjs`. Since `require()` can load ES modules on Node.js 22.12+, `require('pkg')` now loads `./e.mjs`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Being able to load ESM doesn't change which export condition `require` matches."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "`require` still resolves with the `require` condition, so it loads `./c.cjs`. (Verified on Node 24.)"
+      }
+    ],
+    "explanation": "`require(esm)` changes what `require` can load, not how packages resolve. A `require` call still matches the `require` condition, and `import` still matches `import`, so dual packages keep loading two copies. To serve one ESM build to both callers, a package points both at it or uses the `module-sync` condition.",
+    "reference": "Node.js docs: Packages – Conditional exports"
+  },
+  {
+    "id": "NJS-MOD-045",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A project lists `eslint` in `devDependencies`, and someone runs `npx eslint .` with npm 10. Which two statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "npx runs the locally installed binary from `node_modules/.bin` without downloading anything",
+        "why": "Local binaries are found first."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "If `eslint` were not installed, npx would ask before downloading it into a cache and running it",
+        "why": "Since npm 7, npx prompts unless you pass `--yes`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "npx always downloads the latest `eslint` from the registry, ignoring the local version",
+        "why": "It prefers the local install, which keeps versions consistent."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "npx installs `eslint` globally the first time it runs",
+        "why": "Packages are kept in the npx cache, not installed globally."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "npx only works for packages that declare `\"npx\": true` in `package.json`",
+        "why": "Any package with a `bin` entry can be run."
+      }
+    ],
+    "explanation": "npx (now `npm exec`) looks for the command in the local project's `node_modules/.bin` first. If it's missing, it resolves the package from the registry, asks for confirmation (since npm 7) unless `--yes` is passed, and runs it from a cache. Typos in package names are a known supply-chain risk, so pin the version (`npx eslint@9 .`) for one-off commands.",
+    "reference": "npm docs: npm exec / npx"
+  }
+]

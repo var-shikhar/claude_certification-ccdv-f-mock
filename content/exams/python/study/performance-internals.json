@@ -1,0 +1,24 @@
+{
+  "performance-internals": {
+    "summary": "Know how CPython runs and frees your code, so you can predict what is slow or leaky and measure it with the right tool instead of guessing.",
+    "points": [
+      "Imported modules are compiled to bytecode and cached in `__pycache__`; the evaluation loop runs that bytecode. Since 3.11 the specializing adaptive interpreter (PEP 659) swaps in type-specific instructions such as `BINARY_OP_ADD_INT` after a warm-up. The 3.13 JIT exists only in builds made with `--enable-experimental-jit`.",
+      "Memory is freed by reference counting the moment a count hits zero; a separate generational collector frees reference cycles, and since 3.4 it also runs `__del__` on cycles. None, True, False and small ints are immortal since 3.12, so their refcounts never change.",
+      "`sys.getsizeof` is shallow and in 3.12+ doesn't include a plain instance's inline attribute values. Measure real footprints with `tracemalloc`: on 3.13 a two-attribute instance is about 96 bytes, about 56 with `__slots__`, and about 160 once its `__dict__` is materialised.",
+      "Pick the right data structure first: set and dict lookups are O(1) on average, `list.pop(0)` and `insert(0, …)` are O(n) (use `deque`), `list.remove` in a loop is quadratic, and `''.join` beats repeated `+=`.",
+      "Profile before optimising: cProfile for per-function time (with per-call overhead), py-spy to sample live processes, line_profiler for lines inside a known hot function, tracemalloc snapshots to diff memory growth, timeit for micro-benchmarks.",
+      "Move hot numeric loops out of Python: NumPy runs one C loop over an unboxed, contiguous buffer instead of dispatching bytecode and allocating an object per element. Reach for PyPy, Cython or Rust (PyO3) when the work can't be vectorised.",
+      "Caches are a common leak: `lru_cache` on a method keeps every `self` alive, saved exceptions keep their frames' locals alive, and bound methods in registries keep instances alive. Bound caches or hold values weakly."
+    ],
+    "traps": [
+      "`timeit` disables garbage collection while timing, so allocation-heavy code looks faster than in production; add `gc.enable()` to the setup when GC cost matters.",
+      "`is` comparisons on ints and strings depend on caching and constant merging (`int('256') is int('256')` is True, 257 is False; one script versus REPL lines), so always compare values with `==`.",
+      "CPython's in-place `s += t` speed-up only applies when nothing else references `s`; keep another reference and every step copies, so it turns quadratic."
+    ],
+    "docs": [
+      { "title": "The Python Profilers", "url": "https://docs.python.org/3/library/profile.html" },
+      { "title": "tracemalloc: Trace memory allocations", "url": "https://docs.python.org/3/library/tracemalloc.html" },
+      { "title": "gc: Garbage Collector interface", "url": "https://docs.python.org/3/library/gc.html" }
+    ]
+  }
+}

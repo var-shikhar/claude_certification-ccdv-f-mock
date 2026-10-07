@@ -1,0 +1,1696 @@
+[
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-001",
+    "difficulty": 1,
+    "type": "single",
+    "stem": "A Node.js API is split into routes, controllers, services and repositories. Where should the SQL that loads an order by id live?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "In the route definition, next to the URL pattern",
+        "why": "Routes only map URLs and methods to handlers; mixing SQL there couples HTTP to storage."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "In the controller, which already has the request",
+        "why": "Controllers translate HTTP into calls; putting queries there makes the logic hard to reuse from jobs or tests."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "In the repository (data-access) layer",
+        "why": "Repositories hide how data is stored, so services can be tested with a fake repository."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "In the service, so business rules sit beside the query",
+        "why": "Services hold business rules but should call a repository rather than build SQL themselves."
+      }
+    ],
+    "explanation": "Layering keeps each concern replaceable. Routes map URLs, controllers handle HTTP details (parsing, status codes), services hold business rules, and repositories own persistence. A background job or a CLI can then reuse the same service, and unit tests can swap the repository for an in-memory fake.",
+    "reference": "Node.js best practices: layered architecture"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-002",
+    "difficulty": 1,
+    "type": "truefalse",
+    "stem": "`db.js` contains `export const pool = new Pool()`. Ten other modules in the same process import `pool` from it. In total, only one `Pool` object is created.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: a module is evaluated once per process and cached, so every importer shares the same pool."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "Both ESM and CommonJS cache a module after its first evaluation, so the top-level code runs only once."
+      }
+    ],
+    "explanation": "Module caching is why a module-level pool or client acts as a process-wide singleton. The caveats are separate processes (cluster workers, serverless instances), which each get their own copy, and dev servers with hot reload that can re-evaluate modules. That is why some apps stash the client on `globalThis` in development.",
+    "reference": "Node.js docs: Modules (caching)"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-003",
+    "difficulty": 1,
+    "type": "single",
+    "stem": "Following the Twelve-Factor App, where should a service read its database URL and API keys from?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A `config.json` file committed next to the code",
+        "why": "Committed config leaks secrets into git history and needs a new build per environment."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Environment variables set by the deployment",
+        "why": "Config lives in the environment, so the same build runs in every environment."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Constants in the source, switched on `NODE_ENV`",
+        "why": "That bakes every environment's secrets into the code and rebuilds for each change."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A table in the application's own database",
+        "why": "The app would need the database URL to read the database URL; config must come first."
+      }
+    ],
+    "explanation": "Factor III says to store config in the environment: anything that varies between deploys (credentials, URLs, feature flags) is injected at runtime. In practice teams validate `process.env` once at startup and fail fast, and pull secrets from a secrets manager into the environment rather than committing them.",
+    "reference": "The Twelve-Factor App: III. Config"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-004",
+    "difficulty": 1,
+    "type": "fill",
+    "stem": "With node-postgres, `new Pool()` created with no options keeps at most how many clients (connections) open at once? Type a number.",
+    "options": [],
+    "accepted": [
+      "10"
+    ],
+    "explanation": "pg-pool defaults to `max: 10`. When all 10 clients are checked out, further `pool.query()` or `pool.connect()` calls wait in a queue, by default with no timeout (`connectionTimeoutMillis: 0`). Size the pool against your traffic and the database's `max_connections`, which is shared by every instance of the service.",
+    "reference": "node-postgres docs: Pool"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-005",
+    "difficulty": 1,
+    "type": "match",
+    "stem": "Match each authentication building block with what it is.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "An opaque id that points to state the server stores",
+        "why": "Session cookie."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A signed token the server can verify without a lookup",
+        "why": "JWT access token."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A long-lived credential used only to get new access tokens",
+        "why": "Refresh token."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A protocol for signing in through another identity provider",
+        "why": "OAuth 2.0 / OpenID Connect."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Session cookie",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "JWT access token",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Refresh token",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "OpenID Connect",
+        "answer": "D"
+      }
+    ],
+    "explanation": "A session cookie carries only an id; the session data lives in a store such as Redis or the database, which makes revocation easy. A JWT carries signed claims, so it can be checked statelessly but is hard to revoke before it expires. A refresh token lets a client get new short-lived access tokens. OpenID Connect builds sign-in on top of OAuth 2.0.",
+    "reference": "OWASP Session Management Cheat Sheet"
+  },
+  {
+    "id": "NJS-API-006",
+    "domain": 4,
+    "skill": "apis-architecture",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "An API lists orders newest first with `SELECT ... ORDER BY created_at DESC LIMIT 50 OFFSET $1`. Page 1 is fast, but deep pages such as page 10,000 take seconds, and rows inserted while a user pages through show up twice. Which approach fixes both problems?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add an index on `created_at` and keep the same `OFFSET` query",
+        "why": "The database still has to walk past every skipped row, and new inserts still shift the pages."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Keyset pagination: return a cursor and query `WHERE (created_at, id) < ($1, $2)`",
+        "why": "The index seeks straight to the cursor, so each page costs the same, and inserts above it shift nothing."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Cache each page in Redis keyed by its page number",
+        "why": "Cached pages go stale and still drift as soon as rows are inserted or deleted."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Fetch the whole table once and slice pages in Node",
+        "why": "Loading every row into memory per request is far slower and doesn't scale at all."
+      }
+    ],
+    "explanation": "With `OFFSET n` the database reads and throws away n rows on every request, so deep pages get slower in proportion to n, and any insert above the user's position shifts every later page by one. Keyset (cursor) pagination remembers the last row's sort key. A unique tiebreaker such as `id` makes it total, and the next page is `WHERE (created_at, id) < (last_created_at, last_id)`, served by an index on `(created_at, id)`. Each page is an index seek, and new rows never cause duplicates or skips. The trade-off is that you can't jump straight to an arbitrary page number.",
+    "reference": "Use The Index, Luke: Paging Through Results"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 2,
+    "id": "NJS-API-007",
+    "difficulty": 1,
+    "type": "multi",
+    "stem": "Node.js teams often split errors into operational errors (expected runtime problems to handle) and programmer errors (bugs). Which two are operational errors? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The payment provider times out after 5 seconds",
+        "why": "An external dependency failing is expected; handle it with a retry, fallback or clear error response."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A client sends a body that fails schema validation",
+        "why": "Bad input is normal; reply with a 400 and a helpful message."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Code reads `user.email` when `user` is `undefined`",
+        "why": "That is a bug; the fix is in the code, not a runtime handler."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A function is called with a string where an object is required",
+        "why": "Passing the wrong type is a programming mistake to fix and test for."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "A missing `await` lets a promise rejection go unhandled",
+        "why": "Forgetting to await is a coding error, often caught by lint rules."
+      }
+    ],
+    "explanation": "Operational errors are part of normal operation (network failures, invalid input, timeouts, full disks) and should be handled gracefully. Programmer errors mean the code is wrong; the process may be in an unknown state, so the common advice is to log, crash and let the supervisor restart it rather than carry on.",
+    "reference": "Joyent: Error Handling in Node.js"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-008",
+    "difficulty": 1,
+    "type": "order",
+    "stem": "Put the steps of handling `POST /orders` in a layered Express app in order, from the first code that runs to the last.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Router matches `POST /orders`"
+      },
+      {
+        "id": "B",
+        "text": "Validation middleware checks the request body"
+      },
+      {
+        "id": "C",
+        "text": "Controller calls `orderService.create(input)`"
+      },
+      {
+        "id": "D",
+        "text": "Service applies business rules and calls the repository"
+      },
+      {
+        "id": "E",
+        "text": "Repository inserts the row in the database"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "The request moves inward: routing, cross-cutting middleware (auth, validation), then the controller, which turns HTTP into a service call. The service holds the rules and calls the repository, which talks to the database. The response flows back out the same way, and the controller picks the status code.",
+    "reference": "Express docs: Using middleware"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-009",
+    "difficulty": 2,
+    "type": "single",
+    "stem": "The service stops responding after a handful of failed requests, even though the database is healthy. What is the bug?\n\n```js\nasync function getUser(id) {\n  const client = await pool.connect();\n  const { rows } = await client.query('SELECT * FROM users WHERE id = $1', [id]);\n  client.release();\n  return rows[0];\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The query should use string interpolation instead of `$1`",
+        "why": "Parameters are correct and prevent SQL injection; they have nothing to do with the hang."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Errors skip `release()`, leaking clients until the pool is empty",
+        "why": "Once all checked-out clients leak, every later `connect()` waits forever."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`pool.connect()` creates a brand-new pool on every call, so connections pile up",
+        "why": "It checks a client out of the existing pool; it does not create a pool."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Calling `release()` closes the connection to the database",
+        "why": "It returns the client to the pool for reuse; it only closes it if passed an error."
+      }
+    ],
+    "explanation": "If `client.query` throws, execution jumps past `client.release()` and that client is never returned. After `max` failures (10 by default) the pool is empty, and new requests queue indefinitely because `connectionTimeoutMillis` defaults to 0. Release in a `finally` block, or use `pool.query()` for single statements, which checks out and releases automatically.",
+    "reference": "node-postgres docs: Pooling"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-010",
+    "difficulty": 2,
+    "type": "single",
+    "stem": "Under load, this transfer sometimes commits one update without the other. Why?\n\n```js\nawait pool.query('BEGIN');\nawait pool.query('UPDATE accounts SET balance = balance - $1 WHERE id = $2', [amt, from]);\nawait pool.query('UPDATE accounts SET balance = balance + $1 WHERE id = $2', [amt, to]);\nawait pool.query('COMMIT');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Postgres does not allow two UPDATEs in one transaction",
+        "why": "A transaction can contain any number of statements."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The UPDATEs need `SELECT … FOR UPDATE` first so they join the open transaction",
+        "why": "`FOR UPDATE` is for SELECT row locks; it does not bind statements to a transaction."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Each `pool.query()` may run on a different client and connection",
+        "why": "A transaction belongs to one connection, so BEGIN and COMMIT may hit different sessions."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The amounts must be sent as strings, not numbers",
+        "why": "Parameter types do not affect atomicity."
+      }
+    ],
+    "explanation": "`pool.query()` borrows any idle client for one statement and returns it. BEGIN can land on connection 1 while the UPDATEs run in autocommit on connections 2 and 3. Check out one client with `pool.connect()`, run BEGIN, the statements and COMMIT on it (ROLLBACK on error), and release it in `finally`. ORMs wrap this as `db.transaction(async (tx) => …)`.",
+    "reference": "node-postgres docs: Transactions"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 2,
+    "id": "NJS-API-011",
+    "difficulty": 2,
+    "type": "multi",
+    "stem": "A team is choosing between server-side sessions (an id in an httpOnly cookie, data in Redis) and stateless JWT access tokens. Which two statements are accurate? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Revoking a JWT before it expires needs extra state, such as a denylist",
+        "why": "A JWT stays valid until `exp`, so instant logout or bans need a server-side check."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Sessions need a store lookup per request, but logout is just deleting the session",
+        "why": "That lookup is the cost of easy revocation."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "JWTs are encrypted, so their claims are hidden from the client",
+        "why": "Standard JWTs (JWS) are only signed; anyone can base64-decode the payload."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Cookies cannot be used to carry a JWT",
+        "why": "A JWT can be stored in an httpOnly cookie; the transport and the token format are separate choices."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Sessions cannot work when the API runs on several instances",
+        "why": "They work if all instances share the session store, such as Redis."
+      }
+    ],
+    "explanation": "Sessions keep state on the server, which makes revocation and session listing trivial at the cost of a lookup. JWTs avoid the lookup but are hard to revoke, so teams keep them short-lived (minutes) and pair them with refresh tokens. Neither choice is inherently more secure; storage (httpOnly cookies vs JavaScript-readable storage) matters more.",
+    "reference": "OWASP JSON Web Token Cheat Sheet"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-012",
+    "difficulty": 2,
+    "type": "single",
+    "stem": "A page lists 100 users with their latest order. The endpoint is slow, and the database log shows 101 queries per request. What is the standard fix?\n\n```js\nconst users = await userRepo.findMany({ take: 100 });\nfor (const u of users) {\n  u.latestOrder = await orderRepo.findLatestFor(u.id);\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Run the 100 order lookups with `Promise.all` instead of a loop",
+        "why": "That is faster but still sends 101 queries, which floods the pool under load."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Load the orders in one query with `WHERE user_id IN (…)` or a join",
+        "why": "Two queries, or one join, replace 101 round trips."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add an index on `users.id` so each lookup is faster",
+        "why": "`users.id` is already the primary key; the problem is the number of round trips."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Cache each user's latest order in memory for the duration of the request",
+        "why": "The first request still makes 101 queries; caching hides the pattern rather than fixing it."
+      }
+    ],
+    "explanation": "This is the N+1 query problem: one query for the list and one per row. ORMs make it easy to write by accident (lazy relations, per-item awaits). Batch the related rows in one query and group them in memory, use the ORM's eager loading (`include` in Prisma, `with` in Drizzle's relational queries), or use a DataLoader that batches lookups made in the same tick.",
+    "reference": "Prisma docs: Query optimization (n+1)"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-013",
+    "difficulty": 2,
+    "type": "truefalse",
+    "stem": "Calling the asynchronous `bcrypt.hash(password, 12)` from the native `bcrypt` npm package blocks the Node.js event loop until the hash is finished.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Only `hashSync` blocks the main thread; the async API hands the work to a worker thread."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: the async version runs on the libuv thread pool and calls back when done."
+      }
+    ],
+    "explanation": "The native `bcrypt` package runs async hashing on libuv's thread pool, so the event loop stays free. The pool has only 4 threads by default (`UV_THREADPOOL_SIZE`), so a burst of logins can queue behind each other and delay other pool users such as `fs` and `dns.lookup`. Never use `hashSync` in a request path.",
+    "reference": "node.bcrypt.js README"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-014",
+    "difficulty": 2,
+    "type": "single",
+    "stem": "Startup validation rejects a correct environment where `PORT=3000`. Why, and what is the usual fix?\n\n```js\nimport { z } from 'zod';\nconst Env = z.object({ PORT: z.number().int(), DATABASE_URL: z.string().url() });\nexport const env = Env.parse(process.env);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Every `process.env` value is a string; use `z.coerce.number()`",
+        "why": "Coercion converts the string before the number checks run."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "zod cannot parse `process.env` directly; copy it into a plain object first",
+        "why": "`process.env` is readable like any object, so zod parses it fine."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`.int()` fails because environment numbers arrive as floats",
+        "why": "They arrive as strings, so the number check fails before `.int()` runs."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Validation must run after the server starts listening",
+        "why": "The point is to fail fast before serving traffic; order is not the issue."
+      }
+    ],
+    "explanation": "Environment variables are always strings (or undefined). `z.number()` rejects `\"3000\"` with an invalid_type error. `z.coerce.number()` runs `Number(value)` first. TypeScript types alone would not catch this, because they are erased at runtime; validating at startup turns a misconfigured deploy into an immediate, readable crash instead of a failure under traffic.",
+    "reference": "zod docs: Coercion"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-015",
+    "difficulty": 2,
+    "type": "single",
+    "stem": "Errors from route handlers never reach this handler; Express sends its default HTML error page instead. Why?\n\n```js\napp.use((err, req, res) => {\n  res.status(500).json({ error: 'internal' });\n});\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Error-handling middleware must be registered before the routes it covers",
+        "why": "They go after the routes, so errors from those routes flow down to them."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`res.json()` cannot be used inside error middleware",
+        "why": "Any response method works in an error handler."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Express only treats 4-parameter middleware as an error handler",
+        "why": "With 3 parameters it is ordinary middleware and is skipped for errors."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Error middleware only runs in production mode",
+        "why": "Express calls it in every environment."
+      }
+    ],
+    "explanation": "Express decides whether a middleware handles errors by its arity: `(err, req, res, next)`. Dropping `next`, even if you never call it, turns it into a normal `(req, res, next)` middleware, so errors skip it and fall through to the default handler. Linters that remove \"unused\" parameters can cause this bug.",
+    "reference": "Express docs: Error handling"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-016",
+    "difficulty": 2,
+    "type": "fill",
+    "stem": "Postgres allows 100 connections, and 3 are reserved for superusers, leaving 97 for the app. Each API instance runs a pool with `max: 20`. What is the largest number of instances you can run at full pool size without exceeding 97 connections? Type a number.",
+    "options": [],
+    "accepted": [
+      "4"
+    ],
+    "explanation": "Four instances can open 4 × 20 = 80 connections; five would need 100, more than the 97 available. Remember that migrations, cron jobs, admin tools and new instances during a rolling deploy all share the same budget. Beyond a few instances, put a pooler such as PgBouncer (or a managed pooler) in front of Postgres rather than shrinking every pool.",
+    "reference": "PostgreSQL docs: max_connections"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-017",
+    "difficulty": 2,
+    "type": "single",
+    "stem": "You want every log line written while handling a request to include that request's id, without passing the id through every function call. Which Node.js API is designed for this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A module-level `let currentRequestId` set by middleware",
+        "why": "Concurrent requests overwrite each other, so logs get the wrong id."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`process.env.REQUEST_ID`, set at the start of each request",
+        "why": "It is one global value for the whole process, shared by all requests."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`AsyncLocalStorage` from `node:async_hooks`",
+        "why": "It keeps a store that follows the async call chain of each request."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A `WeakMap` keyed by the request object",
+        "why": "Deep code would still need the request object to look up the id."
+      }
+    ],
+    "explanation": "`AsyncLocalStorage.run(store, fn)` makes `store` available through `getStore()` anywhere in the async work started by `fn`: awaited promises, timers and callbacks. Loggers such as pino and frameworks use it to attach request ids and trace context. Context does not cross process boundaries, so put the id into job payloads or message headers yourself.",
+    "reference": "Node.js docs: AsyncLocalStorage"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 2,
+    "id": "NJS-API-018",
+    "difficulty": 2,
+    "type": "multi",
+    "stem": "A nightly invoice job uses `node-cron` inside the API process. After scaling to 3 replicas, customers get 3 invoices. Which two changes fix it properly? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Run the schedule once, outside the API replicas (a Kubernetes CronJob or one scheduler process)",
+        "why": "Only one process triggers the job, however many API replicas run."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Use a job queue with a deterministic job id, such as BullMQ repeatable jobs",
+        "why": "The queue keeps one copy of each scheduled run, and one worker processes it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add a random delay of up to a minute before the job starts",
+        "why": "All 3 replicas still run it; the delay only spreads the duplicates out."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Check `process.pid === 1` before running the job",
+        "why": "Each container often has its own PID 1, so every replica passes."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Set the cron expression in an environment variable",
+        "why": "Where the schedule is configured does not change how many processes run it."
+      }
+    ],
+    "explanation": "In-process schedulers run in every copy of the process. Either move scheduling out (a platform cron that runs one container, or a single scheduler deployment), or coordinate through shared infrastructure: queue-level deduplication or a distributed lock with an expiry. Also make the job idempotent (an invoice per customer per period), so a retry or overlap is harmless.",
+    "reference": "BullMQ docs: Repeatable jobs"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-019",
+    "difficulty": 2,
+    "type": "match",
+    "stem": "Match each endpoint or probe with what it should report.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The process is alive and its event loop responds",
+        "why": "Liveness."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The instance can serve traffic right now",
+        "why": "Readiness."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Slow initial work (migrations, warm-up) has finished",
+        "why": "Startup probe."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Detailed status of each dependency, for humans and dashboards",
+        "why": "Deep health check."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Liveness probe",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Readiness probe",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Startup probe",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Deep health endpoint",
+        "answer": "D"
+      }
+    ],
+    "explanation": "A liveness failure restarts the container, so it should check only the process itself; if it checks the database, a database outage restarts every pod at once. Readiness removes the pod from the load balancer and can fail during shutdown or while dependencies are unreachable. A startup probe holds off liveness checks during slow boots. A deep health endpoint is for diagnosis, not automated restarts.",
+    "reference": "Kubernetes docs: Liveness, Readiness and Startup Probes"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-020",
+    "difficulty": 3,
+    "type": "single",
+    "stem": "An AWS Lambda function talks to Postgres. During a traffic spike the database refuses connections with \"too many clients\". What is the main problem, and the right fix?\n\n```js\nexport const handler = async (event) => {\n  const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 10 });\n  const { rows } = await pool.query('SELECT …');\n  return { statusCode: 200, body: JSON.stringify(rows) };\n};\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Lambda cannot keep TCP connections open; switch to an HTTP-only database",
+        "why": "Lambda can hold TCP connections; the issue is how many are created."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A pool per invocation leaks connections; create it outside the handler, use a pooler",
+        "why": "Each concurrent instance then holds one connection, and a pooler such as RDS Proxy absorbs the spike."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`max: 10` is too small for a spike; raise it so queries stop queueing in each instance",
+        "why": "Each instance handles one request at a time, so a bigger pool only adds idle connections."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The query must be wrapped in a transaction to reuse connections",
+        "why": "Transactions do not change connection reuse."
+      }
+    ],
+    "explanation": "Code outside the handler runs once per execution environment and is reused by warm invocations, so that is where a client or pool belongs. Creating a pool per invocation leaks connections until the environment is frozen or recycled. Even with reuse, Lambda can run hundreds of concurrent environments, each with its own connections. Keep `max` at 1 to 2 per instance and put a pooler (RDS Proxy, PgBouncer or a provider pooler) between Lambda and Postgres.",
+    "reference": "AWS docs: Lambda execution environment reuse"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-021",
+    "difficulty": 3,
+    "type": "single",
+    "stem": "During deploys, some in-flight requests fail with \"Cannot use a pool after calling end on the pool\". What is wrong with this shutdown code?\n\n```js\nprocess.on('SIGTERM', async () => {\n  await pool.end();\n  server.close(() => process.exit(0));\n});\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "SIGTERM handlers cannot be `async`",
+        "why": "Async listeners run; Node just does not wait for their promise."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It ends the pool while requests are still in flight",
+        "why": "Requests still in progress then try to query a pool that has ended."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`server.close()` must be called with `await`",
+        "why": "It takes a callback (or can be promisified); that is not the cause of the failures."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The process should exit first and let the orchestrator clean up the connections",
+        "why": "Exiting first drops every in-flight request and leaves connections half-open."
+      }
+    ],
+    "explanation": "Shut down from the outside in: stop accepting new work (`server.close()`, fail readiness), let in-flight requests finish, then close what they depend on (database pools, Redis, queue workers), flush logs, and exit. Add a hard timeout that forces exit if draining takes too long, so the orchestrator's kill signal never arrives mid-write.",
+    "reference": "Node.js docs: server.close()"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-022",
+    "difficulty": 3,
+    "type": "single",
+    "stem": "On Node.js 24, a shutdown handler calls `server.close(cb)` while one long request is still running. That request finishes after 1.5 seconds, but `cb` fires about 5 seconds after that. Why the delay?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`server.close()` always waits for the full `server.timeout` period before calling its callback",
+        "why": "It calls back as soon as the last connection closes."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The busy connection turns idle after responding and lingers until `keepAliveTimeout`",
+        "why": "`close()` only closes connections that were idle when it was called."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Node waits for the garbage collector before releasing the server socket",
+        "why": "Socket closing does not depend on garbage collection."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The response is buffered and flushed to the client only on a 5-second timer",
+        "why": "The response is sent immediately; the delay comes after it."
+      }
+    ],
+    "explanation": "Since Node.js 19, `server.close()` stops listening and also closes connections that are idle at that moment. A connection that was busy finishes its response and then becomes an idle keep-alive connection, which the server keeps until `server.keepAliveTimeout` (5 seconds by default) elapses. To shut down promptly, call `server.closeIdleConnections()` once requests finish, or `server.closeAllConnections()` after a drain timeout.",
+    "reference": "Node.js docs: http.Server close and closeIdleConnections"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 2,
+    "id": "NJS-API-023",
+    "difficulty": 3,
+    "type": "multi",
+    "stem": "You are implementing refresh token rotation for a mobile app. Which two behaviours are part of a sound design? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Each refresh returns a new refresh token, and the old one stops working",
+        "why": "A stolen token then has a short useful life."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "If an already-used refresh token appears again, revoke the whole token family",
+        "why": "Reuse means a copy was stolen, so both copies should lose access."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Refresh tokens should be JWTs that never expire, so users stay signed in",
+        "why": "Long-lived credentials need server-side state and expiry so they can be revoked."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The access token should be refreshed on every API request",
+        "why": "That multiplies load on the auth server and defeats short-lived tokens."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Rotation makes it safe to keep refresh tokens in `localStorage` on the web",
+        "why": "Any script running through XSS can still read and use the newest token."
+      }
+    ],
+    "explanation": "Rotation plus reuse detection (OAuth 2.0 Security Best Current Practice) limits the damage of a leaked refresh token: if the attacker uses it first, the real client's next refresh fails; if the client uses it first, the attacker's reuse revokes the family. Store refresh tokens server-side (hashed) so they can be revoked, keep them in httpOnly cookies on the web, and handle concurrent refreshes from multiple tabs with a short grace period.",
+    "reference": "RFC 9700: OAuth 2.0 Security Best Current Practice"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-024",
+    "difficulty": 3,
+    "type": "single",
+    "stem": "A single-page app stores its JWT access token in `localStorage` and sends it in the `Authorization` header. A security review asks to move it to an `httpOnly`, `Secure`, `SameSite=Lax` cookie. What does the move change?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It makes XSS impossible on the site",
+        "why": "XSS still runs; it just cannot read the cookie and send it elsewhere."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Nothing, since an attacker with XSS can read cookies with `document.cookie`",
+        "why": "`httpOnly` cookies are hidden from `document.cookie`."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Scripts can no longer steal the token, but CSRF now matters",
+        "why": "Cookies are sent automatically, so SameSite or CSRF tokens become relevant."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The token no longer needs an expiry, because cookies expire on their own",
+        "why": "The server must still enforce the token's `exp`; cookie lifetime is a separate setting."
+      }
+    ],
+    "explanation": "Any script on the page can read `localStorage`, so one XSS bug leaks a reusable token. An `httpOnly` cookie is invisible to scripts, which shrinks the damage from XSS to actions taken while the victim's page is open. The trade-off is that browsers attach cookies automatically, so you rely on `SameSite` and, for unsafe methods, CSRF tokens or origin checks.",
+    "reference": "OWASP HTML5 Security Cheat Sheet: Local Storage"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-025",
+    "difficulty": 3,
+    "type": "single",
+    "stem": "A BullMQ worker charges a card and then updates the order. A worker crashed right after the charge succeeded, BullMQ retried the job, and the customer was charged twice. What is the robust fix?\n\n```js\nnew Worker('payments', async (job) => {\n  await psp.charge(job.data.orderId, job.data.amount);\n  await orders.markPaid(job.data.orderId);\n});\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Set `attempts: 1` so failed payment jobs are never retried",
+        "why": "Then genuine transient failures leave orders unpaid, with no recovery."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Charge with a stable idempotency key and skip already-paid orders",
+        "why": "A retried charge with the same key returns the first result instead of charging again."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Wrap the two calls in a database transaction",
+        "why": "The charge is an external call; a database rollback cannot undo it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use `removeOnComplete: true` so the job cannot run twice",
+        "why": "That only cleans up finished jobs; it does not stop retries of a job that crashed."
+      }
+    ],
+    "explanation": "Queues like BullMQ give at-least-once execution: a job that stalls or crashes is retried, so handlers must be idempotent. For side effects in other systems, pass an idempotency key the provider honours (Stripe and most payment providers support one), and check local state before acting. Exactly-once is achieved end to end by idempotency, not by the queue.",
+    "reference": "BullMQ docs: Retrying failing jobs"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-026",
+    "difficulty": 3,
+    "type": "single",
+    "stem": "To avoid duplicate welcome emails, the code adds jobs with a custom id. Workers use `removeOnComplete: true`. A user signs up, the email is sent, and a second signup event for the same user an hour later sends another email. Why?\n\n```js\nawait emailQueue.add('welcome', { userId }, { jobId: `welcome:${userId}`, removeOnComplete: true });\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "BullMQ ignores `jobId` unless deduplication is enabled on the worker",
+        "why": "Custom job ids are always unique within a queue while the job exists."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The id only blocks duplicates while the job is still stored in Redis",
+        "why": "Removing completed jobs also removes the duplicate guard."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Job ids must be numeric, so the string id is replaced with a random one",
+        "why": "String ids are allowed; only some separators are restricted."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Each worker has its own copy of the queue, so ids are not shared",
+        "why": "All workers share one queue in Redis."
+      }
+    ],
+    "explanation": "Adding a job whose id already exists is a no-op, but only while that job is in Redis (waiting, active, completed or failed). `removeOnComplete: true` deletes it right after completion, so a later add with the same id creates a new job. For lasting deduplication, keep completed jobs (or use time-based deduplication options) and, more robustly, record \"welcome email sent\" in the database and check it in the worker.",
+    "reference": "BullMQ docs: Job ids"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-027",
+    "difficulty": 3,
+    "type": "order",
+    "stem": "Put the steps of a correct node-postgres transaction in order.",
+    "options": [
+      {
+        "id": "A",
+        "text": "`const client = await pool.connect()`"
+      },
+      {
+        "id": "B",
+        "text": "`await client.query('BEGIN')`"
+      },
+      {
+        "id": "C",
+        "text": "Run the transaction's statements on `client`"
+      },
+      {
+        "id": "D",
+        "text": "`await client.query('COMMIT')` (or `ROLLBACK` in `catch`)"
+      },
+      {
+        "id": "E",
+        "text": "`client.release()` in `finally`"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "All statements of a transaction must run on the same connection, so check one client out first. BEGIN starts the transaction, the statements run on that client, then COMMIT, or ROLLBACK if anything threw. `release()` in `finally` returns the client whatever happened. If the connection itself broke, pass the error to `release(err)` so the pool discards the client instead of reusing it.",
+    "reference": "node-postgres docs: Transactions"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-028",
+    "difficulty": 3,
+    "type": "single",
+    "stem": "In this Drizzle code, the stock decrement is sometimes kept even though creating the order failed and the transaction rolled back. Why?\n\n```js\nawait db.transaction(async (tx) => {\n  await db.update(products).set({ stock: sql`stock - 1` }).where(eq(products.id, pid));\n  await tx.insert(orders).values({ productId: pid, userId });\n});\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Drizzle runs transactions only when `isolationLevel` is set",
+        "why": "The callback runs in a transaction by default."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The update runs on `db`, outside the transaction",
+        "why": "Only statements issued through `tx` belong to the transaction."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The `sql` template commits immediately because it is raw SQL",
+        "why": "Raw fragments run in whichever connection the query uses; they do not commit by themselves."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Drizzle commits after each statement inside a transaction callback",
+        "why": "It commits once, when the callback's promise resolves."
+      }
+    ],
+    "explanation": "The `tx` object is bound to the connection that ran BEGIN. `db` borrows another pooled connection in autocommit mode, so the update commits on its own, and the rollback cannot undo it. The same bug appears with Prisma (`prisma` vs `tx` in interactive transactions) and Knex (`knex` vs `trx`). Pass `tx` down to repositories that must join the transaction.",
+    "reference": "Drizzle ORM docs: Transactions"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-029",
+    "difficulty": 3,
+    "type": "truefalse",
+    "stem": "In Express 5, when an `async` route handler throws or returns a rejected promise, Express passes the error to the error-handling middleware, without the handler calling `next(err)`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: Express 5 catches rejected promises from handlers and middleware and forwards them."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "That was true of Express 4, where an async throw became an unhandled rejection and the request hung."
+      }
+    ],
+    "explanation": "Express 5 (stable since 2024) calls `next(err)` for you when a handler's returned promise rejects. In Express 4 you needed `try/catch` with `next(err)`, a wrapper, or the `express-async-errors` package. Errors thrown in callbacks that are not part of the returned promise chain, such as a `setTimeout`, are still not caught.",
+    "reference": "Express docs: Migrating to Express 5"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-030",
+    "difficulty": 3,
+    "type": "single",
+    "stem": "Non-admins get a 403, but the logs also show \"Cannot set headers after they are sent\", and the admin action still runs for them. What is wrong?\n\n```js\nconst requireRole = (role) => (req, res, next) => {\n  if (req.user?.role !== role) {\n    res.status(403).json({ error: 'forbidden' });\n  }\n  next();\n};\napp.delete('/users/:id', requireRole('admin'), deleteUser);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Optional chaining on `req.user` makes the role check pass for anonymous users",
+        "why": "`undefined !== 'admin'` is true, so the 403 branch does run."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It calls `next()` after sending the 403, so `deleteUser` still runs",
+        "why": "A missing `return` turns the authorization check into a log message."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Middleware factories cannot take parameters in Express",
+        "why": "Returning a configured middleware from a function is a standard pattern."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "403 responses must be sent with `next(err)`, not `res.json`",
+        "why": "Sending the response directly is fine, as long as the chain stops."
+      }
+    ],
+    "explanation": "Sending a response does not stop the middleware chain; only not calling `next()` does. Here the delete runs for anyone, and when it tries to respond, Express throws because headers were already sent. Use `return res.status(403).json(…)`, or pass an authorization error to `next(err)`. Tests for authorization should assert that the side effect did not happen, not only the status code.",
+    "reference": "Express docs: Writing middleware"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-031",
+    "difficulty": 3,
+    "type": "fill",
+    "stem": "bcrypt's cost factor is a power of two: cost 12 does 2^12 key-expansion rounds. If one hash at cost 10 takes 70 ms, roughly how many times longer does one hash at cost 12 take? Type a number.",
+    "options": [],
+    "accepted": [
+      "4",
+      "4x",
+      "4 times"
+    ],
+    "explanation": "Each extra cost unit doubles the work, so cost 12 is 2^12 / 2^10 = 4 times cost 10: about 280 ms here. That matters for capacity: with the default 4-thread libuv pool, a server can complete about 4 / 0.28 ≈ 14 logins per second per process before requests queue. Pick a cost that keeps hashing near your latency budget, and rate-limit login endpoints.",
+    "reference": "OWASP Password Storage Cheat Sheet: bcrypt"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-032",
+    "difficulty": 3,
+    "type": "single",
+    "stem": "When a popular cache key expires, 300 concurrent requests in the same Node.js process all query the database. A teammate proposes this change. What does it achieve?\n\n```js\nconst inflight = new Map();\nasync function getProduct(id) {\n  const hit = await redis.get(`p:${id}`);\n  if (hit) return JSON.parse(hit);\n  if (!inflight.has(id)) {\n    inflight.set(id, loadAndCache(id).finally(() => inflight.delete(id)));\n  }\n  return inflight.get(id);\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It removes duplicate loads across every instance of the service",
+        "why": "The map is per process; each instance still loads once."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Concurrent misses in this process share a single load",
+        "why": "Later callers await the same promise instead of starting their own."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It caches products in memory forever, replacing Redis",
+        "why": "Entries are deleted as soon as the load settles; Redis is still the cache."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It makes failed loads retry automatically for waiting callers",
+        "why": "If the load rejects, every waiter gets the same rejection."
+      }
+    ],
+    "explanation": "This is request coalescing (single-flight): the first miss starts the load and stores its promise, and concurrent callers reuse it. `finally` removes the entry so the next miss reloads fresh data and a failure is not cached. Across many instances you would still see one load per instance; for that, add a short Redis lock or serve stale data while one caller refreshes.",
+    "reference": "Node.js patterns: promise memoization"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 2,
+    "id": "NJS-API-033",
+    "difficulty": 3,
+    "type": "multi",
+    "stem": "A central error handler returns `application/problem+json` responses. Which two pieces of information should it keep out of responses to clients, while still logging them on the server? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The stack trace of the error",
+        "why": "Stack traces reveal file paths, libraries and code structure."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The raw database error message, such as a constraint or column name",
+        "why": "It exposes schema details that help attackers probe the system."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A request or correlation id the user can quote to support",
+        "why": "Ids let support find the server logs without revealing internals."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A `type` URI and a short `title` describing the problem",
+        "why": "These are the standard Problem Details fields and are meant for clients."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Field-level validation messages for the request body",
+        "why": "Clients need these to fix their input."
+      }
+    ],
+    "explanation": "RFC 9457 (Problem Details) defines `type`, `title`, `status`, `detail` and `instance`, plus extensions such as validation errors. For unexpected (5xx) errors, return a generic message and a correlation id, and log the full error, stack and context server-side. Map known operational errors, such as a unique-constraint violation, to meaningful 4xx responses rather than leaking the database text.",
+    "reference": "RFC 9457: Problem Details for HTTP APIs"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-034",
+    "difficulty": 4,
+    "type": "single",
+    "stem": "Request ids come from `AsyncLocalStorage`, set in HTTP middleware. Log lines from the BullMQ worker that processes jobs enqueued by those requests have no request id. Why, and what is the fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "AsyncLocalStorage loses its store after any `await`",
+        "why": "The store survives awaits within the same async chain; that is its purpose."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Jobs run outside the request's async context; pass the id in job data",
+        "why": "Context does not travel through Redis, so it must be carried explicitly."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "BullMQ workers disable `async_hooks` internally to make job processing faster",
+        "why": "Workers are ordinary Node code; ALS works inside them."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The middleware must call `enterWith()` instead of `run()`",
+        "why": "`enterWith` only changes how the store is entered in the current context; it cannot reach another process."
+      }
+    ],
+    "explanation": "AsyncLocalStorage follows the async call graph inside one process. A job is serialised to Redis and picked up later, possibly by a different process, so nothing links it to the original request's context. Copy the request or trace id into `job.data` (or use OpenTelemetry propagation into job metadata), and in the worker wrap the processing in `als.run({ requestId: job.data.requestId }, …)`.",
+    "reference": "Node.js docs: AsyncLocalStorage"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-035",
+    "difficulty": 4,
+    "type": "single",
+    "stem": "During a database failover, an otherwise idle API process crashes with \"Unexpected error on idle client\", even though every query is wrapped in try/catch. What is missing?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A `try/catch` around `new Pool()`",
+        "why": "Creating a pool does not connect; the error happens later, outside any call."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A `pool.on('error')` listener for errors on idle clients",
+        "why": "With no listener, the emitted error is thrown and crashes the process."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Setting `idleTimeoutMillis: 0` so idle clients are never kept",
+        "why": "0 means idle clients are never closed, which keeps more of them exposed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`process.on('unhandledRejection')`, because the pool rejects a promise",
+        "why": "It is an `error` event on an EventEmitter, not a rejected promise."
+      }
+    ],
+    "explanation": "When a backend restarts, sockets of idle pooled clients receive errors that no query is waiting for. node-postgres emits them on the pool as `error` events, and an EventEmitter that emits `error` with no listener throws, which crashes the process. Add `pool.on('error', (err) => log.warn(…))`; the pool removes the broken client and creates a new one on demand.",
+    "reference": "node-postgres docs: Pool events"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-036",
+    "difficulty": 4,
+    "type": "single",
+    "stem": "One API instance serves 400 requests per second at peak. Each request holds a pooled database connection for about 40 ms on average. Its pool has `max: 10`, and p99 latency spikes at peak. What does the arithmetic suggest?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Only 0.4 connections are busy on average, so the pool is far too big",
+        "why": "Busy connections are rate × hold time: 400/s × 0.04 s = 16, not 0.4."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "About 16 connections are busy on average, so 10 forces queueing",
+        "why": "Little's Law: in use = arrival rate × hold time."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The pool is exactly right, since 10 × 40 ms = 400 ms covers the requests",
+        "why": "Multiplying pool size by hold time does not give capacity."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Pool size cannot matter, because Node.js is single-threaded",
+        "why": "Queries run in the database concurrently; the pool limits how many at once."
+      }
+    ],
+    "explanation": "Little's Law gives the average concurrency: L = λ × W = 400/s × 0.040 s = 16 connections. A pool of 10 can serve at most 10 / 0.04 = 250 requests per second, so at 400/s requests queue and latency climbs. Raise `max` with headroom (say 20 to 25), check the total across instances against `max_connections`, and shorten hold times by not keeping connections checked out across unrelated awaits.",
+    "reference": "Little's Law; node-postgres docs: Pool"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-037",
+    "difficulty": 4,
+    "type": "single",
+    "stem": "Checkout latency explodes whenever the shipping-quote API is slow, and the pool reports all clients checked out. What is the main design flaw?\n\n```js\nawait db.transaction(async (tx) => {\n  const order = await tx.insert(orders).values(input).returning();\n  const quote = await shippingApi.quote(order[0]); // HTTP call, 0.2–8 s\n  await tx.update(orders).set({ shipping: quote.price }).where(eq(orders.id, order[0].id));\n});\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The insert should use `RETURNING *` instead of `returning()`",
+        "why": "Both return the inserted row; this is unrelated to the stall."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Transactions should never contain more than two statements",
+        "why": "There is no such limit; the issue is what happens between them."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "A slow HTTP call inside the transaction holds the connection and locks",
+        "why": "Get the quote before or after the transaction, or with an outbox, so connections stay free."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The HTTP call should be retried until it succeeds inside the transaction",
+        "why": "Retries stretch the transaction even longer, making exhaustion worse."
+      }
+    ],
+    "explanation": "A transaction keeps its connection checked out and holds locks until it commits. Putting network I/O with variable latency inside it ties the pool's capacity to that dependency: at 50 requests per second with an 8-second quote, you would need 400 connections. Keep transactions short and purely local. Fetch the quote first (it is idempotent), or write the order and an outbox record, and update shipping asynchronously.",
+    "reference": "PostgreSQL docs: Transactions; outbox pattern"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 3,
+    "id": "NJS-API-038",
+    "difficulty": 4,
+    "type": "multi",
+    "stem": "A Node.js API on Kubernetes drops a few requests on every rolling deploy. Which three changes give zero-downtime shutdowns? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "On SIGTERM, fail readiness and keep serving for a few seconds (or add a `preStop` sleep) before closing the server",
+        "why": "Endpoints and load balancers take time to stop routing to the pod."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Call `server.close()`, wait for in-flight requests, then close pools and queues",
+        "why": "Drain first, then release dependencies."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Set `terminationGracePeriodSeconds` longer than the drain plus shutdown time",
+        "why": "Otherwise the kubelet sends SIGKILL before draining ends."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Run the app with `npm start` so npm forwards signals cleanly",
+        "why": "npm may not forward SIGTERM reliably; run `node` directly as PID 1 or use an init such as tini."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Call `process.exit(0)` as soon as SIGTERM arrives",
+        "why": "Exiting immediately drops every in-flight request."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Make the liveness probe fail during shutdown",
+        "why": "Liveness failure triggers a restart; readiness is what removes traffic."
+      }
+    ],
+    "explanation": "Pod termination and endpoint removal happen at the same time, so traffic can still arrive briefly after SIGTERM. The robust sequence is to mark the pod unready and wait for routing to catch up, stop accepting connections, drain in-flight work, close pools, queue workers and telemetry, and exit before the grace period ends. Make sure the signal actually reaches Node: shell-form commands and some npm setups swallow it.",
+    "reference": "Kubernetes docs: Pod termination"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-039",
+    "difficulty": 4,
+    "type": "single",
+    "stem": "A Lambda handler returns its response and then calls `analytics.send(event)` without awaiting it. Some analytics events go missing, and others show up minutes later, during unrelated invocations. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Lambda runs the pending promise to completion in the background after returning",
+        "why": "Lambda does not keep running code after the handler finishes."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The environment freezes after return; pending work runs later or never",
+        "why": "Unfinished promises either never run or run during a future request."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Unawaited promises are garbage-collected immediately in Lambda",
+        "why": "Promises are not collected while their I/O is pending; the process is paused instead."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The analytics SDK sends events only when `process.exit()` is called",
+        "why": "The SDK does nothing special; the behaviour comes from Lambda's freeze and thaw."
+      }
+    ],
+    "explanation": "Lambda freezes the execution environment once the handler's promise settles (and, by default, does not wait for the event loop to empty with async handlers). Background work is paused mid-flight; if the environment is reused, it continues during a later invocation, adding latency there. If not, it is lost. Await the work before returning, flush SDK buffers explicitly, or hand the work to a queue.",
+    "reference": "AWS docs: Lambda function handler in Node.js"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 2,
+    "id": "NJS-API-040",
+    "difficulty": 4,
+    "type": "multi",
+    "stem": "A Prisma app moves from one container to serverless functions that scale to 300 concurrent instances, and the database starts refusing connections. Which two changes address the cause? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Lower each instance's pool (for example `connection_limit=1`)",
+        "why": "Each instance has its own pool, sized by default from the CPU count."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Route connections through a pooler such as PgBouncer or a managed pooler",
+        "why": "A pooler multiplexes many client connections onto few database connections."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Call `prisma.$disconnect()` at the start of every invocation",
+        "why": "Reconnecting per invocation adds latency and still opens a connection per instance."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Create a new `PrismaClient` inside the handler for each request",
+        "why": "That opens more pools and leaks them across warm invocations."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Increase `pool_timeout` so requests wait longer for a connection",
+        "why": "Waiting longer does not reduce the number of connections opened."
+      }
+    ],
+    "explanation": "The total number of connections is instances × pool size. At 300 instances, even 5 connections each is 1,500. Keep the client outside the handler, limit each instance's pool to 1 or 2, and put a transaction-mode pooler in front of Postgres (with Prisma, configure it for PgBouncer, or use a provider pooler or Prisma Accelerate). Long-running migrations should use a direct, non-pooled URL.",
+    "reference": "Prisma docs: Connection management for serverless"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 2,
+    "id": "NJS-API-041",
+    "difficulty": 4,
+    "type": "multi",
+    "stem": "Review this authentication middleware that uses the `jsonwebtoken` package. Which two problems let an attacker get in? (Choose two.)\n\n```js\nfunction auth(req, res, next) {\n  const token = req.headers.authorization?.split(' ')[1];\n  const payload = jwt.decode(token);\n  if (!payload || payload.exp * 1000 < Date.now()) return res.sendStatus(401);\n  req.user = { id: payload.sub, role: payload.role };\n  next();\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`jwt.decode` does not check the signature, so anyone can forge a token",
+        "why": "Decode only base64-parses the payload; use `jwt.verify` with the key."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The role comes straight from the token's claims, so a forged token can claim admin",
+        "why": "Once signatures are not checked, every claim is attacker-controlled."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Checking `exp` against `Date.now()` uses the wrong unit",
+        "why": "`exp` is in seconds, and the code multiplies by 1,000, which is correct."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The `Authorization` header must be read in lower case",
+        "why": "Node lower-cases incoming header names, so `req.headers.authorization` is correct."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`split(' ')[1]` crashes when the header is missing",
+        "why": "Optional chaining yields `undefined`, which the null check handles."
+      }
+    ],
+    "explanation": "Authentication must verify the token: `jwt.verify(token, key, { algorithms: ['RS256'], issuer, audience })`. Pin the expected algorithm to block algorithm-confusion attacks, and check issuer and audience. `jwt.decode` is for reading claims you already trust or for debugging. Here an attacker can craft `{ sub: 1, role: 'admin', exp: 9999999999 }` and be accepted.",
+    "reference": "jsonwebtoken README: verify vs decode"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-042",
+    "difficulty": 4,
+    "type": "single",
+    "stem": "An idempotency-key middleware lets two simultaneous retries of the same `POST /payments` both charge the customer. How should the key be claimed?\n\n```js\nconst existing = await db.select().from(idem).where(eq(idem.key, key));\nif (existing.length) return res.status(existing[0].status).json(existing[0].body);\nconst result = await createPayment(req.body);\nawait db.insert(idem).values({ key, status: 201, body: result });\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Wrap the code in `SERIALIZABLE` and keep the same check-then-insert steps",
+        "why": "It can work, but it aborts with serialization errors, and the external charge still happens first."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Claim the key first with a unique insert; only the winner proceeds",
+        "why": "The database arbitrates the race, so exactly one request owns the key."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Move the check into an in-memory `Set` in the Node process",
+        "why": "Requests can hit different instances, and memory is lost on restart."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add a short `setTimeout` before the check so the first request finishes",
+        "why": "Timing tricks shrink the window but never close it."
+      }
+    ],
+    "explanation": "Check-then-act is a race: both requests read \"no row\" before either inserts. Make the claim atomic: `INSERT … ON CONFLICT (key) DO NOTHING RETURNING` (or catch the unique violation). The winner processes the request, and the loser waits or gets a 409 until the stored response is ready. Store the response when done so later retries replay it, and send the same key on to the payment provider.",
+    "reference": "IETF draft: The Idempotency-Key HTTP Header Field"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-043",
+    "difficulty": 4,
+    "type": "order",
+    "stem": "You must rename `users.fullname` to `users.display_name` with no downtime, while old and new app versions run side by side during a rolling deploy. Put the steps in order.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Migration adds the nullable column `display_name`"
+      },
+      {
+        "id": "B",
+        "text": "Deploy code that writes both columns and still reads `fullname`"
+      },
+      {
+        "id": "C",
+        "text": "Backfill `display_name` from `fullname` in batches"
+      },
+      {
+        "id": "D",
+        "text": "Deploy code that reads and writes only `display_name`"
+      },
+      {
+        "id": "E",
+        "text": "Migration drops `fullname` once no running version uses it"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "This is expand and contract. Every step must work with both the previous and the next app version, because they run together during a rollout. Add the column, dual-write so new rows are correct, backfill old rows in batches to avoid long locks, switch reads, and only then drop the old column. A plain `RENAME COLUMN` breaks whichever version expects the other name.",
+    "reference": "Expand and contract (parallel change) migration pattern"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-044",
+    "difficulty": 4,
+    "type": "match",
+    "stem": "Match each Node.js data-access tool with how it is usually described.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Separate schema file, generated client, migrations from the schema",
+        "why": "Prisma."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Schema written in TypeScript, SQL-like query builder, thin runtime",
+        "why": "Drizzle ORM."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Query builder with migrations, but no models or entities",
+        "why": "Knex."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Decorator-based entity classes, with Active Record or Data Mapper",
+        "why": "TypeORM."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Prisma",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Drizzle ORM",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Knex",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "TypeORM",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Prisma generates a typed client from `schema.prisma`. Drizzle declares tables in TypeScript and keeps queries close to SQL, which suits serverless and edge runtimes. Knex is a query builder without models. TypeORM uses decorated classes. Whatever the tool, watch for N+1 queries, know how it handles transactions, and check the SQL it generates for hot paths.",
+    "reference": "Prisma, Drizzle, Knex and TypeORM documentation"
+  },
+  {
+    "domain": 4,
+    "skill": "apis-architecture",
+    "select": 1,
+    "id": "NJS-API-045",
+    "difficulty": 4,
+    "type": "single",
+    "stem": "In a NestJS 11 app, a team marks `AuditContext` as `@Injectable({ scope: Scope.REQUEST })` and injects it into `OrdersService`, which `OrdersController` uses. Throughput drops noticeably. What changed?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Only `AuditContext` is now created per request; the other classes are unaffected",
+        "why": "Request scope bubbles up to everything that injects it, directly or indirectly."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The service and controller become request-scoped too",
+        "why": "Any provider that depends on a request-scoped provider becomes request-scoped too."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "NestJS now runs every request in its own worker thread",
+        "why": "Scopes change instance lifetimes, not threading."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The module is rebuilt from scratch for every request",
+        "why": "Singleton providers elsewhere in the module stay singletons."
+      }
+    ],
+    "explanation": "NestJS providers are singletons by default. Request scope propagates up the injection chain, so the service and controller that depend on `AuditContext` are instantiated per request too, which costs allocations and DI resolution on every call. For per-request data such as a user or trace id, `AsyncLocalStorage` (for example via `nestjs-cls`) is often cheaper. Durable providers can also limit the cost.",
+    "reference": "NestJS docs: Injection scopes"
+  }
+]

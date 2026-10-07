@@ -1,0 +1,33 @@
+{
+  "event-loop": {
+    "summary": "Know the libuv phases, how the nextTick and microtask queues are drained between operations, which work goes to the thread pool, and how to spot and fix a blocked loop.",
+    "points": [
+      "Each iteration runs timers → pending callbacks → idle/prepare → poll → check (`setImmediate`) → close callbacks; the poll phase blocks for I/O when nothing else is pending.",
+      "After every callback, Node drains the nextTick queue, then the promise microtask queue, and repeats until both are empty (per callback since Node 11).",
+      "In CommonJS the main script's nextTicks run before its promise callbacks; in ES modules the order flips, because module code runs inside the microtask checkpoint.",
+      "Inside an I/O callback `setImmediate` always beats `setTimeout(fn, 0)`; in the main module their order is nondeterministic. Delays below 1 ms or above 2^31 − 1 ms become 1 ms.",
+      "fs, `dns.lookup`, async crypto and zlib share libuv's thread pool (4 threads by default, `UV_THREADPOOL_SIZE`); sockets and `dns.resolve*` don't use it.",
+      "Sync crypto/zlib, huge `JSON.parse`, pathological regexes and recursive nextTick or promise loops block everything; measure with `monitorEventLoopDelay` and `eventLoopUtilization`.",
+      "The process stays alive while referenced handles exist (servers, sockets, ref'd timers); pending promises don't count, and `unref()` opts a handle out."
+    ],
+    "traps": [
+      "Recursing with `process.nextTick` or `await Promise.resolve()` doesn't yield to I/O; use `setImmediate` to split work.",
+      "Raising `UV_THREADPOOL_SIZE` does nothing for `*Sync` APIs, which always run on the main thread.",
+      "Listeners called by `emit()` run in the emitter's async context, so AsyncLocalStorage values can leak between requests unless you use `AsyncResource.bind`."
+    ],
+    "docs": [
+      {
+        "title": "The Node.js Event Loop",
+        "url": "https://nodejs.org/en/learn/asynchronous-work/event-loop-timers-and-nexttick"
+      },
+      {
+        "title": "Don't Block the Event Loop (or the Worker Pool)",
+        "url": "https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop"
+      },
+      {
+        "title": "perf_hooks: monitorEventLoopDelay",
+        "url": "https://nodejs.org/api/perf_hooks.html#perf_hooksmonitoreventloopdelayoptions"
+      }
+    ]
+  }
+}

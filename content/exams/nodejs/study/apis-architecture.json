@@ -1,0 +1,33 @@
+{
+  "apis-architecture": {
+    "summary": "Production Node.js services succeed or fail on the boring parts: clear layers, validated config, correctly used connection pools, short transactions, idempotent jobs, sound auth and a shutdown that drains before it exits.",
+    "points": [
+      "Layer the code: routes and controllers handle HTTP, services hold business rules, repositories own data access, so logic can be reused from jobs and tested with fakes.",
+      "Validate `process.env` at startup (values are always strings, so coerce numbers) and fail fast on bad config.",
+      "Use `pool.query()` for single statements; for transactions, check out one client, run BEGIN to COMMIT or ROLLBACK on it, and `release()` it in `finally`. Inside ORM transactions, always use the `tx` object.",
+      "Total connections = instances × pool size. Size pools with Little's Law (rate × hold time) and put a pooler in front of Postgres for serverless or many instances.",
+      "Queues give at-least-once delivery: make jobs idempotent, pass idempotency keys to external systems, and claim keys atomically with a unique constraint.",
+      "Verify JWTs (never just decode them), keep access tokens short-lived, rotate refresh tokens with reuse detection, and prefer httpOnly cookies on the web.",
+      "Shut down from the outside in: fail readiness, stop accepting, drain in-flight requests, close pools and queues, then exit within the grace period."
+    ],
+    "traps": [
+      "An unreleased pool client on an error path slowly exhausts the pool, and with the default `connectionTimeoutMillis: 0`, requests then wait forever.",
+      "In-process cron libraries run once per replica; schedule outside the replicas or deduplicate through the queue.",
+      "Without `pool.on('error')`, an error on an idle client during a database failover crashes the whole process."
+    ],
+    "docs": [
+      {
+        "title": "node-postgres: Pooling and Transactions",
+        "url": "https://node-postgres.com/features/pooling"
+      },
+      {
+        "title": "Node.js: AsyncLocalStorage",
+        "url": "https://nodejs.org/api/async_context.html"
+      },
+      {
+        "title": "The Twelve-Factor App",
+        "url": "https://12factor.net/"
+      }
+    ]
+  }
+}

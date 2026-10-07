@@ -1,0 +1,1688 @@
+[
+  {
+    "id": "NJS-SEC-001",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A login route builds its query like this. What is the correct fix?\n\n```js\nconst sql = \"SELECT * FROM users WHERE email = '\" + req.body.email + \"'\";\nconst { rows } = await db.query(sql);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Escape single quotes in the email with a regex before concatenating",
+        "why": "Hand-rolled escaping misses encodings and edge cases; it treats the symptom, not the cause."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Use a parameterized query with `$1` and a values array",
+        "why": "The driver sends the value separately from the SQL text, so input can never change the query structure."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Validate that the email contains an `@` sign before running the query",
+        "why": "Input validation helps, but `x'@x OR 1=1 --` still contains an @ sign."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Wrap the query in a transaction so injected statements roll back",
+        "why": "Transactions don't stop a malicious SELECT from returning every row."
+      }
+    ],
+    "explanation": "This is classic SQL injection: user input becomes part of the SQL text. Parameterized (prepared) queries keep code and data separate, so the database never parses the value as SQL. Validation and least-privilege database users are useful extra layers, but parameterization is the actual fix.",
+    "reference": "OWASP: SQL Injection Prevention Cheat Sheet"
+  },
+  {
+    "id": "NJS-SEC-002",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "`Math.random()` is suitable for generating password-reset tokens as long as the token is long enough.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Length doesn't help: Math.random is a fast, predictable PRNG whose internal state can be recovered from outputs."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Security tokens need a CSPRNG such as crypto.randomBytes or crypto.randomUUID."
+      }
+    ],
+    "explanation": "V8 implements `Math.random()` with xorshift128+, which is not cryptographically secure: observing a handful of outputs lets an attacker predict future ones. Use `crypto.randomBytes(32).toString('base64url')` or `crypto.randomUUID()` for tokens, session IDs and reset links.",
+    "reference": "Node.js docs: crypto.randomBytes()"
+  },
+  {
+    "id": "NJS-SEC-003",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "An endpoint creates thumbnails. What is the safest change?\n\n```js\nconst { exec } = require('node:child_process');\nexec(`convert uploads/${req.query.file} -resize 200x200 thumbs/out.png`);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Use `execFile` with an argument array and a validated path",
+        "why": "execFile passes an argument array with no shell, so `;` or `$(...)` in the name stays literal text."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Keep `exec` but wrap the file name in double quotes inside the template string",
+        "why": "A name containing a double quote or `$(...)` still breaks out of the quotes in the shell."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Keep `exec` and run the server as root so the command has the access it needs",
+        "why": "Running as root makes a successful injection far worse, not safer."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use `spawn('sh', ['-c', command])` instead, which spawns rather than executes",
+        "why": "That still hands the whole string to a shell, so it is the same injection."
+      }
+    ],
+    "explanation": "`exec` runs its string through `/bin/sh`, so shell metacharacters in user input become commands. `execFile` and `spawn` without `shell: true` pass arguments directly to the program. Still validate the file name (allow-list characters, resolve it inside the uploads folder) because the program itself may interpret odd arguments.",
+    "reference": "Node.js docs: child_process.execFile()"
+  },
+  {
+    "id": "NJS-SEC-004",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each vulnerability with the primary defence against it.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Parameterized queries"
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Context-aware output encoding (auto-escaping templates)"
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "SameSite cookies plus anti-CSRF tokens"
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Resolve the path and check it stays inside the base folder"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "SQL injection",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Cross-site scripting (XSS)",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Cross-site request forgery (CSRF)",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Path traversal in a file-download route",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Each class has a structural fix: keep SQL code and data separate; encode output for the context it lands in (HTML, attribute, JS, URL); make sure a cross-site request can't ride on the user's cookies; and never trust a user-supplied path until it is resolved and confirmed to be inside the allowed directory.",
+    "reference": "OWASP Top 10"
+  },
+  {
+    "id": "NJS-SEC-005",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Which is the right way to store user passwords in a new Node.js service?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "SHA-256 of the password with one global salt stored in an environment variable",
+        "why": "SHA-256 is designed to be fast, so GPUs can try billions of guesses per second."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "AES-256-GCM encryption of the password with a key from the secrets manager",
+        "why": "Encryption is reversible: anyone who gets the key gets every password back."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "A slow, salted hash such as argon2id or bcrypt",
+        "why": "Per-password salts and a deliberately slow function make offline guessing expensive."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Base64-encode the password so that it is not stored in plain text",
+        "why": "Base64 is an encoding, not protection; it decodes instantly."
+      }
+    ],
+    "explanation": "Password storage needs a one-way function that is slow and salted per user: argon2id (OWASP's first choice), scrypt (built into `node:crypto`) or bcrypt. Tune the cost so a hash takes tens of milliseconds on your hardware, and re-hash on login when you raise it.",
+    "reference": "OWASP: Password Storage Cheat Sheet"
+  },
+  {
+    "id": "NJS-SEC-006",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "Which `node:crypto` function returns a random RFC 4122 version 4 UUID generated from a cryptographically secure source? Type the function name.",
+    "options": [],
+    "accepted": [
+      "randomUUID",
+      "crypto.randomUUID",
+      "crypto.randomUUID()",
+      "randomUUID()"
+    ],
+    "explanation": "`crypto.randomUUID()` (Node 14.17+) returns a 36-character v4 UUID from the CSPRNG. For raw token material, `crypto.randomBytes(32).toString('base64url')` gives 256 bits in 43 characters.",
+    "reference": "Node.js docs: crypto.randomUUID()"
+  },
+  {
+    "id": "NJS-SEC-007",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer notices that `.env` containing the production database password and a Stripe secret key was committed to a public GitHub repository three days ago. What must happen first?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Delete `.env` in a new commit and add it to `.gitignore`",
+        "why": "The secret is still in the git history and has already been public for days."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Rotate both secrets now, then clean up the repository",
+        "why": "Exposed credentials must be treated as compromised; only rotation makes the leaked values useless."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Rewrite the git history to remove the file, then force-push the branch",
+        "why": "Worth doing later, but forks, clones and secret scanners may already have copied it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Make the repository private so no one else can see the file",
+        "why": "Anyone who already saw or scraped it still has the credentials."
+      }
+    ],
+    "explanation": "Bots scan public repositories for keys within minutes. Once a secret has been published, removing it doesn't un-leak it: revoke and rotate it first, check logs for misuse, then clean up the repository and add secret scanning (for example GitHub push protection) so it can't happen again.",
+    "reference": "OWASP: Secrets Management Cheat Sheet"
+  },
+  {
+    "id": "NJS-SEC-008",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two of these does the `helmet` middleware do with its default configuration in an Express app? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Sets a `Content-Security-Policy` header",
+        "why": "helmet ships a default CSP that restricts where scripts and other resources load from."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Sets `X-Content-Type-Options: nosniff`",
+        "why": "This stops browsers from MIME-sniffing responses into executable types."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Adds `Access-Control-Allow-Origin` headers for cross-origin requests",
+        "why": "helmet doesn't configure CORS; that's the separate `cors` middleware."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Rate-limits repeated requests from the same IP address",
+        "why": "Rate limiting needs a separate middleware such as express-rate-limit."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Validates and sanitises request bodies against injection",
+        "why": "helmet only sets response headers; it never inspects input."
+      }
+    ],
+    "explanation": "helmet is a collection of security response headers: CSP, `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, cross-origin policies, and removal of `X-Powered-By`. It hardens how browsers treat your responses, but it is not input validation, CORS or rate limiting.",
+    "reference": "helmet documentation"
+  },
+  {
+    "id": "NJS-SEC-009",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An Express API using MongoDB has this login check. An attacker sends the JSON body `{\"user\":\"admin\",\"password\":{\"$ne\":null}}`. What happens, and what is the fix?\n\n```js\napp.post('/login', express.json(), async (req, res) => {\n  const u = await users.findOne({ user: req.body.user, password: req.body.password });\n  if (u) return res.send('welcome');\n  res.status(401).end();\n});\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing: MongoDB treats the object as a literal value and finds no match",
+        "why": "Objects in a query filter are parsed as operators, so `{ $ne: null }` is a condition."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It logs in as admin; require both fields to be strings",
+        "why": "The filter becomes \"password is not null\", which matches; type validation stops operator objects."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It throws a cast error that the server reports as a 500",
+        "why": "Plain drivers accept operator objects; there is no cast step."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It logs in as admin; switching to `findOne` with `.lean()` stops it",
+        "why": "`.lean()` only changes the return type, not how the filter is interpreted."
+      }
+    ],
+    "explanation": "This is NoSQL operator injection. `express.json()` happily produces nested objects, and MongoDB interprets keys starting with `$` as operators. Validate request bodies with a schema (zod, Joi, JSON Schema) that requires strings, or cast with `String(...)`, or use Mongoose with `sanitizeFilter`. Of course, real code must also compare password hashes rather than plain text.",
+    "reference": "OWASP: Testing for NoSQL Injection"
+  },
+  {
+    "id": "NJS-SEC-010",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A download route serves files from `/srv/files`. What does a request for `?name=../../etc/passwd` read?\n\n```js\napp.get('/download', (req, res) => {\n  const full = path.join('/srv/files', req.query.name);\n  res.sendFile(full);\n});\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`/srv/files/../../etc/passwd`, which the OS rejects as invalid",
+        "why": "`path.join` normalises `..` segments before the OS ever sees the path."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Nothing, because `path.join` strips `..` segments from user input",
+        "why": "It resolves them; it does not remove them."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`/etc/passwd`, because `path.join` normalises the `..` segments",
+        "why": "The two `..` segments climb out of `/srv/files` and reach the root."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`/srv/files/etc/passwd`, because join always keeps the base prefix",
+        "why": "Only absolute segments are kept under the base by join; `..` still climbs."
+      }
+    ],
+    "explanation": "`path.join('/srv/files', '../../etc/passwd')` returns `/etc/passwd`. Joining does nothing for security. Resolve the full path, then confirm it is inside the base (for example `path.relative(base, full)` must not start with `..` or be absolute), or look files up by ID instead of by name. Express's `res.sendFile` also accepts a `root` option that performs this check.",
+    "reference": "OWASP: Path Traversal"
+  },
+  {
+    "id": "NJS-SEC-011",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A settings endpoint deep-merges the request body into a defaults object with this function. A client sends `{\"__proto__\": {\"isAdmin\": true}}`. What does `({}).isAdmin` evaluate to afterwards, anywhere in the process?\n\n```js\nfunction merge(target, src) {\n  for (const key in src) {\n    if (typeof src[key] === 'object' && src[key] !== null) {\n      if (!target[key]) target[key] = {};\n      merge(target[key], src[key]);\n    } else {\n      target[key] = src[key];\n    }\n  }\n  return target;\n}\nmerge(defaults, JSON.parse(body));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`undefined`, because JSON.parse ignores keys named `__proto__`",
+        "why": "JSON.parse creates an ordinary own property called \"__proto__\", and for-in visits it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`true`: the merge writes into `Object.prototype` itself",
+        "why": "Reading `target[\"__proto__\"]` returns the shared prototype, and the merge writes into it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`undefined`, because only `defaults` is changed, not other objects",
+        "why": "The write lands on Object.prototype, which every plain object inherits from."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It throws a TypeError because `__proto__` is read-only",
+        "why": "`Object.prototype` is writable; nothing stops the assignment."
+      }
+    ],
+    "explanation": "This is prototype pollution. `JSON.parse` produces an own key `\"__proto__\"`; the merge then reads `target[\"__proto__\"]` (the accessor returning `Object.prototype`) and recurses into it, so `isAdmin: true` is written onto the prototype of every object. Checks like `if (user.isAdmin)` now pass for everyone. Verified in Node 24.",
+    "reference": "Snyk/OWASP: Prototype Pollution"
+  },
+  {
+    "id": "NJS-SEC-012",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two changes reliably protect a deep-merge utility against prototype pollution from untrusted JSON? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Skip the keys `__proto__`, `constructor` and `prototype` during the merge",
+        "why": "Blocking all three closes both the `__proto__` and the `constructor.prototype` routes."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Validate the input against a strict schema that allows only known keys",
+        "why": "An allow-list of keys means unexpected names never reach the merge."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Call `Object.freeze()` on the merge target before merging",
+        "why": "Freezing the target doesn't freeze Object.prototype, which is what gets polluted."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Parse the body with `JSON.parse` instead of a query-string parser",
+        "why": "JSON.parse is exactly what produces the own \"__proto__\" key in the first place."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Check permissions with `'isAdmin' in user` instead of `user.isAdmin`",
+        "why": "The `in` operator also looks up the prototype chain, so it is fooled too."
+      }
+    ],
+    "explanation": "Defences that work: never let dangerous keys through (block `__proto__`, `constructor`, `prototype`), validate input with an allow-list schema, build dynamic dictionaries with `Map` or `Object.create(null)`, and read permissions with `Object.hasOwn`. Freezing the target or switching parsers doesn't address the shared prototype.",
+    "reference": "OWASP: Prototype Pollution Prevention Cheat Sheet"
+  },
+  {
+    "id": "NJS-SEC-013",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Running untrusted user code with `vm.runInNewContext()` is safe, because the new context has no access to `require` or `process`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Code in the context can reach the host realm through object constructors, so it can get `process`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "The Node.js docs state the vm module is not a security mechanism."
+      }
+    ],
+    "explanation": "A vm context isolates globals, but objects passed in (and even the context's own built-ins) can be used to climb back to the host's `Function` constructor and from there to `process`. To run untrusted code, use a separate process or container with OS-level isolation, or a purpose-built isolate such as a WebAssembly sandbox, plus resource limits.",
+    "reference": "Node.js docs: vm (not a security mechanism)"
+  },
+  {
+    "id": "NJS-SEC-014",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An API verifies tokens with the `jsonwebtoken` library like this. Tokens are issued by your identity provider, signed with RS256. What is the most important change?\n\n```js\nconst payload = jwt.verify(token, publicKeyOrSecret);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Switch to `jwt.decode(token)` so verification failures don't throw",
+        "why": "decode skips signature checks entirely, so any forged token would be accepted."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Pin `algorithms: ['RS256']` and check `issuer` and `audience`",
+        "why": "Fixing the algorithm stops algorithm-confusion tricks; iss/aud stop tokens minted for other apps."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Store the token in localStorage so it survives page reloads",
+        "why": "Storage location doesn't change server-side verification and increases XSS exposure."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Move to HS256 with the public key as the shared HMAC secret",
+        "why": "That is exactly the algorithm-confusion bug: the public key is public."
+      }
+    ],
+    "explanation": "Never let the token header choose how it is verified. Pass an explicit `algorithms` list, and validate `iss`, `aud` and `exp` so a validly signed token for a different service, or an expired one, is rejected. Algorithm confusion happens when a server that expects RS256 also accepts HS256 and uses the RSA public key as the HMAC secret.",
+    "reference": "OWASP: JSON Web Token Cheat Sheet"
+  },
+  {
+    "id": "NJS-SEC-015",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An API that uses cookie sessions sets these CORS headers on every response. What is the risk?\n\n```js\nres.setHeader('Access-Control-Allow-Origin', req.headers.origin);\nres.setHeader('Access-Control-Allow-Credentials', 'true');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "None, because browsers ban credentials whenever the origin is not `*`",
+        "why": "Browsers ban credentials with `*`, not with a specific origin, which is why reflecting works."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Only GET requests are affected, since CORS never applies to POST requests",
+        "why": "CORS governs reading responses for all methods, and preflighted requests are allowed too."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Logged-in users get extra preflight requests, which slows the API down",
+        "why": "Performance is not the issue; data exposure is."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Any website a logged-in user visits can read the API's responses",
+        "why": "Reflecting any Origin with credentials turns off the same-origin protection for this API."
+      }
+    ],
+    "explanation": "Reflecting the request's `Origin` back while allowing credentials means every origin is trusted: a malicious page can `fetch(url, { credentials: 'include' })` and read private data. Keep an explicit allow-list of origins, set `Vary: Origin`, and never treat `null` as trusted.",
+    "reference": "PortSwigger: CORS misconfigurations"
+  },
+  {
+    "id": "NJS-SEC-016",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the steps of a secure password-reset flow in order.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Generate 32 random bytes with `crypto.randomBytes` as the token"
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Store only a hash of the token, with a short expiry, against the user"
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Email the user a link containing the raw token"
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "On submit, hash the token from the link and compare it with the stored hash, then check the expiry"
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Set the new password, invalidate the token and revoke existing sessions"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "The token must come from a CSPRNG and be single-use and short-lived. Storing only its hash means a database leak doesn't hand out working reset links. After a successful reset, invalidate the token and other sessions so an attacker who had access is logged out. Respond identically whether or not the email exists, to avoid account enumeration.",
+    "reference": "OWASP: Forgot Password Cheat Sheet"
+  },
+  {
+    "id": "NJS-SEC-017",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "Which `npm install` flag stops packages' `preinstall`, `install` and `postinstall` lifecycle scripts from running? Type the flag.",
+    "options": [],
+    "accepted": [
+      "--ignore-scripts",
+      "ignore-scripts",
+      "npm install --ignore-scripts"
+    ],
+    "explanation": "Install scripts run arbitrary code on the developer's or CI machine with their privileges, which is how many malicious packages steal credentials. `--ignore-scripts` (or `ignore-scripts=true` in `.npmrc`) disables them; you then allow-list the few packages that genuinely need a build step.",
+    "reference": "npm docs: npm install --ignore-scripts"
+  },
+  {
+    "id": "NJS-SEC-018",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A service encrypts user records with `crypto.createCipheriv('aes-256-ecb', key, null)`. A security review flags it. Why, and what should it use?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "ECB leaks repeated blocks; use AES-256-GCM with a random IV",
+        "why": "ECB leaks patterns, and GCM adds authentication so tampering is detected."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The key is too short for ECB; switching to AES-512-ECB fixes it",
+        "why": "There is no AES-512, and the mode is the problem, not the key size."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "ECB is slow; AES-256-CBC with a fixed all-zero IV is faster",
+        "why": "A fixed IV reintroduces pattern leaks across messages, and CBC alone has no integrity check."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "ECB is fine; the review should flag only the missing key rotation",
+        "why": "ECB is a known-broken mode for structured data."
+      }
+    ],
+    "explanation": "In ECB mode each 16-byte block is encrypted independently, so equal plaintext blocks give equal ciphertext blocks (verified: two blocks of `A`s encrypt identically). Use an authenticated mode such as AES-256-GCM with a random 12-byte IV for every encryption, store the IV and auth tag with the ciphertext, and check the tag on decryption.",
+    "reference": "Node.js docs: crypto.createCipheriv()"
+  },
+  {
+    "id": "NJS-SEC-019",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Attackers are trying thousands of passwords against the login endpoint. Which two controls are the best first response? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Rate-limit failed attempts per account and per IP, with increasing delays",
+        "why": "This slows both focused and spread-out guessing without hurting normal users much."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Offer or require multi-factor authentication for accounts",
+        "why": "A guessed password alone is then not enough to sign in."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Permanently lock any account after five failed attempts",
+        "why": "Attackers can then lock out any user they like, which is a denial of service."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Return different errors for \"unknown user\" and \"wrong password\"",
+        "why": "That tells attackers which usernames exist."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Move the login route to a hard-to-guess URL path",
+        "why": "Obscurity doesn't stop automated tools that already know the route."
+      }
+    ],
+    "explanation": "Throttle by account and by source, add progressive delays or CAPTCHA after repeated failures, alert on spikes, and support MFA. Avoid permanent lockouts (an easy denial of service) and keep error messages identical to prevent user enumeration. Checking new passwords against breached-password lists also blunts credential stuffing.",
+    "reference": "OWASP: Authentication Cheat Sheet"
+  },
+  {
+    "id": "NJS-SEC-020",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A team \"fixed\" path traversal with this check. Which request still reads a file outside `/srv/files`?\n\n```js\nconst base = '/srv/files';\nconst full = path.resolve(base, req.query.name);\nif (!full.startsWith(base)) return res.status(400).end();\nres.sendFile(full);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`?name=../../etc/passwd`",
+        "why": "That resolves to `/etc/passwd`, which fails the startsWith check."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`?name=/etc/passwd`",
+        "why": "resolve returns `/etc/passwd`, which also fails the check."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`?name=../files-secret/key.pem`",
+        "why": "It resolves to `/srv/files-secret/key.pem`, which still starts with the string `/srv/files`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`?name=..%2f..%2f..%2fetc%2fpasswd`",
+        "why": "Express decodes it to `../../../etc/passwd`, which resolves to `/etc/passwd` and fails the check."
+      }
+    ],
+    "explanation": "A plain string prefix check confuses sibling folders with children: `/srv/files-secret` starts with `/srv/files`. Compare against `base + path.sep`, or use `const rel = path.relative(base, full)` and reject when `rel.startsWith('..')` or `path.isAbsolute(rel)`. Also resolve symlinks with `fs.realpath` if users can create them. Verified with `path.posix` in Node 24.",
+    "reference": "Node.js docs: path.relative()"
+  },
+  {
+    "id": "NJS-SEC-021",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 3,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each expression (using `path.posix` and decoding) with the value it returns.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`/etc/passwd`"
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`/srv/files/etc/passwd`"
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`/srv/files-secret/key.pem`"
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`../etc`"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`path.join('/srv/files', '../../etc/passwd')`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`path.join('/srv/files', '/etc/passwd')`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`path.resolve('/srv/files', '../files-secret/key.pem')`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`decodeURIComponent('%2e%2e%2fetc')`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "`join` concatenates then normalises, so `..` climbs out but an absolute second argument stays under the base. `resolve` treats an absolute argument as a new root, which is why `resolve(base, '/etc/passwd')` returns `/etc/passwd`. Percent-encoded dots decode to a real traversal, so always check the decoded, resolved path. All four values were verified in Node 24.",
+    "reference": "Node.js docs: path.join() and path.resolve()"
+  },
+  {
+    "id": "NJS-SEC-022",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "After a prototype-pollution report, the team adds `if (key === '__proto__') continue;` to their deep-merge loop. A tester then sends `{\"constructor\": {\"prototype\": {\"isAdmin\": true}}}`. What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The merge is now safe, because only `__proto__` can reach `Object.prototype`",
+        "why": "Plain objects also inherit `constructor`, which is the Object function, and its `prototype` is Object.prototype."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`({}).isAdmin` becomes `true` via `constructor.prototype`",
+        "why": "`{}.constructor` is `Object`, so its `prototype` property is the same shared object."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It throws, because `Object.prototype` is non-writable",
+        "why": "Object.prototype is an ordinary writable object."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Only the target's own constructor changes, so no other objects are affected",
+        "why": "The merge writes into Object.prototype itself, which every plain object shares."
+      }
+    ],
+    "explanation": "Blocking `__proto__` alone leaves the `constructor.prototype` route. `target.constructor` resolves through the chain to `Object`, and `Object.prototype` is the same object `__proto__` points to. Block `constructor` and `prototype` too, or better, merge only allow-listed keys into `Object.create(null)` targets. Verified in Node 24.",
+    "reference": "OWASP: Prototype Pollution Prevention Cheat Sheet"
+  },
+  {
+    "id": "NJS-SEC-023",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "`const p = JSON.parse('{\"__proto__\":{\"x\":1}}')`. Which statement about copying `p` is correct?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both `{ ...p }` and `Object.assign({}, p)` pollute `Object.prototype` with `x`",
+        "why": "Neither touches the global prototype; they differ only in what happens to the copy."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Both create a copy with an own property named `__proto__`",
+        "why": "Object.assign uses assignment, which triggers the __proto__ setter instead."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Spread adds an own `__proto__` key; assign changes the copy's prototype",
+        "why": "Spread defines properties; assign performs `target.__proto__ = value`, invoking the setter."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Spread throws a TypeError because `__proto__` is not a valid key",
+        "why": "Spread accepts any key and defines it as an own data property."
+      }
+    ],
+    "explanation": "Spread uses CreateDataProperty, so the result has an ordinary own property named `__proto__` and a normal prototype. `Object.assign` uses `[[Set]]`, which calls the `__proto__` setter: the copy's prototype becomes `{ x: 1 }`, so `copy.x === 1`. Neither pollutes the global prototype, but the assign case can still inject inherited properties into that one object. Verified in Node 24.",
+    "reference": "ECMA-262: CopyDataProperties vs Object.assign"
+  },
+  {
+    "id": "NJS-SEC-024",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A signup handler validates usernames with `/^(a+)+$/.test(input)` (simplified from a real pattern). One request with a 30-character string of `a`s followed by `!` makes the whole API stop responding for several seconds. Why does one request affect every user?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "V8 compiles regexes in a background thread that every request then waits on",
+        "why": "Regex matching runs synchronously on the thread that calls `test`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The regex leaks memory until the garbage collector stops the process",
+        "why": "The issue is CPU time, not memory."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Express queues requests per route, so only the signup route is blocked",
+        "why": "Every route shares the one JavaScript thread, not just signup."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Nested quantifiers backtrack on the event-loop thread",
+        "why": "While the regex runs, no other callback in the process can execute."
+      }
+    ],
+    "explanation": "This is ReDoS (regular-expression denial of service). `(a+)+` gives the engine an exponential number of ways to split the input when the match finally fails at `!`, and the regex runs on the single event-loop thread. Fix the pattern (here simply `/^a+$/`), cap input length before matching, use a linear-time engine such as RE2 for user-influenced patterns, and lint with tools like safe-regex.",
+    "reference": "OWASP: Regular expression Denial of Service"
+  },
+  {
+    "id": "NJS-SEC-025",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A \"link preview\" feature fetches any URL a user submits. Which two measures actually reduce server-side request forgery (SSRF) risk? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Resolve the hostname and refuse private, loopback and link-local addresses",
+        "why": "This blocks requests aimed at internal services and cloud metadata endpoints."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Connect to the IP you validated, and re-validate every redirect hop",
+        "why": "Prevents DNS rebinding and redirects to internal hosts after the check."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Reject URLs whose text contains `127.0.0.1` or `localhost`",
+        "why": "String checks miss other spellings, IPv6 forms and DNS names that point inside."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Allow only `https:` URLs, since HTTPS cannot reach internal hosts",
+        "why": "Internal services can serve HTTPS too, and the scheme says nothing about the destination."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Set a 2-second timeout on the outgoing request",
+        "why": "Timeouts limit resource use but don't stop a fast request to an internal host."
+      }
+    ],
+    "explanation": "SSRF defences focus on the destination: allow-list hosts where you can; otherwise resolve, reject private ranges (10/8, 172.16/12, 192.168/16, 127/8, 169.254/16, ::1, fc00::/7, IPv4-mapped IPv6), pin the connection to the checked IP, and repeat the check on every redirect. Run the fetcher in a network segment that can't reach internal services if possible.",
+    "reference": "OWASP: SSRF Prevention Cheat Sheet"
+  },
+  {
+    "id": "NJS-SEC-026",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A server-rendered page embeds initial state like this. A user sets their display name to `</script><script>alert(1)</script>`. What happens?\n\n```js\nres.send(`<script>window.__STATE__ = ${JSON.stringify(state)}</script>`);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing: JSON.stringify escapes everything that is dangerous in HTML",
+        "why": "It escapes quotes and control characters, but not `<`, `>` or `/`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The `</script>` ends the tag early and the injected script runs",
+        "why": "The HTML parser closes the tag before JavaScript ever parses the JSON."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The page shows a JSON syntax error but no code runs",
+        "why": "The browser treats the rest as new HTML, including a new script tag."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Content-Type `text/html` makes the browser escape the inline script",
+        "why": "The content type tells the browser to parse HTML, which is exactly the problem."
+      }
+    ],
+    "explanation": "`JSON.stringify` output is safe JavaScript but not safe HTML. Inside a `<script>` element, the HTML tokenizer looks for `</script` before any JS parsing happens. Escape `<` as `\\u003c` (libraries such as serialize-javascript do this), or put the JSON in `<script type=\"application/json\">` with `<` escaped and read it with `JSON.parse`. A strict CSP adds defence in depth. Verified that `JSON.stringify` leaves `</script>` intact.",
+    "reference": "OWASP: Cross Site Scripting Prevention Cheat Sheet"
+  },
+  {
+    "id": "NJS-SEC-027",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A site's session cookie is set with `SameSite=Lax; Secure; HttpOnly`, and there is no CSRF token. Which endpoint can a malicious site still trigger with the victim's session?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`POST /transfer` submitted from a hidden form on the attacker's page",
+        "why": "Lax cookies are not sent on cross-site POST requests."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`PUT /profile` sent with `fetch` from the attacker's page",
+        "why": "Cross-site fetch with credentials won't carry Lax cookies, and CORS would block the read anyway."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`GET /account/delete?confirm=yes` via a link",
+        "why": "Lax still sends cookies on top-level GET navigations, so state-changing GETs stay exposed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`DELETE /posts/42` sent from a cross-site iframe",
+        "why": "Cookies marked Lax are not sent with cross-site subresource or iframe requests."
+      }
+    ],
+    "explanation": "`SameSite=Lax` blocks the classic cross-site form POST, but browsers still attach Lax cookies to top-level navigations using safe methods. Any endpoint that changes state on GET remains forgeable. Keep GET requests side-effect free, and use CSRF tokens (or `SameSite=Strict` plus origin checks) for sensitive actions.",
+    "reference": "MDN: SameSite cookies"
+  },
+  {
+    "id": "NJS-SEC-028",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A webhook handler compares the received signature to the expected one with `crypto.timingSafeEqual(Buffer.from(received), Buffer.from(expected))`. Attackers send short or empty signatures, and the process logs uncaught errors. What is going on, and what is the robust fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "timingSafeEqual pads the shorter buffer, which is slow; switch to `===`",
+        "why": "It never pads, and `===` reintroduces the timing leak."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Buffer.from fails on empty strings; check `received.length > 0` first",
+        "why": "Empty buffers are fine; the problem is any length mismatch."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The comparison is fine; the errors come from the JSON body parser",
+        "why": "The error code points directly at timingSafeEqual."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "It throws on unequal lengths; check lengths or compare digests",
+        "why": "Unequal buffers raise ERR_CRYPTO_TIMING_SAFE_EQUAL_LENGTH, which must be handled."
+      }
+    ],
+    "explanation": "`crypto.timingSafeEqual` requires equal-length inputs and throws `ERR_CRYPTO_TIMING_SAFE_EQUAL_LENGTH` otherwise (verified in Node 24). Check the length and return a normal 401, or hash both sides to fixed-size digests before comparing. Length isn't secret for a fixed-format HMAC, so an early length check leaks nothing useful. Also compare bytes, not string lengths: `'é'.length` is 1 but its UTF-8 buffer is 2 bytes.",
+    "reference": "Node.js docs: crypto.timingSafeEqual()"
+  },
+  {
+    "id": "NJS-SEC-029",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "Review this token check. Which three are real weaknesses? (Choose three.)\n\n```js\nconst SECRET = 'secret';\napp.use((req, res, next) => {\n  const token = req.headers.authorization?.split(' ')[1];\n  try {\n    req.user = jwt.verify(token, SECRET);   // no options\n    next();\n  } catch { res.status(401).end(); }\n});\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The HMAC secret is a guessable word that can be brute-forced offline",
+        "why": "Anyone holding one token can test candidate secrets without contacting the server."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "No `algorithms` list is pinned, so the header's `alg` steers verification",
+        "why": "Always pass the exact algorithms you issue."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Neither `audience` nor `issuer` is checked",
+        "why": "Tokens issued for another service sharing the secret would be accepted."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It returns 401 instead of 403 when verification fails",
+        "why": "401 is the correct status for missing or invalid credentials."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "It reads the token from the Authorization header rather than a cookie",
+        "why": "Bearer tokens in headers are a standard, CSRF-resistant choice."
+      }
+    ],
+    "explanation": "HS256 secrets must be long random values (at least 256 bits) from a secrets manager. Pin `algorithms`, and validate `iss`, `aud` and `exp` (and keep lifetimes short, with a revocation strategy for long sessions). Header vs cookie is a design trade-off, not a flaw by itself.",
+    "reference": "OWASP: JSON Web Token Cheat Sheet"
+  },
+  {
+    "id": "NJS-SEC-030",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A service hashes passwords with bcrypt. Its users can choose passphrases of 100+ characters. What is the security consequence?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "bcrypt throws for inputs longer than 72 bytes, so long sign-ups fail",
+        "why": "Most implementations silently truncate rather than throw."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Passphrases matching in the first 72 bytes verify as equal",
+        "why": "bcrypt uses only the first 72 bytes of input, so the rest is ignored."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Hashing time grows with password length, which opens a timing attack",
+        "why": "bcrypt's cost is fixed by the work factor, not the input length."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Long passwords overflow the 60-character hash and corrupt the stored value",
+        "why": "The output length is fixed regardless of input length."
+      }
+    ],
+    "explanation": "bcrypt uses at most 72 bytes of its input (fewer characters for multi-byte UTF-8). Prefer argon2id, or if you must keep bcrypt, pre-hash with HMAC-SHA-256 under a server-side key and base64-encode the digest (encoding avoids NUL bytes that some implementations stop at). Cap input length at a sensible maximum to avoid hashing very large inputs.",
+    "reference": "OWASP: Password Storage Cheat Sheet (bcrypt input limits)"
+  },
+  {
+    "id": "NJS-SEC-031",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A log search shows full `Authorization` headers and database connection strings inside error logs. Which two changes fix the leak at its source? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Configure the logger to redact fields such as `req.headers.authorization` and cookies",
+        "why": "Loggers like pino support redaction paths so secrets never reach the sink."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Stop logging whole request, config and error objects; log chosen fields",
+        "why": "Allow-listing what you log prevents new secrets from leaking by accident."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Base64-encode the log lines before writing them",
+        "why": "Encoding is trivially reversible, so the secrets are still in the logs."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Lower the log level to `warn` in production",
+        "why": "Errors are still logged at warn and error levels, with the same payloads."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Rotate the log files every hour",
+        "why": "Rotation changes where logs live, not what they contain."
+      }
+    ],
+    "explanation": "Treat logs as data that many people and tools can read. Log structured, allow-listed fields, add redaction for known secret paths, and never print `process.env` or full config objects. Secrets that have already leaked into logs should be rotated.",
+    "reference": "OWASP: Logging Cheat Sheet"
+  },
+  {
+    "id": "NJS-SEC-032",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A company's apps depend on an internal package called `acme-billing-utils`, published to its private registry at version 1.4.0. One day CI installs version 99.0.0 of that name from the public npm registry, which runs a malicious install script. What is this, and what prevents it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Dependency confusion; use a scoped name on the private registry",
+        "why": "A scoped name like `@acme/billing-utils` can only resolve from the registry you assign that scope."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Typosquatting; the fix is checking package names for spelling mistakes",
+        "why": "The name was spelled correctly; the public registry simply won the resolution."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A compromised maintainer account; enabling 2FA on npm prevents it",
+        "why": "No existing account was compromised; an attacker registered the unused public name."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A semver bug; pinning `^1.4.0` stops installs above 1.x",
+        "why": "Caret ranges help here, but the root cause is the unscoped name resolving publicly."
+      }
+    ],
+    "explanation": "Dependency confusion abuses resolvers that check public registries for an unscoped internal name and pick the highest version. Fix it by using a scope you own (`@acme/*`), mapping that scope to the private registry in `.npmrc`, claiming the scope on the public registry, committing lockfiles with integrity hashes and using `npm ci`, and disabling install scripts in CI.",
+    "reference": "npm docs: scopes and registries"
+  },
+  {
+    "id": "NJS-SEC-033",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 3,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "If `npm audit` reports 0 vulnerabilities, the project's dependencies contain no malicious code.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "audit only matches known, published advisories; a brand-new malicious release isn't in that database."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "npm audit checks versions against a database of reported vulnerabilities, nothing more."
+      }
+    ],
+    "explanation": "`npm audit` compares your dependency tree against known advisories. It doesn't analyse code, so zero-day malware, a hijacked new release or a malicious install script goes unnoticed until someone reports it. Combine it with lockfiles, `--ignore-scripts`, provenance checks (`npm audit signatures`), minimal dependencies and tools that analyse package behaviour.",
+    "reference": "npm docs: npm audit"
+  },
+  {
+    "id": "NJS-SEC-034",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An SSRF filter parses the user's URL and blocks it if `new URL(input).hostname` is in `['localhost', '127.0.0.1', '0.0.0.0']`. In Node 24, which input gets past the filter while still targeting the loopback interface?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`http://127.1/`",
+        "why": "The WHATWG URL parser normalises it to `127.0.0.1`, which is blocked."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`http://2130706433/`",
+        "why": "The decimal form also normalises to `127.0.0.1`."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`http://[::ffff:127.0.0.1]/`",
+        "why": "Its hostname becomes `[::ffff:7f00:1]`, which isn't in the list but maps to 127.0.0.1."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`http://LOCALHOST:8080/admin/`",
+        "why": "Hostnames are lower-cased to `localhost` and the port is separate, so it is blocked."
+      }
+    ],
+    "explanation": "The WHATWG URL parser canonicalises many IPv4 spellings (short, decimal, hex), so naive variants are caught by a hostname compare. An IPv4-mapped IPv6 literal is canonicalised as IPv6 instead and slips through (verified in Node 24). Even a perfect string check fails against a DNS name that resolves to an internal IP, so the real fix is to check the resolved address against blocked ranges, including IPv4-mapped IPv6.",
+    "reference": "OWASP: SSRF Prevention Cheat Sheet"
+  },
+  {
+    "id": "NJS-SEC-035",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An SSRF guard resolves the hostname with `dns.lookup`, confirms the address is public, then calls `fetch(url)`. A pentest still reaches `169.254.169.254` (the cloud metadata service). Which flaw explains it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`dns.lookup` ignores `/etc/hosts`, so the guard saw a different address",
+        "why": "lookup uses the OS resolver, including the hosts file; that isn't the gap."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "fetch always routes link-local addresses through a proxy",
+        "why": "fetch has no such special-casing."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`fetch` resolves again, so DNS rebinding can swap in the internal IP",
+        "why": "This is DNS rebinding: the checked IP and the connected IP differ."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The metadata address is public, so the check correctly allowed it",
+        "why": "169.254.0.0/16 is link-local and must be blocked."
+      }
+    ],
+    "explanation": "Validating with one resolution and connecting with another is a time-of-check/time-of-use bug. An attacker's DNS server answers the guard with a public IP and the real request with an internal one. Make the HTTP client connect to the exact IP you validated (a custom `lookup` on the agent or dispatcher that re-checks every resolution), disable or re-validate redirects, and on cloud hosts require IMDSv2 or block metadata at the network layer.",
+    "reference": "OWASP: SSRF Prevention Cheat Sheet (DNS rebinding)"
+  },
+  {
+    "id": "NJS-SEC-036",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An attacker has polluted `Object.prototype.isAdmin = true` in your process. User objects come from the database and never have an `isAdmin` field unless the user is an admin. Which authorization check still gives the right answer?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`if (user.isAdmin === true && typeof user.isAdmin === 'boolean')`",
+        "why": "Both reads walk the prototype chain and see the polluted boolean `true`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`if ('isAdmin' in user && user.isAdmin)`",
+        "why": "The `in` operator also checks inherited properties, so it returns true."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`if (user.isAdmin !== undefined && user.isAdmin !== false)`",
+        "why": "The inherited value is `true`, so both comparisons pass."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "`if (Object.hasOwn(user, 'isAdmin') && user.isAdmin === true)`",
+        "why": "hasOwn ignores inherited properties, so only real admin records pass."
+      }
+    ],
+    "explanation": "Prototype pollution is dangerous because ordinary property reads inherit the injected value. Verified in Node 24: after polluting the prototype, `user.isAdmin` and `'isAdmin' in user` are both truthy while `Object.hasOwn(user, 'isAdmin')` is false. Use `Object.hasOwn` for security-relevant checks, or objects with a null prototype, and fix the pollution source.",
+    "reference": "MDN: Object.hasOwn()"
+  },
+  {
+    "id": "NJS-SEC-037",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A team starts their server with `node --disable-proto=delete app.js` to stop prototype pollution. Their naive deep merge still processes untrusted JSON. What is true?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Pollution is impossible now, because `Object.prototype` can no longer be reached",
+        "why": "Only the `__proto__` accessor is removed; `constructor.prototype` still reaches it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Every object loses its prototype, so `{}.toString()` throws",
+        "why": "Prototypes still exist; only the legacy `__proto__` accessor property is deleted."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "JSON.parse now throws when it meets a `__proto__` key",
+        "why": "JSON.parse is unaffected and still creates an own `__proto__` key."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "The `__proto__` route is closed, but `constructor.prototype` still pollutes",
+        "why": "Verified: with the flag set, the constructor route still pollutes `Object.prototype`."
+      }
+    ],
+    "explanation": "`--disable-proto=delete` removes the `Object.prototype.__proto__` accessor (`({}).__proto__` becomes `undefined`), and `=throw` makes access throw `ERR_PROTO_ACCESS`. That closes one route, but `target.constructor.prototype` is still `Object.prototype`, so the merge must also refuse `constructor` and `prototype` keys. Treat the flag as defence in depth, not a fix.",
+    "reference": "Node.js docs: --disable-proto"
+  },
+  {
+    "id": "NJS-SEC-038",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A public JSON API built on `node:http` falls over when attackers send huge bodies and connections that trickle headers one byte at a time. Which two changes address these attacks? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Cap request body size (for example `express.json({ limit: '100kb' })`) and reject larger bodies early",
+        "why": "Buffering and parsing huge bodies costs memory and CPU on the single thread."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Keep `headersTimeout` and `requestTimeout` finite, behind a proxy with its own timeouts",
+        "why": "Slow-header (slowloris) connections are dropped instead of holding sockets open."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Set `server.keepAliveTimeout = 0` so idle sockets never time out",
+        "why": "A value of 0 disables the keep-alive timeout, letting idle connections stay open indefinitely."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Wrap `JSON.parse` in try/catch so bad payloads don't crash the process",
+        "why": "That prevents crashes, but parsing a 500 MB payload still blocks the loop."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Run the server with `cluster` on every CPU so attacks are spread out",
+        "why": "More workers raise the bar slightly but don't remove the weakness."
+      }
+    ],
+    "explanation": "Node's `http.Server` defaults (verified in Node 24) are `headersTimeout` 60 s, `requestTimeout` 300 s and `keepAliveTimeout` 5 s, with a 16 KB header limit. Tighten timeouts to suit your traffic, limit body size and JSON depth, and put a reverse proxy or load balancer in front to absorb slow clients. Rate limiting adds another layer.",
+    "reference": "Node.js docs: http.Server timeouts"
+  },
+  {
+    "id": "NJS-SEC-039",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A server runs with `node --permission --allow-fs-read=* server.js`. A dependency calls `child_process.execSync('git rev-parse HEAD')`. What happens, and what is the right way to think about this flag?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It runs normally, because `--allow-fs-read=*` also grants process creation",
+        "why": "File-system grants don't cover child processes; they need their own flag."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It throws `ERR_ACCESS_DENIED`; the flag is a seatbelt, not a sandbox",
+        "why": "Child processes need `--allow-child-process`, and Node documents no guarantees against hostile code."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It throws `ERR_ACCESS_DENIED`, which proves the dependency can never escape the process",
+        "why": "Node's docs explicitly say the model doesn't guarantee containment of malicious code."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It logs a warning and runs, because the permission model is advisory",
+        "why": "Denied operations throw; they are not just logged."
+      }
+    ],
+    "explanation": "With `--permission`, file-system reads and writes, child processes, worker threads, native addons and WASI are denied unless explicitly allowed (verified: `ERR_ACCESS_DENIED` with permission `ChildProcess`). Code can check grants with `process.permission.has(...)`. Node describes it as a \"seat belt\" that stops trusted code from accidentally doing too much; for untrusted code, rely on OS isolation such as containers, users and seccomp.",
+    "reference": "Node.js docs: Permission Model"
+  },
+  {
+    "id": "NJS-SEC-040",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "After moving from `exec` to `execFile`, a code-search endpoint runs `execFile('git', ['grep', req.query.q])`. A tester sends `q=--open-files-in-pager=touch /tmp/pwned`. Why is this still dangerous, and what fixes it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "execFile spawns a shell on Linux, so the space-separated command runs",
+        "why": "Without `shell: true`, execFile passes the argument straight to git; no shell is involved."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It isn't dangerous: arguments are passed as one array element, so they are inert",
+        "why": "The callee still parses its own arguments, so an element starting with `-` is read as an option."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Quote the value with JSON.stringify before passing it",
+        "why": "Quotes become literal characters for git, and the leading dashes still parse as an option."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "git reads it as an option; put `--` before user input",
+        "why": "A `--` separator tells the program that every following argument is data, not an option."
+      }
+    ],
+    "explanation": "Avoiding the shell stops command injection, but argument (option) injection remains: many programs, git among them, have options that run commands or write files. Put `--` before user-supplied positional arguments, reject values that start with `-`, and prefer libraries over shelling out. Verified that a `--` separator makes Node itself treat `--version` as plain data.",
+    "reference": "OWASP: Command Injection (argument injection)"
+  },
+  {
+    "id": "NJS-SEC-041",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 4,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each way of turning untrusted input into objects with what it can do.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Creates plain data only; safe with schema validation"
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Executes arbitrary code with the process's privileges"
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Isolates globals but is not a security boundary"
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Can revive serialized functions, leading to remote code execution"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`JSON.parse(body)`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`eval(body)` or `new Function(body)()`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`vm.runInNewContext(body)`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`require('node-serialize').unserialize(body)`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Only data formats are safe for untrusted input. `JSON.parse` yields plain values (watch for prototype pollution when merging the result). `eval` and `new Function` run code directly. `vm` contexts are escapable. Serializers that support functions, like node-serialize, reconstruct and can invoke code, which is a known RCE pattern (CVE-2017-5941).",
+    "reference": "OWASP: Deserialization Cheat Sheet"
+  },
+  {
+    "id": "NJS-SEC-042",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 4,
+    "type": "order",
+    "select": 1,
+    "stem": "Your team learns that a dependency version you shipped last week contained a credential-stealing install script. Put the response steps in order.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Identify every project, build and deployment that installed the bad version, using lockfiles"
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Pin a known-good version and reinstall from a clean lockfile with install scripts disabled"
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Rotate every secret the build and runtime environments could read"
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Review logs and cloud audit trails for use of those credentials"
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Add controls: script allow-listing, provenance checks and dependency review"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "Scope first, so you know which machines and secrets were exposed. Stop further installs of the bad version, then rotate credentials, because anything the script could read must be treated as stolen. Investigate misuse, and finally harden the pipeline so the next malicious release can't run on install.",
+    "reference": "OpenSSF: npm best practices"
+  },
+  {
+    "id": "NJS-SEC-043",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "You are designing API-key authentication for a public API with millions of requests per day. Which storage and verification design is best?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Store keys in plain text and compare them with `===` for speed",
+        "why": "A database leak exposes every key, and `===` can leak timing information."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Hash keys with bcrypt (cost 12) and verify every request with bcrypt",
+        "why": "A slow hash on every request is a CPU denial-of-service risk, and high-entropy keys don't need it."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Random 256-bit keys stored as SHA-256 hashes, compared in constant time",
+        "why": "Random 256-bit keys can't be brute-forced, so a fast hash protects a leaked table cheaply."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Encrypt keys with AES and decrypt the stored value on each request to compare",
+        "why": "Reversible storage means one key compromise reveals every API key."
+      }
+    ],
+    "explanation": "Slow password hashes exist because human passwords are guessable. API keys generated with `crypto.randomBytes(32)` are not, so a fast SHA-256 (or HMAC with a server pepper) is enough and keeps per-request cost low. Include a short public ID prefix to find the row without scanning, compare digests with `crypto.timingSafeEqual`, show the full key only once, and support rotation and revocation.",
+    "reference": "OWASP: REST Security Cheat Sheet (API keys)"
+  },
+  {
+    "id": "NJS-SEC-044",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two changes harden a production Node.js container image? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Run as an unprivileged user (for example `USER node`), not root",
+        "why": "A compromised process then can't modify system files or easily escalate."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Use a minimal base image with production dependencies only, installed via `npm ci`",
+        "why": "Fewer packages and tools mean fewer vulnerabilities and less for an attacker to use."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Run `npm install` when the container starts, so the latest patches are always picked up",
+        "why": "That makes builds unreproducible and runs install scripts at runtime."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Expose the inspector on `0.0.0.0:9229` so production issues can be debugged",
+        "why": "An open inspector gives anyone who can reach it full code execution."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Set `NODE_ENV=development` for more detailed error pages",
+        "why": "Detailed errors leak stack traces and internals to users."
+      }
+    ],
+    "explanation": "Container hardening for Node: non-root user, minimal or distroless base, multi-stage builds that leave compilers and dev dependencies behind, a read-only root filesystem where possible, `NODE_ENV=production`, no inspector exposed, and reproducible installs from the lockfile. Scan images regularly.",
+    "reference": "Node.js: Docker best practices"
+  },
+  {
+    "id": "NJS-SEC-045",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 4,
+    "type": "fill",
+    "select": 1,
+    "stem": "Complete the flag so that any access to `obj.__proto__` throws an `ERR_PROTO_ACCESS` error instead of returning the prototype: `node --disable-proto=____ app.js`. Type the missing value.",
+    "options": [],
+    "accepted": [
+      "throw"
+    ],
+    "explanation": "`--disable-proto` accepts `delete` (removes the accessor, so `__proto__` reads as `undefined`) or `throw` (any access throws `ERR_PROTO_ACCESS`), both verified in Node 24. `throw` makes accidental or malicious use loud, which helps find code that still depends on it. It does not block the `constructor.prototype` route.",
+    "reference": "Node.js docs: --disable-proto"
+  }
+]

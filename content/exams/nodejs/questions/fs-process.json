@@ -1,0 +1,1642 @@
+[
+  {
+    "id": "NJS-FSP-001",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "An HTTP server calls `fs.readFileSync()` to load a template inside every request handler. Why is this a problem, and when is a synchronous fs call acceptable?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "It blocks the event loop; sync reads suit startup code and CLIs",
+        "why": "While a sync call runs, no other request, timer or callback can make progress."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Sync calls run on the libuv thread pool and exhaust its four threads under load",
+        "why": "Sync fs calls run on the main thread. The thread pool is used by the async versions."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "readFileSync caches the file forever, so template edits never show up",
+        "why": "There is no caching; each call reads the file again from disk."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Sync calls are deprecated in Node.js 22 and print a warning on every request",
+        "why": "They are not deprecated. They are the right tool where blocking does not matter."
+      }
+    ],
+    "explanation": "Synchronous fs methods do their I/O on the main JavaScript thread, so the whole process waits. In a server that turns every slow disk read into latency for all concurrent requests. They are perfectly reasonable where nothing else needs to run yet: loading config at startup, or one-shot CLI tools. In handlers, use `fs/promises` or cache the template once at startup.",
+    "reference": "Node.js docs: Don't Block the Event Loop"
+  },
+  {
+    "id": "NJS-FSP-002",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "After `process.env.PORT = 3000;`, the expression `process.env.PORT === 3000` is `true`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "process.env only stores strings, so the number is converted on assignment."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: the value is stored as the string \"3000\", so the strict comparison with a number fails."
+      }
+    ],
+    "explanation": "`process.env` coerces every assigned value to a string. `process.env.PORT = 3000` stores `\"3000\"`, and even `process.env.X = undefined` stores the string `\"undefined\"`. Parse values explicitly (`Number(process.env.PORT)`) and delete keys with `delete process.env.X`.",
+    "reference": "Node.js docs: process.env"
+  },
+  {
+    "id": "NJS-FSP-003",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A file `server.mjs` contains `const views = path.join(__dirname, 'views');`. What happens on Node.js 22, and what is the modern fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It works: Node.js defines `__dirname` in every module type",
+        "why": "Only CommonJS modules get the `__dirname` and `__filename` wrapper variables."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It throws a ReferenceError; use `import.meta.dirname` instead",
+        "why": "`import.meta.dirname` and `import.meta.filename` exist since Node.js 20.11."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It returns the current working directory, the same as `process.cwd()`",
+        "why": "There is no fallback; the identifier simply does not exist in ES modules."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It returns `undefined`, so `path.join` silently builds the path `undefined/views`",
+        "why": "Reading an undeclared identifier throws a ReferenceError instead of yielding undefined."
+      }
+    ],
+    "explanation": "CommonJS wraps each module in a function that receives `__dirname` and `__filename`. ES modules have no such wrapper, so those names are undeclared. Since Node.js 20.11 (and 21.2) use `import.meta.dirname` and `import.meta.filename`; on older versions, derive them with `fileURLToPath(import.meta.url)`.",
+    "reference": "Node.js docs: ECMAScript modules (import.meta.dirname)"
+  },
+  {
+    "id": "NJS-FSP-004",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "What string does `path.posix.join('/a/b', '../c', 'd.txt')` return? Type the exact path.",
+    "options": [],
+    "accepted": [
+      "/a/c/d.txt"
+    ],
+    "explanation": "`join` concatenates the segments with `/` and then normalizes: `/a/b/../c/d.txt` collapses `b/..`, giving `/a/c/d.txt`.",
+    "reference": "Node.js docs: path.join()"
+  },
+  {
+    "id": "NJS-FSP-005",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A script at `/app/scripts/report.js` calls `fs.readFileSync('./config.json')`. It works when run as `node report.js` from `/app/scripts`, but fails with ENOENT when cron runs `node /app/scripts/report.js` from `/`. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Cron jobs run without permission to read files in the scripts folder",
+        "why": "Permissions would give EACCES, not ENOENT."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Relative paths resolve against `process.cwd()`, which is now `/`",
+        "why": "Build the path from `__dirname` (or `import.meta.dirname`) instead."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "readFileSync only accepts absolute paths when stdin is not a terminal",
+        "why": "Relative paths are always accepted; the question is what they are relative to."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Node.js resolves `./` against the location of the node binary under cron",
+        "why": "Relative paths resolve against the working directory, not the binary."
+      }
+    ],
+    "explanation": "fs APIs resolve relative paths against the process working directory, which is wherever the process was started. `require()` resolves relative to the module file, which is why people expect the same from fs. Use `path.join(__dirname, 'config.json')` (CommonJS) or `path.join(import.meta.dirname, 'config.json')` (ESM).",
+    "reference": "Node.js docs: process.cwd()"
+  },
+  {
+    "id": "NJS-FSP-006",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each `child_process` function with its behaviour.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`exec`",
+        "why": "Runs a command string through a shell and buffers output."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`execFile`",
+        "why": "Runs a file with an argument array, no shell, buffered output."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`spawn`",
+        "why": "Streams stdio; no shell unless asked."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`fork`",
+        "why": "Starts a Node.js module with an IPC channel."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Runs `\"ls -la | grep log\"` in a shell and gives you the whole output in a callback",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Runs an executable with an argument array, no shell, and buffers its output",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Starts a long-running process and exposes its stdout as a stream",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Starts another Node.js script and lets you `send()` messages to it",
+        "answer": "D"
+      }
+    ],
+    "explanation": "`exec` is the convenient but risky one: it uses a shell and buffers output up to `maxBuffer`. `execFile` skips the shell, so arguments are passed literally. `spawn` is the low-level primitive with streamed stdio. `fork` is `spawn` specialised for Node.js scripts, adding an IPC channel for `send()` and `message` events.",
+    "reference": "Node.js docs: Child process"
+  },
+  {
+    "id": "NJS-FSP-007",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two calls succeed when the directory tree does not fully exist, or is not empty? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`fs.mkdirSync('a/b/c', { recursive: true })` when `a` does not exist",
+        "why": "recursive creates every missing parent."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`fs.rmSync('build', { recursive: true, force: true })` on a non-empty folder",
+        "why": "recursive removes contents; force ignores a missing path."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`fs.rmdirSync('build')` on a non-empty folder",
+        "why": "rmdir without options fails with ENOTEMPTY on a non-empty directory."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`fs.writeFileSync('logs/2026/app.log', data)` when `logs` does not exist",
+        "why": "writeFile never creates parent directories; it fails with ENOENT."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`fs.unlinkSync('build')` on a directory",
+        "why": "unlink removes files, not directories."
+      }
+    ],
+    "explanation": "`mkdir` with `{ recursive: true }` behaves like `mkdir -p`, and `rm` with `{ recursive: true, force: true }` behaves like `rm -rf`. Writing a file never creates its parent folders, so create them first.",
+    "reference": "Node.js docs: fs.mkdir(), fs.rm()"
+  },
+  {
+    "id": "NJS-FSP-008",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A Node.js script throws an error that nothing catches. What exit code does the process end with by default?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "0, because Node.js prints the stack trace and exits normally",
+        "why": "An uncaught exception is a failure and is reported with a non-zero code."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "1",
+        "why": "Exit code 1 means \"uncaught fatal exception\"."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "7, the code reserved for internal exception handler failures",
+        "why": "Code 7 is for a failing uncaughtException handler, not a plain crash."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "143, because Node.js sends itself SIGTERM",
+        "why": "No signal is involved; 143 would mean death by SIGTERM."
+      }
+    ],
+    "explanation": "Node.js exits with code 1 for an uncaught exception, after printing the stack to stderr. Since Node.js 15, an unhandled promise rejection also exits with 1 by default. Supervisors (systemd, Kubernetes, PM2) rely on this non-zero code to decide to restart.",
+    "reference": "Node.js docs: Process exit codes"
+  },
+  {
+    "id": "NJS-FSP-009",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print, and with which exit code does the process end?\n\n```js\nsetTimeout(() => console.log('flushed'), 50);\nprocess.exitCode = 3;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "It prints `flushed`, then exits with code 3",
+        "why": "Setting exitCode lets the event loop finish pending work first."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It exits with code 3 at once, without printing anything",
+        "why": "That is what `process.exit(3)` would do; exitCode does not stop the loop."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It prints `flushed` and exits with code 0, because the timer resets it",
+        "why": "Nothing resets exitCode; the last assigned value is used at exit."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It throws, because exitCode must be set inside an exit handler",
+        "why": "exitCode can be set anywhere; it is read when the process exits."
+      }
+    ],
+    "explanation": "`process.exitCode` only records the code to use when the process eventually exits. The event loop still runs the pending timer, prints `flushed`, and then exits with 3. `process.exit()` instead ends the process synchronously and abandons timers, pending I/O and possibly unflushed stdout. Prefer setting `exitCode` and letting the process end naturally.",
+    "reference": "Node.js docs: process.exitCode"
+  },
+  {
+    "id": "NJS-FSP-010",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "What does `path.posix.resolve('/srv/app', './logs', '/var/data', 'x.log')` return? Type the exact path.",
+    "options": [],
+    "accepted": [
+      "/var/data/x.log"
+    ],
+    "explanation": "`resolve` processes segments from right to left until it has an absolute path. `x.log` is relative, `/var/data` is absolute, so it stops there and returns `/var/data/x.log`. Everything to the left of the last absolute segment is ignored.",
+    "reference": "Node.js docs: path.resolve()"
+  },
+  {
+    "id": "NJS-FSP-011",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Two workers run this at the same moment to claim a lock file. Both sometimes believe they hold the lock. What is the fix?\n\n```js\nif (!fs.existsSync('job.lock')) {\n  fs.writeFileSync('job.lock', String(process.pid));\n  runJob();\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Switch to `fs.promises.access` so the check runs asynchronously",
+        "why": "Any separate check-then-act sequence leaves the same race window."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Call `fs.statSync` after writing to confirm the file now exists",
+        "why": "Both workers will see the file exists, so the race is not detected."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Open it with the `wx` flag and treat EEXIST as \"taken\"",
+        "why": "The wx flag makes the OS create the file only if it is absent, in one step."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Wrap the code in `try/catch` so the second write throws",
+        "why": "writeFileSync with the default flag overwrites silently; it never throws for an existing file."
+      }
+    ],
+    "explanation": "Checking and then acting is a time-of-check to time-of-use (TOCTOU) race: both workers can pass `existsSync` before either writes. The `wx` flag (`O_CREAT | O_EXCL`) makes creation and the existence check one atomic system call. The loser gets `EEXIST`. The same idea applies generally: attempt the operation and handle the error, instead of checking first.",
+    "reference": "Node.js docs: File system flags"
+  },
+  {
+    "id": "NJS-FSP-012",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A job counts error lines in 6 GB log files with `const text = await fs.promises.readFile(file, 'utf8')`. It crashes on large files. Which approach fixes it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Raise `--max-old-space-size` until the whole file fits in the heap",
+        "why": "That only moves the limit, and the whole file still has to fit in memory at once."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Use `fs.readFileSync` instead, since sync reads avoid allocating a Promise",
+        "why": "Sync or async, the whole file still lands in one buffer or string."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Read the file in a Worker thread so the main heap stays small",
+        "why": "A worker has its own heap, which hits the same size problem."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Stream it line by line with readline over `fs.createReadStream`",
+        "why": "Memory stays proportional to one chunk instead of the file size."
+      }
+    ],
+    "explanation": "`readFile` loads the entire file into memory, and a UTF-8 decode makes a single string, which has a hard maximum length in V8. Large files must be processed incrementally: stream chunks with `createReadStream` and, for line-based work, iterate with `for await (const line of rl)`. Memory use then stays flat regardless of file size.",
+    "reference": "Node.js docs: readline (Example: Read file stream line-by-Line)"
+  },
+  {
+    "id": "NJS-FSP-013",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A service is started with `node --env-file=.env --env-file=.env.local server.js`. Which two statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A variable already set in the shell environment keeps its shell value",
+        "why": "Values from the real environment take precedence over the files."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "If both files define the same key, the value from `.env.local` wins",
+        "why": "Later --env-file arguments override earlier ones."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A missing `.env.local` is silently skipped",
+        "why": "A missing file is an error; use --env-file-if-exists to make it optional."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`PORT=8080` in the file makes `process.env.PORT` the number 8080",
+        "why": "Environment values are always strings."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "It only works after installing the `dotenv` package",
+        "why": "The flag is built into Node.js since 20.6, with no dependency."
+      }
+    ],
+    "explanation": "Node.js 20.6+ loads `.env` files natively. Variables that already exist in the environment are not overwritten, and when several files are given, later ones override earlier ones. A missing file stops startup with an error; Node.js 22.9 added `--env-file-if-exists` for optional files. For runtime loading, use `process.loadEnvFile()`.",
+    "reference": "Node.js docs: --env-file"
+  },
+  {
+    "id": "NJS-FSP-014",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "`path.posix.join('/srv/uploads', '/etc/passwd')` returns `'/etc/passwd'`, because the second argument is absolute.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "That is how path.resolve treats an absolute segment, not join."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: join just concatenates and normalizes, returning /srv/uploads/etc/passwd."
+      }
+    ],
+    "explanation": "`join` glues segments together with the separator and normalizes the result, so a leading `/` in a later segment does not restart the path: the result is `/srv/uploads/etc/passwd`. `resolve` behaves differently and would return `/etc/passwd`. Neither function is a security check: `join('/srv/uploads', '../../etc/passwd')` still escapes to `/etc/passwd`.",
+    "reference": "Node.js docs: path.join(), path.resolve()"
+  },
+  {
+    "id": "NJS-FSP-015",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A service converts an uploaded file whose name comes from the user. Which call is safe from shell injection?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "``exec(`convert \"${name}\" out.png`)``, because the name is wrapped in double quotes",
+        "why": "A name containing `\"` or `$(...)` breaks out of the quotes and runs commands."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`execFile('convert', [name, 'out.png'])`",
+        "why": "No shell is involved, so the name reaches the program as one literal argument."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`spawn('convert', [name, 'out.png'], { shell: true })`",
+        "why": "shell: true joins the arguments into a shell command line, reintroducing injection."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "``exec(`convert ${encodeURIComponent(name)} out.png`)``",
+        "why": "URL encoding is not shell escaping, and it also changes the file name."
+      }
+    ],
+    "explanation": "`exec` passes one string to `/bin/sh -c`, so any shell metacharacters in user input are interpreted. `execFile` and `spawn` without `shell: true` call the program directly with an argument array, and each element is passed literally. Also validate that the name is a plain file name, and consider `--` before user arguments for programs that parse options.",
+    "reference": "Node.js docs: child_process.execFile()"
+  },
+  {
+    "id": "NJS-FSP-016",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A backup script uses `exec('pg_dump mydb', (err, stdout) => ...)`. For small databases it works, but for a large one `err.code` is `ERR_CHILD_PROCESS_STDIO_MAXBUFFER`. What is going on?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "pg_dump wrote to stderr, which exec treats as a failure",
+        "why": "stderr output alone does not produce this error; the code names the buffer limit."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The OS pipe filled up, so the kernel killed pg_dump",
+        "why": "Pipes block the writer; they do not kill it. Node.js enforced its own limit."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Output passed exec's `maxBuffer` (1 MiB by default)",
+        "why": "Large output should be streamed with spawn and piped to a file."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "exec reads stdout in UTF-8 and fails on binary dump data",
+        "why": "Encoding is configurable and is not what this error code reports."
+      }
+    ],
+    "explanation": "`exec` and `execFile` collect all output in memory. When stdout or stderr exceeds `maxBuffer` (1024 × 1024 bytes by default), the child is killed and the callback receives `ERR_CHILD_PROCESS_STDIO_MAXBUFFER` with truncated output. For large or unbounded output, use `spawn` and pipe `child.stdout` straight to a file stream.",
+    "reference": "Node.js docs: child_process.exec() (maxBuffer)"
+  },
+  {
+    "id": "NJS-FSP-017",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "An HTTP API in Kubernetes receives SIGTERM. Put the steps of a graceful shutdown in order.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Stop accepting new connections with `server.close()`"
+      },
+      {
+        "id": "B",
+        "text": "Let in-flight requests finish (with a forced-exit timeout as a safety net)"
+      },
+      {
+        "id": "C",
+        "text": "Close the database pool and stop queue consumers"
+      },
+      {
+        "id": "D",
+        "text": "Flush buffered logs and metrics"
+      },
+      {
+        "id": "E",
+        "text": "Exit with code 0 (set `process.exitCode` or call `process.exit(0)`)"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "Stop taking new work first, so no request starts that cannot finish. Then let current requests complete, since they still need the database. Only then release shared resources like the database pool and consumers, flush logs last so shutdown errors are captured, and exit. A timer (shorter than the pod's termination grace period) forces exit if something hangs.",
+    "reference": "Node.js docs: http server.close(); Kubernetes: Pod termination"
+  },
+  {
+    "id": "NJS-FSP-018",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What happens when this runs?\n\n```js\nconst { parseArgs } = require('node:util');\nconst { values } = parseArgs({\n  args: ['--porty', '8080'],\n  options: { port: { type: 'string' } },\n});\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`values` is `{ porty: '8080' }`",
+        "why": "Unknown options are only collected when strict mode is turned off."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`values` is `{}`, because unknown flags are ignored",
+        "why": "In the default strict mode an unknown option is an error, not ignored."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`values` is `{ port: '8080' }`, because parseArgs matches the closest option",
+        "why": "parseArgs never guesses; option names must match exactly."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "It throws a TypeError with code `ERR_PARSE_ARGS_UNKNOWN_OPTION`",
+        "why": "parseArgs defaults to strict: true."
+      }
+    ],
+    "explanation": "`util.parseArgs` (stable since Node.js 20) is strict by default: unknown options, missing values and unexpected positionals throw errors with `ERR_PARSE_ARGS_*` codes. Pass `strict: false` to collect unknown flags, and `allowPositionals: true` to accept bare arguments such as file names.",
+    "reference": "Node.js docs: util.parseArgs()"
+  },
+  {
+    "id": "NJS-FSP-019",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two statements about `fs.watch()` and `fs.watchFile()` are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`fs.watchFile()` polls the file's stats on an interval instead of using OS notifications",
+        "why": "It works everywhere, including network drives, but costs CPU and reacts slowly."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`fs.watch()` can fire several events for one save, and `filename` may be null",
+        "why": "Its behaviour depends on the OS notification API and is not fully consistent."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`fs.watch()` reports exactly one `change` event per write on every platform",
+        "why": "Events are platform dependent and often duplicated; debounce them."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`fs.watchFile()` is the more efficient choice for watching thousands of files",
+        "why": "Polling thousands of files is far more expensive than OS notifications."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`fs.watch()` with `recursive: true` throws on Linux in Node.js 22",
+        "why": "Recursive watching has been supported on Linux since Node.js 20."
+      }
+    ],
+    "explanation": "`fs.watch` uses inotify, FSEvents or ReadDirectoryChangesW, so it is efficient but platform dependent: one save can produce several `rename` or `change` events, and the file name is not always provided. `fs.watchFile` polls `stat()` (about every 5 seconds by default), which is slower but predictable. Tools like chokidar smooth over the differences.",
+    "reference": "Node.js docs: fs.watch() caveats"
+  },
+  {
+    "id": "NJS-FSP-020",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "The folder `d1` does not exist. What does this print?\n\n```js\nconsole.log(fs.mkdirSync('d1/d2', { recursive: true }));\nconsole.log(fs.mkdirSync('d1/d2', { recursive: true }));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`undefined` twice, because mkdir returns nothing",
+        "why": "With recursive: true it returns a path when it creates something."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The absolute path of `d1`, then `undefined`",
+        "why": "It returns the first directory it created; nothing is created the second time."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The absolute path of `d1/d2` twice",
+        "why": "The second call creates nothing, and the first returns the first created folder, not the last."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The path of `d1/d2`, then it throws EEXIST",
+        "why": "With recursive: true an existing directory is not an error."
+      }
+    ],
+    "explanation": "With `recursive: true`, `mkdir` returns the first directory path it actually created, here the absolute path of `d1`. When everything already exists it returns `undefined` and does not throw. Without `recursive`, creating an existing directory throws `EEXIST`.",
+    "reference": "Node.js docs: fs.mkdirSync()"
+  },
+  {
+    "id": "NJS-FSP-021",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "This guard is meant to stop path traversal. Which input gets past it?\n\n```js\nconst base = '/srv/uploads';\nconst target = path.resolve(base, userPath);\nif (!target.startsWith(base)) throw new Error('forbidden');\nreturn fs.createReadStream(target);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`../../etc/passwd`",
+        "why": "That resolves to /etc/passwd, which fails the prefix check."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`/etc/passwd`",
+        "why": "resolve returns /etc/passwd, which fails the prefix check."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`../uploads-old/secret.txt`",
+        "why": "It resolves to /srv/uploads-old/secret.txt, which starts with \"/srv/uploads\"."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`photo.jpg/../../../etc/passwd`",
+        "why": "That still normalizes to /etc/passwd and is rejected."
+      }
+    ],
+    "explanation": "A string prefix check does not respect path boundaries: `/srv/uploads-old` starts with `/srv/uploads`. A robust check computes `const rel = path.relative(base, target)` and rejects it if `rel.startsWith('..')` or `path.isAbsolute(rel)`, or compares against `base + path.sep`. Also consider symlinks inside the folder, which `resolve` does not follow; use `fs.realpath` when that matters.",
+    "reference": "OWASP: Path Traversal; Node.js docs: path.relative()"
+  },
+  {
+    "id": "NJS-FSP-022",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A container runs `CMD [\"node\", \"server.js\"]`, and the app has no signal handlers. `docker stop` always takes 10 seconds and then the container is killed. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Node.js ignores SIGTERM on every platform unless --trace-signals is set",
+        "why": "Outside PID 1, Node.js exits on SIGTERM by default."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "As PID 1, node gets no default SIGTERM action from the kernel",
+        "why": "Docker waits its grace period, then sends SIGKILL."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The exec form of CMD wraps node in /bin/sh, which swallows SIGTERM",
+        "why": "The exec form runs node directly; the shell-wrapping problem belongs to the shell form."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Docker sends SIGINT, which Node.js only handles in interactive terminals",
+        "why": "docker stop sends SIGTERM by default, not SIGINT."
+      }
+    ],
+    "explanation": "Linux treats PID 1 specially: signals whose action is the default (terminate) are ignored unless the process installs a handler. Node.js is not designed to run as PID 1. Either handle SIGTERM explicitly (and shut down gracefully), or run a tiny init such as `docker run --init` or tini, which forwards signals and reaps zombie processes.",
+    "reference": "Node.js Docker best practices; docker run --init"
+  },
+  {
+    "id": "NJS-FSP-023",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two statements about signals in Node.js on Linux are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Adding a `SIGTERM` listener removes the default exit, so the process keeps running unless you exit it",
+        "why": "Once you listen, shutting down becomes your job."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "You cannot install a listener for `SIGKILL` or `SIGSTOP`",
+        "why": "The kernel handles those signals directly."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "After a `SIGINT` listener runs, Node.js still exits automatically",
+        "why": "The listener replaces the default behaviour; nothing exits for you."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "When killed by the default SIGTERM handler, the exit code is 0",
+        "why": "A signal death is reported as 128 + 15 = 143."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`process.on('SIGTERM')` behaves the same on Windows",
+        "why": "On Windows the OS never raises SIGTERM; process.kill() with it ends the target forcefully without running listeners."
+      }
+    ],
+    "explanation": "SIGINT and SIGTERM have default handlers that exit with 128 + the signal number. Registering a listener disables that default, a common reason a process \"won't die\" after someone adds logging on SIGTERM. SIGKILL and SIGSTOP can never be caught. On Windows, signal support is limited: SIGINT works from the terminal, SIGTERM cannot be sent to a process.",
+    "reference": "Node.js docs: Signal events"
+  },
+  {
+    "id": "NJS-FSP-024",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A service saves state with `fs.writeFileSync('state.json', json)`. After a power cut, the file is sometimes empty. What is the standard fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Use the async `fs.promises.writeFile`, which writes the data in one step",
+        "why": "Async writeFile also truncates first and writes in chunks; it is no more atomic."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Write with flag `a` (append) so existing data is never truncated",
+        "why": "Appending would corrupt the JSON by joining old and new documents."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Write a temp file in the same folder, fsync, then rename it over",
+        "why": "rename within one filesystem replaces the file atomically."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Call `fs.existsSync` before writing to make sure the file was saved",
+        "why": "Checking existence says nothing about whether the content was fully written."
+      }
+    ],
+    "explanation": "`writeFile` opens the file with truncation and then writes, so a crash between the two leaves an empty or partial file. Writing a complete new file and renaming it over the old one is atomic on POSIX within the same filesystem: readers see either the old or the new file. Calling `fsync` (for example `filehandle.sync()`) before the rename makes the new content durable. Packages like write-file-atomic wrap this pattern.",
+    "reference": "Node.js docs: fs.rename(); POSIX rename(2)"
+  },
+  {
+    "id": "NJS-FSP-025",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A migration reads 80,000 small files with `await Promise.all(paths.map((p) => fs.promises.readFile(p)))`. It fails with `EMFILE: too many open files`. What is the best fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Cap concurrency, e.g. 64 reads at a time with p-limit",
+        "why": "Only a bounded number of file descriptors is ever open at once."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Switch to readFileSync inside a for loop so each file closes immediately",
+        "why": "It avoids EMFILE but blocks the event loop for the whole migration."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Increase UV_THREADPOOL_SIZE so more reads finish in parallel",
+        "why": "The thread pool limits throughput, not the number of open descriptors."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Call `global.gc()` between reads so finished file handles get collected",
+        "why": "readFile closes its descriptors itself; GC is not the bottleneck."
+      }
+    ],
+    "explanation": "`Promise.all` starts every read at once, and each open file needs a descriptor, so the per-process limit (often 1024) is exceeded. Bounding concurrency keeps descriptor use flat and is usually just as fast, since disks and the thread pool are the real bottleneck. Raising `ulimit -n` or using graceful-fs (which queues and retries on EMFILE) only hides the problem.",
+    "reference": "Node.js docs: fs (file descriptors); libuv thread pool"
+  },
+  {
+    "id": "NJS-FSP-026",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A CLI prints a large JSON report with `console.log(report)` and then calls `process.exit(0)`. When piped (`node cli.js | jq .`) on macOS, `jq` sometimes gets truncated JSON. Why, and what is the fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`console.log` drops output longer than 64 KB; split the report into chunks",
+        "why": "console.log has no length limit; the output was still being written."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`jq` reads too slowly; run the CLI with `--max-old-space-size` to buffer more",
+        "why": "Heap size does not change how stdout is flushed before exit."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "stdout is always synchronous, so the truncation must come from `jq`",
+        "why": "stdout writes to pipes can be asynchronous depending on the platform."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Pipe writes can be async; set `process.exitCode` instead of exiting",
+        "why": "Letting the process end naturally flushes stdout first."
+      }
+    ],
+    "explanation": "Whether `process.stdout` writes are synchronous depends on what it is connected to (file, terminal, pipe) and on the platform. When writes are asynchronous, `process.exit()` can end the process before the queued data reaches the pipe. Set `process.exitCode = 0` and return, so Node.js exits once the write queue drains.",
+    "reference": "Node.js docs: A note on process I/O"
+  },
+  {
+    "id": "NJS-FSP-027",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "On Linux, a Node.js process with no signal listeners receives SIGTERM (signal 15) and exits via the default handler. What exit code does its parent see? Type a number.",
+    "options": [],
+    "accepted": [
+      "143"
+    ],
+    "explanation": "Signal deaths are reported as 128 + signal number, so SIGTERM gives 128 + 15 = 143 (SIGINT gives 130). Seeing 143 in container logs means the process was terminated, not that it crashed with an error.",
+    "reference": "Node.js docs: Signal events; Process exit codes"
+  },
+  {
+    "id": "NJS-FSP-028",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What is printed, and with which exit code does the process end?\n\n```js\nprocess.on('exit', (code) => {\n  setTimeout(() => console.log('cleanup done'), 0);\n  console.log('exit handler', code);\n});\nprocess.exitCode = 7;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`exit handler 7`, then `cleanup done`, exit code 7",
+        "why": "The event loop is already stopping, so the timer never fires."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`exit handler 7` only, exit code 7",
+        "why": "Only synchronous code runs inside an exit listener."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`exit handler 0` only, exit code 0",
+        "why": "The listener receives the exitCode that was set, which is 7."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Nothing, and the process hangs on the pending timer",
+        "why": "Timers scheduled in the exit event are discarded, so nothing hangs."
+      }
+    ],
+    "explanation": "By the time `exit` fires, the event loop has finished and will not run again, so timers, promises and I/O started in the listener are abandoned. Only synchronous work completes there. Do asynchronous cleanup before exiting, for example in a SIGTERM handler or in `beforeExit`, which can schedule more work.",
+    "reference": "Node.js docs: Event: 'exit'"
+  },
+  {
+    "id": "NJS-FSP-029",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print?\n\n```js\nlet n = 0;\nprocess.on('beforeExit', () => {\n  console.log('beforeExit', n);\n  if (n++ < 2) setTimeout(() => {}, 1);\n});\nprocess.on('exit', (c) => console.log('exit', c));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`beforeExit 0`, then `exit 0`",
+        "why": "Scheduling a timer in beforeExit keeps the process alive, so it fires again."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`exit 0` only, because no work was ever scheduled",
+        "why": "beforeExit fires whenever the loop empties, even if nothing ran before."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`beforeExit 0`, `beforeExit 1`, `beforeExit 2`, then `exit 0`",
+        "why": "Each timer refills the loop; on the third pass nothing is scheduled."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It loops forever, printing beforeExit with growing numbers",
+        "why": "The guard stops scheduling after n reaches 2."
+      }
+    ],
+    "explanation": "`beforeExit` fires each time the event loop runs out of work. If the listener schedules more work, the process continues and the event fires again later. Here the timer is scheduled twice; on the third emission no new work is added, so `exit` follows with code 0. `beforeExit` is not emitted for `process.exit()` or uncaught exceptions.",
+    "reference": "Node.js docs: Event: 'beforeExit'"
+  },
+  {
+    "id": "NJS-FSP-030",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two statements about `child_process.fork()` are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The open IPC channel keeps the parent running until the child exits or you call `disconnect()`",
+        "why": "An active channel holds a reference on the event loop."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Messages are serialized, so functions and class instances lose their behaviour",
+        "why": "The default JSON serialization sends plain data only."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The child runs in the same process as a new thread sharing the heap",
+        "why": "fork starts a separate OS process with its own V8 instance and heap."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It can run any executable, such as Python scripts, with an IPC channel",
+        "why": "fork runs Node.js modules; other programs need spawn with an ipc stdio entry."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`send()` delivers messages synchronously before it returns",
+        "why": "Messages are queued and delivered asynchronously through the channel."
+      }
+    ],
+    "explanation": "`fork()` is `spawn()` of a new Node.js process with an IPC channel. Data sent with `send()` is serialized (JSON by default, or the structured-clone-like `advanced` mode). Because the channel keeps both processes alive, a parent that finishes its work still waits until the child exits or `child.disconnect()` is called. For shared memory, use worker_threads instead.",
+    "reference": "Node.js docs: child_process.fork()"
+  },
+  {
+    "id": "NJS-FSP-031",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A release tool runs `spawnSync('git', ['log', '--all'])` on a large repository. `result.error.code` is `ENOBUFS` and `result.stdout` is cut off. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "spawnSync cannot capture output; you must use stdio: 'inherit'",
+        "why": "It captures output in buffers; the problem is how big they may grow."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "git detected a non-interactive terminal and stopped writing",
+        "why": "git keeps writing; Node.js stopped reading."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "spawnSync's own `maxBuffer` (1 MiB by default) was exceeded",
+        "why": "Raise maxBuffer or stream the output with async spawn."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "ENOBUFS means the OS ran out of memory for the pipe",
+        "why": "Here the limit is Node.js's own maxBuffer, not kernel memory."
+      }
+    ],
+    "explanation": "Like `exec`, the synchronous `spawnSync` and `execSync` buffer the child's output and enforce `maxBuffer` (1024 × 1024 bytes by default). When exceeded, the child is killed and `error.code` is `ENOBUFS`, with partial output. Pass a larger `maxBuffer` if the size is bounded, or use async `spawn` and stream the output.",
+    "reference": "Node.js docs: child_process.spawnSync() (maxBuffer)"
+  },
+  {
+    "id": "NJS-FSP-032",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 3,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In Node.js 22, setting `process.exitCode = 1.5` is accepted and the process later exits with code 1.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Node.js validates exitCode instead of rounding it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: assigning a non-integer throws a RangeError with code ERR_OUT_OF_RANGE."
+      }
+    ],
+    "explanation": "Since Node.js 20, `process.exitCode` and `process.exit()` validate their argument. A non-integer number throws `ERR_OUT_OF_RANGE` at the assignment. An integer string such as `'2'` is still accepted for compatibility. Earlier versions coerced values silently, which hid bugs.",
+    "reference": "Node.js docs: process.exitCode"
+  },
+  {
+    "id": "NJS-FSP-033",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the console output of this script in order.\n\n```js\nprocess.on('exit', () => console.log('exit'));\nprocess.on('beforeExit', () => console.log('beforeExit'));\nsetTimeout(() => console.log('timer'), 10);\nconsole.log('main end');\n```",
+    "options": [
+      {
+        "id": "A",
+        "text": "`main end`"
+      },
+      {
+        "id": "B",
+        "text": "`timer`"
+      },
+      {
+        "id": "C",
+        "text": "`beforeExit`"
+      },
+      {
+        "id": "D",
+        "text": "`exit`"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "explanation": "The main script runs to completion first. The event loop then runs the timer. Once the loop is empty, `beforeExit` fires; since it schedules nothing, the process proceeds to `exit`, the last event before the process ends.",
+    "reference": "Node.js docs: process events"
+  },
+  {
+    "id": "NJS-FSP-034",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Linux test harness starts a dev server with `const child = spawn('npm', ['run', 'dev'])` and stops it with `child.kill()`. The next run fails with `EADDRINUSE`. What is happening, and what fixes it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`kill()` sends SIGKILL, which skips closing the listening socket",
+        "why": "kill() sends SIGTERM by default, and the kernel frees sockets of any dead process."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The port stays in TIME_WAIT; set SO_REUSEADDR in the harness",
+        "why": "Listening sockets are not held in TIME_WAIT; something is still listening."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "kill() only reaches npm; spawn detached, then kill the group",
+        "why": "A detached child leads its own process group, so the negative PID signals every process in it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "npm ignores SIGTERM in non-interactive shells; send SIGINT instead",
+        "why": "Changing the signal does not reach the grandchild if it goes only to npm."
+      }
+    ],
+    "explanation": "`child.kill()` signals exactly one process: the direct child, here npm. The actual server is a grandchild (often via a shell) and may survive as an orphan still holding the port. On POSIX, starting the child with `detached: true` makes it the leader of a new process group, and `process.kill(-child.pid, 'SIGTERM')` signals the whole group. On Windows, use `taskkill /T` or a package like tree-kill.",
+    "reference": "Node.js docs: options.detached, subprocess.kill()"
+  },
+  {
+    "id": "NJS-FSP-035",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Dockerfile ends with `CMD node server.js` (no brackets). The app does handle SIGTERM gracefully, yet `docker stop` waits 10 seconds and the handler never runs. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Shell form: sh is PID 1 and never forwards SIGTERM to node",
+        "why": "Use the exec form, CMD [\"node\", \"server.js\"], so node receives the signal."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Node.js disables signal handlers when stdout is not a terminal",
+        "why": "Signal handling does not depend on a TTY."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Docker sends SIGKILL first and SIGTERM only after the timeout",
+        "why": "Docker sends SIGTERM first and SIGKILL after the grace period."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The handler only runs if the image sets STOPSIGNAL SIGINT",
+        "why": "SIGTERM is the default stop signal and is fine if it reaches node."
+      }
+    ],
+    "explanation": "The shell form of CMD and ENTRYPOINT wraps the command in `/bin/sh -c`. The shell becomes PID 1, receives SIGTERM, and (being PID 1 with no handler) ignores it and does not forward it. Node.js never hears about it, so Docker eventually sends SIGKILL. Use the exec form, and consider `--init` so an init process forwards signals and reaps zombies. The same layering problem appears with `npm start`, which adds another process between the container runtime and node.",
+    "reference": "Docker docs: CMD (shell and exec form); Node.js Docker best practices"
+  },
+  {
+    "id": "NJS-FSP-036",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 3,
+    "stem": "A team runs a build script with `node --permission --allow-fs-read=./src build.js`. Which three statements are true? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Reading a file outside `./src`, such as `../package.json`, throws `ERR_ACCESS_DENIED`",
+        "why": "Reads are limited to the allowed paths."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Calling `child_process.execSync()` throws, because child processes need `--allow-child-process`",
+        "why": "Spawning processes is denied by default under the permission model."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Code can check access at runtime with `process.permission.has('fs.write')`",
+        "why": "The process.permission API exists while the model is enabled."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It is a sandbox that safely contains malicious third-party code",
+        "why": "The docs describe it as a seat belt for trusted code, not protection against malicious code."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "File writes inside `./src` are allowed, because a read grant implies write",
+        "why": "Writes need their own --allow-fs-write grant."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "The permission model is enabled by default in Node.js 24",
+        "why": "It is opt-in through the --permission flag."
+      }
+    ],
+    "explanation": "The permission model restricts file system reads and writes, child processes, worker threads, native addons and WASI, each granted with its own `--allow-*` flag. Denied operations throw `ERR_ACCESS_DENIED`, and `process.permission.has()` lets code check access first. Node.js documents it as a \"seat belt\" that stops trusted code from doing unintended things; it is not a security boundary against malicious code.",
+    "reference": "Node.js docs: Permissions"
+  },
+  {
+    "id": "NJS-FSP-037",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "To write atomically, a service writes `os.tmpdir() + '/state.tmp'` and then calls `fs.renameSync(tmp, '/app/data/state.json')`. In Kubernetes, where `/app/data` is a mounted volume, the rename fails. What error is it, and what is the fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`EACCES`; run the container as root so the rename is allowed",
+        "why": "Permissions are not the issue; rename cannot cross filesystems at all."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`EXDEV`; put the temp file in the destination folder",
+        "why": "rename(2) is only atomic, and only possible, within one filesystem."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`EBUSY`; close the temp file handle before renaming",
+        "why": "An open handle does not stop rename on Linux, and the error code is different."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`ENOENT`; the tmp directory is cleared between the two calls",
+        "why": "The temp file still exists; the problem is the mount boundary."
+      }
+    ],
+    "explanation": "`/tmp` in a container is usually the container's own filesystem, while `/app/data` is a separate volume. `rename` cannot move a file across filesystems and fails with `EXDEV` (\"cross-device link not permitted\"). Copying instead would lose atomicity. Put the temp file next to the target (for example `/app/data/.state.json.tmp`), then rename.",
+    "reference": "POSIX rename(2) (EXDEV); Node.js docs: fs.rename()"
+  },
+  {
+    "id": "NJS-FSP-038",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "On Linux, a config watcher calls `fs.watch('/etc/app/config.yml', reload)`. The first edit in vim triggers a reload, but later edits are never noticed. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "fs.watch only emits once per file unless `persistent: true` is set",
+        "why": "persistent only controls whether the watcher keeps the process alive."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "inotify has a limit of one event per file per second",
+        "why": "There is no such per-file rate limit; the watcher is watching the wrong file."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "vim writes with O_DIRECT, which inotify cannot see",
+        "why": "vim's normal save is visible to inotify; the issue is inode replacement."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Atomic saves replace the inode, and the watcher keeps the old one",
+        "why": "Watch the containing directory instead and filter by file name."
+      }
+    ],
+    "explanation": "On Linux and macOS, `fs.watch` resolves the path to an inode and watches that inode. Many editors save by writing a new file and renaming it over the original, which gives the path a new inode. The watcher reports the first rename and then keeps watching the orphaned old inode. Watching the directory, or re-creating the watcher after each `rename` event, handles atomic saves.",
+    "reference": "Node.js docs: fs.watch() (Inodes)"
+  },
+  {
+    "id": "NJS-FSP-039",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Node.js 24 handler does `const fh = await fs.promises.open(path); const data = await fh.readFile();` without ever closing `fh`. Under load it fails with EMFILE. Which change guarantees the handle is closed even if `readFile` throws?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Set `fh = null` after reading so the garbage collector closes it promptly",
+        "why": "GC timing is not prompt, and closing handles on GC is deprecated (DEP0137)."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Call `fh.close()` after `readFile`, outside any try block",
+        "why": "If readFile throws, that line never runs and the handle leaks."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Use `await using fh = ...` so the handle is disposed on exit",
+        "why": "FileHandle implements Symbol.asyncDispose; try/finally works too."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use `{ autoClose: true }` in the open options",
+        "why": "autoClose is a stream option; fs.promises.open has no such flag."
+      }
+    ],
+    "explanation": "A `FileHandle` holds an OS descriptor until `close()` is called. Relying on garbage collection is unreliable (Node.js warns and plans to make it an error), so leaks surface as EMFILE under load. `try { ... } finally { await fh.close(); }` fixes it, and Node.js 24 also supports explicit resource management: `await using` calls `fh[Symbol.asyncDispose]()` when the block exits, even on errors. For simple cases, `fs.promises.readFile(path)` opens and closes for you.",
+    "reference": "Node.js docs: FileHandle (filehandle[Symbol.asyncDispose]); DEP0137"
+  },
+  {
+    "id": "NJS-FSP-040",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A parent runs `spawn('tool', args, { stdio: ['ignore', 'pipe', 'inherit'] })` and never reads `child.stdout`. Which two statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "If the tool writes more than the pipe buffer holds, it blocks and may never exit",
+        "why": "An unread pipe fills up and the writer stalls."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The tool's stderr goes straight to the parent's stderr and cannot be read in code",
+        "why": "inherit hands over the parent's descriptor; nothing passes through Node.js."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Node.js buffers unread stdout in memory without limit, so the tool always finishes",
+        "why": "Paused or unread pipes apply backpressure; they are not buffered without limit."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`'ignore'` for stdin means the tool reads an endless stream of zeros",
+        "why": "ignore connects stdin to /dev/null, which reads as end of file."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`'inherit'` makes the tool run inside the parent's event loop",
+        "why": "The child is a separate process; inherit only shares a file descriptor."
+      }
+    ],
+    "explanation": "With `pipe`, the child writes into an OS pipe that Node.js reads only when you consume the stream. If nothing reads it, the pipe buffer (64 KB on Linux) fills and the child blocks forever: a classic hang. Consume or pipe `child.stdout`, or use `ignore` if you do not need it. `inherit` passes the parent's own descriptor, so output appears directly on the terminal or log.",
+    "reference": "Node.js docs: options.stdio"
+  },
+  {
+    "id": "NJS-FSP-041",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A worker measures job duration with `const ms = Date.now() - start`. Occasionally the logs show negative durations or spikes of exactly several seconds. What is the best explanation and fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Date.now() has only one-second resolution on Linux; use new Date().getTime()",
+        "why": "Both return milliseconds from the same wall clock."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "NTP moved the wall clock; use `process.hrtime.bigint()` instead",
+        "why": "Monotonic clocks never jump backwards."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The event loop delayed the callback; use setImmediate to measure instead",
+        "why": "Event-loop delay cannot make a duration negative."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Date.now() overflows 32 bits once a day; switch to BigInt arithmetic",
+        "why": "Date.now() returns a double well within safe integer range."
+      }
+    ],
+    "explanation": "`Date.now()` reads wall-clock time, which NTP corrections, manual changes or VM clock sync can move forwards or backwards. Durations need a monotonic clock: `process.hrtime.bigint()` returns nanoseconds as a BigInt, and `performance.now()` returns fractional milliseconds. Both only ever move forward.",
+    "reference": "Node.js docs: process.hrtime.bigint()"
+  },
+  {
+    "id": "NJS-FSP-042",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 4,
+    "type": "fill",
+    "select": 1,
+    "stem": "The shell has `Y=shell` exported. `e1.env` contains `Y=a` and `e2.env` contains `Y=b`. What does `node --env-file=e1.env --env-file=e2.env -e \"console.log(process.env.Y)\"` print? Type the value.",
+    "options": [],
+    "accepted": [
+      "shell"
+    ],
+    "explanation": "Two rules combine. Among the files, later ones override earlier ones, so the files alone would give `b`. But values already in the real environment take precedence over every --env-file, so the exported `shell` wins. This lets operators override file defaults at deploy time.",
+    "reference": "Node.js docs: --env-file"
+  },
+  {
+    "id": "NJS-FSP-043",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team adds `process.on('uncaughtException', (err) => logger.error(err))` so the API \"never crashes\". Which two statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The process keeps running in an unknown state, for example with half-finished requests or leaked locks",
+        "why": "An exception can unwind through code that left shared state inconsistent."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The recommended pattern is to log, then exit with a non-zero code and let a supervisor restart it",
+        "why": "A restart returns the process to a known-good state."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Node.js automatically restarts the request that threw",
+        "why": "Node.js has no notion of retrying work after an exception."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It also catches errors thrown inside worker_threads Workers",
+        "why": "An uncaught error in a worker is emitted as an error event on the Worker object in the parent."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Once a listener exists, the process exits with code 1 after it runs",
+        "why": "With a listener, Node.js does not exit; it keeps running."
+      }
+    ],
+    "explanation": "Adding an `uncaughtException` listener replaces the default crash, so the process carries on. The Node.js docs warn that it is not safe to resume after an uncaught exception, because the application may be in an undefined state. Use it for synchronous logging and cleanup, then exit and let systemd, Kubernetes or PM2 start a fresh process.",
+    "reference": "Node.js docs: Warning: Using 'uncaughtException' correctly"
+  },
+  {
+    "id": "NJS-FSP-044",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 4,
+    "type": "match",
+    "select": 1,
+    "stem": "On Linux, match each way a Node.js process ends with the exit code its parent sees.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "0",
+        "why": "Normal completion."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "1",
+        "why": "Uncaught fatal exception."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "130",
+        "why": "128 + SIGINT (2)."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "143",
+        "why": "128 + SIGTERM (15)."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "The event loop empties with no errors and exitCode never set",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "An unhandled promise rejection with default settings",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Ctrl+C in the terminal with no SIGINT listener",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`kill <pid>` with no SIGTERM listener",
+        "answer": "D"
+      }
+    ],
+    "explanation": "A natural exit uses code 0 unless `exitCode` was set. Since Node.js 15 an unhandled rejection is raised as an uncaught exception and exits with 1. Deaths from the default signal handlers are reported as 128 plus the signal number: 130 for SIGINT and 143 for SIGTERM. These codes tell you at a glance whether a container crashed or was stopped.",
+    "reference": "Node.js docs: Process exit codes; Signal events"
+  },
+  {
+    "id": "NJS-FSP-045",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A CLI starts a background updater and should then exit immediately:\n\n```js\nspawn(process.execPath, ['updater.js'], { detached: true, stdio: 'ignore' });\nconsole.log('update started');\n```\n\nThe CLI prints the message but hangs until the updater finishes. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`stdio: 'ignore'` still opens pipes that keep the parent alive",
+        "why": "ignore connects to /dev/null, so no pipes hold the parent open."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "detached only takes effect on Windows; Linux needs nohup",
+        "why": "detached works on POSIX too, creating a new process group."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The parent still references the child; call `.unref()` on it",
+        "why": "unref() lets the parent's event loop exit without waiting for the child."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "console.log is asynchronous and waits for the child's output to flush",
+        "why": "The child's output is ignored, so there is nothing to flush."
+      }
+    ],
+    "explanation": "By default the parent's event loop waits for every child it spawned. `detached: true` lets the child outlive the parent and puts it in its own process group, but the parent still keeps a reference. Calling `child.unref()` removes it from the loop's reference count, so the parent can exit while the updater keeps running. Using `stdio: 'ignore'` matters too: inherited or piped stdio would keep the two processes connected.",
+    "reference": "Node.js docs: options.detached"
+  }
+]

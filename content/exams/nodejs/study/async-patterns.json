@@ -1,0 +1,24 @@
+{
+  "async-patterns": {
+    "summary": "Node layers its own async conventions on top of promises: error-first callbacks, synchronous EventEmitters, process lifecycle events, AbortSignal-aware APIs and AsyncLocalStorage. Know how each behaves when things go wrong, because that is what crashes production services.",
+    "points": [
+      "Error-first callbacks must be called exactly once and always asynchronously. Mixing sync and async callbacks (\"Zalgo\") makes ordering unpredictable; defer cache hits with `process.nextTick`.",
+      "`util.promisify` resolves with the first result only, forwards its own `this` (so bind methods), and returns `fn[util.promisify.custom]` when present, which is why `promisify(setTimeout)` is the `timers/promises` version.",
+      "`emit()` runs listeners synchronously in registration order on a snapshot of the listener list. A throwing listener stops the rest, and `error` with no listener throws. Async listeners' rejections are ignored unless `captureRejections` is on.",
+      "`events.once` rejects if `error` fires first, and `events.on` yields forever until aborted. Neither keeps the process alive, and neither does a timeout signal: only ref'd handles (sockets, timers, I/O) do.",
+      "Since Node 15 an unhandled rejection crashes the process (`--unhandled-rejections=throw`) unless an `unhandledRejection` listener exists. `strict` crashes even with one, and `warn-with-error-code` continues but exits with code 1.",
+      "After `uncaughtException`, log, clean up synchronously, exit non-zero and let a supervisor restart you. `exit` listeners cannot do async work; `beforeExit` fires only when the loop drains naturally, not on `process.exit()`.",
+      "AsyncLocalStorage context follows the async resource that runs a callback. Libraries that queue callbacks (pools, batchers) must wrap them with `AsyncResource.bind`, or requests see each other's store."
+    ],
+    "traps": [
+      "Removing a listener during `emit()` does not stop it running in that same emit; the change applies to the next one.",
+      "A plain `setTimeout` backoff ignores cancellation. Use `timers/promises` `setTimeout(ms, undefined, { signal })` so an abort ends the wait immediately.",
+      "An entry ES module whose top-level `await` can never settle exits with code 13, often because an event was emitted before anyone awaited it."
+    ],
+    "docs": [
+      { "title": "Events", "url": "https://nodejs.org/api/events.html" },
+      { "title": "Process events and exit codes", "url": "https://nodejs.org/api/process.html" },
+      { "title": "Asynchronous context tracking", "url": "https://nodejs.org/api/async_context.html" }
+    ]
+  }
+}

@@ -1,0 +1,1687 @@
+[
+  {
+    "id": "PYM-CNC-001",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A script splits a pure-Python, CPU-heavy loop across 8 `threading.Thread` workers on an 8-core machine running standard CPython 3.12. Why does it finish in about the same time as one thread?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Python threads are green threads that all run on a single OS thread",
+        "why": "CPython threads are real OS threads; the limit comes from the interpreter lock, not the threading model."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The GIL lets only one thread execute Python bytecode at a time",
+        "why": "Threads take turns holding the global interpreter lock, so pure-Python work never runs in parallel."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The OS scheduler pins all threads of a process to one core by default",
+        "why": "Operating systems spread threads across cores; CPython itself serialises bytecode execution."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Each thread copies the interpreter state, and the copying cancels out the gain",
+        "why": "Threads share one interpreter and memory; nothing is copied when a thread starts."
+      }
+    ],
+    "explanation": "In the default (GIL) build of CPython, the global interpreter lock allows only one thread to run Python bytecode at any moment. CPU-bound pure-Python code therefore gets no parallel speed-up from threads; use processes (multiprocessing, ProcessPoolExecutor), native code that releases the GIL, or the experimental free-threaded build instead.",
+    "reference": "Python docs: Glossary, global interpreter lock"
+  },
+  {
+    "id": "PYM-CNC-002",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In standard CPython, running 20 blocking HTTP downloads on 20 threads can finish much faster than running them one after another, even though the GIL exists.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Blocking I/O calls release the GIL while they wait, so other threads run and the waits overlap."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "The GIL only serialises bytecode execution; time spent waiting on the network happens outside it."
+      }
+    ],
+    "explanation": "Socket reads, file reads and `time.sleep` release the GIL while the thread is blocked in the operating system. For I/O-bound work most of the time is waiting, so threads overlap those waits and total time drops to roughly that of the slowest download.",
+    "reference": "Python docs: threading (CPython implementation detail)"
+  },
+  {
+    "id": "PYM-CNC-003",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What happens when this script runs?\n\n```python\nimport asyncio\n\nasync def main():\n    print(\"ran\")\n\nmain()\nprint(\"done\")\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It prints `ran` then `done`",
+        "why": "Calling a coroutine function only creates a coroutine object; its body has not started."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It raises `RuntimeError: no running event loop`",
+        "why": "Creating the coroutine object needs no event loop; only running it would."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "It prints `done` and warns that the coroutine was never awaited",
+        "why": "The coroutine object is created and discarded unexecuted, so Python emits a RuntimeWarning."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It prints `done`, then `ran` when the pending coroutine is flushed as the interpreter exits",
+        "why": "Nothing ever schedules the coroutine, so its body never runs at all."
+      }
+    ],
+    "explanation": "Calling `main()` returns a coroutine object without running any of its code. Because the object is never awaited, wrapped in a task or passed to `asyncio.run`, it is garbage-collected and Python prints `RuntimeWarning: coroutine 'main' was never awaited`. The fix is `asyncio.run(main())`.",
+    "reference": "Python docs: Coroutines and Tasks"
+  },
+  {
+    "id": "PYM-CNC-004",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each workload with the concurrency tool that usually fits it best in standard CPython.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`ProcessPoolExecutor` or `multiprocessing`",
+        "why": "Separate processes each have their own GIL."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`asyncio` with async libraries",
+        "why": "One thread multiplexes many waiting connections."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`ThreadPoolExecutor`",
+        "why": "Threads overlap blocking calls without rewriting them."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Plain sequential code",
+        "why": "Concurrency adds overhead without benefit here."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Resizing 10,000 images with a pure-Python algorithm",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Holding 50,000 mostly idle WebSocket connections",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Calling a blocking SDK (no async version) for 200 files on S3",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Summing a list of 1,000 integers once",
+        "answer": "D"
+      }
+    ],
+    "explanation": "CPU-bound Python work needs processes to get past the GIL. Huge numbers of idle network connections are what asyncio is designed for. Blocking libraries without an async API are easiest to overlap with a thread pool. Tiny CPU tasks finish faster than any pool can even start.",
+    "reference": "Python docs: Concurrent Execution"
+  },
+  {
+    "id": "PYM-CNC-005",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "Complete the line so that a normal script starts the event loop, runs the coroutine `main()` to completion and closes the loop: `asyncio.____(main())`. Type just the missing function name.",
+    "options": [],
+    "accepted": [
+      "run",
+      "asyncio.run"
+    ],
+    "explanation": "`asyncio.run(coro)` creates a new event loop, runs the coroutine until it finishes, cancels leftover tasks, shuts down async generators and the default executor, and closes the loop. It is the standard entry point for asyncio programs since Python 3.7.",
+    "reference": "Python docs: asyncio.run"
+  },
+  {
+    "id": "PYM-CNC-006",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A background thread is started with `threading.Thread(target=flush_logs, daemon=True).start()`, and the main thread then returns from the script. What happens to the daemon thread?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Python waits for it to finish before the process exits",
+        "why": "That is the behaviour for non-daemon threads; daemon threads are not joined at exit."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It is stopped abruptly at shutdown, possibly mid-write",
+        "why": "Daemon threads are killed when the interpreter exits, so `finally` blocks and flushes may not run."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It keeps running after the main process has exited",
+        "why": "Threads live inside the process, so they cannot outlive it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Python raises `RuntimeError` because a thread is still alive",
+        "why": "Exiting with live daemon threads is allowed and raises nothing."
+      }
+    ],
+    "explanation": "The interpreter exits once only daemon threads remain, and those threads are stopped abruptly: their resources may not be released and `finally` clauses may not run. Use a non-daemon thread with an explicit stop signal (such as a `threading.Event`) and `join()` when work must complete.",
+    "reference": "Python docs: threading, Thread objects (daemon)"
+  },
+  {
+    "id": "PYM-CNC-007",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Several producer threads hand work items to several consumer threads. Which standard-library structure is designed for exactly this and handles the locking for you?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`queue.Queue`",
+        "why": "Its `put` and `get` are thread-safe and can block until space or an item is available."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A plain `list` with `append` and `pop(0)` calls",
+        "why": "Even if single calls are atomic in CPython, there is no blocking wait and `pop(0)` is O(n)."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`asyncio.Queue`",
+        "why": "It is built for coroutines on one event loop and is not thread-safe."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`collections.deque` with a `maxlen` set",
+        "why": "`maxlen` silently drops old items instead of making producers wait."
+      }
+    ],
+    "explanation": "`queue.Queue` implements all the locking needed for multiple producers and consumers, supports bounded size for back-pressure, and offers `task_done()`/`join()` to wait until all work is processed. `asyncio.Queue` is its coroutine counterpart and must not be used across threads.",
+    "reference": "Python docs: queue"
+  },
+  {
+    "id": "PYM-CNC-008",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about asyncio are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A single event loop runs all its coroutines on one thread",
+        "why": "asyncio is concurrency through cooperative scheduling, not parallelism."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A coroutine can only be paused at an `await` (or `async for`/`async with`) point",
+        "why": "Between those points a coroutine runs uninterrupted, which is what makes it cooperative."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Coroutines run on all CPU cores at once",
+        "why": "Everything on one loop shares one thread, so CPU-bound coroutines take turns."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Calling `time.sleep()` inside a coroutine lets other coroutines run",
+        "why": "`time.sleep` blocks the whole thread, including the event loop."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The event loop preempts a coroutine that runs too long",
+        "why": "There is no preemption; a coroutine that never awaits starves everything else."
+      }
+    ],
+    "explanation": "asyncio interleaves many tasks on one thread. Control only changes hands when the running coroutine awaits something that actually suspends, so a CPU-heavy loop or a blocking call freezes every other task until it finishes.",
+    "reference": "Python docs: asyncio, Developing with asyncio"
+  },
+  {
+    "id": "PYM-CNC-009",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Four threads each run `for _ in range(1_000_000): counter += 1` on a shared global, with no lock, in standard CPython. What can you say about the final value of `counter`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It is always exactly 4,000,000, because the GIL makes `+=` atomic",
+        "why": "The GIL protects interpreter internals, not your read-modify-write sequence."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It can be less than 4,000,000, so the update needs a lock",
+        "why": "`+=` is a load, an add and a store; a thread switch between them loses updates."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It is always exactly 1,000,000, because each thread overwrites the others",
+        "why": "Threads interleave increments; there is no rule that only one thread's work survives."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Python raises an error when two threads write the same global",
+        "why": "CPython never detects data races; it just lets them happen."
+      }
+    ],
+    "explanation": "`counter += 1` compiles to several bytecodes: load the value, add one, store it back. The interpreter may switch threads between them, and two threads can then both store the same new value, losing an increment. How often this happens varies between CPython versions, but it is never guaranteed not to. Protect the update with a `threading.Lock`, or give each thread its own counter and combine them at the end.",
+    "reference": "Python docs: threading, Lock objects"
+  },
+  {
+    "id": "PYM-CNC-010",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print?\n\n```python\nimport asyncio\n\nasync def worker(n):\n    print(\"start\", n)\n    await asyncio.sleep(0)\n    print(\"end\", n)\n\nasync def main():\n    t = asyncio.create_task(worker(1))\n    print(\"A\")\n    await worker(2)\n    print(\"B\")\n    await t\n\nasyncio.run(main())\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`A`, `start 1`, `end 1`, `start 2`, `end 2`, `B`",
+        "why": "Creating the task does not run it straight away; `main` keeps going until it suspends."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`start 1`, `A`, `start 2`, `end 1`, `end 2`, `B`",
+        "why": "`create_task` only schedules the task, so `A` is printed before `worker(1)` starts."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`A`, `start 2`, `start 1`, `end 2`, `B`, `end 1`",
+        "why": "Task 1 first runs when `worker(2)` suspends, and it suspends again before `main` resumes."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`A`, `start 2`, `end 2`, `B`, `start 1`, `end 1`",
+        "why": "Awaiting `worker(2)` yields at its `sleep(0)`, which lets task 1 start in between."
+      }
+    ],
+    "explanation": "`create_task` schedules `worker(1)` but `main` continues: it prints `A`, then awaits `worker(2)` directly, which prints `start 2` and suspends at `sleep(0)`. The loop now runs task 1, which prints `start 1` and suspends. `main` resumes: `end 2`, then `B`, then `await t` lets task 1 finish with `end 1`. Verified on Python 3.13.",
+    "reference": "Python docs: asyncio.create_task"
+  },
+  {
+    "id": "PYM-CNC-011",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "`bad()` raises `ValueError` after 10 ms; each `ok(n)` sleeps 50 ms and then prints `ok done n`. What does this print?\n\n```python\nasync def main():\n    try:\n        await asyncio.gather(ok(1), bad(), ok(2))\n    except ValueError as e:\n        print(\"caught\", e)\n    await asyncio.sleep(0.1)\n    print(\"end\")\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`caught boom`, `ok done 1`, `ok done 2`, `end`",
+        "why": "The error reaches the awaiter at once, but gather does not cancel the other awaitables."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`caught boom`, then `end`",
+        "why": "With the default `return_exceptions=False`, sibling tasks are not cancelled when one fails."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`ok done 1`, `ok done 2`, `caught boom`, `end`",
+        "why": "gather propagates the first exception as soon as it happens; it does not wait for the others."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An `ExceptionGroup` containing the `ValueError`",
+        "why": "Only TaskGroup wraps failures in an ExceptionGroup; gather raises the original exception."
+      }
+    ],
+    "explanation": "With `return_exceptions=False`, `gather` re-raises the first exception to whoever awaits it as soon as it occurs, but the other awaitables keep running. Here the two `ok` tasks finish during the later `sleep(0.1)`. This is a key difference from `asyncio.TaskGroup`, which cancels the remaining tasks. Verified on Python 3.13.",
+    "reference": "Python docs: asyncio.gather"
+  },
+  {
+    "id": "PYM-CNC-012",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "`fetch(1)` returns `\"a\"`, `fetch(2)` raises `KeyError(\"x\")` and `fetch(3)` returns `\"c\"`. What is `results`?\n\n```python\nresults = await asyncio.gather(fetch(1), fetch(2), fetch(3), return_exceptions=True)\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`[\"a\", \"c\"]`, with the failure silently dropped",
+        "why": "Failures are kept in the list in their original position, not removed."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The `KeyError` is raised once all three have finished",
+        "why": "With `return_exceptions=True` exceptions are returned as values, not raised."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`[\"a\", KeyError(\"x\"), \"c\"]`",
+        "why": "Results keep the order of the arguments, and the exception object takes the failed slot."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`[\"a\", \"c\", KeyError(\"x\")]`, in completion order",
+        "why": "gather always returns results in argument order, whatever order they finish in."
+      }
+    ],
+    "explanation": "`return_exceptions=True` makes `gather` collect exceptions as ordinary results, in the same order as the awaitables passed in. Code must then check each item with `isinstance(r, BaseException)`. Results are never reordered by completion time.",
+    "reference": "Python docs: asyncio.gather"
+  },
+  {
+    "id": "PYM-CNC-013",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Each `step()` coroutine below is awaited three times concurrently with `asyncio.gather`. Version 1 calls `time.sleep(1)` inside `step`; version 2 calls `await asyncio.sleep(1)`. Roughly how long does each version take?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 1 second for both, since gather runs the three steps concurrently either way",
+        "why": "`time.sleep` blocks the event loop thread, so the three calls cannot overlap."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "About 3 seconds, then about 1 second",
+        "why": "The blocking sleeps run one after another; the async sleeps overlap."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "About 3 seconds for both",
+        "why": "`asyncio.sleep` suspends the coroutine, letting the other two wait at the same time."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 1 second, then about 3 seconds",
+        "why": "It is the other way round: only the async version lets the waits overlap."
+      }
+    ],
+    "explanation": "`time.sleep` is a blocking call: it holds the only thread the event loop has, so no other coroutine can run until it returns, and three of them take about 3 seconds. `asyncio.sleep` hands control back to the loop, so all three waits overlap and finish in about 1 second. Measured on Python 3.13 with 0.3 s sleeps: 0.9 s against 0.3 s.",
+    "reference": "Python docs: Developing with asyncio, running blocking code"
+  },
+  {
+    "id": "PYM-CNC-014",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "Inside a coroutine you must call `resize(path)`, a slow blocking function with no async version, without freezing the event loop. Complete the call: `result = await asyncio.____(resize, path)`. Type just the function name.",
+    "options": [],
+    "accepted": [
+      "to_thread",
+      "asyncio.to_thread"
+    ],
+    "explanation": "`asyncio.to_thread(func, *args)` (Python 3.9+) runs a blocking function in a worker thread and returns an awaitable, so the loop keeps serving other tasks meanwhile. It also copies the current `contextvars` context into the thread. For CPU-heavy work, use `loop.run_in_executor` with a `ProcessPoolExecutor` instead.",
+    "reference": "Python docs: asyncio.to_thread"
+  },
+  {
+    "id": "PYM-CNC-015",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A `multiprocessing.Pool` uses the spawn start method, so each task's function must be pickled and sent to worker processes. Which of these can be passed as the function to `pool.map`? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A function defined at the top level of an importable module",
+        "why": "It pickles by reference to `module.name`, which the worker can import."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`functools.partial(scale, factor=2)`, where `scale` is a top-level function",
+        "why": "A partial pickles as the underlying function plus its arguments."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`lambda x: x * 2`",
+        "why": "A lambda has no importable name, so pickling fails with `PicklingError`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A function defined inside another function",
+        "why": "Nested functions cannot be found by name at import time, so they are not picklable."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "A generator expression that yields results",
+        "why": "Generators cannot be pickled, and a generator is not a callable for `map` anyway."
+      }
+    ],
+    "explanation": "Pickle stores functions by their qualified name and re-imports them in the worker. Module-level functions and `functools.partial` objects wrapping them work; lambdas, nested functions and other unimportable callables raise `PicklingError` (Python 3.13: \"Can't pickle <function <lambda>>: attribute lookup <lambda> ... failed\").",
+    "reference": "Python docs: multiprocessing, programming guidelines (picklability)"
+  },
+  {
+    "id": "PYM-CNC-016",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "On Windows this script crashes with `RuntimeError: An attempt has been made to start a new process before the current process has finished its bootstrapping phase`. Why?\n\n```python\nimport multiprocessing as mp\n\ndef run():\n    print(\"child\")\n\np = mp.Process(target=run)\np.start()\np.join()\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Windows does not support `multiprocessing.Process`",
+        "why": "It is supported on Windows; it just uses the spawn start method."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`run` is defined at module level, and child processes on Windows can only run functions defined inside `main()`",
+        "why": "Process targets are plain functions; async has nothing to do with it."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Spawn re-imports the main module, so the unguarded `Process` code runs again in the child",
+        "why": "The child then tries to start its own child; the `if __name__ == \"__main__\":` guard prevents that."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`p.join()` was called before the child had finished starting",
+        "why": "`join` simply waits; the error happens while the child imports the script."
+      }
+    ],
+    "explanation": "With spawn (the only method on Windows, and the default on macOS) the child starts a fresh interpreter and imports the main module to find `run`. Without an `if __name__ == \"__main__\":` guard, that import executes `mp.Process(...).start()` again inside the child, which multiprocessing detects and stops with this `RuntimeError`. Reproduced on Python 3.13 on Windows.",
+    "reference": "Python docs: multiprocessing, safe importing of main module"
+  },
+  {
+    "id": "PYM-CNC-017",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print?\n\n```python\nfrom concurrent.futures import ThreadPoolExecutor\n\ndef boom():\n    raise RuntimeError(\"lost\")\n\nwith ThreadPoolExecutor() as ex:\n    f = ex.submit(boom)\nprint(\"finished\")\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A traceback for `RuntimeError: lost`, then `finished`",
+        "why": "The executor stores the exception in the future; it does not print it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Only `finished`",
+        "why": "The error is kept in `f` and only surfaces through `f.result()` or `f.exception()`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`RuntimeError: lost` raised from the `with` block",
+        "why": "Leaving the block waits for tasks but never re-raises their exceptions."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Nothing, because the program deadlocks at shutdown",
+        "why": "Shutdown waits for the task, which has already finished by raising."
+      }
+    ],
+    "explanation": "An exception in a submitted callable is captured in its `Future`. If nobody calls `result()` (which re-raises it) or `exception()`, it is silently lost; no traceback is printed. Always consume futures, for example with `for f in as_completed(futures): f.result()`. Verified on Python 3.13.",
+    "reference": "Python docs: concurrent.futures, Future.result"
+  },
+  {
+    "id": "PYM-CNC-018",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "Put these steps in order for a clean asyncio producer/consumer run, where a consumer task loops forever on `await queue.get()` and calls `queue.task_done()` after each item.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Start the consumer with `asyncio.create_task(consumer())`",
+        "why": ""
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Put every work item on the queue with `await queue.put(item)`",
+        "why": ""
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Wait until every item is processed with `await queue.join()`",
+        "why": ""
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Cancel the consumer task, which is still blocked on `get()`",
+        "why": ""
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Await the cancelled task and handle its `CancelledError`",
+        "why": ""
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "The consumer must be running before `join()` can ever complete. `queue.join()` returns once `task_done()` has been called for every item put. The consumer is then idle inside `get()` forever, so it is cancelled, and awaiting it lets the cancellation finish cleanly instead of leaving a pending task when the loop closes. Python 3.13 also adds `Queue.shutdown()` as an alternative to cancellation.",
+    "reference": "Python docs: asyncio Queues"
+  },
+  {
+    "id": "PYM-CNC-019",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "`list(executor.map(work, [1, 2, 3]))` on a `ThreadPoolExecutor` returns the results in input order, even when `work(3)` finishes before `work(1)`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Like the built-in `map`, `Executor.map` yields results in the order of its inputs."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "Completion order only matters for `as_completed`; `map` preserves input order."
+      }
+    ],
+    "explanation": "`Executor.map` returns an iterator that waits for each result in input order, so a slow first item delays the others from being yielded even if they have finished. Use `submit` with `as_completed` to process results as they arrive. Verified on Python 3.13: inputs that finish in reverse order still come back as `[0, 1, 2]`.",
+    "reference": "Python docs: concurrent.futures, Executor.map"
+  },
+  {
+    "id": "PYM-CNC-020",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A web handler fires off audit logging with `asyncio.create_task(write_audit(event))` and never stores the result. The asyncio docs warn about this pattern. What is the risk, and what is the recommended fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The task runs in a new thread and can race with the handler; use a lock",
+        "why": "Tasks run on the event loop thread, not a new thread."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The loop keeps only a weak reference, so the task can be garbage-collected mid-run; keep it in a set",
+        "why": "Add it to a set and discard it in a done-callback so the task stays referenced until it finishes."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The task does not start until the handler awaits it; await it immediately",
+        "why": "Created tasks are scheduled on their own; awaiting immediately would make logging synchronous again."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Its exceptions are re-raised in the handler; wrap the call in try/except",
+        "why": "An exception in an unreferenced task is only logged when the task is destroyed, not raised in the creator."
+      }
+    ],
+    "explanation": "The event loop only holds weak references to tasks, so a task with no other strong reference may disappear before it is done. The docs recommend `background_tasks.add(t)` plus `t.add_done_callback(background_tasks.discard)`. `TaskGroup` solves the same problem by holding references for you.",
+    "reference": "Python docs: asyncio.create_task (important note)"
+  },
+  {
+    "id": "PYM-CNC-021",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "`bad()` raises `ValueError(\"boom\")` after 10 ms. Each `ok(n)` sleeps 50 ms, and prints `cancelled n` and re-raises if it is cancelled. What does this print?\n\n```python\nasync def main():\n    try:\n        async with asyncio.TaskGroup() as tg:\n            tg.create_task(ok(1))\n            tg.create_task(bad())\n            tg.create_task(ok(2))\n    except* ValueError as eg:\n        print(type(eg).__name__, eg.exceptions)\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`ok done 1`, `ok done 2`, then `ExceptionGroup (ValueError('boom'),)`",
+        "why": "TaskGroup cancels the remaining tasks as soon as one fails."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`cancelled 1`, `cancelled 2`, then `ExceptionGroup (ValueError('boom'),)`",
+        "why": "The failure cancels the siblings, and the group is raised once they have finished."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`cancelled 1`, `cancelled 2`, then `ValueError: boom` uncaught",
+        "why": "TaskGroup always wraps failures in an ExceptionGroup, which `except*` handles."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`ExceptionGroup (ValueError('boom'),)` first, then `cancelled 1`, `cancelled 2`",
+        "why": "The group waits for all cancelled tasks to finish before raising."
+      }
+    ],
+    "explanation": "When a task in a `TaskGroup` fails with anything other than `CancelledError`, the group cancels every remaining task, waits for them to finish, and then raises an `ExceptionGroup` of the real failures (cancellations are not included). `except*` matches the `ValueError` inside the group. Verified on Python 3.13.",
+    "reference": "Python docs: asyncio Task Groups"
+  },
+  {
+    "id": "PYM-CNC-022",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "The task running `main()` is cancelled 10 ms in. What happens?\n\n```python\nasync def main():\n    try:\n        await asyncio.sleep(1)\n    except Exception:\n        print(\"except Exception caught it\")\n    print(\"continued\")\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It prints `except Exception caught it` and `continued`",
+        "why": "`CancelledError` is not an `Exception` subclass, so this handler never sees it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It prints only `continued`",
+        "why": "Nothing catches the cancellation, so the code after the try block never runs."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Neither line prints, and the task ends cancelled",
+        "why": "Since 3.8 `CancelledError` derives from `BaseException`, so it passes through `except Exception`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The `sleep` keeps running and cancellation is ignored",
+        "why": "Cancellation is delivered as an exception at the `await`; it cannot be ignored there."
+      }
+    ],
+    "explanation": "Since Python 3.8, `asyncio.CancelledError` is a subclass of `BaseException`, not `Exception`. Broad `except Exception` handlers therefore do not accidentally swallow cancellation, and the task finishes cancelled. A bare `except:` or `except BaseException:` would catch it, which you should only do if you re-raise. Verified on 3.13: `issubclass(asyncio.CancelledError, Exception)` is `False`.",
+    "reference": "Python docs: asyncio.CancelledError"
+  },
+  {
+    "id": "PYM-CNC-023",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "In Python 3.12, `await asyncio.wait_for(fetch(), timeout=2)` times out. Which statement is correct?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`fetch()` is cancelled and the built-in `TimeoutError` is raised",
+        "why": "Since 3.11 `asyncio.TimeoutError` is an alias of the built-in `TimeoutError`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`fetch()` keeps running in the background and `None` is returned",
+        "why": "wait_for cancels the inner task on timeout and raises; it never returns `None`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`asyncio.TimeoutError` is raised, and `except TimeoutError` cannot catch it",
+        "why": "They are the same class since 3.11, so the built-in name catches it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`CancelledError` is raised into the caller instead of a timeout error",
+        "why": "The inner task gets the cancellation; the caller sees `TimeoutError`."
+      }
+    ],
+    "explanation": "On timeout, `wait_for` cancels the awaited task, waits for the cancellation to complete, and raises `TimeoutError`. Since Python 3.11 `asyncio.TimeoutError is TimeoutError` is `True` (verified on 3.13), so catching the built-in is correct. 3.11 also added the `asyncio.timeout()` context manager for timing out a whole block.",
+    "reference": "Python docs: asyncio.wait_for"
+  },
+  {
+    "id": "PYM-CNC-024",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A method acquires `self.lock` and then calls a helper that also does `with self.lock:`. Which statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "With `threading.Lock` the thread deadlocks on itself",
+        "why": "A plain Lock is not re-entrant; the second acquire waits forever for a release that never comes."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "With `threading.RLock` it works, if every acquire is matched by a release",
+        "why": "An RLock counts acquisitions by its owning thread and frees only when the count reaches zero."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "With `threading.Lock` Python raises `RuntimeError: lock already held`",
+        "why": "There is no detection; `acquire(timeout=...)` would simply return `False`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "With `threading.RLock`, another thread can enter the helper while the first holds it",
+        "why": "An RLock is still mutually exclusive between threads; only its owner may re-enter."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The GIL makes the second acquire succeed immediately",
+        "why": "The GIL is unrelated to user-level locks and gives no re-entrancy."
+      }
+    ],
+    "explanation": "`threading.Lock` has no owner and is not re-entrant, so a thread that tries to acquire it twice blocks forever (verified on 3.13: `acquire(timeout=0.2)` on a held Lock returns `False`). `RLock` records its owning thread and a recursion count, which allows nested acquisition by the same thread while still excluding others.",
+    "reference": "Python docs: threading, RLock objects"
+  },
+  {
+    "id": "PYM-CNC-025",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Threads share this cache, and `load(key)` is expensive. Under load it sometimes runs twice for the same key. Which changes reliably make it run at most once per key? (Choose two.)\n\n```python\ncache = {}\n\ndef get(key):\n    if key not in cache:\n        cache[key] = load(key)\n    return cache[key]\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Hold one `threading.Lock` around the whole check-and-load",
+        "why": "The check and the insert then happen as one critical section."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Keep a lock per key and re-check the cache after acquiring it",
+        "why": "Double-checked locking per key keeps unrelated keys concurrent while loading each key once."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Replace the body with `cache.setdefault(key, load(key))`",
+        "why": "`load(key)` is evaluated before `setdefault` runs, so it still runs every call."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use `collections.defaultdict` so missing keys are filled in automatically",
+        "why": "A defaultdict factory takes no key and gives no locking, so it cannot call `load(key)` safely."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Nothing is needed, because the GIL serialises the function",
+        "why": "The GIL can switch threads between the `in` check and the assignment."
+      }
+    ],
+    "explanation": "This is a check-then-act race: two threads can both see the key missing before either stores it. A single lock fixes it but serialises every load; a per-key lock with a second check after acquiring it allows concurrency across keys. `setdefault(key, load(key))` is a common trap, because Python evaluates the argument eagerly.",
+    "reference": "Python docs: threading, Lock objects"
+  },
+  {
+    "id": "PYM-CNC-026",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team moves `[square(n) for n in range(1_000_000)]` onto a `ProcessPoolExecutor` with `ex.map(square, data)`, and it becomes far slower than the plain loop. What explains it? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Every argument and result is pickled and sent between processes, which costs more than `square` itself",
+        "why": "IPC dominates when each task is tiny."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "With the default `chunksize=1`, each item becomes a separate task, so per-task overhead multiplies",
+        "why": "Passing a larger `chunksize` batches items and cuts the overhead sharply."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Worker processes share one GIL, so only one square is computed at a time",
+        "why": "Each process has its own interpreter and its own GIL."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`ProcessPoolExecutor` cannot use more than one CPU core on Windows",
+        "why": "It runs real processes on all cores on every platform."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Results are returned in completion order, and re-sorting them takes the extra time",
+        "why": "`map` yields in input order without re-sorting anything."
+      }
+    ],
+    "explanation": "Process pools pay for serialising inputs and outputs, moving them between processes, and scheduling each task. For microscopic work that cost dwarfs the computation. Use a large `chunksize` (only honoured by `ProcessPoolExecutor.map`), give each task more work, or vectorise with NumPy instead.",
+    "reference": "Python docs: concurrent.futures, ProcessPoolExecutor.map (chunksize)"
+  },
+  {
+    "id": "PYM-CNC-027",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A service computes SHA-256 digests of 64 MB files on a thread pool in standard CPython, and throughput scales nearly linearly up to 4 threads. A colleague says that's impossible with the GIL. Who is right?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The colleague, because no CPython thread ever runs in parallel with another",
+        "why": "C code can release the GIL, and then threads do run in parallel."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The measurement, because `hashlib` releases the GIL while hashing large buffers",
+        "why": "Hashing runs in C without holding the GIL for data above a small size threshold."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The measurement, but only because the threads spend nearly all their time waiting on disk reads, not hashing",
+        "why": "The digest computation itself parallelises; it is not just overlapping I/O."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The colleague, because `hashlib` holds the GIL to keep digests thread-safe",
+        "why": "Each hash object has its own lock; hashlib does not need the GIL for its C work."
+      }
+    ],
+    "explanation": "The GIL only limits running Python bytecode. Extension code that does not touch Python objects can release it: the hashlib docs state the GIL is released while hashing data larger than 2047 bytes, and NumPy, zlib and many I/O routines do the same. Threads then run that C code truly in parallel.",
+    "reference": "Python docs: hashlib (GIL note)"
+  },
+  {
+    "id": "PYM-CNC-028",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 3,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each asyncio API with its behaviour when you have several awaitables.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`asyncio.gather()`",
+        "why": "Order-preserving results, siblings not cancelled on error."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`asyncio.TaskGroup`",
+        "why": "Structured concurrency with sibling cancellation."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`asyncio.wait(..., return_when=FIRST_COMPLETED)`",
+        "why": "Two sets you inspect yourself."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`asyncio.as_completed()`",
+        "why": "An iterator ordered by finish time."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Returns results in argument order; the first error propagates but the others keep running",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "On the first failure cancels the rest and raises an ExceptionGroup",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Returns `(done, pending)` sets as soon as any one finishes",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Yields awaitables in the order they finish",
+        "answer": "D"
+      }
+    ],
+    "explanation": "`gather` is the classic fan-out that preserves argument order. `TaskGroup` (3.11+) gives structured concurrency: no task outlives the block and failures cancel siblings. `wait` hands back done and pending sets and never raises task exceptions itself. `as_completed` lets you process each result as soon as it is ready.",
+    "reference": "Python docs: Coroutines and Tasks"
+  },
+  {
+    "id": "PYM-CNC-029",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the printed lines in order.\n\n```python\nimport asyncio\n\nasync def noop():\n    pass\n\nasync def other():\n    print(\"other\")\n\nasync def main():\n    t = asyncio.create_task(other())\n    await noop()\n    print(\"after noop\")\n    await asyncio.sleep(0)\n    print(\"after sleep\")\n    await t\n\nasyncio.run(main())\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`after noop`",
+        "why": ""
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`other`",
+        "why": ""
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`after sleep`",
+        "why": ""
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C"
+    ],
+    "explanation": "Awaiting a coroutine that never suspends (`noop`) runs it inline, like a function call, without giving the event loop a turn. So `after noop` prints before the scheduled task gets to run. `asyncio.sleep(0)` really yields to the loop, which runs `other`, and then `main` resumes. Verified on Python 3.13.",
+    "reference": "Python docs: asyncio.sleep"
+  },
+  {
+    "id": "PYM-CNC-030",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "Six tasks each do `async with sem: await asyncio.sleep(1)`, all sharing `sem = asyncio.Semaphore(2)`, and they are started together with `asyncio.gather`. About how many seconds does the gather take? Type a number.",
+    "options": [],
+    "accepted": [
+      "3",
+      "3 s",
+      "3 seconds",
+      "about 3"
+    ],
+    "explanation": "The semaphore lets 2 tasks inside at a time, so the 6 tasks run in 3 waves of 2, each lasting 1 second: about 3 seconds in total. Semaphores are the standard way to cap concurrency, for example the number of simultaneous HTTP requests. Verified on Python 3.13 with 0.2 s sleeps: 0.6 s.",
+    "reference": "Python docs: asyncio Synchronization Primitives, Semaphore"
+  },
+  {
+    "id": "PYM-CNC-031",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 3,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each `threading` primitive with the job it is designed for.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`Event`",
+        "why": "A one-shot or resettable flag many threads can wait on."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`Semaphore`",
+        "why": "A counter that limits concurrent access."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`Condition`",
+        "why": "Waiting for a predicate on shared state, with notify."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`Barrier`",
+        "why": "A rendezvous point for a fixed number of threads."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Tell every worker thread to stop when the user presses Ctrl+C",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Allow at most 5 threads to use a licensed API connection at once",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Let consumers sleep until a shared buffer becomes non-empty",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Make 4 simulation threads all finish step N before any starts step N+1",
+        "answer": "D"
+      }
+    ],
+    "explanation": "An `Event` broadcasts a flag. A `Semaphore` caps concurrency. A `Condition` pairs a lock with wait/notify so threads can wait for a state change; always re-check the predicate in a loop or use `wait_for`. A `Barrier` blocks until a fixed number of threads arrive, then releases them all together.",
+    "reference": "Python docs: threading"
+  },
+  {
+    "id": "PYM-CNC-032",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which statements about multiprocessing start methods are correct? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Windows supports only `spawn`",
+        "why": "There is no `fork` on Windows; `spawn` is the only method there."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "macOS has defaulted to `spawn` since Python 3.8",
+        "why": "`fork` was found unsafe with macOS system libraries, so the default changed."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Python 3.14 changes the default on Linux from `fork` to `forkserver`",
+        "why": "Forking a process that has threads is unsafe, which motivated the change."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`fork` re-imports the main module in the child, just like `spawn`",
+        "why": "Fork copies the parent's memory, so nothing is re-imported."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`spawn` starts children faster than `fork` because it copies nothing",
+        "why": "Spawn must start a new interpreter and import modules, so it is slower to start."
+      }
+    ],
+    "explanation": "Fork duplicates the parent (fast, but unsafe if other threads hold locks). Spawn starts a fresh interpreter and re-imports the main module (slower, needs the `__main__` guard and picklable arguments). Forkserver forks children from a clean single-threaded server process. Windows has only spawn, macOS defaults to spawn since 3.8, and Python 3.14 makes forkserver the default on the remaining POSIX platforms such as Linux.",
+    "reference": "Python docs: multiprocessing, contexts and start methods"
+  },
+  {
+    "id": "PYM-CNC-033",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "On Linux with Python 3.12, a service that already runs a background metrics thread calls `os.fork()` (or a `multiprocessing` pool using `fork`). Children sometimes hang forever on their first `logging` call. What is going on?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The GIL is not copied into the child, so the child cannot run bytecode",
+        "why": "The child gets a working interpreter; the problem is other locks copied mid-use."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Fork copies only the calling thread, so a lock another thread held stays locked in the child",
+        "why": "Nobody in the child will ever release it; Python 3.12 warns about forking with threads."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Logging handlers are not picklable, so they fail when the child starts",
+        "why": "Forking copies memory directly; nothing is pickled with the fork method."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The child and parent share one log file descriptor, which is always unsafe",
+        "why": "Shared descriptors can interleave output, but they do not cause deadlocks."
+      }
+    ],
+    "explanation": "After `fork()` only the calling thread exists in the child, but the memory of every lock is copied. A lock held at that moment by another thread, such as a logging handler lock, stays locked in the child with no thread left to release it. Python 3.12 emits a `DeprecationWarning` when `os.fork()` is called with multiple threads running. The fixes are the `spawn` or `forkserver` start methods.",
+    "reference": "Python docs: os.fork (warning about threads)"
+  },
+  {
+    "id": "PYM-CNC-034",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about CPython 3.13's experimental free-threaded build (`python3.13t`, PEP 703) are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "It is a separate build, and `sys._is_gil_enabled()` reports whether the GIL is active at run time",
+        "why": "A regular build returns `True`; 3.13t returns `False` unless the GIL was re-enabled."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Importing a C extension not marked free-thread-safe re-enables the GIL unless `PYTHON_GIL=0` is set",
+        "why": "The interpreter falls back to a GIL to protect extensions not built for it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It is the default `python3.13` installer, with an opt-out flag for the GIL",
+        "why": "Free threading is an optional, separately built variant in 3.13."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It makes compound operations like `counter += 1` on a shared global atomic",
+        "why": "Built-in objects stay internally consistent, but read-modify-write races still need locks."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Single-threaded code runs at least as fast as on the regular build",
+        "why": "In 3.13 the free-threaded build has noticeable single-thread overhead."
+      }
+    ],
+    "explanation": "PEP 703 ships in 3.13 as an experimental, separately compiled build. `sys._is_gil_enabled()` exists in 3.13 builds (on the regular build checked here it returns `True`, with `Py_GIL_DISABLED` 0). Extension modules must declare support, or the GIL is turned back on, which can be overridden with `PYTHON_GIL=0` or `-X gil=0`. Data races in your own logic still need synchronisation, and single-threaded speed was lower in 3.13.",
+    "reference": "Python docs: Python support for free threading (HOWTO)"
+  },
+  {
+    "id": "PYM-CNC-035",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print?\n\n```python\nasync def main():\n    async with asyncio.timeout(0.05):\n        try:\n            await asyncio.sleep(1)\n        except asyncio.CancelledError:\n            print(\"swallowed\")\n        print(\"inside after\")\n    print(\"after block\")\n\nasyncio.run(main())\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`swallowed`, then `TimeoutError` raised out of `main`",
+        "why": "The timeout context only converts a `CancelledError` that reaches its exit; this one was swallowed."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`swallowed`, `inside after`, `after block`",
+        "why": "Swallowing the cancellation defeats the timeout, so the block finishes normally."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`swallowed`, `inside after`, then `TimeoutError`",
+        "why": "With no `CancelledError` reaching `__aexit__`, no `TimeoutError` is raised."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`TimeoutError` raised before anything prints",
+        "why": "The timeout is delivered as a cancellation at the `await`, which the handler catches."
+      }
+    ],
+    "explanation": "`asyncio.timeout()` works by cancelling the task when the deadline passes and turning the resulting `CancelledError` into `TimeoutError` when it propagates out of the `async with` block. Catching `CancelledError` and not re-raising it breaks that: the block completes normally and the timeout silently fails. Verified on Python 3.13; always re-raise `CancelledError`.",
+    "reference": "Python docs: asyncio.timeout"
+  },
+  {
+    "id": "PYM-CNC-036",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Task `t` is cancelled 10 ms after this starts, while `fine()` returns `\"fine\"` after 100 ms. What happens at the `await`?\n\n```python\nr = await asyncio.gather(t, fine())\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`r` is `[None, \"fine\"]`",
+        "why": "A cancelled child is treated as raising `CancelledError`, not as returning `None`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`r` is `[\"fine\"]`, with the cancelled task dropped",
+        "why": "gather never drops entries; each awaitable keeps its slot."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`CancelledError` is raised from the `await`",
+        "why": "A cancelled child counts as an error, and gather propagates it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The outer `gather` is cancelled too, cancelling `fine()`",
+        "why": "Cancelling a child does not cancel the gather, so `fine()` keeps running."
+      }
+    ],
+    "explanation": "The docs say a cancelled child is treated as if it raised `CancelledError`, and the `gather()` call itself is not cancelled. With `return_exceptions=False` that error propagates to the awaiter (verified on 3.13: \"gather raised CancelledError\"). With `return_exceptions=True` the result list holds the `CancelledError` instance instead (verified: `['CancelledError', 'str']`). Cancelling the gather itself, by contrast, cancels all its children.",
+    "reference": "Python docs: asyncio.gather (cancellation)"
+  },
+  {
+    "id": "PYM-CNC-037",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A thread-pool task submits a sub-task to the same pool and waits for it:\n\n```python\nex = ThreadPoolExecutor(max_workers=1)\n\ndef inner():\n    return 1\n\ndef outer():\n    return ex.submit(inner).result()\n\nprint(ex.submit(outer).result())\n```\n\nWhat happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It prints `1`, because `inner` runs on the calling thread when the pool is full",
+        "why": "Executors never run work on the submitting thread; `inner` just waits in the queue."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It raises `RuntimeError: cannot schedule new futures`",
+        "why": "That error appears only after `shutdown()`; the pool is still open here."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "It deadlocks: `outer` holds the only worker while waiting for `inner`",
+        "why": "The queued `inner` can never start, so neither future ever completes."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The pool briefly adds a second worker to run `inner`",
+        "why": "ThreadPoolExecutor never grows past `max_workers`."
+      }
+    ],
+    "explanation": "This is thread-pool starvation. The only worker is busy in `outer`, blocked on `inner`, and `inner` sits in the queue waiting for a free worker. With a timeout on the inner `result()` the program fails with `TimeoutError` instead of hanging, which is how this was verified on 3.13. It can happen with any pool size if enough tasks wait on tasks queued behind them. Avoid blocking on futures from inside the same pool, or use separate pools.",
+    "reference": "Python docs: concurrent.futures, ThreadPoolExecutor (deadlock example)"
+  },
+  {
+    "id": "PYM-CNC-038",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A sensor thread (not the event-loop thread) receives readings and must hand them to an asyncio application running in the main thread. Which approaches are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`asyncio.run_coroutine_threadsafe(handle(r), loop)`",
+        "why": "It schedules the coroutine on the target loop and returns a `concurrent.futures.Future`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`loop.call_soon_threadsafe(queue.put_nowait, r)`, where `queue` is an `asyncio.Queue`",
+        "why": "The put runs on the loop thread, and the loop is woken up to process it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Calling `queue.put_nowait(r)` on the `asyncio.Queue` directly from the sensor thread",
+        "why": "asyncio objects are not thread-safe and the loop may not wake up to notice."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Calling `loop.create_task(handle(r))` directly from the sensor thread",
+        "why": "`create_task` must run on the loop's own thread; calling it elsewhere is unsafe."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Calling `asyncio.run(handle(r))` in the sensor thread",
+        "why": "That starts a separate event loop, cut off from the application's tasks and objects."
+      }
+    ],
+    "explanation": "Almost all asyncio objects are not thread-safe, so other threads must hand work over through the two thread-safe entry points: `loop.call_soon_threadsafe` for callbacks and `asyncio.run_coroutine_threadsafe` for coroutines. Both also wake the loop if it is waiting in `select`.",
+    "reference": "Python docs: Developing with asyncio, concurrency and multithreading"
+  },
+  {
+    "id": "PYM-CNC-039",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A `ProcessPoolExecutor` task calls a C library that segfaults, so the worker process dies abruptly. What do the pending futures raise?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The segfault becomes `MemoryError` in the failing future only",
+        "why": "A segfault kills the whole worker process; Python cannot turn it into a normal exception."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`BrokenProcessPool`, and the executor accepts no new work",
+        "why": "A worker dying abruptly marks the whole pool broken, failing every pending future."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The pool quietly restarts the worker and retries the task",
+        "why": "ProcessPoolExecutor never retries; it marks itself broken instead."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Nothing, because the futures stay pending forever",
+        "why": "The executor notices the dead process and fails the futures rather than hanging."
+      }
+    ],
+    "explanation": "When a worker terminates abruptly (segfault, `os._exit`, or being killed for running out of memory), `ProcessPoolExecutor` marks itself broken. All pending and future submissions raise `concurrent.futures.process.BrokenProcessPool` (verified on 3.13 with `os._exit(1)`). Create a new executor to recover, and run untrusted native code in isolated processes you can restart.",
+    "reference": "Python docs: concurrent.futures, BrokenProcessPool"
+  },
+  {
+    "id": "PYM-CNC-040",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 4,
+    "type": "order",
+    "select": 1,
+    "stem": "One of three tasks inside an `async with asyncio.TaskGroup()` block raises `ValueError`. Put the events in the order they happen.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The failing task raises `ValueError`",
+        "why": ""
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The TaskGroup cancels the other tasks, which still have `await`s pending",
+        "why": ""
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The group waits for every cancelled task to finish",
+        "why": ""
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The `async with` exits by raising an `ExceptionGroup` containing the `ValueError`",
+        "why": ""
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "An `except* ValueError` handler around the block runs",
+        "why": ""
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "TaskGroup guarantees structured concurrency. The first real failure triggers cancellation of every remaining task (and of the body if it is still running). The group waits for all of them to settle so no task outlives the block, then raises an `ExceptionGroup` of the non-cancellation exceptions, which `except*` handles.",
+    "reference": "Python docs: asyncio Task Groups"
+  },
+  {
+    "id": "PYM-CNC-041",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Two tasks in one `TaskGroup` fail at the same moment: `a()` raises `ValueError` and `b()` raises `KeyError`. What does this print?\n\n```python\ntry:\n    async with asyncio.TaskGroup() as tg:\n        tg.create_task(a())\n        tg.create_task(b())\nexcept* ValueError as eg:\n    print(\"V\", len(eg.exceptions))\nexcept* KeyError as eg:\n    print(\"K\", len(eg.exceptions))\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Only `V 1`, because the first matching `except*` clause wins",
+        "why": "Unlike `except`, every `except*` clause that matches part of the group runs."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`V 1`, then `K 1`",
+        "why": "Each `except*` handles its matching subgroup, so both clauses run."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Only `K 1`, because `KeyError` is a subclass of `LookupError`",
+        "why": "Subclass relations are irrelevant here; `ValueError` is matched by its own clause."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An unhandled `ExceptionGroup`, because the group holds two types",
+        "why": "`except*` exists precisely to split a mixed group across clauses."
+      }
+    ],
+    "explanation": "`except*` (PEP 654, Python 3.11) splits an `ExceptionGroup`: each clause receives the subgroup of exceptions it matches, and several clauses can run for one raise. Anything left unmatched is re-raised as a new group. Verified on Python 3.13: the output is `V 1` then `K 1`.",
+    "reference": "Python docs: Errors and Exceptions, raising and handling multiple unrelated exceptions"
+  },
+  {
+    "id": "PYM-CNC-042",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 4,
+    "type": "fill",
+    "select": 1,
+    "stem": "In Python 3.13, `ThreadPoolExecutor()` created with no `max_workers` uses `min(32, (os.process_cpu_count() or 1) + 4)` workers. On a machine where the process can use 8 CPUs, how many worker threads is that? Type a number.",
+    "options": [],
+    "accepted": [
+      "12"
+    ],
+    "explanation": "`min(32, 8 + 4)` is 12. The formula (introduced in 3.8, switched to `os.process_cpu_count()` in 3.13) keeps at least 5 workers for I/O-bound use, avoids hundreds of threads on very large machines, and respects CPU affinity limits. Verified on Python 3.13 with 8 CPUs: `_max_workers` is 12.",
+    "reference": "Python docs: concurrent.futures, ThreadPoolExecutor"
+  },
+  {
+    "id": "PYM-CNC-043",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A team wants true parallelism for CPU-bound Python code without the cost of separate processes, using isolated interpreters inside one process. Which statement reflects the current standard library?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`threading` gained an `isolated=True` flag in 3.12 that gives each thread its own GIL",
+        "why": "There is no such flag; per-interpreter GILs are not exposed through `threading`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Python 3.14 adds `concurrent.interpreters` and `InterpreterPoolExecutor` (PEP 734)",
+        "why": "3.12 built per-interpreter GILs (PEP 684), and 3.14 makes them usable from Python code."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Subinterpreters share all module state, so they need no data copying between them",
+        "why": "Each interpreter is isolated; data has to be shared explicitly, for example through queues."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`asyncio` gained a `parallel=True` option in 3.13 that runs tasks on subinterpreters",
+        "why": "asyncio stays single-threaded per loop; there is no such option."
+      }
+    ],
+    "explanation": "PEP 684 (3.12) gave each subinterpreter its own GIL at the C level. PEP 734 adds the public `concurrent.interpreters` module in Python 3.14, and `concurrent.futures.InterpreterPoolExecutor` is added alongside it. Interpreters are isolated from one another, so objects are not shared directly. This sits between threads, which share everything, and processes, which share nothing at a higher cost.",
+    "reference": "Python docs: What's New in Python 3.14 (PEP 734)"
+  },
+  {
+    "id": "PYM-CNC-044",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An async web app calls a synchronous ORM inside request handlers, and p99 latency for *every* endpoint spikes whenever one slow report query runs. CPU is low. Which change fixes the root cause with the least rewriting?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Raise the number of event-loop worker threads in the server config",
+        "why": "An asyncio loop runs on one thread; adding workers does not unblock it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Wrap the ORM call in `async def` and `await` it",
+        "why": "Making the wrapper async does not stop the call inside it from blocking the loop thread."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Run the blocking ORM calls with `await asyncio.to_thread(...)`",
+        "why": "Moving the blocking call off the loop thread lets other requests keep being served."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Switch the event loop policy to uvloop",
+        "why": "A faster loop is still blocked by a synchronous call that holds its thread."
+      }
+    ],
+    "explanation": "A blocking call inside a coroutine freezes the whole event loop, so every in-flight request waits, even though CPU is idle. Offloading the call with `asyncio.to_thread` (or `run_in_executor`) keeps the loop responsive; the longer-term fix is an async driver. Enabling asyncio debug mode (`PYTHONASYNCIODEBUG=1`) logs callbacks that block the loop for more than 100 ms.",
+    "reference": "Python docs: Developing with asyncio, running blocking code"
+  },
+  {
+    "id": "PYM-CNC-045",
+    "domain": 3,
+    "skill": "concurrency",
+    "difficulty": 4,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "On the free-threaded CPython 3.13t build, two threads running `counter += 1` on the same global `int` can never lose an update, because the build adds per-object locking.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Per-object locks keep objects internally consistent, but the read-add-store sequence is still not atomic."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Without the GIL, threads interleave even more freely, so lost updates are still possible."
+      }
+    ],
+    "explanation": "Free-threaded CPython protects the internal consistency of built-in objects, such as a list or dict never being corrupted, but it does not make compound operations atomic. `counter += 1` still reads, adds and writes as separate steps, and with true parallelism races become more likely, not less. Use `threading.Lock` or per-thread accumulators.",
+    "reference": "Python docs: Python support for free threading (thread safety)"
+  }
+]
