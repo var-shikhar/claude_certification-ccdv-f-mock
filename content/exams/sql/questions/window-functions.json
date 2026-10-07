@@ -1,0 +1,1631 @@
+[
+  {
+    "id": "SQL-WIN-001",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `emp`:\n\n| name | dept | salary |\n|---|---|---|\n| Ann | eng | 120 |\n| Bo | eng | 100 |\n| Cy | eng | 100 |\n| Di | ops | 90 |\n| Ed | ops | 80 |\n\nHow many rows does this query return in PostgreSQL?\n\n```sql\nSELECT dept, salary, AVG(salary) OVER (PARTITION BY dept) AS dept_avg\nFROM emp;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "5 rows, each carrying its own department average",
+        "why": "A window function keeps every input row and adds the computed value beside it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "2 rows, one per department with its average",
+        "why": "That is what GROUP BY dept would do. OVER (PARTITION BY dept) does not collapse rows."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "3 rows, one per distinct salary value",
+        "why": "Partitioning is by dept, and even then the window never removes rows."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An error, since salary is not grouped or aggregated",
+        "why": "No GROUP BY is involved, so the grouping rule does not apply to window functions."
+      }
+    ],
+    "explanation": "Unlike an aggregate with GROUP BY, a window function computes over a set of related rows but returns one result per input row. Here eng rows show 106.67 and ops rows show 85, and all 5 rows remain.",
+    "reference": "PostgreSQL docs: Window Functions tutorial"
+  },
+  {
+    "id": "SQL-WIN-002",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `scores`:\n\n| player | score |\n|---|---|\n| a | 100 |\n| b | 90 |\n| c | 90 |\n| d | 80 |\n\n```sql\nSELECT player,\n       RANK()       OVER (ORDER BY score DESC) AS rk,\n       DENSE_RANK() OVER (ORDER BY score DESC) AS drk\nFROM scores;\n```\n\nWhat are `rk` and `drk` for player `d`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "rk = 3, drk = 3",
+        "why": "RANK leaves a gap after the two-way tie at 90, so d is not 3 under RANK."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "rk = 4, drk = 3",
+        "why": "RANK counts the rows ahead (3) plus 1; DENSE_RANK counts distinct scores ahead (2) plus 1."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "rk = 4, drk = 4 (both skip after the tie)",
+        "why": "DENSE_RANK never skips numbers, so after 1, 2, 2 the next value is 3."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "rk = 3, drk = 4",
+        "why": "This swaps the two behaviours: DENSE_RANK is the one without gaps."
+      }
+    ],
+    "explanation": "With scores 100, 90, 90, 80: RANK gives 1, 2, 2, 4 (ties share a rank and the next rank skips), and DENSE_RANK gives 1, 2, 2, 3 (no gaps). ROW_NUMBER would give 1, 2, 3, 4.",
+    "reference": "PostgreSQL docs: Window Functions (rank, dense_rank)"
+  },
+  {
+    "id": "SQL-WIN-003",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In PostgreSQL you can keep only the top-scoring row by writing the window function straight into the filter:\n\n```sql\nSELECT * FROM scores\nWHERE RANK() OVER (ORDER BY score DESC) = 1;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "PostgreSQL rejects this with \"window functions are not allowed in WHERE\"."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "WHERE runs before window functions are computed, so they cannot be referenced there."
+      }
+    ],
+    "explanation": "Window functions are evaluated after WHERE, GROUP BY and HAVING. To filter on one, compute it in a subquery or CTE and filter in the outer query: `SELECT * FROM (SELECT *, RANK() OVER (...) AS r FROM scores) s WHERE r = 1;`",
+    "reference": "PostgreSQL docs: Window Function Calls"
+  },
+  {
+    "id": "SQL-WIN-004",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "Table `scores`:\n\n| player | score |\n|---|---|\n| a | 100 |\n| b | 90 |\n| c | 90 |\n| d | 80 |\n\n```sql\nSELECT player,\n       ROW_NUMBER() OVER (ORDER BY score DESC, player) AS rn\nFROM scores;\n```\n\nWhat value of `rn` does player `c` get? Type a number.",
+    "options": [],
+    "explanation": "ROW_NUMBER assigns 1, 2, 3, 4 with no ties. The order is a (100), b (90), c (90, after b by name), d (80), so c gets 3. Unlike RANK, tied scores still get distinct numbers.",
+    "reference": "PostgreSQL docs: Window Functions (row_number)",
+    "accepted": [
+      "3"
+    ]
+  },
+  {
+    "id": "SQL-WIN-005",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each ranking function with what it returns for rows ordered by a score.",
+    "options": [
+      {
+        "id": "A",
+        "text": "A unique sequence 1, 2, 3, 4, even when scores tie"
+      },
+      {
+        "id": "B",
+        "text": "Ties share a number and the next one skips: 1, 2, 2, 4"
+      },
+      {
+        "id": "C",
+        "text": "Ties share a number with no gaps: 1, 2, 2, 3"
+      },
+      {
+        "id": "D",
+        "text": "A bucket number after splitting the rows into n groups"
+      }
+    ],
+    "explanation": "ROW_NUMBER never repeats. RANK repeats on ties and leaves gaps; DENSE_RANK repeats without gaps. NTILE(n) divides the ordered rows into n buckets as evenly as possible.",
+    "reference": "PostgreSQL docs: General-Purpose Window Functions",
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`ROW_NUMBER()`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`RANK()`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`DENSE_RANK()`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`NTILE(n)`",
+        "answer": "D"
+      }
+    ]
+  },
+  {
+    "id": "SQL-WIN-006",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `sales`:\n\n| day | amount |\n|---|---|\n| 2024-01-01 | 10 |\n| 2024-01-02 | 20 |\n| 2024-01-03 | 30 |\n| 2024-01-04 | 40 |\n\n```sql\nSELECT day, amount, LAG(amount) OVER (ORDER BY day) AS prev\nFROM sales;\n```\n\nWhat is `prev` on the 2024-01-01 row?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "NULL",
+        "why": "There is no earlier row, and LAG returns NULL when no default is given."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "0, the numeric default",
+        "why": "LAG only returns 0 if you pass it as the third argument."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "10, the row's own amount",
+        "why": "LAG looks one row back; it never falls back to the current row."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An error: no previous row",
+        "why": "Running off the edge of the partition is normal and not an error."
+      }
+    ],
+    "explanation": "LAG(value, offset, default) reads a value from the row offset positions earlier in the window ordering. With offset 1 and no default, the first row gets NULL. Write `LAG(amount, 1, 0)` to get 0 instead.",
+    "reference": "PostgreSQL docs: Window Functions (lag)"
+  },
+  {
+    "id": "SQL-WIN-007",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which of these are window functions you can call with an `OVER (...)` clause in PostgreSQL? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`ROW_NUMBER()`",
+        "why": "A built-in general-purpose window function."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`LAG(value)`",
+        "why": "A built-in window function that reads an earlier row."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`NTILE(n)`",
+        "why": "A built-in window function that assigns bucket numbers."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`COALESCE(a, b)`",
+        "why": "A conditional expression, not a function that can take OVER."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`GROUP_CONCAT(x)`",
+        "why": "That is a MySQL and SQLite aggregate; PostgreSQL uses STRING_AGG."
+      }
+    ],
+    "explanation": "PostgreSQL's built-in window functions include row_number, rank, dense_rank, percent_rank, cume_dist, ntile, lag, lead, first_value, last_value and nth_value. Any ordinary aggregate (SUM, AVG, COUNT, STRING_AGG…) also works as a window function when followed by OVER.",
+    "reference": "PostgreSQL docs: Window Functions table"
+  },
+  {
+    "id": "SQL-WIN-008",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `emp`:\n\n| name | dept | salary |\n|---|---|---|\n| Ann | eng | 120 |\n| Bo | eng | 100 |\n| Cy | eng | 100 |\n| Di | ops | 90 |\n| Ed | ops | 80 |\n\n```sql\nSELECT name, dept,\n       ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC, name) AS rn\nFROM emp;\n```\n\nWhat `rn` does Di get?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "1, because numbering restarts in each department",
+        "why": "PARTITION BY dept gives ops its own numbering, and Di earns the most in ops."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "4, because numbering continues past the 3 eng rows",
+        "why": "Partitions are numbered independently; numbering never continues across them."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "2, because ops sorts after eng alphabetically",
+        "why": "Partition order does not affect the numbers inside each partition."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "1 for everyone, since PARTITION BY overrides ORDER BY",
+        "why": "ORDER BY still orders rows within each partition."
+      }
+    ],
+    "explanation": "PARTITION BY splits the rows into independent groups and ORDER BY orders rows within each group. ROW_NUMBER restarts at 1 in every partition: Ann 1, Bo 2, Cy 3 in eng and Di 1, Ed 2 in ops.",
+    "reference": "PostgreSQL docs: Window Functions tutorial"
+  },
+  {
+    "id": "SQL-WIN-009",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `emp`:\n\n| name | dept | salary |\n|---|---|---|\n| Ann | eng | 120 |\n| Bo | eng | 100 |\n| Cy | eng | 100 |\n| Di | ops | 90 |\n| Ed | ops | 80 |\n\nHow many rows does this \"top two salaries per department\" query return?\n\n```sql\nSELECT *\nFROM (SELECT name, dept, salary,\n             DENSE_RANK() OVER (PARTITION BY dept ORDER BY salary DESC) AS d\n      FROM emp) s\nWHERE d <= 2;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "4, two per department",
+        "why": "That would be ROW_NUMBER. DENSE_RANK lets both 100 earners share rank 2."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "5: Ann, Bo and Cy in eng, Di and Ed in ops",
+        "why": "eng ranks are 1, 2, 2, so all three pass the filter."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "3, the top two distinct salaries plus one tie",
+        "why": "ops still contributes both of its rows, so the total is higher."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "2, the single highest salary in each department",
+        "why": "d <= 2 keeps ranks 1 and 2, not just rank 1."
+      }
+    ],
+    "explanation": "DENSE_RANK assigns eng 1 (120), 2 (100), 2 (100) and ops 1 (90), 2 (80), so all 5 rows have d <= 2. With ROW_NUMBER the count is 4; with RANK it is also 5 here. Pick the function to match whether ties should be kept.",
+    "reference": "PostgreSQL docs: Window Functions (dense_rank)"
+  },
+  {
+    "id": "SQL-WIN-010",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `sales`:\n\n| day | amount |\n|---|---|\n| 2024-01-01 | 10 |\n| 2024-01-02 | 20 |\n| 2024-01-03 | 30 |\n| 2024-01-04 | 40 |\n\n```sql\nSELECT day, LAG(amount, 2, 0) OVER (ORDER BY day) AS two_back\nFROM sales;\n```\n\nWhat is `two_back` for each day, in order?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "NULL, NULL, 10, 20",
+        "why": "The third argument supplies 0 for rows with no row two back."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "0, 0, 10, 20",
+        "why": "The first two rows have no row two back, so they get the default 0."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "0, 10, 20, 30",
+        "why": "That is an offset of 1, not 2."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "10, 20, 30, 40",
+        "why": "That is the current amount; LAG reads earlier rows."
+      }
+    ],
+    "explanation": "LAG(amount, 2, 0) returns the amount from two rows earlier, or 0 when that row does not exist. So 01-03 sees 10 (from 01-01) and 01-04 sees 20.",
+    "reference": "PostgreSQL docs: Window Functions (lag)"
+  },
+  {
+    "id": "SQL-WIN-011",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `sales`:\n\n| day | amount |\n|---|---|\n| 2024-01-01 | 10 |\n| 2024-01-02 | 20 |\n| 2024-01-03 | 30 |\n| 2024-01-04 | 40 |\n\n```sql\nSELECT day, SUM(amount) OVER (ORDER BY day) AS running\nFROM sales;\n```\n\nWhat values does `running` show, in day order?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "100, 100, 100, 100",
+        "why": "That is SUM(amount) OVER () with no ORDER BY, which covers the whole set."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "10, 20, 30, 40",
+        "why": "That is just amount; an aggregate over a growing frame accumulates."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "10, 30, 60, 100",
+        "why": "With ORDER BY, the default frame runs from the first row to the current row."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "100, 90, 70, 40",
+        "why": "That is a reverse running total, which needs ORDER BY day DESC."
+      }
+    ],
+    "explanation": "Adding ORDER BY to the window turns an aggregate into a running aggregate. The default frame is RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW, so each row sums everything up to and including itself (and its peers).",
+    "reference": "PostgreSQL docs: Window Function Calls (frame clause)"
+  },
+  {
+    "id": "SQL-WIN-012",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "Put these query clauses in the order PostgreSQL logically evaluates them, first to last.",
+    "options": [
+      {
+        "id": "A",
+        "text": "FROM and JOINs"
+      },
+      {
+        "id": "B",
+        "text": "WHERE"
+      },
+      {
+        "id": "C",
+        "text": "GROUP BY and HAVING"
+      },
+      {
+        "id": "D",
+        "text": "Window functions (OVER)"
+      },
+      {
+        "id": "E",
+        "text": "ORDER BY"
+      },
+      {
+        "id": "F",
+        "text": "LIMIT / OFFSET"
+      }
+    ],
+    "explanation": "Rows are produced (FROM), filtered (WHERE), grouped and filtered again (GROUP BY, HAVING), then window functions run over the result, and finally rows are sorted and cut (ORDER BY, LIMIT). That is why a window function can wrap an aggregate, cannot be used in WHERE, and is computed before LIMIT.",
+    "reference": "PostgreSQL docs: Window Function Processing",
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ]
+  },
+  {
+    "id": "SQL-WIN-013",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Table `orders(id, customer, created_at, total)` holds two orders for customer y with the same `created_at`. You need exactly one full row (all four columns) per customer: their newest order, with the highest `id` breaking ties. Which queries do that in PostgreSQL? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`SELECT * FROM (SELECT o.*, ROW_NUMBER() OVER (PARTITION BY customer ORDER BY created_at DESC, id DESC) rn FROM orders o) s WHERE rn = 1`",
+        "why": "ROW_NUMBER gives exactly one row number 1 per customer, and id DESC makes it deterministic."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`SELECT DISTINCT ON (customer) * FROM orders ORDER BY customer, created_at DESC, id DESC`",
+        "why": "DISTINCT ON keeps the first row per customer under that ORDER BY."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`SELECT * FROM (SELECT o.*, RANK() OVER (PARTITION BY customer ORDER BY created_at DESC) r FROM orders o) s WHERE r = 1`",
+        "why": "Both of y's orders tie on created_at, so RANK gives them both 1 and y returns two rows."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`SELECT * FROM orders WHERE ROW_NUMBER() OVER (PARTITION BY customer ORDER BY created_at DESC) = 1`",
+        "why": "Window functions are not allowed in WHERE, so this errors."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`SELECT customer, MAX(created_at) FROM orders GROUP BY customer`",
+        "why": "It finds the newest date per customer but not the order's id or total."
+      }
+    ],
+    "explanation": "Top-1-per-group needs a ranking that cannot tie (ROW_NUMBER with a unique tiebreaker) filtered in an outer query, or PostgreSQL's DISTINCT ON. RANK keeps ties, which is right for \"all orders on the newest date\" but wrong for exactly one row.",
+    "reference": "PostgreSQL docs: SELECT (DISTINCT ON); Window Functions"
+  },
+  {
+    "id": "SQL-WIN-014",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `sales`:\n\n| day | amount |\n|---|---|\n| 2024-01-01 | 10 |\n| 2024-01-02 | 20 |\n| 2024-01-03 | 30 |\n| 2024-01-04 | 40 |\n\n```sql\nSELECT day,\n       ROUND(100.0 * amount / SUM(amount) OVER (), 1) AS pct\nFROM sales;\n```\n\nWhat is `pct` for 2024-01-03?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "50.0, as 30 of the running total of 60",
+        "why": "An empty OVER () has no ORDER BY, so the frame is every row, not a running total."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "30.0, as 30 of the grand total of 100",
+        "why": "SUM(amount) OVER () is the sum across all rows, repeated on each one."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "100.0, since each row is divided by itself",
+        "why": "The window covers all four rows, not just the current one."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An error: SUM needs a GROUP BY",
+        "why": "With OVER, SUM is a window aggregate and no GROUP BY is needed."
+      }
+    ],
+    "explanation": "An empty OVER () makes the whole result set one partition with a frame covering all of it, so SUM(amount) OVER () is the grand total (100) on every row. Adding ORDER BY day would change it to a running total and give 50.0 for 01-03.",
+    "reference": "PostgreSQL docs: Window Functions tutorial"
+  },
+  {
+    "id": "SQL-WIN-015",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "In PostgreSQL, `NTILE(4) OVER (ORDER BY n)` runs over the 10 rows `n = 1 … 10`. How many rows are in bucket 1? Type a number.",
+    "options": [],
+    "explanation": "NTILE divides 10 rows into 4 buckets as evenly as possible. 10 / 4 = 2 remainder 2, so the first two buckets get one extra row: sizes 3, 3, 2, 2. Bucket 1 holds n = 1, 2, 3.",
+    "reference": "PostgreSQL docs: Window Functions (ntile)",
+    "accepted": [
+      "3"
+    ]
+  },
+  {
+    "id": "SQL-WIN-016",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Table `scores`:\n\n| player | score |\n|---|---|\n| a | 100 |\n| b | 90 |\n| c | 90 |\n| d | 80 |\n\n```sql\nSELECT player, COUNT(*) OVER () AS n\nFROM scores\nWHERE score < 100;\n```\n\nEvery returned row shows `n = 4`, the number of rows in the table.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "The window only sees rows that survive WHERE, so it counts 3."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "WHERE removes a first, so b, c and d each show n = 3."
+      }
+    ],
+    "explanation": "Window functions run after WHERE (and after GROUP BY/HAVING), over the rows that remain. COUNT(*) OVER () therefore counts the filtered result, 3 rows here. To count the whole table, use a scalar subquery such as `(SELECT COUNT(*) FROM scores)`.",
+    "reference": "PostgreSQL docs: Window Function Processing"
+  },
+  {
+    "id": "SQL-WIN-017",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `logins` has one row per day a user logged in: 2024-03-01, 03-02, 03-03, 03-05, 03-06 and 03-09.\n\n```sql\nSELECT day, LEAD(day) OVER (ORDER BY day) - day AS gap\nFROM logins;\n```\n\nWhat is `gap` on the 2024-03-06 row and on the 2024-03-09 row?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "3 and NULL",
+        "why": "The next login after 03-06 is 03-09; the last row has no next row."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "3 and 0, since NULL becomes zero",
+        "why": "LEAD returns NULL past the end, and NULL minus a date is NULL."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "1 and 3",
+        "why": "That reads the gap backwards; LEAD looks at the next row."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "NULL and 3",
+        "why": "Only the final row lacks a next row."
+      }
+    ],
+    "explanation": "LEAD(day) returns the next row's day in the ordering. Subtracting two dates in PostgreSQL gives an integer number of days, so 03-09 − 03-06 = 3. For the last row LEAD returns NULL, and the subtraction stays NULL.",
+    "reference": "PostgreSQL docs: Window Functions (lead)"
+  },
+  {
+    "id": "SQL-WIN-018",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `sales`:\n\n| day | amount |\n|---|---|\n| 2024-01-01 | 10 |\n| 2024-01-02 | 20 |\n| 2024-01-03 | 30 |\n| 2024-01-04 | 40 |\n\n```sql\nSELECT day, AVG(amount) OVER (ORDER BY day) AS a\nFROM sales;\n```\n\nWhat values does `a` show, in day order?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "25 on every row",
+        "why": "That is AVG(amount) OVER (); adding ORDER BY changes the frame."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "10, 15, 20, 25",
+        "why": "Each row averages all rows up to and including itself."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "10, 15, 25, 35",
+        "why": "Those average only the current row and the previous one."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "15, 20, 25, 30",
+        "why": "No frame here includes following rows."
+      }
+    ],
+    "explanation": "With ORDER BY and no frame clause, the default frame is from the start of the partition to the current row, so AVG becomes a running average: 10, (10+20)/2, (10+20+30)/3, (10+20+30+40)/4.",
+    "reference": "PostgreSQL docs: Window Function Calls (frame clause)"
+  },
+  {
+    "id": "SQL-WIN-019",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 2,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each frame clause (used with `ORDER BY` in a window) to the rows it covers.",
+    "options": [
+      {
+        "id": "A",
+        "text": "From the first row of the partition up to the current row"
+      },
+      {
+        "id": "B",
+        "text": "The current row and one neighbour on each side"
+      },
+      {
+        "id": "C",
+        "text": "Every row in the partition, regardless of position"
+      },
+      {
+        "id": "D",
+        "text": "From the current row to the last row of the partition"
+      }
+    ],
+    "explanation": "Frame clauses pick a slice of the partition relative to the current row. UNBOUNDED PRECEDING/FOLLOWING mean the partition's start/end; n PRECEDING/FOLLOWING count rows (with ROWS). The full-partition frame is what LAST_VALUE usually needs.",
+    "reference": "PostgreSQL docs: Window Function Calls (frame clause)",
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING`",
+        "answer": "D"
+      }
+    ]
+  },
+  {
+    "id": "SQL-WIN-020",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `sales`:\n\n| day | amount |\n|---|---|\n| 2024-01-01 | 10 |\n| 2024-01-02 | 20 |\n| 2024-01-03 | 30 |\n| 2024-01-04 | 40 |\n\nA developer wants the latest amount (40) on every row and writes:\n\n```sql\nSELECT day, LAST_VALUE(amount) OVER (ORDER BY day) AS latest\nFROM sales;\n```\n\nWhat does `latest` actually show?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "40 on every row, the amount on the last day",
+        "why": "The default frame stops at the current row, so later rows are invisible."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "10, 20, 30, 40, each row's own amount",
+        "why": "The frame ends at the current row (and its peers), so that row is the last in it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "10 on every row, since the frame starts at row one",
+        "why": "LAST_VALUE takes the frame's end, not its start."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "NULL until the final row, which shows 40",
+        "why": "Every row has a non-empty frame that includes itself."
+      }
+    ],
+    "explanation": "With ORDER BY and no frame clause, the frame is RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW. LAST_VALUE returns the last row of that frame, which is the current row or its last peer. Use `ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING`, or FIRST_VALUE with the order reversed.",
+    "reference": "PostgreSQL docs: Window Functions (last_value note)"
+  },
+  {
+    "id": "SQL-WIN-021",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `tsales` (two rows share 2024-01-02):\n\n| day | amount |\n|---|---|\n| 2024-01-01 | 10 |\n| 2024-01-02 | 20 |\n| 2024-01-02 | 5 |\n| 2024-01-03 | 30 |\n\n```sql\nSELECT day, amount, SUM(amount) OVER (ORDER BY day) AS running\nFROM tsales;\n```\n\nWhat is `running` on the two 2024-01-02 rows?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "35 on both rows",
+        "why": "The default RANGE frame includes all peers, so both rows count 10 + 20 + 5."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "30 then 35, following the order the rows are read",
+        "why": "That is the ROWS behaviour; the default frame mode is RANGE."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "15 then 35, adding 5 before 20",
+        "why": "Peers are not summed one at a time under RANGE."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "25 on both rows, summing only that day",
+        "why": "The frame still starts at the first row of the partition."
+      }
+    ],
+    "explanation": "The default frame is RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW. In RANGE mode every row with an equal ORDER BY value is a peer of the current row and is included, so tied rows share the same running total. With ROWS UNBOUNDED PRECEDING the totals become 30 and 35, in an order that is not guaranteed.",
+    "reference": "PostgreSQL docs: Window Function Calls (RANGE vs ROWS)"
+  },
+  {
+    "id": "SQL-WIN-022",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Table `sales`:\n\n| day | amount |\n|---|---|\n| 2024-01-01 | 10 |\n| 2024-01-02 | 20 |\n| 2024-01-03 | 30 |\n| 2024-01-04 | 40 |\n\nWhich changes make every row show 40, the amount on the latest day? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`LAST_VALUE(amount) OVER (ORDER BY day ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)`",
+        "why": "Widening the frame to the whole partition makes its last row 2024-01-04."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`FIRST_VALUE(amount) OVER (ORDER BY day DESC)`",
+        "why": "With descending order the latest day is first in every default frame."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`LAST_VALUE(amount) OVER (ORDER BY day DESC)`",
+        "why": "The default frame still ends at the current row, so each row returns its own amount."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`LAST_VALUE(amount) OVER (PARTITION BY day ORDER BY day)`",
+        "why": "Each day becomes its own partition, so each row only sees itself."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`MAX(amount) OVER (ORDER BY day)`",
+        "why": "That is a running maximum: 10, 20, 30, 40, not 40 on every row."
+      }
+    ],
+    "explanation": "The default frame ends at the current row, so to see the last row you either widen the frame to UNBOUNDED FOLLOWING or flip the ordering and take FIRST_VALUE (which only needs the frame's start). MAX would also need a full-partition frame, OVER (), to give 40 everywhere.",
+    "reference": "PostgreSQL docs: Window Functions (first_value, last_value)"
+  },
+  {
+    "id": "SQL-WIN-023",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `logins` has one row per day user 1 logged in: 2024-03-01, 03-02, 03-03, 03-05, 03-06 and 03-09.\n\n```sql\nSELECT MIN(day), MAX(day), COUNT(*) AS len\nFROM (SELECT day,\n             day - (ROW_NUMBER() OVER (ORDER BY day))::int AS grp\n      FROM logins) s\nGROUP BY grp;\n```\n\nWhat does it return?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Three groups of length 3, 2 and 1",
+        "why": "Consecutive days share the same day-minus-row-number value."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Two groups of length 5 and 1",
+        "why": "The gap between 03-03 and 03-05 starts a new group."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Six groups, one per login day, each of length 1",
+        "why": "Consecutive days give the same grp, so they are grouped together."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "One group of length 6",
+        "why": "Each gap shifts grp, so the days can't all share one key."
+      }
+    ],
+    "explanation": "This is the gaps-and-islands trick. Within a run of consecutive dates, both day and ROW_NUMBER rise by 1 per row, so their difference is constant. A gap makes day jump while the row number rises by 1, changing the difference. The islands are 03-01…03-03, 03-05…03-06 and 03-09.",
+    "reference": "PostgreSQL docs: Window Functions (row_number)"
+  },
+  {
+    "id": "SQL-WIN-024",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "Using the same `logins` days (2024-03-01, 03-02, 03-03, 03-05, 03-06, 03-09), what is `day - (ROW_NUMBER() OVER (ORDER BY day))::int` on the 2024-03-05 row? Type the date as YYYY-MM-DD.",
+    "options": [],
+    "explanation": "2024-03-05 is the 4th row, so the key is 03-05 minus 4 days = 2024-03-01. 03-06 is the 5th row and also gives 2024-03-01, which is why the two days form one island. The first island's key is 2024-02-29 (03-01 minus 1, in a leap year).",
+    "reference": "PostgreSQL docs: Date/Time Functions and Operators",
+    "accepted": [
+      "2024-03-01"
+    ]
+  },
+  {
+    "id": "SQL-WIN-025",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `sales`:\n\n| day | amount |\n|---|---|\n| 2024-01-01 | 10 |\n| 2024-01-02 | 20 |\n| 2024-01-03 | 30 |\n| 2024-01-04 | 40 |\n\n```sql\nSELECT day,\n       AVG(amount) OVER (ORDER BY day\n                         ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS ma3\nFROM sales;\n```\n\nWhat is `ma3` on 2024-01-02 and on 2024-01-04?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "15 and 30",
+        "why": "Early rows average only the rows that exist: (10+20)/2 and (20+30+40)/3."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "10 and 30, counting missing rows as zero",
+        "why": "Missing rows are simply absent from the frame, not treated as zeros."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "NULL and 30, until three rows are available",
+        "why": "The frame shrinks at the start; AVG of two rows is not NULL."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "15 and 25",
+        "why": "On 01-04 the frame holds 20, 30 and 40, so the average is 30."
+      }
+    ],
+    "explanation": "A ROWS frame of 2 PRECEDING to CURRENT ROW holds at most 3 rows. Near the start of the partition it holds fewer, and the aggregate uses whatever is there. If you need NULL until a full window exists, test COUNT(*) OVER (same frame) = 3.",
+    "reference": "PostgreSQL docs: Window Function Calls (frame clause)"
+  },
+  {
+    "id": "SQL-WIN-026",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `emp`:\n\n| name | dept | salary |\n|---|---|---|\n| Ann | eng | 120 |\n| Bo | eng | 100 |\n| Cy | eng | 100 |\n| Di | ops | 90 |\n| Ed | ops | 80 |\n\nWhat happens when this runs?\n\n```sql\nSELECT dept, SUM(salary)\nFROM emp\nGROUP BY dept\nHAVING RANK() OVER (ORDER BY SUM(salary)) = 1;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "It errors: window functions are not allowed in HAVING",
+        "why": "Windows run after HAVING, so HAVING can't see their results."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It returns ops, the department with the lowest salary total",
+        "why": "That is the goal, but it needs a subquery around the ranked groups."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It returns both departments, ranked 1 and 2",
+        "why": "The query never gets far enough to rank anything."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It errors: salary must appear in the GROUP BY clause",
+        "why": "salary is inside SUM, so the grouping rule is satisfied."
+      }
+    ],
+    "explanation": "Window functions are evaluated after GROUP BY and HAVING, so they are rejected in WHERE, GROUP BY and HAVING. The fix is to rank in a subquery or CTE and filter outside: `SELECT * FROM (SELECT dept, SUM(salary) t, RANK() OVER (ORDER BY SUM(salary)) r FROM emp GROUP BY dept) s WHERE r = 1` returns ops.",
+    "reference": "PostgreSQL docs: Window Function Calls"
+  },
+  {
+    "id": "SQL-WIN-027",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `scores`:\n\n| player | score |\n|---|---|\n| a | 100 |\n| b | 90 |\n| c | 90 |\n| d | 80 |\n\nFor \"top 2 players\", one query filters `RANK() OVER (ORDER BY score DESC) <= 2` and another filters `ROW_NUMBER() OVER (ORDER BY score DESC) <= 2` (each in a subquery). How many rows does each return?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "RANK: 3 rows; ROW_NUMBER: 2 rows",
+        "why": "b and c tie at rank 2, but ROW_NUMBER numbers them 2 and 3."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "RANK: 2 rows; ROW_NUMBER: 2 rows, both cut exactly at 2",
+        "why": "RANK keeps both tied players at rank 2, so it returns more than 2."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "RANK: 3 rows; ROW_NUMBER: 3 rows",
+        "why": "ROW_NUMBER never repeats, so exactly 2 rows pass."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "RANK: 2 rows; ROW_NUMBER: 3 rows",
+        "why": "This swaps the two behaviours."
+      }
+    ],
+    "explanation": "RANK gives 1, 2, 2, 4, so `<= 2` keeps a, b and c. ROW_NUMBER gives 1, 2, 3, 4, so it keeps a and whichever of b/c sorts first, and that choice is arbitrary without a tiebreaker. Choose the function that matches whether ties at the cutoff should be included.",
+    "reference": "PostgreSQL docs: Window Functions (rank, row_number)"
+  },
+  {
+    "id": "SQL-WIN-028",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the steps of the gaps-and-islands approach to \"longest login streak per user\" in order.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Number each user's login days with ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY day)"
+      },
+      {
+        "id": "B",
+        "text": "Subtract that row number from the day to get a constant key per run"
+      },
+      {
+        "id": "C",
+        "text": "GROUP BY user_id and the key to form one row per streak"
+      },
+      {
+        "id": "D",
+        "text": "Take COUNT(*) per group as the streak length"
+      },
+      {
+        "id": "E",
+        "text": "Keep the MAX streak length per user"
+      }
+    ],
+    "explanation": "Consecutive days minus their row numbers give the same value, so grouping by that key collapses each run into one group. Counting rows per group gives streak lengths, and an outer MAX (or a ranking) picks the longest per user. Deduplicate days first if a user can log in twice on the same day.",
+    "reference": "PostgreSQL docs: Window Functions (row_number)",
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ]
+  },
+  {
+    "id": "SQL-WIN-029",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `scores`:\n\n| player | score |\n|---|---|\n| a | 100 |\n| b | 90 |\n| c | 90 |\n| d | 80 |\n\nUsing `OVER (ORDER BY score)` (ascending), what are `PERCENT_RANK()` and `CUME_DIST()` for player `b` (score 90)?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "PERCENT_RANK ≈ 0.33, CUME_DIST = 0.75",
+        "why": "(rank 2 − 1) / (4 − 1) and 3 of 4 rows have score ≤ 90."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "PERCENT_RANK = 0.50, CUME_DIST = 0.50 for both 90s",
+        "why": "Neither formula divides by 2 here; both use the row counts."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "PERCENT_RANK ≈ 0.33, CUME_DIST = 0.5",
+        "why": "CUME_DIST counts all peers, so both 90s are included: 3/4."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "PERCENT_RANK = 0.25, CUME_DIST = 0.75",
+        "why": "PERCENT_RANK is (rank − 1)/(rows − 1), not rows-before/rows."
+      }
+    ],
+    "explanation": "PERCENT_RANK = (rank − 1) / (total rows − 1). Ascending, b ranks 2, so (2 − 1)/(4 − 1) ≈ 0.333. CUME_DIST = rows preceding or peer with the current row / total rows = 3/4 = 0.75, because b's peer c also counts.",
+    "reference": "PostgreSQL docs: Window Functions (percent_rank, cume_dist)"
+  },
+  {
+    "id": "SQL-WIN-030",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 3,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "PostgreSQL 18 supports a `QUALIFY` clause, so `SELECT player FROM scores QUALIFY RANK() OVER (ORDER BY score DESC) = 1` filters on the window result without a subquery.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "PostgreSQL 18 reports a syntax error at QUALIFY's expression."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "QUALIFY exists in engines like Snowflake, BigQuery and DuckDB, but not PostgreSQL."
+      }
+    ],
+    "explanation": "QUALIFY filters on window functions the way HAVING filters on aggregates, but it is not part of PostgreSQL (or SQLite). In PostgreSQL, compute the window value in a subquery or CTE and filter in the outer WHERE. Verified on PostgreSQL 18.3.",
+    "reference": "PostgreSQL docs: SELECT"
+  },
+  {
+    "id": "SQL-WIN-031",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A query defines `WINDOW w AS (PARTITION BY dept)` and `WINDOW f AS (ORDER BY salary ROWS BETWEEN 1 PRECEDING AND CURRENT ROW)`. Which uses are valid in PostgreSQL? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`ROW_NUMBER() OVER (w ORDER BY salary DESC)`",
+        "why": "A window that has no ORDER BY can be extended with one."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`SUM(salary) OVER f`",
+        "why": "Referencing a named window without parentheses uses it as-is, frame included."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`SUM(salary) OVER (f)`",
+        "why": "Copying a window that has a frame clause is an error."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`ROW_NUMBER() OVER (w PARTITION BY name)`",
+        "why": "A referenced window's PARTITION BY cannot be overridden."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`ROW_NUMBER() OVER (f ORDER BY name)`",
+        "why": "f already has an ORDER BY, and it cannot be overridden."
+      }
+    ],
+    "explanation": "A named window can be referenced bare (OVER w) or copied and extended (OVER (w …)). When copying, you may add an ORDER BY or frame only if the base lacks them; you can never change its PARTITION BY. A base that already has a frame can only be used bare. PostgreSQL reports \"cannot copy window \\\"f\\\" because it has a frame clause\".",
+    "reference": "PostgreSQL docs: SELECT (WINDOW clause)"
+  },
+  {
+    "id": "SQL-WIN-032",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `ev(user_id, ts)` holds one user's events at 09:00, 09:10, 09:50, 10:05 and 11:00. A new session starts when more than 30 minutes have passed since the previous event:\n\n```sql\nSELECT ts, SUM(is_new) OVER (ORDER BY ts) AS session_no\nFROM (SELECT ts,\n             CASE WHEN ts - LAG(ts) OVER (ORDER BY ts) <= interval '30 minutes'\n                  THEN 0 ELSE 1 END AS is_new\n      FROM ev) s;\n```\n\nHow many sessions are there?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "3: {09:00, 09:10}, {09:50, 10:05}, {11:00}",
+        "why": "Gaps of 40 and 55 minutes start new sessions; 10 and 15 minutes do not."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "2: {09:00 … 10:05} and {11:00}",
+        "why": "The 40-minute gap after 09:10 exceeds 30 minutes and starts a session."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "4, since the first row counts as its own break",
+        "why": "The first row starts session 1; it is not counted twice."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "5, since LAG is NULL and every CASE falls to ELSE",
+        "why": "Only the first row has a NULL LAG; the others compare normally."
+      }
+    ],
+    "explanation": "Sessionization flags each row that starts a session (first row, or gap above the threshold), then a running SUM of those flags numbers the sessions. The first row's LAG is NULL, so the comparison is NULL and CASE falls to ELSE 1, which correctly starts session 1. The flags are 1, 0, 1, 0, 1, so there are 3 sessions.",
+    "reference": "PostgreSQL docs: Window Functions (lag)"
+  },
+  {
+    "id": "SQL-WIN-033",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `sales`:\n\n| day | amount |\n|---|---|\n| 2024-01-01 | 10 |\n| 2024-01-02 | 20 |\n| 2024-01-03 | 30 |\n| 2024-01-04 | 40 |\n\n```sql\nSELECT day, NTH_VALUE(amount, 2) OVER (ORDER BY day) AS second\nFROM sales;\n```\n\nWhat values does `second` show, in day order?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "NULL, 20, 20, 20",
+        "why": "On the first row the frame holds only one row, so there is no 2nd value."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "20, 20, 20, 20",
+        "why": "The default frame doesn't include later rows, so row one can't see 20."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "NULL, NULL, 20, 30",
+        "why": "NTH_VALUE counts from the start of the frame, not back from the current row."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "10, 20, 30, 40",
+        "why": "That is the current amount, not the 2nd row of the frame."
+      }
+    ],
+    "explanation": "NTH_VALUE(x, n) returns the nth row of the window frame, or NULL if the frame has fewer than n rows. The default frame grows from the first row to the current row, so the first row's frame has one row. Add `ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING` to get 20 everywhere.",
+    "reference": "PostgreSQL docs: Window Functions (nth_value)"
+  },
+  {
+    "id": "SQL-WIN-034",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `tsales` (two rows share 2024-01-02):\n\n| day | amount |\n|---|---|\n| 2024-01-01 | 10 |\n| 2024-01-02 | 20 |\n| 2024-01-02 | 5 |\n| 2024-01-03 | 30 |\n\nFor the 2024-01-03 row (amount 30), what do these two frames return?\n\n```sql\nSUM(amount) OVER (ORDER BY day GROUPS BETWEEN 1 PRECEDING AND CURRENT ROW)\nSUM(amount) OVER (ORDER BY day ROWS   BETWEEN 1 PRECEDING AND CURRENT ROW)\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "GROUPS gives 55, ROWS gives 35",
+        "why": "GROUPS reaches back one peer group (both 01-02 rows); ROWS reaches back one physical row."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Both give 35, since each frame reaches back one row",
+        "why": "GROUPS counts the whole previous peer group, not one row."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Both give 55",
+        "why": "ROWS steps back exactly one row, the 5 on 2024-01-02."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "GROUPS gives 65, ROWS gives 35",
+        "why": "GROUPS 1 PRECEDING doesn't reach 2024-01-01, so 10 is not included."
+      }
+    ],
+    "explanation": "ROWS counts physical rows, RANGE uses distances in the ORDER BY value, and GROUPS counts peer groups (sets of rows with equal ORDER BY values). The previous peer group of 01-03 is both 01-02 rows (20 + 5), so GROUPS sums 20 + 5 + 30 = 55. ROWS 1 PRECEDING takes only the row just before (5 here), giving 35.",
+    "reference": "PostgreSQL docs: Window Function Calls (GROUPS mode)"
+  },
+  {
+    "id": "SQL-WIN-035",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Daily totals are 2024-01-01: 10, 01-02: 20, 01-04: 40, 01-05: 5 (no row for 01-03).\n\n```sql\nSELECT day,\n       SUM(amount) OVER (ORDER BY day\n                         RANGE BETWEEN interval '1 day' PRECEDING AND CURRENT ROW) AS two_day\nFROM daily;\n```\n\nWhat does `two_day` show, in day order?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "10, 30, 40, 45",
+        "why": "RANGE uses calendar distance, so 01-04 sees only itself because 01-03 has no row."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "10, 30, 60, 45",
+        "why": "That treats the frame as one previous row (ROWS), pulling 20 into 01-04."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "10, 30, 70, 75 as running totals",
+        "why": "Those are running totals; the frame only reaches back one day."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "10, 20, 40, 5",
+        "why": "CURRENT ROW plus one day back includes the previous day when it exists."
+      }
+    ],
+    "explanation": "With RANGE and an offset, the frame contains rows whose ORDER BY value lies within that distance of the current row's value. For 01-04 the window is 01-03…01-04, and there is no 01-03 row, so only 40 counts. This is the right tool for \"last N days\" over sparse data, where ROWS would silently count the wrong days.",
+    "reference": "PostgreSQL docs: Window Function Calls (RANGE offset)"
+  },
+  {
+    "id": "SQL-WIN-036",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which statements about window functions in PostgreSQL are true? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "They run after GROUP BY and HAVING, so `SUM(SUM(x)) OVER ()` is valid in a grouped query",
+        "why": "The inner SUM is the group aggregate; the outer SUM is a window over the grouped rows."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`SELECT DISTINCT` is applied after them, so `COUNT(*) OVER ()` counts rows before duplicates are removed",
+        "why": "DISTINCT runs on the output that already includes window values."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "A window function may appear in `ORDER BY`",
+        "why": "ORDER BY runs after window functions, so it can sort by one."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "They can be nested, as in `SUM(ROW_NUMBER() OVER (...)) OVER ()`",
+        "why": "PostgreSQL rejects this: \"window function calls cannot be nested\"."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`LIMIT` is applied first, so `ROW_NUMBER()` only numbers the limited rows",
+        "why": "LIMIT runs last; the numbers are computed over the full result."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "They are allowed in `GROUP BY` as long as the query also aggregates",
+        "why": "PostgreSQL reports \"window functions are not allowed in GROUP BY\"."
+      }
+    ],
+    "explanation": "The processing order is FROM → WHERE → GROUP BY → HAVING → window functions → DISTINCT → ORDER BY → LIMIT. That explains every statement here: windows can wrap aggregates and be sorted on, DISTINCT and LIMIT see their results, and they cannot appear in WHERE, GROUP BY, HAVING or inside another window function.",
+    "reference": "PostgreSQL docs: Window Function Processing"
+  },
+  {
+    "id": "SQL-WIN-037",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `emp`:\n\n| name | dept | salary |\n|---|---|---|\n| Ann | eng | 120 |\n| Bo | eng | 100 |\n| Cy | eng | 100 |\n| Di | ops | 90 |\n| Ed | ops | 80 |\n\n```sql\nSELECT dept,\n       SUM(salary)                          AS dept_total,\n       SUM(SUM(salary)) OVER ()             AS company_total,\n       RANK() OVER (ORDER BY SUM(salary) DESC) AS rk\nFROM emp\nGROUP BY dept;\n```\n\nWhat does it return?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "eng: 320, 490, 1 and ops: 170, 490, 2",
+        "why": "The window runs over the two grouped rows, so company_total is 320 + 170."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "An error, because aggregate calls cannot be nested",
+        "why": "The outer SUM is a window function, which may wrap an aggregate."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "eng: 320, 320, 1 and ops: 170, 170, 1",
+        "why": "OVER () spans all grouped rows, not one department."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "eng: 320, 490, 2 and ops: 170, 490, 1",
+        "why": "RANK orders by SUM(salary) DESC, so the larger total ranks first."
+      }
+    ],
+    "explanation": "GROUP BY produces one row per department first. Window functions then run over those grouped rows, so they may use aggregate results: SUM(SUM(salary)) OVER () totals the department totals (490), and RANK() OVER (ORDER BY SUM(salary) DESC) ranks departments. This avoids a second query for percent-of-total reports.",
+    "reference": "PostgreSQL docs: Window Function Processing"
+  },
+  {
+    "id": "SQL-WIN-038",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `scores`:\n\n| player | score |\n|---|---|\n| a | 100 |\n| b | 90 |\n| c | 90 |\n| d | 80 |\n\n```sql\nSELECT player, ROW_NUMBER() OVER (ORDER BY score DESC, player) AS rn\nFROM scores\nORDER BY score, player\nLIMIT 2;\n```\n\nWhich rows come back?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "(d, 4) and (b, 2)",
+        "why": "rn is computed over all rows (score descending, then player) before sorting and LIMIT."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "(d, 1) and (b, 2), renumbered after sorting",
+        "why": "ROW_NUMBER uses its own OVER ordering, not the query's ORDER BY."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "(a, 1) and (b, 2)",
+        "why": "The final ORDER BY is ascending, so the lowest scores come first."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "(d, 4) and (c, 3)",
+        "why": "The outer ORDER BY breaks the 90 tie by player, so b comes before c."
+      }
+    ],
+    "explanation": "The window has its own ORDER BY (score DESC, player), independent of the query's final ORDER BY. ROW_NUMBER is computed over all four rows first (a 1, b 2, c 3, d 4); only then are rows sorted ascending and cut by LIMIT, giving d then b. Window functions always see the full result before ORDER BY and LIMIT apply.",
+    "reference": "PostgreSQL docs: Window Function Processing"
+  },
+  {
+    "id": "SQL-WIN-039",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `emp`:\n\n| name | dept | salary |\n|---|---|---|\n| Ann | eng | 120 |\n| Bo | eng | 100 |\n| Cy | eng | 100 |\n| Di | ops | 90 |\n| Ed | ops | 80 |\n\nWhat happens when this runs on PostgreSQL?\n\n```sql\nSELECT dept, COUNT(DISTINCT salary) OVER (PARTITION BY dept) AS distinct_salaries\nFROM emp;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "It errors: DISTINCT is not implemented for window functions",
+        "why": "PostgreSQL does not support DISTINCT inside window aggregates."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "eng rows show 2 and ops rows show 2, the distinct salary counts",
+        "why": "That is the intended answer, but PostgreSQL refuses the syntax."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "eng rows show 3 and ops rows show 2",
+        "why": "That would be COUNT(salary), and this query doesn't run anyway."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "1 on every row, since each row has one salary",
+        "why": "The partition covers the whole department, and the query errors first."
+      }
+    ],
+    "explanation": "PostgreSQL raises \"DISTINCT is not implemented for window functions\". Workarounds: aggregate in a subquery and join it back, or use `MAX(DENSE_RANK() …)` in two steps, e.g. compute `DENSE_RANK() OVER (PARTITION BY dept ORDER BY salary)` in a subquery and then take `MAX(d) OVER (PARTITION BY dept)` outside.",
+    "reference": "PostgreSQL docs: Window Function Calls"
+  },
+  {
+    "id": "SQL-WIN-040",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `emp`:\n\n| name | dept | salary |\n|---|---|---|\n| Ann | eng | 120 |\n| Bo | eng | 100 |\n| Cy | eng | 100 |\n| Di | ops | 90 |\n| Ed | ops | 80 |\n\n```sql\nSELECT name, salary,\n       AVG(salary) OVER (PARTITION BY dept\n                         ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING\n                         EXCLUDE CURRENT ROW) AS peers_avg\nFROM emp;\n```\n\nWhat is `peers_avg` for Ann and for Bo?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Ann 100, Bo 110",
+        "why": "Each row averages its colleagues: Ann sees 100 and 100; Bo sees 120 and 100."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Ann 106.67, Bo 106.67",
+        "why": "That is the full department average; EXCLUDE CURRENT ROW removes the row itself."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Ann 120, Bo 100",
+        "why": "That is each person's own salary, the one row excluded."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Ann 110, Bo 100",
+        "why": "This mixes up which salaries remain once the row itself is excluded."
+      }
+    ],
+    "explanation": "EXCLUDE CURRENT ROW removes the current row from its own frame, so AVG covers only the other rows in the partition: Ann (120) averages Bo and Cy, (100 + 100)/2 = 100; Bo averages Ann and Cy, (120 + 100)/2 = 110. Other options are EXCLUDE GROUP (drop the current row and its peers) and EXCLUDE TIES (drop only the peers).",
+    "reference": "PostgreSQL docs: Window Function Calls (frame exclusion)"
+  },
+  {
+    "id": "SQL-WIN-041",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A dedupe job keeps each customer's newest order:\n\n```sql\nSELECT * FROM (\n  SELECT o.*, ROW_NUMBER() OVER (PARTITION BY customer ORDER BY created_at DESC) AS rn\n  FROM orders o) s\nWHERE rn = 1;\n```\n\nCustomer y has two orders with the same `created_at`, and reruns sometimes keep order 3, sometimes order 4. What is the cause and fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Tied rows are numbered in no guaranteed order; add a unique tiebreaker such as `id DESC`",
+        "why": "Without a total ordering, which peer gets rn = 1 can change between runs."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "ROW_NUMBER skips tied rows entirely, so add `NULLS LAST` to the window ordering to bring them back",
+        "why": "ROW_NUMBER still numbers both rows; NULLS LAST only affects NULL values."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "ROW_NUMBER gives ties the same number; switch to RANK so only one row wins",
+        "why": "RANK is the function that gives ties the same number, so it would keep both."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The partition is too wide; add `created_at` to the PARTITION BY list",
+        "why": "That splits y's orders by timestamp, but both still share it and get rn = 1."
+      }
+    ],
+    "explanation": "ROW_NUMBER always returns distinct numbers, but when ORDER BY values tie, which peer comes first is implementation-dependent and can change with plans or data layout. Make the window ordering total by appending a unique column (`ORDER BY created_at DESC, id DESC`) so the same row wins every time.",
+    "reference": "PostgreSQL docs: Window Function Processing"
+  },
+  {
+    "id": "SQL-WIN-042",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 4,
+    "type": "fill",
+    "select": 1,
+    "stem": "Table `rev(region, yr, amount)`: eu 2022 = 100, eu 2023 = 130, eu 2024 = 117; us 2022 = 200, us 2023 = 180.\n\n```sql\nSELECT region, yr,\n       amount - LAG(amount) OVER (PARTITION BY region ORDER BY yr) AS delta\nFROM rev;\n```\n\nWhat is `delta` for eu 2024? Type a number.",
+    "options": [],
+    "explanation": "Within the eu partition ordered by year, LAG(amount) on 2024 is the 2023 amount, 130, so 117 − 130 = −13. PARTITION BY region keeps eu and us apart, so us 2022 gets NULL rather than comparing against eu.",
+    "reference": "PostgreSQL docs: Window Functions (lag)",
+    "accepted": [
+      "-13",
+      "−13"
+    ]
+  },
+  {
+    "id": "SQL-WIN-043",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "Table `readings(t, v)` has v = 5, NULL, NULL, 3, NULL for t = 1…5. You need each NULL replaced by the most recent non-NULL value: 5, 5, 5, 3, 3. Which queries produce that on PostgreSQL 18? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`SELECT t, MAX(v) OVER (PARTITION BY g) FROM (SELECT t, v, COUNT(v) OVER (ORDER BY t) g FROM readings) s`",
+        "why": "COUNT(v) only rises at non-NULL rows, so each value and its following NULLs share a group."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`SELECT t, FIRST_VALUE(v) OVER (PARTITION BY g ORDER BY t) FROM (SELECT t, v, COUNT(v) OVER (ORDER BY t) g FROM readings) s`",
+        "why": "Each group starts with its non-NULL value, which FIRST_VALUE returns."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`SELECT t, LAG(v) IGNORE NULLS OVER (ORDER BY t) FROM readings`",
+        "why": "IGNORE NULLS is not supported in PostgreSQL 18 and is a syntax error."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`SELECT t, COALESCE(v, LAG(v) OVER (ORDER BY t)) FROM readings`",
+        "why": "It only looks one row back, so t = 3 stays NULL."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`SELECT t, MAX(v) OVER (ORDER BY t) FROM readings`",
+        "why": "A running maximum keeps 5 after 3 arrives, giving 5, 5, 5, 5, 5."
+      }
+    ],
+    "explanation": "COUNT(v) counts only non-NULL values, so as a running count it increments exactly where a new value appears. Rows sharing that count form a group whose only non-NULL value is the one to carry forward, and MAX or FIRST_VALUE over the group returns it. Engines such as Oracle and Snowflake offer LAST_VALUE … IGNORE NULLS; PostgreSQL 18 does not.",
+    "reference": "PostgreSQL docs: Aggregate Functions (count)"
+  },
+  {
+    "id": "SQL-WIN-044",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Table `emp`:\n\n| name | dept | salary |\n|---|---|---|\n| Ann | eng | 120 |\n| Bo | eng | 100 |\n| Cy | eng | 100 |\n| Di | ops | 90 |\n| Ed | ops | 80 |\n\n```sql\nSELECT name, dept,\n       SUM(salary) OVER (PARTITION BY dept ORDER BY name\n                         ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS s\nFROM emp;\n```\n\nWhat is `s` for Cy?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "200: Bo plus Cy, because the frame stops at the end of eng",
+        "why": "Cy is last in eng by name, so the \"1 FOLLOWING\" row does not exist."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "290: Bo, Cy and Di, because Di is the next row in the output order",
+        "why": "Frames never cross partition boundaries, so Di is not included."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "320: the whole eng total",
+        "why": "The frame is a three-row window, not the full partition."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "100: just Cy, because the frame is clipped entirely",
+        "why": "Only the missing following row is dropped; Bo still precedes Cy."
+      }
+    ],
+    "explanation": "Window frames are always confined to the current partition. Within eng ordered by name (Ann, Bo, Cy), Cy's frame of 1 PRECEDING to 1 FOLLOWING covers Bo and Cy, as there is no following row in eng: 100 + 100 = 200.",
+    "reference": "PostgreSQL docs: Window Function Calls (frame clause)"
+  },
+  {
+    "id": "SQL-WIN-045",
+    "domain": 3,
+    "skill": "window-functions",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "Table `attempts(user_id, status)` has user 1: fail, ok, fail and user 2: ok. Which expressions show each user's number of failed attempts (2 for user 1, 0 for user 2) on every row in PostgreSQL? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`COUNT(*) FILTER (WHERE status = 'fail') OVER (PARTITION BY user_id)`",
+        "why": "FILTER restricts which rows the window aggregate counts; it works with OVER."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`SUM(CASE WHEN status = 'fail' THEN 1 ELSE 0 END) OVER (PARTITION BY user_id)`",
+        "why": "Summing 1/0 flags counts the failures per partition."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`COUNT(CASE WHEN status = 'fail' THEN 1 ELSE 0 END) OVER (PARTITION BY user_id)`",
+        "why": "COUNT counts non-NULL values, and 0 is not NULL, so it returns 3 and 1."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`COUNT(status = 'fail') OVER (PARTITION BY user_id)`",
+        "why": "The boolean is never NULL here, so this counts every row: 3 and 1."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`SUM(status = 'fail') OVER (PARTITION BY user_id)`",
+        "why": "PostgreSQL has no sum(boolean); cast to int first."
+      }
+    ],
+    "explanation": "Conditional counting needs either FILTER (WHERE …) or a CASE that yields NULL (for COUNT) or 0 (for SUM) on non-matching rows. COUNT ignores only NULLs, so feeding it 0s or false still counts them. In PostgreSQL, `SUM((status = 'fail')::int)` also works, but SUM over a raw boolean errors.",
+    "reference": "PostgreSQL docs: Aggregate Expressions (FILTER)"
+  }
+]

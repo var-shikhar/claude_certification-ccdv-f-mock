@@ -1,0 +1,1679 @@
+[
+  {
+    "id": "SQL-SEC-001",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A login handler builds its query like this. Which change actually prevents SQL injection?\n\n```js\nconst sql = \"SELECT id FROM users WHERE email = '\" + email + \"'\";\nawait db.query(sql);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Strip spaces and semicolons from `email` before concatenating it",
+        "why": "Attackers do not need spaces or semicolons; a payload like `x'OR'1'='1` still breaks out of the literal."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Send the value as a bind parameter: `db.query(\"… WHERE email = $1\", [email])`",
+        "why": "The value travels separately from the SQL text, so it can never change the statement's structure."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Wrap the whole query in a transaction so a malicious statement can be rolled back",
+        "why": "A transaction does not stop the injected SQL from running or from reading data it should not see."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Validate on the client that `email` looks like an address before it is submitted",
+        "why": "Client-side checks are trivially bypassed by sending the request directly to the server."
+      }
+    ],
+    "explanation": "SQL injection happens when user input is spliced into the SQL text and changes its meaning. Parameterized queries (prepared statements) send the SQL and the values separately: the server parses the statement first, then binds the values as data. That makes injection through the bound value impossible, whatever characters it contains.",
+    "reference": "OWASP: SQL Injection Prevention Cheat Sheet"
+  },
+  {
+    "id": "SQL-SEC-002",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Doubling single quotes in user input yourself (replacing `'` with `''`) before concatenating it into SQL is as safe as using bind parameters.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Hand-rolled escaping misses encodings, backslash handling, numeric contexts and identifiers, so it is not equivalent."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: escaping is fragile and context-dependent, while bind parameters keep data out of the SQL text entirely."
+      }
+    ],
+    "explanation": "Escaping only works if it matches the exact parsing rules of the context: string literal settings such as `standard_conforming_strings`, numeric positions where there are no quotes at all, `LIKE` patterns and identifiers all need different treatment. Bind parameters avoid the whole problem because values never become part of the SQL text. OWASP lists escaping only as a last resort.",
+    "reference": "OWASP: SQL Injection Prevention Cheat Sheet"
+  },
+  {
+    "id": "SQL-SEC-003",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "The reporting role was set up with this statement. What can `reporting` do with `orders`?\n\n```sql\nGRANT SELECT ON orders TO reporting;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Read all of its columns, but not insert, update, delete or alter it",
+        "why": "SELECT is the read privilege only; every write and DDL action needs its own privilege or ownership."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Read and update rows, because UPDATE needs SELECT to find the rows it changes",
+        "why": "UPDATE is a separate privilege; holding SELECT never implies it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Read rows and grant SELECT on `orders` to other roles",
+        "why": "Passing a privilege on needs `WITH GRANT OPTION`, which this statement did not include."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Read rows and add new columns to the table for its reports",
+        "why": "Changing a table's structure requires being its owner; it is not a grantable privilege."
+      }
+    ],
+    "explanation": "PostgreSQL privileges are separate and additive: SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES and TRIGGER on tables. `GRANT SELECT` allows reading only. Re-granting needs `WITH GRANT OPTION`, and ALTER/DROP are reserved for the owner. Least privilege means granting exactly what each role needs.",
+    "reference": "PostgreSQL docs: GRANT"
+  },
+  {
+    "id": "SQL-SEC-004",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each normal form with the rule it adds.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Every column holds a single atomic value and there are no repeating groups",
+        "why": "This is the first normal form rule."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "No non-key column depends on only part of a composite key",
+        "why": "This is the second normal form rule."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "No non-key column depends on another non-key column",
+        "why": "This is the third normal form rule."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Every determinant of a functional dependency is a candidate key",
+        "why": "This is the Boyce–Codd normal form rule."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "First normal form (1NF)",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Second normal form (2NF)",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Third normal form (3NF)",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Boyce–Codd normal form (BCNF)",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Each normal form builds on the previous one. 1NF removes lists and repeating groups. 2NF removes partial dependencies on part of a composite key. 3NF removes transitive dependencies between non-key columns. BCNF tightens 3NF by requiring every determinant to be a candidate key, which matters when a table has overlapping candidate keys.",
+    "reference": "Database design: normalization (1NF–BCNF)"
+  },
+  {
+    "id": "SQL-SEC-005",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "Type the SQL keyword that removes a privilege previously given with `GRANT`, as in `____ INSERT ON orders FROM intern;`.",
+    "options": [],
+    "accepted": [
+      "REVOKE"
+    ],
+    "explanation": "`REVOKE` is the counterpart of `GRANT`. It removes privileges (or role memberships) from a role. A role can still have access through other routes, such as membership in a role that holds the privilege or a grant to PUBLIC.",
+    "reference": "PostgreSQL docs: REVOKE"
+  },
+  {
+    "id": "SQL-SEC-006",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "You are designing an `invoices` table that stores amounts in dollars and cents. Which column type is the safest choice in PostgreSQL?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`double precision`, because it has the widest range of values",
+        "why": "Binary floating point cannot represent most decimal fractions exactly, so totals drift by tiny amounts."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`numeric(12,2)`, because it stores exact decimal values",
+        "why": "Exact decimal arithmetic gives the cents you expect when you add, compare and round."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`real`, because it uses less storage than the other types",
+        "why": "Single-precision floats are even less exact than double precision, making rounding errors worse."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`text`, so the application can format the amount freely",
+        "why": "Text cannot be summed, compared numerically or constrained with CHECK without casts everywhere."
+      }
+    ],
+    "explanation": "`numeric` (or `decimal`) stores exact decimal values, so money adds up to the cent and can be constrained with `CHECK (amount >= 0)`. Floating-point types are binary approximations and accumulate rounding errors. Some teams store integer cents (`bigint`) instead, which is also exact. PostgreSQL's `money` type exists but depends on the `lc_monetary` locale, so `numeric` is the usual recommendation.",
+    "reference": "PostgreSQL docs: Numeric Types"
+  },
+  {
+    "id": "SQL-SEC-007",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 3,
+    "stem": "Your web application connects to PostgreSQL. Which practices follow the principle of least privilege? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Give the application its own login role instead of reusing a person's account",
+        "why": "A dedicated role can be granted exactly what the app needs and revoked or rotated on its own."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Connect as the `postgres` superuser so migrations and queries never fail",
+        "why": "A superuser bypasses every permission check and RLS, so one injection bug exposes everything."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Grant only the table privileges the app uses, such as SELECT, INSERT and UPDATE",
+        "why": "Missing privileges like DROP or TRUNCATE limit the damage a compromised app can do."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Run schema migrations with a separate owner role, not the runtime role",
+        "why": "The runtime role then cannot alter or drop tables even if the app is compromised."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Grant ALL on every table to PUBLIC so new services work without extra setup",
+        "why": "PUBLIC includes every role, so this hands full access to anyone who can log in."
+      }
+    ],
+    "explanation": "Least privilege means each role gets only what its job requires. A typical setup has a dedicated owner role for migrations, a runtime role with DML privileges only, and read-only roles for reporting. Superusers and the owner bypass checks (and RLS, unless forced), so applications should never run as them.",
+    "reference": "PostgreSQL docs: Database Roles and Privileges"
+  },
+  {
+    "id": "SQL-SEC-008",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A `products` table stores tags like this. Which normal form does it violate, and what is the usual fix?\n\n```text\n id | name  | tags\n----+-------+--------------------\n  1 | Lamp  | home,lighting,sale\n  2 | Chair | home,furniture\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "1NF; move the tags into a separate `product_tags` table with one row per tag",
+        "why": "A comma-separated list is a repeating group stored in one column, which 1NF forbids."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "2NF; split `name` into its own table keyed by `name`",
+        "why": "There is no composite key here, so partial dependencies (2NF) are not the problem."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "3NF; make `tags` a foreign key to a `tags` lookup table so every value is checked",
+        "why": "A single foreign key column still holds only one tag, so it cannot represent several per product."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "BCNF; add a unique constraint on the `tags` column",
+        "why": "Uniqueness on the whole list does nothing to make individual tags queryable or consistent."
+      }
+    ],
+    "explanation": "Storing several values in one column breaks first normal form. You cannot index or join on a single tag, enforce that tags exist, or count products per tag without string parsing. The normalized design uses a junction table such as `product_tags(product_id, tag_id)` with foreign keys to both sides. PostgreSQL arrays or JSONB are deliberate exceptions with their own trade-offs.",
+    "reference": "Database design: first normal form"
+  },
+  {
+    "id": "SQL-SEC-009",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "In PostgreSQL 18, the `reporting` role was granted access like this. Which query by `reporting` fails?\n\n```sql\nCREATE TABLE emp (id int PRIMARY KEY, name text, salary numeric);\nGRANT SELECT (id, name) ON emp TO reporting;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`SELECT id, name FROM emp;`",
+        "why": "Both columns are covered by the column-level grant, so this succeeds."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`SELECT count(*) FROM emp;`",
+        "why": "count(*) reads no column values; a grant on any column is enough for it."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`SELECT * FROM emp;`",
+        "why": "The star expands to include `salary`, which `reporting` has no privilege on."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`SELECT name FROM emp WHERE id = 1;`",
+        "why": "Only granted columns are referenced in the select list and WHERE clause."
+      }
+    ],
+    "explanation": "Column privileges let you hide sensitive columns without a view. Any query that references a column without privilege fails with \"permission denied for table emp\", including `SELECT *` and a WHERE or ORDER BY on that column. Verified in PostgreSQL 18: `count(*)` and queries on `id`, `name` work, `SELECT *` fails.",
+    "reference": "PostgreSQL docs: GRANT (column privileges)"
+  },
+  {
+    "id": "SQL-SEC-010",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A new role can read a table, yet this fails. Why?\n\n```sql\nCREATE SCHEMA hr;\nCREATE TABLE hr.pay (id int, amount numeric);\nGRANT SELECT ON hr.pay TO rep;\n\nSET ROLE rep;\nSELECT * FROM hr.pay;\n-- ERROR: permission denied for schema hr\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The grant does not take effect until the role disconnects and starts a new session",
+        "why": "Privileges are checked at query time, so a new grant applies immediately."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`rep` also needs `USAGE` on schema `hr` to look up objects inside it",
+        "why": "Schema USAGE is checked before table privileges; without it no object in the schema is reachable."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Tables outside `public` can only be read by their owner",
+        "why": "Any role can read tables in other schemas once it has the right privileges."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "SELECT on a table needs the `CONNECT` privilege on the schema",
+        "why": "CONNECT is a database privilege, not a schema one; schemas use USAGE and CREATE."
+      }
+    ],
+    "explanation": "Access is checked in layers: CONNECT on the database, USAGE on the schema, then privileges on the object. Holding SELECT on `hr.pay` is useless without `GRANT USAGE ON SCHEMA hr TO rep`. Verified in PostgreSQL 18: the query fails with \"permission denied for schema hr\" until USAGE is granted.",
+    "reference": "PostgreSQL docs: Schemas and Privileges"
+  },
+  {
+    "id": "SQL-SEC-011",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A DBA enables row-level security on `secret` but has not created any policy yet. The `app` role has `SELECT` on the table. What does `app` get from `SELECT count(*) FROM secret;`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Every row, because RLS only filters once at least one policy exists",
+        "why": "RLS is default-deny: with no policy, nothing is visible to roles subject to it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "An error saying that no policy is defined for the table",
+        "why": "PostgreSQL does not raise an error; it simply returns no rows."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`0`, because no policy allows any row",
+        "why": "With RLS enabled and no policy, a default-deny policy applies to non-owners."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The rows `app` inserted itself, since owners of rows are always visible",
+        "why": "PostgreSQL has no notion of row ownership outside the policies you write."
+      }
+    ],
+    "explanation": "When row-level security is enabled and no policy applies, PostgreSQL uses a default-deny policy: no rows are visible and no rows can be modified. The table owner, superusers and BYPASSRLS roles are exempt. Verified in PostgreSQL 18: `app` gets a count of 0.",
+    "reference": "PostgreSQL docs: Row Security Policies"
+  },
+  {
+    "id": "SQL-SEC-012",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "A search endpoint runs `SELECT * FROM products WHERE name LIKE $1` and binds the user's input with `%` appended, as in `[input + '%']`. Which statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A user who types `%` gets back every product, because `%` is still a wildcard inside the bound value",
+        "why": "Bind parameters stop SQL injection, but LIKE still interprets `%` and `_` inside the pattern."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Binding the value makes PostgreSQL treat `%` and `_` in it as literal characters",
+        "why": "The pattern's wildcards are interpreted after binding; parameters do not escape them."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Escape `\\`, `%` and `_` in the input before adding your own `%` to the pattern",
+        "why": "Escaping makes user characters match literally while your trailing `%` stays a wildcard."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The query is open to SQL injection, so a user could append `; DROP TABLE products`",
+        "why": "The value is bound, so it cannot add statements; the issue is pattern semantics, not injection."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "LIKE patterns can never use an index, so the wildcard input makes no difference to cost",
+        "why": "Prefix patterns can use suitable indexes; a leading `%` from user input is what forces a full scan."
+      }
+    ],
+    "explanation": "Parameter binding protects the SQL structure, but the bound string is still a LIKE pattern. Users can submit `%` or `_` to widen matches or force expensive scans. Escape the special characters (backslash is the default escape character in PostgreSQL) before adding your own wildcard. Verified in PostgreSQL 18: binding `a%` matched 3 rows, while the escaped `a\\%%` matched only the literal `a%b`.",
+    "reference": "PostgreSQL docs: Pattern Matching (LIKE)"
+  },
+  {
+    "id": "SQL-SEC-013",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Which normal form does this table violate?\n\n```text\norder_items(order_id, product_id, quantity, product_name)\nPRIMARY KEY (order_id, product_id)\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "1NF, because `product_name` is a text column",
+        "why": "Text columns are atomic as long as they hold a single value; 1NF is not violated."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "2NF, because `product_name` depends on `product_id` alone",
+        "why": "A column that depends on only part of a composite key is a partial dependency."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "3NF only, because `quantity` depends transitively on `product_name`",
+        "why": "Quantity depends on the whole key (this order and this product), not on the name."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "None; every column depends on the primary key",
+        "why": "product_name depends only on product_id, so it does not depend on the whole key."
+      }
+    ],
+    "explanation": "`product_name` is determined by `product_id` alone, which is only part of the composite key. That partial dependency breaks 2NF and causes update anomalies: renaming a product means updating every order line. The fix is to keep `product_name` in a `products` table and reference it by `product_id`.",
+    "reference": "Database design: second normal form"
+  },
+  {
+    "id": "SQL-SEC-014",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An `employees(emp_id PK, dept_id, dept_name)` table repeats the department name on every employee row. Which problem does this cause most directly?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Renaming a department means updating many rows, and a partial update leaves conflicting names",
+        "why": "dept_name depends on dept_id, not on emp_id: a transitive dependency that breaks 3NF."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Employees cannot be inserted until their department has at least one other employee",
+        "why": "Nothing in this design blocks inserting an employee into any department."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The table violates 1NF because `dept_name` repeats across rows",
+        "why": "Repetition across rows is not a 1NF issue; each cell still holds one atomic value."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Queries for an employee's department name now need an extra join to a departments table, which slows reads",
+        "why": "Here the name is on the same row, so it needs fewer joins, not more."
+      }
+    ],
+    "explanation": "Because `dept_name` depends on `dept_id`, and `dept_id` depends on the key, `dept_name` depends on the key only transitively. That breaks 3NF and creates an update anomaly: the same fact is stored many times and can drift apart. A `departments(dept_id, dept_name)` table stores each name once.",
+    "reference": "Database design: third normal form"
+  },
+  {
+    "id": "SQL-SEC-015",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "Order these normal forms from the least strict to the most strict.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Third normal form (3NF)",
+        "why": "Comes after 2NF."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "First normal form (1NF)",
+        "why": "The least strict of these."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Boyce–Codd normal form (BCNF)",
+        "why": "A stricter version of 3NF."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Second normal form (2NF)",
+        "why": "Requires 1NF first."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Fourth normal form (4NF)",
+        "why": "Adds rules for multi-valued dependencies on top of BCNF."
+      }
+    ],
+    "answerOrder": [
+      "B",
+      "D",
+      "A",
+      "C",
+      "E"
+    ],
+    "explanation": "Each normal form requires the previous one: 1NF (atomic values), 2NF (no partial dependencies), 3NF (no transitive dependencies), BCNF (every determinant is a candidate key), then 4NF (no non-trivial multi-valued dependencies). Most OLTP schemas aim for 3NF or BCNF and denormalize deliberately where it helps.",
+    "reference": "Database design: normal forms"
+  },
+  {
+    "id": "SQL-SEC-016",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "`readers` has `SELECT` on `emp`, and `analyst` is a member of `readers`. `analyst` was also granted `SELECT` on `emp` directly. After `REVOKE SELECT ON emp FROM analyst;`, `analyst` can no longer read `emp`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "REVOKE removes only the direct grant; the privilege inherited through `readers` remains."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: `analyst` still reads `emp` through its membership in `readers`."
+      }
+    ],
+    "explanation": "Privileges from role membership are separate from direct grants. Revoking the direct grant leaves the inherited one in place, so `analyst` keeps reading through `readers` (verified in PostgreSQL 18). To cut access you must also revoke the membership (`REVOKE readers FROM analyst`) or the role's grant. `has_table_privilege()` shows the effective result.",
+    "reference": "PostgreSQL docs: Role Membership"
+  },
+  {
+    "id": "SQL-SEC-017",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An `order_status` column uses the enum `CREATE TYPE status AS ENUM ('new', 'paid', 'shipped')`. The business drops the `new` state. What happens with `ALTER TYPE status DROP VALUE 'new';`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The value is removed, and rows that used it become NULL",
+        "why": "PostgreSQL never silently rewrites column data when an enum changes."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The value is removed only if no row currently uses it",
+        "why": "There is no conditional drop; the command itself is not supported."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "It fails, because PostgreSQL cannot remove a value from an enum",
+        "why": "Enums support adding and renaming values, but not dropping them."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It succeeds and renumbers the remaining values so the sort order has no gaps",
+        "why": "There is no DROP VALUE form at all, so nothing is renumbered."
+      }
+    ],
+    "explanation": "PostgreSQL enums can gain values (`ADD VALUE`, optionally `BEFORE`/`AFTER`) and rename them, but cannot drop them: the error is \"dropping an enum value is not implemented\" (verified in PostgreSQL 18). Removing a value means creating a new type and migrating the column. That rigidity is why many teams model statuses with a `CHECK` constraint or a lookup table with a foreign key instead.",
+    "reference": "PostgreSQL docs: ALTER TYPE"
+  },
+  {
+    "id": "SQL-SEC-018",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "A report lets users pick a table to export, so its name has to be spliced into dynamic SQL. Type the PostgreSQL function that returns a string safely quoted for use as an identifier, as in `____('Order Items')` returning `\"Order Items\"`.",
+    "options": [],
+    "accepted": [
+      "quote_ident",
+      "quote_ident()"
+    ],
+    "explanation": "Identifiers such as table and column names cannot be bind parameters. `quote_ident()` (or `format()` with `%I`) double-quotes the name when needed and escapes embedded quotes, so the value cannot break out of the identifier. Better still, validate the name against an allow-list of known tables first.",
+    "reference": "PostgreSQL docs: String Functions (quote_ident)"
+  },
+  {
+    "id": "SQL-SEC-019",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "You are choosing how to store user passwords in a `users` table. Which approaches are appropriate? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Store an Argon2id hash produced by the application with a unique random salt",
+        "why": "Argon2id is a deliberately slow, memory-hard password hash, so stolen hashes are expensive to crack."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Store `md5(password)` computed in SQL, because MD5 is fast to check",
+        "why": "Speed helps attackers: billions of MD5 guesses per second make offline cracking easy."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Store a bcrypt hash with a work factor tuned so each check takes about a quarter-second",
+        "why": "bcrypt includes a salt and a cost parameter that keeps guessing slow."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Encrypt the password with AES using a key stored in the application config",
+        "why": "Encryption is reversible; anyone who obtains the key recovers every password."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Store `sha256(password)` without a salt so the same password always matches",
+        "why": "Unsalted fast hashes fall to precomputed tables and fast brute force."
+      }
+    ],
+    "explanation": "Passwords should be hashed with an adaptive, salted algorithm designed for passwords: Argon2id, scrypt or bcrypt (PBKDF2 where FIPS compliance requires it). General-purpose hashes like MD5 and SHA-256 are far too fast, and encryption is reversible. In PostgreSQL itself, `pgcrypto`'s `crypt()` with `gen_salt('bf')` provides bcrypt when hashing in the database is unavoidable.",
+    "reference": "OWASP: Password Storage Cheat Sheet"
+  },
+  {
+    "id": "SQL-SEC-020",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A multi-tenant table uses this policy. A new code path forgets to set `app.tenant` before querying. What does the `app` role see?\n\n```sql\nALTER TABLE docs ENABLE ROW LEVEL SECURITY;\nCREATE POLICY tenant_isolation ON docs\n  USING (tenant = current_setting('app.tenant', true));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "All tenants' rows, because the policy is skipped when its setting is missing",
+        "why": "Policies are never skipped; an unset value just makes the condition false or NULL."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "An error, because `current_setting` fails when the setting does not exist",
+        "why": "The second argument `true` (missing_ok) makes it return NULL instead of raising."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "No rows, because the comparison with a missing setting is never true",
+        "why": "A NULL or empty tenant matches no row, so the code path fails closed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Only rows whose `tenant` column is NULL",
+        "why": "`tenant = NULL` is NULL, not true, even for rows where `tenant` is NULL."
+      }
+    ],
+    "explanation": "With `missing_ok = true`, `current_setting()` returns NULL for an unset parameter (or an empty string after a transaction-local value has expired). Either way, `tenant = <that>` is never true, so the query returns nothing. Failing closed like this is the desired behaviour. Without `missing_ok`, the query would raise \"unrecognized configuration parameter\" instead. Verified in PostgreSQL 18.",
+    "reference": "PostgreSQL docs: Row Security Policies"
+  },
+  {
+    "id": "SQL-SEC-021",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "With the session set to tenant `a`, the `app` role runs an INSERT. What happens?\n\n```sql\nCREATE POLICY p ON docs\n  USING (tenant = current_setting('app.tenant', true));\n-- no WITH CHECK clause; app has INSERT on docs\n\nSET app.tenant = 'a';\nINSERT INTO docs (id, tenant, body) VALUES (3, 'b', 'z');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It succeeds, because USING only filters which rows a query can read",
+        "why": "For an ALL policy without WITH CHECK, the USING expression also checks new rows."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It fails with \"new row violates row-level security policy\"",
+        "why": "The new row has tenant `b`, so it fails the USING expression, which acts as the check."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It succeeds, but the row is invisible to tenant `a` afterwards",
+        "why": "The row is rejected before it is written, so nothing is stored."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It is silently skipped, and the INSERT reports zero rows",
+        "why": "Inserts that fail a policy check raise an error rather than being skipped."
+      }
+    ],
+    "explanation": "A policy created without `FOR` applies to all commands. When it has no `WITH CHECK`, PostgreSQL uses the USING expression to check rows being inserted or updated. A tenant therefore cannot write rows for another tenant. Verified in PostgreSQL 18: the INSERT, and an UPDATE moving a row to tenant `b`, both fail with \"new row violates row-level security policy\".",
+    "reference": "PostgreSQL docs: CREATE POLICY"
+  },
+  {
+    "id": "SQL-SEC-022",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "`own` has RLS enabled with no policies. Its owner is `owner1`, a normal login role without BYPASSRLS. What does `owner1` see from `SELECT count(*) FROM own;` (the table has one row)?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`0`, because RLS denies every role when no policy exists",
+        "why": "Default deny applies to roles subject to RLS; the owner is normally exempt."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`1`, because table owners bypass RLS unless it is forced",
+        "why": "Owners are not subject to their own table's policies until FORCE ROW LEVEL SECURITY is set."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "An error, because owners must hold BYPASSRLS to read an RLS table",
+        "why": "Owners read their tables freely; BYPASSRLS is for other roles that must skip policies."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`1`, but only because `owner1` has the CREATEROLE attribute",
+        "why": "CREATEROLE has nothing to do with row security."
+      }
+    ],
+    "explanation": "By default, a table's owner is exempt from its row-level security policies. `ALTER TABLE own FORCE ROW LEVEL SECURITY` makes policies apply to the owner too. Verified in PostgreSQL 18: `owner1` sees 1 row, and 0 rows once RLS is forced. This matters because applications often connect as the role that owns the tables, which silently disables RLS for them.",
+    "reference": "PostgreSQL docs: ALTER TABLE (FORCE ROW LEVEL SECURITY)"
+  },
+  {
+    "id": "SQL-SEC-023",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "Table `docs` has row-level security enabled (not forced) and a tenant policy. Which of these roles read every row regardless of the policy? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A superuser",
+        "why": "Superusers bypass row security entirely."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A role created with the `BYPASSRLS` attribute that has SELECT on `docs`",
+        "why": "BYPASSRLS exempts the role from every policy on tables it can access."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The role that owns `docs`",
+        "why": "Owners are exempt unless FORCE ROW LEVEL SECURITY is set on the table."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A role granted `SELECT ON docs WITH GRANT OPTION`",
+        "why": "Grant options control re-granting; they do not change row filtering."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Any role that runs `SET app.tenant = '*'` before querying",
+        "why": "The policy compares strings; `*` is just another tenant value that matches nothing."
+      }
+    ],
+    "explanation": "Row security does not apply to superusers, roles with BYPASSRLS, or the table owner (unless FORCE ROW LEVEL SECURITY is enabled). Everyone else is filtered by the policies. Verified in PostgreSQL 18 with a BYPASSRLS role and a non-superuser owner. Keep those three kinds of role out of application connection strings.",
+    "reference": "PostgreSQL docs: Row Security Policies"
+  },
+  {
+    "id": "SQL-SEC-024",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "This SECURITY DEFINER function lets `attacker` read one balance without table access. What can `attacker` do with it?\n\n```sql\nCREATE FUNCTION get_bal(i int) RETURNS int\nLANGUAGE sql SECURITY DEFINER AS $$\n  SELECT amt FROM balances WHERE id = i\n$$;\n-- attacker has TEMP privilege but no rights on balances\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing beyond reading the one balance, because the function body is fixed",
+        "why": "The body is fixed text, but name resolution happens at run time using the caller's search_path."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Create a temp table named `balances` and make the function read attacker-controlled data",
+        "why": "pg_temp is searched first by default, so the unqualified name resolves to the attacker's table."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Read every balance by calling it with `i => NULL`",
+        "why": "With `id = NULL` the WHERE clause matches no rows, so nothing extra is returned."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Alter the function body, since callers of SECURITY DEFINER functions gain its owner's rights",
+        "why": "Callers execute with the owner's privileges inside the function only; they cannot change it."
+      }
+    ],
+    "explanation": "SECURITY DEFINER functions run with the owner's privileges, but unqualified names are resolved through the caller's search_path, where the temporary schema comes first by default. An attacker can shadow `balances` (or a function or operator) with their own object. The documented fix is `SET search_path = public, pg_temp` (or schema-qualifying every name), with pg_temp last. Verified in PostgreSQL 18: the unsafe function returned the attacker's 999999, the fixed one returned 5.",
+    "reference": "PostgreSQL docs: CREATE FUNCTION (Writing SECURITY DEFINER Functions Safely)"
+  },
+  {
+    "id": "SQL-SEC-025",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A DBA creates an admin helper. Any logged-in role, including `guest`, can call it. Why, and what is the fix?\n\n```sql\nCREATE FUNCTION reset_all_passwords() RETURNS void\nLANGUAGE plpgsql SECURITY DEFINER AS $$ ... $$;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "New functions grant EXECUTE to PUBLIC by default; revoke it and grant only to admins",
+        "why": "Without `REVOKE EXECUTE ... FROM PUBLIC`, every role can run it with the owner's rights."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "SECURITY DEFINER disables privilege checks entirely; switch the function to SECURITY INVOKER instead",
+        "why": "Invoker mode changes whose rights the body uses, not who may call the function."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "PL/pgSQL functions ignore GRANT; rewrite it as a LANGUAGE sql function",
+        "why": "GRANT and REVOKE apply to functions in every language alike."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`guest` inherits from the function's owner role; remove that role membership",
+        "why": "Calling the function needs no membership; the PUBLIC EXECUTE grant is enough."
+      }
+    ],
+    "explanation": "PostgreSQL grants EXECUTE on new functions to PUBLIC by default. For SECURITY DEFINER functions this is dangerous, because callers run the body with the owner's privileges. The docs recommend creating the function and revoking `EXECUTE ... FROM PUBLIC` in the same transaction, then granting it to the intended roles. You can also change the default with `ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC`. Verified in PostgreSQL 18.",
+    "reference": "PostgreSQL docs: CREATE FUNCTION"
+  },
+  {
+    "id": "SQL-SEC-026",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "To stop users promoting themselves to admin through a profile API, the DBA grants this. Which statements run by `webapp` succeed? (Choose two.)\n\n```sql\nCREATE TABLE prof (id int, email text, role text);\nGRANT SELECT, UPDATE (email) ON prof TO webapp;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`UPDATE prof SET email = 'b@x' WHERE id = 1;`",
+        "why": "email is covered by the column-level UPDATE grant."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`UPDATE prof SET role = 'admin' WHERE id = 1;`",
+        "why": "role has no UPDATE privilege, so the statement is rejected."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`SELECT id, email, role FROM prof;`",
+        "why": "SELECT was granted on the whole table, so every column is readable."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`UPDATE prof SET email = 'b@x', role = 'admin' WHERE id = 1;`",
+        "why": "Touching any column without privilege fails the entire statement."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`DELETE FROM prof WHERE id = 1;`",
+        "why": "DELETE is a separate privilege that was never granted."
+      }
+    ],
+    "explanation": "Column-level UPDATE privileges let the database enforce which fields an application may change. That is a backstop against mass-assignment bugs, where an API copies all request fields into the UPDATE. A statement that touches any ungranted column fails as a whole with \"permission denied for table prof\". Verified in PostgreSQL 18.",
+    "reference": "PostgreSQL docs: GRANT (column privileges)"
+  },
+  {
+    "id": "SQL-SEC-027",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "The DBA ran this as themselves, the `dba` role. Later a developer role `dev` creates `hr.devt`. Can `rep` read `hr.devt`?\n\n```sql\nALTER DEFAULT PRIVILEGES IN SCHEMA hr GRANT SELECT ON TABLES TO rep;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Yes, because default privileges cover every future table in schema `hr`",
+        "why": "Without FOR ROLE, defaults apply only to objects created by the role that ran the command."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "No, because the defaults apply only to tables that `dba` creates",
+        "why": "Objects created by `dev` follow `dev`'s default privileges, which grant nothing to rep."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Yes, but only after the DBA runs `GRANT USAGE` on the table",
+        "why": "There is no USAGE privilege for tables; SELECT is what is missing."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "No, because default privileges only work for the `public` schema",
+        "why": "Default privileges can be scoped to any schema with IN SCHEMA."
+      }
+    ],
+    "explanation": "`ALTER DEFAULT PRIVILEGES` without `FOR ROLE` changes the defaults only for objects created later by the current role. Tables created by another role do not pick them up, and existing tables are never changed. Run `ALTER DEFAULT PRIVILEGES FOR ROLE dev IN SCHEMA hr ...` for each creating role, or create objects with a single owner role. Verified in PostgreSQL 18: a table created by the same role was readable, the one created by `dev` was not.",
+    "reference": "PostgreSQL docs: ALTER DEFAULT PRIVILEGES"
+  },
+  {
+    "id": "SQL-SEC-028",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "`lead` received SELECT with grant option and passed it on to `junior`. What happens when the DBA runs this?\n\n```sql\nGRANT SELECT ON proj TO lead WITH GRANT OPTION;\n-- as lead:\nGRANT SELECT ON proj TO junior;\n-- as DBA:\nREVOKE SELECT ON proj FROM lead;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`lead` loses access, but `junior` keeps the grant it received",
+        "why": "Dependent grants cannot outlive the grant they came from."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It fails with \"dependent privileges exist\" unless CASCADE is added",
+        "why": "Revoking a privilege that was passed on requires CASCADE, which also removes junior's grant."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Both lose access immediately, because REVOKE always cascades",
+        "why": "The default is RESTRICT, so the command errors instead of cascading."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Nothing changes until `lead` itself revokes the grant from `junior`",
+        "why": "The DBA can revoke; the only question is whether CASCADE is required."
+      }
+    ],
+    "explanation": "Privileges granted through a grant option depend on it. `REVOKE` defaults to RESTRICT and refuses when dependent grants exist. `REVOKE ... CASCADE` removes the dependent grants as well. Verified in PostgreSQL 18: the plain REVOKE failed with \"dependent privileges exist\"; with CASCADE, `junior` lost access too.",
+    "reference": "PostgreSQL docs: REVOKE"
+  },
+  {
+    "id": "SQL-SEC-029",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team exposes only names from a sensitive table through a view. `viewer` has no privileges on `salaries`. Which statements are true in PostgreSQL 18? (Choose two.)\n\n```sql\nCREATE VIEW pub_names AS SELECT name FROM salaries;\nGRANT SELECT ON pub_names TO viewer;\n\nCREATE VIEW pub_names_inv WITH (security_invoker = true)\n  AS SELECT name FROM salaries;\nGRANT SELECT ON pub_names_inv TO viewer;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`viewer` can select from `pub_names` without any privilege on `salaries`",
+        "why": "By default a view checks base-table privileges as the view owner."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`viewer` can select from `salaries` directly once it can read a view on it",
+        "why": "Access to a view grants nothing on the underlying table."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Selecting from `pub_names_inv` fails for `viewer` with a permission error on `salaries`",
+        "why": "security_invoker views check base tables as the calling user, who has no access."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Both views behave the same, because views always run as the calling user",
+        "why": "Only views marked security_invoker run as the caller; the default uses the owner."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`viewer` can read the `salary` column through `pub_names` with `SELECT *`",
+        "why": "The view exposes only `name`; `*` expands to the view's columns, not the table's."
+      }
+    ],
+    "explanation": "Ordinary views access their underlying tables with the privileges of the view owner, which is what makes them useful for exposing a safe subset. Since PostgreSQL 15, `security_invoker = true` makes a view check privileges (and RLS) as the querying user instead. Verified in PostgreSQL 18: `viewer` reads `pub_names`, but `salaries` and `pub_names_inv` both fail with \"permission denied for table salaries\".",
+    "reference": "PostgreSQL docs: CREATE VIEW"
+  },
+  {
+    "id": "SQL-SEC-030",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Users can delete their account and sign up again with the same email. Which schema supports that and still blocks two active accounts with one email?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`deleted boolean` plus `UNIQUE (email, deleted)`",
+        "why": "A second deletion of the same email collides with the first deleted row, so re-deleting fails."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`deleted_at timestamptz` plus a unique index on `(email) WHERE deleted_at IS NULL`",
+        "why": "Uniqueness applies only to live rows, so any number of deleted rows can share an email."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`deleted_at timestamptz` plus a table constraint `UNIQUE (email, deleted_at)` covering both columns",
+        "why": "Two live rows both have NULL deleted_at, and NULLs are distinct, so duplicates slip in."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`UNIQUE (email)` plus an UPDATE that appends `-deleted` to the email",
+        "why": "It works until a user deletes twice; it also corrupts data you may need later."
+      }
+    ],
+    "explanation": "A partial unique index enforces uniqueness only for rows matching its predicate. With `WHERE deleted_at IS NULL`, active emails stay unique while soft-deleted rows are ignored. `UNIQUE (email, deleted)` breaks on the second deletion of the same email, and `UNIQUE (email, deleted_at)` lets duplicate live rows through because NULLs compare as distinct. Verified in PostgreSQL 18.",
+    "reference": "PostgreSQL docs: Partial Indexes"
+  },
+  {
+    "id": "SQL-SEC-031",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An API lets clients choose the sort column, and the code binds it as a parameter. What happens when it binds `'name'`?\n\n```sql\nSELECT name FROM emp ORDER BY $1;   -- $1 = 'name'\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Rows are sorted by the `name` column, because the parameter is substituted as text",
+        "why": "Parameters are values, never column names, so no column reference is created."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Rows come back unsorted, because every row is ordered by the same constant string",
+        "why": "ORDER BY a constant gives every row an equal sort key, so the order is undefined."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "PostgreSQL raises \"column $1 does not exist\"",
+        "why": "A bound value in ORDER BY is a valid constant expression, so no error is raised."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "PostgreSQL treats `$1` as a column position and sorts by the first column",
+        "why": "Only integer literals are positions; a parameter is evaluated as an expression."
+      }
+    ],
+    "explanation": "Bind parameters can only stand for values. In ORDER BY a parameter becomes a constant, so the sort does nothing useful (and no error warns you). For a table name in FROM, a parameter is a syntax error. Dynamic identifiers must be checked against an allow-list (for example a map of `\"name\" → name`) or quoted with `format('%I')`. Verified in PostgreSQL 18: the rows came back in insertion order.",
+    "reference": "PostgreSQL docs: Prepared statements and ORDER BY"
+  },
+  {
+    "id": "SQL-SEC-032",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 3,
+    "type": "match",
+    "select": 1,
+    "stem": "A denormalized `enrollments(student_id, course_id, course_title, instructor)` table stores course details on every enrollment row. Match each anomaly with its example.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Changing a course title means editing many rows, and missing one leaves two titles",
+        "why": "This is an update anomaly."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A new course cannot be recorded until at least one student enrolls in it",
+        "why": "This is an insertion anomaly."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Removing the last student from a course also erases the course's title and instructor",
+        "why": "This is a deletion anomaly."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A transaction reads a row twice and gets different values each time",
+        "why": "This is a non-repeatable read, a concurrency anomaly, not a normalization one."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Update anomaly",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Insertion anomaly",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Deletion anomaly",
+        "answer": "C"
+      }
+    ],
+    "explanation": "Storing facts about courses inside enrollment rows causes all three classic anomalies. Normalizing into `courses(course_id, title, instructor)` and `enrollments(student_id, course_id)` stores each fact once. The non-repeatable read is a transaction-isolation issue and is unrelated to normalization.",
+    "reference": "Database design: modification anomalies"
+  },
+  {
+    "id": "SQL-SEC-033",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "In PostgreSQL's `format()` function, `%I` quotes an identifier. Type the format specifier that safely quotes a value as an SQL literal, as in `format('... WHERE name = ____', user_input)`.",
+    "options": [],
+    "accepted": [
+      "%L"
+    ],
+    "explanation": "`%L` produces a properly quoted SQL literal (and `NULL` without quotes for a null value), while `%I` quotes identifiers and `%s` inserts text unquoted. For dynamic SQL inside PL/pgSQL, passing values with `EXECUTE ... USING` is even safer because they never become SQL text. Verified in PostgreSQL 18: `format('%L', 'O''Brien')` gives `'O''Brien'`.",
+    "reference": "PostgreSQL docs: format()"
+  },
+  {
+    "id": "SQL-SEC-034",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A sign-up form stores the display name with a bind parameter, so `nobody' or '1'='1` is saved verbatim. A nightly PL/pgSQL job later runs this. What happens?\n\n```sql\nEXECUTE 'SELECT count(*) FROM acc WHERE name = ''' || n || '''' INTO c;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing harmful, because the value was stored through a bind parameter",
+        "why": "Safe storage does not make the value safe; the danger is in how it is reused later."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The stored text is spliced into new SQL, so the condition becomes always true",
+        "why": "This is second-order injection: data saved safely becomes code when it is concatenated."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It fails, because EXECUTE rejects strings that contain quotes",
+        "why": "EXECUTE runs whatever text it is given, quotes included."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Nothing harmful, because PL/pgSQL automatically quotes variables that are concatenated into EXECUTE strings",
+        "why": "Concatenation is plain string building; nothing is quoted unless you use quote_literal or %L."
+      }
+    ],
+    "explanation": "Second-order injection happens when data stored safely is later treated as trusted and built into dynamic SQL. Here the saved name closes the literal and adds `or '1'='1`. Verified in PostgreSQL 18: the concatenating function returned 1 match for a name that does not exist. The fixes, `format('... %L', n)` or `EXECUTE '... $1' USING n`, both returned 0.",
+    "reference": "OWASP: SQL Injection (second-order)"
+  },
+  {
+    "id": "SQL-SEC-035",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A service uses Prisma ORM. Which call is vulnerable to SQL injection when `email` comes from the request?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "prisma.$queryRaw`SELECT * FROM \"User\" WHERE email = ${email}`",
+        "why": "The tagged template turns each ${} into a bind parameter, so the value cannot alter the SQL."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "prisma.$queryRawUnsafe(`SELECT * FROM \"User\" WHERE email = '${email}'`)",
+        "why": "Here a normal template string builds the SQL first, so the input is concatenated into it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "prisma.user.findMany({ where: { email } })",
+        "why": "The query builder always parameterizes values in generated SQL."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "prisma.$queryRawUnsafe('SELECT * FROM \"User\" WHERE email = $1', email)",
+        "why": "Passing values as extra arguments still binds them as parameters."
+      }
+    ],
+    "explanation": "ORMs are safe by default, but their raw-query escape hatches are where injection creeps back in. Prisma's `$queryRaw` tagged template parameterizes every interpolated value. `$queryRawUnsafe` accepts a plain string, so building that string with interpolation splices user input into SQL. It is only safe when values are passed as separate parameter arguments. Other ORMs have the same split, for example Sequelize `literal` and Django `extra`.",
+    "reference": "Prisma docs: Raw queries (SQL injection prevention)"
+  },
+  {
+    "id": "SQL-SEC-036",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "`t_rls` has a tenant policy and RLS enabled. A superuser creates `v_rls AS SELECT * FROM t_rls` and grants SELECT on it to `viewer`, who is set to tenant `a`. Which statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`viewer` sees every tenant's rows through `v_rls`",
+        "why": "The view reads the table as its owner, a superuser, who bypasses RLS."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "RLS always applies to the end user, so `viewer` sees only tenant `a`",
+        "why": "For ordinary views, policies are applied as the view owner, not the querying user."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Making the view `security_invoker`, or owned by a role subject to RLS, restores filtering",
+        "why": "Then base-table policies are evaluated for a role that does not bypass them."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Adding FORCE ROW LEVEL SECURITY on the view makes the policy apply",
+        "why": "FORCE is a table setting; it does not stop superusers from bypassing RLS."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Views cannot be created on tables with RLS enabled",
+        "why": "PostgreSQL allows such views; the question is which role the checks use."
+      }
+    ],
+    "explanation": "Ordinary views check base-table privileges and RLS policies as the view owner. A view owned by a superuser (or the table owner, or a BYPASSRLS role) therefore leaks every row. Verified in PostgreSQL 18: a superuser-owned view returned both tenants' rows to `viewer`, while one owned by a normal role returned only tenant `a`. PostgreSQL 15+ also offers `security_invoker = true` to evaluate policies as the caller.",
+    "reference": "PostgreSQL docs: CREATE VIEW (security_invoker)"
+  },
+  {
+    "id": "SQL-SEC-037",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A migration runs in one transaction. Why does the second statement fail in PostgreSQL 18, and what is the fix?\n\n```sql\nBEGIN;\nALTER TYPE status ADD VALUE 'refunded';\nUPDATE orders SET status = 'refunded' WHERE refund_id IS NOT NULL;\nCOMMIT;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`ADD VALUE` cannot run inside a transaction block at all; run it separately in autocommit mode first",
+        "why": "Since PostgreSQL 12 ADD VALUE can run inside a transaction; using the new value is what fails."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A newly added enum value cannot be used until its transaction commits; split the migration",
+        "why": "PostgreSQL reports \"unsafe use of new value\"; commit the ALTER first, then update."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "New enum values sort before existing ones, so the UPDATE violates the type order",
+        "why": "ADD VALUE appends to the end by default, and sort order is not checked by UPDATE."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The UPDATE needs an explicit cast `'refunded'::status` to see the new label",
+        "why": "The cast hits the same error; the value is simply not usable yet."
+      }
+    ],
+    "explanation": "Since PostgreSQL 12, `ALTER TYPE ... ADD VALUE` can run inside a transaction block. The new value cannot be used until that transaction commits, and using it raises \"unsafe use of new value\". Migration tools that wrap each file in a transaction need the ALTER and the data change in separate migrations. This rigidity, plus the inability to drop values, is a common argument for `CHECK` constraints or lookup tables over enums. Verified in PostgreSQL 18.",
+    "reference": "PostgreSQL docs: ALTER TYPE (ADD VALUE)"
+  },
+  {
+    "id": "SQL-SEC-038",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A product catalogue stores attributes as rows: `product_attrs(product_id, attr_name text, attr_value text)`. Which problems are inherent to this entity-attribute-value (EAV) design? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The database cannot enforce types or constraints, such as `price` being a positive number",
+        "why": "Every value is text in one column, so CHECK, NOT NULL and foreign keys cannot target one attribute."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Reading one product with ten attributes needs a pivot or ten self-joins",
+        "why": "Attributes are rows, so reassembling an entity means aggregation or repeated joins."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It violates 1NF, because `attr_value` holds several values per row",
+        "why": "Each row holds one value; EAV is in 1NF but discards the schema's meaning."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It cannot store new attributes without an ALTER TABLE",
+        "why": "Adding attributes without DDL is exactly why teams choose EAV in the first place."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "PostgreSQL limits a table to 1,600 rows per product_id",
+        "why": "1,600 is the limit on columns per table, not rows per key."
+      }
+    ],
+    "explanation": "EAV trades schema enforcement for flexibility. Types, required attributes, foreign keys and uniqueness all have to move into application code, and queries get complex and slow. In PostgreSQL, a typed core table plus a `jsonb` column for truly variable attributes, optionally with CHECK constraints or JSON schema validation, usually gives the flexibility with far less pain.",
+    "reference": "Database design: EAV anti-pattern"
+  },
+  {
+    "id": "SQL-SEC-039",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "`comments(commentable_type text, commentable_id int)` points at either a post or a photo. What is the main integrity problem, and which design fixes it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Comments cannot be indexed by parent; add a composite index on both columns",
+        "why": "An index helps lookups but does nothing to stop dangling references."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "No foreign key can check `commentable_id`; use `post_id` and `photo_id` FKs with `CHECK (num_nonnulls(post_id, photo_id) = 1)`",
+        "why": "Separate nullable FKs are enforced, and the CHECK guarantees exactly one parent."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The type string can be misspelled; replace it with an enum",
+        "why": "An enum fixes typos in the type but still leaves the id unchecked."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Deleted parents leave orphans; add `ON DELETE CASCADE` to `commentable_id`",
+        "why": "A foreign key cannot reference two tables, so there is nowhere to put ON DELETE."
+      }
+    ],
+    "explanation": "A polymorphic association stores a type and an id, so no foreign key can enforce the id: orphans and ids pointing at the wrong table are easy to create. Alternatives are \"exclusive arcs\" (one nullable FK per parent plus `num_nonnulls(...) = 1`), separate comment tables per parent, or a shared supertype table that every commentable entity references. Verified in PostgreSQL 18: the CHECK rejected a row with both parents set.",
+    "reference": "PostgreSQL docs: Comparison Functions (num_nonnulls)"
+  },
+  {
+    "id": "SQL-SEC-040",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "In `teaching(student, course, instructor)`, each instructor teaches exactly one course, each student takes a course from one instructor, and the key is `(student, course)`. Which statement is true?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The table violates 2NF, because `instructor` depends on part of the key",
+        "why": "`instructor` depends on the whole key (student, course), not on either part alone."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The table is in BCNF, because every column depends on the key",
+        "why": "BCNF requires every determinant to be a candidate key; `instructor` is not."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "It is in 3NF but not BCNF, because `instructor → course` and `instructor` is not a candidate key",
+        "why": "`course` is a prime attribute, so 3NF allows this dependency but BCNF does not."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The table violates 1NF, because a student appears in several rows",
+        "why": "Repeated values across rows do not break 1NF; each cell is atomic."
+      }
+    ],
+    "explanation": "This is the textbook case separating 3NF from BCNF. The dependency `instructor → course` has a non-key determinant, but `course` belongs to a candidate key, so 3NF tolerates it while BCNF does not. The consequence is an anomaly: you cannot record which course an instructor teaches without a student. Decomposing into `(instructor, course)` and `(student, instructor)` reaches BCNF, at the cost of no longer enforcing \"one instructor per student per course\" with a simple key.",
+    "reference": "Database design: Boyce–Codd normal form"
+  },
+  {
+    "id": "SQL-SEC-041",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "`pp` has rows 1 `(a=true, b=false)`, 2 `(a=false, b=true)` and 3 `(a=false, b=false)`. RLS is enabled, and `app` has SELECT. Which rows does `app` see?\n\n```sql\nCREATE POLICY p1 ON pp USING (a);\nCREATE POLICY p2 ON pp USING (b);\nCREATE POLICY p3 ON pp AS RESTRICTIVE USING (a);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Rows 1 and 2, because policies are combined with OR",
+        "why": "Permissive policies are ORed, but restrictive policies are then ANDed on top."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Only row 1",
+        "why": "(a OR b) AND a is true only for row 1."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "No rows, because policy p2 conflicts with the restrictive policy",
+        "why": "Policies never conflict; they are combined into one expression."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Rows 1, 2 and 3, because a restrictive policy disables the permissive ones",
+        "why": "Restrictive policies narrow access further; they never widen it."
+      }
+    ],
+    "explanation": "PostgreSQL combines all permissive policies for a command with OR, then ANDs every restrictive policy on top. Here that is `(a OR b) AND a`, so only row 1 is visible. Restrictive policies suit global guards such as \"only rows of the current tenant\", applied in addition to more specific permissive rules. You need at least one permissive policy, or nothing is visible at all. Verified in PostgreSQL 18: without p3 `app` saw rows 1 and 2, with p3 only row 1.",
+    "reference": "PostgreSQL docs: CREATE POLICY (permissive and restrictive)"
+  },
+  {
+    "id": "SQL-SEC-042",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "For an audit, a DBA sets `log_statement = 'all'` on a production database. A security reviewer objects. Which risk is most specific to this setting?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It disables `pg_stat_statements`, so you lose query statistics",
+        "why": "The two features are independent; logging statements does not disable the extension."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Statements like `ALTER ROLE app PASSWORD '...'` are written to the server log in clear text",
+        "why": "Full statement logging captures literal passwords and secrets embedded in SQL."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It forces every statement to run with SERIALIZABLE isolation",
+        "why": "Logging settings do not change isolation levels."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It logs bind parameter values but never the SQL text",
+        "why": "The setting logs statement text; bind values appear in some log lines too, adding to the risk."
+      }
+    ],
+    "explanation": "Statement logging records SQL text, including literals. The PostgreSQL docs warn that a password given in CREATE or ALTER ROLE is sent in clear text and may end up in the server log or client history. Prefer setting passwords with psql's `\\password` (which sends a SCRAM hash), limit statement logging to DDL or a sampled subset, and protect and redact the logs. Logs are a classic place for secrets and personal data to leak.",
+    "reference": "PostgreSQL docs: CREATE ROLE and Error Reporting and Logging"
+  },
+  {
+    "id": "SQL-SEC-043",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A team moves a database from PostgreSQL 14 to 18 using `pg_dump` and restore. A security review finds that any login role can still create tables in `public`. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "PostgreSQL 15+ still grants CREATE on `public` to PUBLIC in every database",
+        "why": "The PostgreSQL 15 default revokes PUBLIC's CREATE on `public` in new databases."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Restored databases keep the privileges they had; the PG15 default only applies to newly created databases",
+        "why": "The old grant was dumped and restored with the schema, so you must revoke it yourself."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "pg_dump always grants ALL on every schema to PUBLIC during restore",
+        "why": "pg_dump restores the recorded privileges; it does not invent new grants."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "CREATE in `public` cannot be revoked; use a different schema for application tables",
+        "why": "`REVOKE CREATE ON SCHEMA public FROM PUBLIC` works and is the recommended fix."
+      }
+    ],
+    "explanation": "PostgreSQL 15 removed the default PUBLIC CREATE privilege on the `public` schema for new databases (and made the database owner the schema owner). Databases upgraded or restored from older versions keep their existing privileges, so upgraded clusters can still let any role create objects there. That is the classic path for trojan functions and search_path attacks. Run `REVOKE CREATE ON SCHEMA public FROM PUBLIC` explicitly. Verified in PostgreSQL 18: a fresh database denies CREATE to a new login role.",
+    "reference": "PostgreSQL 15 release notes; PostgreSQL docs: Schemas (Usage Patterns)"
+  },
+  {
+    "id": "SQL-SEC-044",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 4,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "If a database uses full-disk encryption (encryption at rest), sensitive columns stay protected even when an attacker reads them through a SQL injection flaw in the application.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Encryption at rest is transparent to queries, so data read through SQL arrives decrypted."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: at-rest encryption protects stolen disks and backups, not data read through the database itself."
+      }
+    ],
+    "explanation": "Encryption at rest (disk, volume or tablespace level) protects against stolen drives, snapshots and backups. Queries see plaintext because the database decrypts transparently, so injection, over-privileged roles or a missing RLS policy expose the data anyway. Defence in depth combines least privilege, parameterized queries, RLS and, for the most sensitive fields, application-level or column-level encryption with keys held outside the database.",
+    "reference": "OWASP: Cryptographic Storage Cheat Sheet"
+  },
+  {
+    "id": "SQL-SEC-045",
+    "domain": 4,
+    "skill": "security-design",
+    "difficulty": 4,
+    "type": "order",
+    "select": 1,
+    "stem": "An API uses a connection pool (connections are reused across requests) and RLS keyed on `current_setting('app.tenant', true)`. Put the steps for one request in the safe order.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Run the request's queries on that connection",
+        "why": "Queries must run after the tenant is set, inside the same transaction."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`BEGIN` a transaction on the borrowed connection",
+        "why": "Opening a transaction first lets the setting be scoped to it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`COMMIT`, which discards the transaction-local tenant setting",
+        "why": "Ending the transaction clears the local setting before the connection is reused."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`SELECT set_config('app.tenant', $1, true)` with the authenticated tenant id",
+        "why": "The third argument `true` makes the setting local to the current transaction."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Return the connection to the pool",
+        "why": "The next request starts clean because no tenant value survives."
+      }
+    ],
+    "answerOrder": [
+      "B",
+      "D",
+      "A",
+      "C",
+      "E"
+    ],
+    "explanation": "With pooled connections, a session-level `SET app.tenant` survives on the connection and can leak into the next request for a different tenant. Setting it with `set_config(..., true)` (or `SET LOCAL`) inside a transaction scopes it to that transaction. After COMMIT the setting reads as an empty string, so a request that forgets to set it fails closed. Verified in PostgreSQL 18: the local value disappeared after COMMIT, while a session-level value persisted.",
+    "reference": "PostgreSQL docs: set_config and SET LOCAL"
+  }
+]

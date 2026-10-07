@@ -1,0 +1,1646 @@
+[
+  {
+    "id": "DKR-DEP-001",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Following the Twelve-Factor App, where should a containerised service read its database URL and API keys from?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Environment variables (or mounted secrets) supplied when the container starts",
+        "why": "Config that varies per deploy lives outside the image, so one image runs in every environment."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A `config.prod.json` file copied into the image at build time by the Dockerfile",
+        "why": "Baking config into the image means a separate build per environment, breaking build-once promotion."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Hard-coded defaults in the source, overridden by editing the image in each environment",
+        "why": "Editing images per environment defeats immutability and makes deploys unreproducible."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Build arguments (`ARG`) passed to `docker build` separately for every environment",
+        "why": "Build args end up baked into image layers and history; they are build-time inputs, not runtime config."
+      }
+    ],
+    "explanation": "Factor III (Config) says anything that varies between deploys (credentials, URLs, feature flags) belongs in the environment, not in code or the artifact. In containers that means `-e`/`--env-file`, orchestrator config, or mounted secrets at run time. The same image digest can then be promoted unchanged from staging to production.",
+    "reference": "The Twelve-Factor App: III. Config"
+  },
+  {
+    "id": "DKR-DEP-002",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "A containerised service should write its logs to stdout and stderr rather than to log files inside the container.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: the container runtime captures stdout/stderr and hands them to the configured logging driver."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "Files inside the container are ephemeral, invisible to `docker logs`, and fill the writable layer."
+      }
+    ],
+    "explanation": "Factor XI treats logs as event streams written unbuffered to stdout. Docker captures both streams per container, `docker logs` reads them, and logging drivers or platform agents ship them elsewhere. Writing to files inside the container hides logs from that tooling and grows the container's writable layer.",
+    "reference": "The Twelve-Factor App: XI. Logs; Docker docs: View container logs"
+  },
+  {
+    "id": "DKR-DEP-003",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "In a GitHub Actions workflow, what does the `docker/build-push-action` step do when it is configured with `push: true`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Builds the image and only stores it in the runner's local image cache for later steps",
+        "why": "That is closer to `load: true`; `push: true` sends the result to a registry."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Builds the image with Buildx and pushes the resulting tags to the configured registry",
+        "why": "Pushing uploads the image so other environments can pull it by tag or digest."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Pushes an image that an earlier `docker build` step created, without building anything",
+        "why": "The action builds the image itself; it does not just push a pre-built one."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Deploys the image to the production cluster named in the workflow's environment block",
+        "why": "The action builds and publishes images; deploying is a separate step or tool."
+      }
+    ],
+    "explanation": "docker/build-push-action runs a Buildx build. With `push: true` it publishes the image under the `tags` you give it, usually after a `docker/login-action` step for the registry. Deployment to servers or clusters happens in a later job.",
+    "reference": "Docker docs: GitHub Actions — Build and push Docker images"
+  },
+  {
+    "id": "DKR-DEP-004",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "Which Docker CLI command deploys a Compose file to a Swarm as a stack of services? Type the command without arguments, for example `docker something`.",
+    "options": [],
+    "accepted": [
+      "docker stack deploy",
+      "stack deploy"
+    ],
+    "explanation": "`docker stack deploy -c compose.yaml <stack>` creates or updates a stack: each Compose service becomes a Swarm service with replicas, networks and secrets. Plain `docker compose up` targets a single Docker host instead.",
+    "reference": "Docker docs: Deploy a stack to a swarm"
+  },
+  {
+    "id": "DKR-DEP-005",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each orchestrator or platform with its description.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Kubernetes"
+      },
+      {
+        "id": "B",
+        "text": "Docker Swarm"
+      },
+      {
+        "id": "C",
+        "text": "HashiCorp Nomad"
+      },
+      {
+        "id": "D",
+        "text": "Google Cloud Run"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Extensible cluster orchestrator with Pods, Deployments and controllers; the industry default",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Orchestration built into Docker Engine, driven by `docker service` and `docker stack`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Single-binary scheduler that runs containers as well as plain binaries and VMs",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Fully managed platform that runs stateless containers and scales to zero",
+        "answer": "D"
+      }
+    ],
+    "explanation": "All four schedule containers, at very different levels of control. Kubernetes is the most capable and most complex; Swarm reuses Docker concepts and Compose files; Nomad schedules many workload types with a small footprint; Cloud Run hides the cluster entirely in exchange for a stateless, request-driven model.",
+    "reference": "Docker docs: Swarm mode overview; Kubernetes, Nomad and Cloud Run documentation"
+  },
+  {
+    "id": "DKR-DEP-006",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "Why do many teams tag every CI image with the Git commit SHA, such as `api:3f9c2ab`, in addition to a human-friendly tag?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Registries reject any tag that isn't a commit SHA once image signing is enabled",
+        "why": "Registries accept any valid tag; signing doesn't restrict tag names."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "SHA tags make the image smaller because Docker can skip layers that share a hash",
+        "why": "Tag names have no effect on layer storage or image size."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Each tag maps to one commit, so a running image traces back to its source",
+        "why": "An immutable, unique tag makes deploys reproducible and rollbacks precise."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Only SHA tags can be pulled by orchestrators like Kubernetes and Docker Swarm",
+        "why": "Orchestrators can pull any tag; the benefit is traceability, not compatibility."
+      }
+    ],
+    "explanation": "Mutable tags such as `latest` or `main` move with every build. A commit-SHA tag is never reused, so you can see exactly which code is running, reproduce it, and roll back to a known build. Teams often still push friendly tags too, but deploy by the SHA tag or, even better, the digest.",
+    "reference": "Docker docs: Manage tags and labels with GitHub Actions (docker/metadata-action)"
+  },
+  {
+    "id": "DKR-DEP-007",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two practices follow the Twelve-Factor App guidance for services that run in containers? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Keep processes stateless and store sessions or uploads in backing services",
+        "why": "Factor VI: any instance can be killed or added because no state lives in the container."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Write user uploads to the container filesystem so each replica keeps its own copy",
+        "why": "That state is lost when the container is replaced and isn't shared between replicas."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Start fast and shut down gracefully when the process receives SIGTERM",
+        "why": "Factor IX (Disposability) makes scaling and rolling deploys safe."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Build a separate image for each environment with that environment's settings baked in",
+        "why": "Factors III and V call for one build artifact with config supplied at run time."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Run the app and its database in the same container to keep them in sync",
+        "why": "Backing services should be attached resources, deployed and scaled independently."
+      }
+    ],
+    "explanation": "Containers are disposable: orchestrators kill, move and replace them constantly. Twelve-factor services therefore keep state in backing services (Factor VI), handle SIGTERM by finishing in-flight work (Factor IX), and keep one artifact per release with config injected at run time (Factors III and V).",
+    "reference": "The Twelve-Factor App: VI. Processes; IX. Disposability"
+  },
+  {
+    "id": "DKR-DEP-008",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "You deploy an HTTP container to Google Cloud Run, and the revision fails its startup check even though the app works locally on port 3000. What is the most likely fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add `EXPOSE 3000` to the Dockerfile so Cloud Run discovers the port",
+        "why": "`EXPOSE` is documentation only; Cloud Run sends traffic to the port it configured."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Make the server listen on the port in the `PORT` environment variable",
+        "why": "Cloud Run injects `PORT` (8080 by default) and expects the container to listen on it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Switch the base image to a distroless one that Cloud Run is able to start",
+        "why": "The base image doesn't matter here; the listening port does."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Mount a volume at `/tmp` so the app can write its socket file before starting",
+        "why": "Cloud Run talks to the container over TCP on the configured port, not a socket file."
+      }
+    ],
+    "explanation": "Cloud Run routes requests to the port given in the container's `PORT` environment variable, 8080 unless you change it. An app that ignores `PORT` and binds a fixed port fails the startup probe. Reading the port from the environment is also Factor VII (Port binding).",
+    "reference": "Google Cloud Run docs: Container runtime contract"
+  },
+  {
+    "id": "DKR-DEP-009",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "CI pushes `shop:latest` on every merge. Staging was deployed on Monday and production on Wednesday, both from `shop:latest`, but they now behave differently. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Production nodes cache `latest` forever and never pull updates for that tag",
+        "why": "Pull behaviour varies, but the core issue is the tag moving between deploys."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`latest` is a mutable tag, so the two deploys pulled two different images",
+        "why": "Merges between Monday and Wednesday re-pointed the tag to a newer build."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The registry rebuilds `latest` per environment from each branch's Dockerfile",
+        "why": "Registries store images; they don't rebuild them per environment."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Docker resolves `latest` to the newest base image during each pull",
+        "why": "A pull fetches whatever the tag points to; it doesn't rebuild against new bases."
+      }
+    ],
+    "explanation": "A tag is just a pointer, and `latest` is re-pointed by every push. Two deploys of the same tag at different times can get different digests. Deploy an immutable tag (commit SHA or version) or, better, pin the digest (`shop@sha256:…`) and promote that same digest from staging to production.",
+    "reference": "Docker docs: Image tagging best practices; docker image pull by digest"
+  },
+  {
+    "id": "DKR-DEP-010",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A Node.js Dockerfile installs dependencies for a production image. Why is `npm ci` usually preferred over `npm install` here?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`npm ci` installs packages in parallel, so it is always faster than `npm install`",
+        "why": "Speed isn't the main reason, and it can be slower because it removes node_modules first."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`npm ci` skips lifecycle scripts, which makes the image safer to build",
+        "why": "`npm ci` still runs install scripts unless you pass `--ignore-scripts`."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "It installs exactly what the lockfile specifies and fails if package.json disagrees",
+        "why": "Builds become reproducible: the same lockfile always gives the same dependency tree."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It downloads packages from Docker Hub instead of the npm registry",
+        "why": "npm ci still uses the npm registry configured for the project."
+      }
+    ],
+    "explanation": "`npm ci` requires a lockfile, deletes any existing node_modules, installs the exact versions in the lockfile, and errors if package.json and the lockfile are out of sync. That determinism is what you want in an image build; `npm install` may update the lockfile and resolve different versions.",
+    "reference": "Docker docs: Node.js language guide; npm docs: npm ci"
+  },
+  {
+    "id": "DKR-DEP-011",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A Python service in a container prints log lines that appear in `docker logs` only in large bursts, minutes late. Which setting fixes this most directly?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Set `PYTHONUNBUFFERED=1` so stdout and stderr are written unbuffered",
+        "why": "When stdout isn't a TTY, Python block-buffers it; unbuffered mode writes immediately."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Run the container with `-t` so Docker allocates a larger log buffer",
+        "why": "A TTY changes buffering as a side effect, but it's not the intended production fix."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Set `PYTHONDONTWRITEBYTECODE=1` so Python stops caching log output",
+        "why": "That flag stops `.pyc` files being written; it has nothing to do with log buffering."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Switch the logging driver from json-file to syslog to flush logs sooner",
+        "why": "The delay happens inside the Python process, before Docker sees any output."
+      }
+    ],
+    "explanation": "When stdout is a pipe rather than a terminal, Python buffers output in blocks, so logs arrive late and may be lost on a crash. `PYTHONUNBUFFERED=1` (or `python -u`) makes the streams unbuffered. Docker's Python guide sets it for this reason, alongside `PYTHONDONTWRITEBYTECODE=1`.",
+    "reference": "Docker docs: Python language guide (containerize a Python application)"
+  },
+  {
+    "id": "DKR-DEP-012",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the steps of a typical GitHub Actions job that builds, tests and publishes an image in order.",
+    "options": [
+      {
+        "id": "C",
+        "text": "Log in to the container registry"
+      },
+      {
+        "id": "A",
+        "text": "Check out the repository"
+      },
+      {
+        "id": "D",
+        "text": "Build the image and run the test suite against it"
+      },
+      {
+        "id": "B",
+        "text": "Set up Docker Buildx"
+      },
+      {
+        "id": "E",
+        "text": "Push the tested image tags to the registry"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "The job needs the source first, then a Buildx builder, then registry credentials. Tests should run against the built image before it is pushed, so a failing build never publishes tags. Some teams push to a staging tag first and promote later, but testing before the final push is the key ordering.",
+    "reference": "Docker docs: GitHub Actions — Introduction and Test before push"
+  },
+  {
+    "id": "DKR-DEP-013",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which three are features of Docker Swarm mode? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Services with a desired number of replicas that Swarm keeps running",
+        "why": "Swarm reconciles the actual state toward the declared replica count."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Overlay networks that connect containers across multiple hosts",
+        "why": "Overlay networks give services cross-node connectivity and service discovery."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Encrypted secrets mounted into service containers at run time",
+        "why": "Swarm secrets are stored encrypted in the Raft log and mounted as files."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Custom resource definitions for extending the cluster API",
+        "why": "CRDs are a Kubernetes feature; Swarm has no equivalent extension API."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Automatic horizontal scaling based on CPU usage",
+        "why": "Swarm has no built-in autoscaler; replica counts change only when you set them."
+      }
+    ],
+    "explanation": "Swarm mode turns Docker Engines into a cluster with declarative services, replicas, rolling updates, overlay networking, routing-mesh ingress, and secrets and configs. It deliberately stays small: there is no autoscaler and no API extension mechanism like Kubernetes CRDs.",
+    "reference": "Docker docs: Swarm mode key concepts"
+  },
+  {
+    "id": "DKR-DEP-014",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A Dockerfile has `HEALTHCHECK CMD curl -f http://localhost:8080/health || exit 1`. On a single Docker host with no orchestrator, what does Docker do when the check keeps failing?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Restarts the container automatically once it becomes `unhealthy`",
+        "why": "Plain Docker only reports health; it doesn't restart based on it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Stops routing traffic from the published port to the container",
+        "why": "Docker doesn't gate published ports on health status."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Marks the container `unhealthy` in `docker ps` and its health events",
+        "why": "The status is informational for tools and orchestrators that act on it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Removes the container and starts a fresh one from the same image",
+        "why": "Replacing unhealthy containers is what Swarm services do, not standalone Docker."
+      }
+    ],
+    "explanation": "A HEALTHCHECK updates the container's health status (`starting`, `healthy`, `unhealthy`), visible in `docker ps` and `docker inspect`. Standalone Docker does not act on it: restart policies react to exits, not health. Swarm services replace unhealthy tasks, and Compose can wait for `service_healthy` dependencies.",
+    "reference": "Docker docs: Dockerfile reference — HEALTHCHECK"
+  },
+  {
+    "id": "DKR-DEP-015",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Setting `restart: always` on a Compose service gives you zero-downtime rolling updates when you deploy a new image with `docker compose up -d`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "A restart policy restarts a container after it exits; it doesn't stagger replacement."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: `docker compose up -d` stops and recreates the changed container, so there is a gap."
+      }
+    ],
+    "explanation": "Restart policies bring a container back after it exits or the daemon restarts. When the image changes, `docker compose up -d` stops the old container and starts a new one, which leaves a short window with no instance serving. Zero-downtime deploys on one host need two copies behind a reverse proxy (blue/green) or an orchestrator with rolling updates.",
+    "reference": "Docker docs: Start containers automatically; docker compose up"
+  },
+  {
+    "id": "DKR-DEP-016",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does a library such as Testcontainers give an integration test suite running in CI?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A mock of the Docker API so tests never need a real container runtime",
+        "why": "Testcontainers starts real containers; it needs a Docker-compatible runtime."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Real, throwaway dependency containers, such as a database, started by tests",
+        "why": "Tests run against the real engine and the container is removed afterwards."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A way to package unit tests into the production image so they run on startup",
+        "why": "Tests stay in the test run; shipping them in the production image is an anti-pattern."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Automatic snapshotting of production data into the test database before each run",
+        "why": "It starts clean containers; seeding data is up to the test code."
+      }
+    ],
+    "explanation": "Testcontainers (available for Java, Go, Node.js, Python, .NET and more) starts disposable containers from test code, waits until they are ready, gives the test their host and mapped port, and cleans them up. Tests hit a real Postgres or Kafka rather than a fake, with no shared test database to drift.",
+    "reference": "Docker docs: Testcontainers overview"
+  },
+  {
+    "id": "DKR-DEP-017",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "Cloud Run tells your container which port to listen on through an environment variable. What is that variable's name?",
+    "options": [],
+    "accepted": [
+      "PORT",
+      "$PORT"
+    ],
+    "explanation": "Cloud Run sets `PORT` (8080 by default) in every container instance and sends requests there. The same convention is used by Heroku-style platforms, Render and others, so reading the port from `PORT` keeps an image portable across them.",
+    "reference": "Google Cloud Run docs: Container runtime contract"
+  },
+  {
+    "id": "DKR-DEP-018",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A team adds a `.devcontainer/devcontainer.json` file to its repository. What problem does this mainly solve?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It replaces the production Dockerfile with a smaller image used at deploy time",
+        "why": "Dev containers describe the development environment, not production images."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It lets CI skip building images by reusing developers' local containers",
+        "why": "CI still builds its own images; the dev container is for editing and running code locally."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Everyone develops inside the same containerised toolchain, defined in the repo",
+        "why": "Editors like VS Code open the project inside that container with the right tools and versions."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It publishes the developer's container to a registry so teammates can attach to it",
+        "why": "Each developer starts their own container from the shared definition."
+      }
+    ],
+    "explanation": "The Development Containers spec (`devcontainer.json`) describes an image or Dockerfile, extensions, forwarded ports and setup commands. Editors and Codespaces build it so every developer gets the same runtime and tools, which cuts \"works on my machine\" problems and onboarding time.",
+    "reference": "Development Containers specification (containers.dev); Docker docs: Developer experience"
+  },
+  {
+    "id": "DKR-DEP-019",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 3,
+    "stem": "Compared with running containers with `docker run` on individual servers, which three capabilities does Kubernetes add? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Declarative desired state that controllers continuously reconcile",
+        "why": "Deployments and ReplicaSets keep the declared number of Pods running."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Scheduling Pods across a cluster of nodes based on resource requests",
+        "why": "The scheduler places workloads by CPU and memory requests and constraints."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Service discovery and load balancing through Services",
+        "why": "A Service gives a stable virtual IP and DNS name in front of changing Pods."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Building container images from Dockerfiles on cluster nodes",
+        "why": "Kubernetes runs images; building them is a CI or developer job."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Replacing the container runtime so images don't need OCI formats",
+        "why": "Kubernetes uses OCI images through a CRI runtime such as containerd."
+      }
+    ],
+    "explanation": "Kubernetes is an orchestrator: it schedules containers across nodes, restarts and replaces them to match the desired state, does rolling updates, and provides Services, config and secrets. It still runs standard OCI images through runtimes like containerd; image building happens in CI.",
+    "reference": "Kubernetes docs: Overview; Docker docs: Kubernetes (deploy to Kubernetes)"
+  },
+  {
+    "id": "DKR-DEP-020",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Your pipeline builds and tests `api:sha-3f9c2ab` for staging. To release, a second job rebuilds from the same commit with `--build-arg ENV=prod` and pushes `api:prod`. What is the main risk?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The registry stores two copies of every layer, doubling storage costs for the repository",
+        "why": "Shared layers are stored once; storage isn't the main concern."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Production runs an image that was never tested, and it can differ from staging's",
+        "why": "A rebuild can pick up new base layers or dependencies; promote the tested digest instead."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Build arguments are not allowed to change between builds of the same commit",
+        "why": "Build args can change freely; the problem is what that does to reproducibility."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Kubernetes refuses to run images that are tagged with an environment name",
+        "why": "Tag names don't restrict what an orchestrator will run."
+      }
+    ],
+    "explanation": "Rebuilding per environment breaks \"build once, run anywhere\": a second build can resolve a newer base image, different package versions or different config, so the artifact in production isn't the one you tested. Build once, test that image, then promote the same digest by retagging (`docker buildx imagetools create` or the registry API) and inject environment config at run time.",
+    "reference": "The Twelve-Factor App: V. Build, release, run; Docker docs: buildx imagetools create"
+  },
+  {
+    "id": "DKR-DEP-021",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A Java service runs with a 1 GiB container memory limit and `-Xmx1g`. Under load it is OOM-killed (exit 137) even though heap usage never exceeds about 900 MiB. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The JVM ignores container limits, so `-Xmx1g` silently grows past 1 GiB of heap",
+        "why": "`-Xmx` caps the heap; the problem is everything else the JVM uses."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "JVM memory includes metaspace, thread stacks and native buffers on top of the heap",
+        "why": "Heap near 1 GiB plus off-heap memory exceeds the 1 GiB cgroup limit."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Docker reserves half of the container limit for its own runtime overhead",
+        "why": "Docker doesn't reserve part of the container's limit for itself."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Exit code 137 means the garbage collector crashed, not that memory ran out",
+        "why": "137 is 128 + 9: the process was killed with SIGKILL, here by the OOM killer."
+      }
+    ],
+    "explanation": "The kernel enforces the cgroup limit against the whole process: heap, metaspace, code cache, thread stacks, GC structures and direct buffers. With `-Xmx` equal to the limit there is no headroom. Size the heap below the limit, for example `-XX:MaxRAMPercentage=75`, which modern container-aware JVMs apply to the container limit.",
+    "reference": "Docker docs: Java language guide; JDK docs: -XX:MaxRAMPercentage"
+  },
+  {
+    "id": "DKR-DEP-022",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A Node.js image ends with `CMD node server.js` (shell form). When the orchestrator stops the container, requests are cut off and the stop always takes about 10 seconds. What is happening?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`/bin/sh -c` is PID 1 and doesn't forward SIGTERM, so Node is later SIGKILLed",
+        "why": "Use the exec form `CMD [\"node\", \"server.js\"]` so Node receives the signal."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Node ignores SIGTERM by default, so no CMD form could ever stop it gracefully",
+        "why": "Node can handle SIGTERM with `process.on('SIGTERM')`; it never received it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The stop timeout defaults to 10 seconds, so every container takes that long to stop",
+        "why": "A process that handles SIGTERM exits as soon as it finishes, well before 10 seconds."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The shell form makes Docker send SIGINT instead of SIGTERM, which Node ignores",
+        "why": "Docker sends the image's stop signal (SIGTERM by default) to PID 1 either way."
+      }
+    ],
+    "explanation": "With the shell form, PID 1 is `/bin/sh -c \"node server.js\"`. Most shells don't forward SIGTERM to the child, so Node never starts its graceful shutdown. After the stop timeout (10 seconds by default) Docker sends SIGKILL, dropping in-flight requests. Use the exec form, handle SIGTERM in the app, or run an init such as `--init`/tini.",
+    "reference": "Docker docs: Dockerfile reference — shell and exec form; docker container stop"
+  },
+  {
+    "id": "DKR-DEP-023",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A web container needs up to 25 seconds to drain in-flight requests after SIGTERM. Deploys with `docker compose up -d` still cut requests off. Which change fixes it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add `restart: unless-stopped` so Docker waits for the old container to finish",
+        "why": "Restart policies don't change how long `stop` waits before killing."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Set `init: true` so the init process extends the shutdown timeout to 60 seconds",
+        "why": "An init forwards signals and reaps zombies; it doesn't change the timeout."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Set `stop_grace_period: 30s` on the service so Docker waits before SIGKILL",
+        "why": "The default grace period is 10 seconds; it must exceed the drain time."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Change the stop signal to SIGKILL so the container stops before requests arrive",
+        "why": "SIGKILL ends the process immediately, which drops every in-flight request."
+      }
+    ],
+    "explanation": "Docker sends the stop signal, then SIGKILL after the grace period: 10 seconds by default. If the app needs 25 seconds to drain, it is killed mid-drain. Raise `stop_grace_period` in Compose (or `docker stop -t`, or `terminationGracePeriodSeconds` in Kubernetes) above the real drain time, and make sure the app actually handles SIGTERM.",
+    "reference": "Docker docs: Compose file reference — stop_grace_period; docker container stop"
+  },
+  {
+    "id": "DKR-DEP-024",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A GitHub Actions workflow builds an image with `docker/build-push-action`, but every run rebuilds all layers from scratch. Which two settings let Buildx reuse layers between workflow runs? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`cache-from: type=gha`",
+        "why": "Imports layer cache that earlier runs exported to the GitHub Actions cache."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`cache-to: type=gha,mode=max`",
+        "why": "Exports the cache, including intermediate stages with `mode=max`, for later runs."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`load: true`",
+        "why": "Loading the image into the local daemon doesn't persist cache across runs."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`no-cache: false`",
+        "why": "That is already the default and does nothing for cross-run caching."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`provenance: false`",
+        "why": "Provenance attestations don't affect layer caching."
+      }
+    ],
+    "explanation": "Each GitHub-hosted runner starts with an empty Docker cache, so Buildx needs an external cache backend. The `gha` backend stores cache in the GitHub Actions cache service: `cache-from` reads it and `cache-to` writes it. `mode=max` also exports layers from intermediate build stages, which matters for multi-stage builds. Registry caches (`type=registry`) are an alternative.",
+    "reference": "Docker docs: Cache management with GitHub Actions"
+  },
+  {
+    "id": "DKR-DEP-025",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A workflow uses `docker/metadata-action` with `tags: type=sha` and pushes the result. For commit `860c1904a1ce19322e91ac35af1ab07466440c37`, which tag does that rule produce by default?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`860c1904a1ce19322e91ac35af1ab07466440c37`",
+        "why": "The default uses a short SHA, not the full 40 characters."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`sha-860c190`",
+        "why": "By default the rule adds a `sha-` prefix to the 7-character short SHA."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`860c190`",
+        "why": "There is a default `sha-` prefix; you can remove it with `prefix=`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`latest-860c190`",
+        "why": "The `latest` tag is generated by separate rules, not by `type=sha`."
+      }
+    ],
+    "explanation": "docker/metadata-action's `type=sha` rule defaults to the short commit SHA with the prefix `sha-`, giving tags such as `sha-860c190`. You can change it with `prefix=`, `suffix=` or `format=long`. These tags are unique per commit, which makes them good deploy and rollback targets.",
+    "reference": "docker/metadata-action docs: type=sha"
+  },
+  {
+    "id": "DKR-DEP-026",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 3,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each deployment strategy with how it replaces the old version.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Recreate"
+      },
+      {
+        "id": "B",
+        "text": "Rolling update"
+      },
+      {
+        "id": "C",
+        "text": "Blue/green"
+      },
+      {
+        "id": "D",
+        "text": "Canary"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Stop every old instance, then start the new ones (brief downtime)",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Replace instances a few at a time while the rest keep serving",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Run a full new environment beside the old one, then switch all traffic at once",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Send a small share of real traffic to the new version and widen it if metrics stay healthy",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Recreate is simplest but has downtime. Rolling updates need no spare capacity but run two versions at once. Blue/green needs double capacity and gives instant switch and rollback. Canary limits blast radius by exposing a fraction of users first. All of them depend on reliable health checks.",
+    "reference": "Docker docs: Swarm rolling updates; Kubernetes docs: Deployment strategies"
+  },
+  {
+    "id": "DKR-DEP-027",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A Swarm service with 1 replica uses the default rolling-update settings. During `docker service update --image app:v2`, users see errors for a few seconds. Which `update_config` change avoids this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Set `parallelism: 0` so all tasks are updated at the same time",
+        "why": "Updating everything at once makes the gap worse, not better."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Set `order: start-first` so the new task starts before the old one stops",
+        "why": "The default is `stop-first`, which leaves no running task for a moment with one replica."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Set `failure_action: rollback` so Swarm reverts if errors appear",
+        "why": "Rollback helps after failures but doesn't remove the stop-first gap."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Set `delay: 0s` so Swarm skips the pause between update batches",
+        "why": "With one replica there is only one batch; the delay isn't the cause."
+      }
+    ],
+    "explanation": "Swarm updates tasks `stop-first` by default: it stops the old task, then starts the new one. With a single replica that leaves a window with nothing running. `order: start-first` starts the new task first so they briefly overlap, and with health checks the old task is stopped only once the new one is healthy.",
+    "reference": "Docker docs: Compose deploy specification — update_config"
+  },
+  {
+    "id": "DKR-DEP-028",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 3,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "A Cloud Run service writes uploaded files to `/data` inside its container. When the instance is scaled down and a new one starts, those files are still there.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Container filesystems on Cloud Run are in-memory and per instance."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: writes go to an in-memory filesystem that disappears with the instance."
+      }
+    ],
+    "explanation": "Cloud Run's writable filesystem is in-memory, counts against the instance's memory limit, and is lost when the instance stops. Instances are created and removed freely, including scaling to zero. Durable data must go to a backing service such as Cloud Storage, a database, or a mounted volume.",
+    "reference": "Google Cloud Run docs: Container runtime contract — filesystem"
+  },
+  {
+    "id": "DKR-DEP-029",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the steps of a graceful shutdown in order, from the moment an orchestrator decides to stop a web container.",
+    "options": [
+      {
+        "id": "C",
+        "text": "The app stops accepting new connections and finishes in-flight requests"
+      },
+      {
+        "id": "A",
+        "text": "Traffic stops being routed to the instance (it is removed from the load balancer)"
+      },
+      {
+        "id": "D",
+        "text": "The app closes database pools and other resources, then exits with status 0"
+      },
+      {
+        "id": "B",
+        "text": "The container's main process receives SIGTERM"
+      },
+      {
+        "id": "E",
+        "text": "If the grace period expires first, the runtime sends SIGKILL"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "Good shutdowns stop new traffic first, then signal the process, which drains in-flight work and releases resources before exiting. The grace period is a safety net: if the app hasn't exited by then, it is killed. In some platforms load-balancer removal and SIGTERM happen concurrently, so apps often add a short pre-stop delay.",
+    "reference": "The Twelve-Factor App: IX. Disposability; Docker docs: docker container stop"
+  },
+  {
+    "id": "DKR-DEP-030",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A multi-stage Dockerfile builds a virtualenv in `python:3.12` at `/opt/venv`, then copies it into a final `python:3.12-alpine` image. The app fails to start with import and binary errors. What is the cause?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Virtualenvs can't be copied with `COPY --from`; they must be recreated in every stage",
+        "why": "Copying a venv between compatible stages is a common, documented pattern."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Alpine images don't support Python 3.12, so the interpreter version is different",
+        "why": "Python 3.12 Alpine images exist; the problem is the compiled wheels and paths."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Glibc-built wheels can't run on Alpine's musl, and the venv expects another interpreter",
+        "why": "Build and run stages need the same base family for compiled dependencies."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The venv needs `PYTHONUNBUFFERED=1` set in the final stage before packages can be imported",
+        "why": "Buffering settings don't affect imports or binary compatibility."
+      }
+    ],
+    "explanation": "A venv records the path of its interpreter and contains compiled extension modules built for the builder's C library. Debian-based `python:3.12` uses glibc, while Alpine uses musl, so those binaries fail. Use the same base family for both stages (for example `python:3.12-slim`) and set `PATH=\"/opt/venv/bin:$PATH\"` in the final stage.",
+    "reference": "Docker docs: Python language guide; Docker docs: Multi-stage builds"
+  },
+  {
+    "id": "DKR-DEP-031",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A Go service is built in a `golang` stage and copied into `FROM scratch`. Running it fails with `exec /app: no such file or directory`, although the file exists. What is the usual fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Build a static binary with `CGO_ENABLED=0` so it needs no dynamic loader",
+        "why": "A cgo-linked binary looks for libc's loader, which `scratch` doesn't have."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add `RUN chmod +x /app` in the final stage so the binary can execute",
+        "why": "Permission problems give \"permission denied\", and `scratch` has no shell to run chmod."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Copy the binary to `/usr/bin` because `scratch` only searches that directory",
+        "why": "The path is fine; the error comes from the missing dynamic linker."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Switch the final stage to `golang` so the Go runtime is available at run time",
+        "why": "Go binaries embed their runtime; the full toolchain image isn't needed."
+      }
+    ],
+    "explanation": "When cgo is enabled, the Go binary is dynamically linked and the kernel looks for its ELF interpreter (for example `/lib64/ld-linux-x86-64.so.2`). On `scratch` that file is missing, which surfaces as \"no such file or directory\". Build with `CGO_ENABLED=0` for a static binary, or use a distroless base that includes libc.",
+    "reference": "Docker docs: Go language guide (build images); Go docs: cgo"
+  },
+  {
+    "id": "DKR-DEP-032",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "A container is killed by the kernel's OOM killer, which sends SIGKILL. What exit code does Docker report for the container? Type the number.",
+    "options": [],
+    "accepted": [
+      "137"
+    ],
+    "explanation": "Exit codes above 128 mean the process died from a signal: 128 plus the signal number. SIGKILL is signal 9, so the code is 137. `docker inspect` also shows `\"OOMKilled\": true` when the cgroup memory limit caused it.",
+    "reference": "Docker docs: docker container inspect; Linux signal(7)"
+  },
+  {
+    "id": "DKR-DEP-033",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A small API runs as one container on a single VM with Compose. You want to deploy new versions with no downtime and keep it on one host. Which approach works?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Run `docker compose up -d --force-recreate`, which keeps the old container serving",
+        "why": "Recreate stops the old container before the new one is ready."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add a `HEALTHCHECK`, which makes Compose hold traffic until the new container is ready",
+        "why": "Compose doesn't route traffic, so health status alone can't gate requests."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Run two copies behind a reverse proxy and switch it once the new one is healthy",
+        "why": "The proxy only moves traffic after the new copy passes its check."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Publish the same host port from two containers so Docker load-balances between them",
+        "why": "Two containers can't publish the same host port on one Docker host."
+      }
+    ],
+    "explanation": "Plain Compose replaces a service by stopping and recreating it. On a single host, zero downtime needs two copies and something in front that decides where traffic goes: a reverse proxy such as Traefik, Caddy or nginx. Start green, check its health, switch the proxy, then stop blue. Swarm mode on one node with `order: start-first` is another option.",
+    "reference": "Docker docs: docker compose up; Traefik/nginx reverse-proxy documentation"
+  },
+  {
+    "id": "DKR-DEP-034",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Kubernetes Deployment uses `image: shop:1.4` with `imagePullPolicy: IfNotPresent`. After a hotfix was re-pushed under the same tag, some Pods behave differently from others. What explains it, and what is the robust fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Kubernetes always pulls tags that look like versions, so the nodes should agree; restart them",
+        "why": "IfNotPresent reuses any image a node already has for that tag."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Nodes that cached the old `1.4` keep it; deploy an immutable tag or the image digest",
+        "why": "Pinning `shop@sha256:…` guarantees every node runs the same bytes."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The registry served a corrupted layer to some nodes; enable content trust to fix it",
+        "why": "The nodes pulled valid images, just different ones under the same tag."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The Deployment needs `imagePullPolicy: Never` so every Pod uses the same local image",
+        "why": "`Never` uses only pre-loaded images and makes nodes more likely to differ."
+      }
+    ],
+    "explanation": "With `IfNotPresent`, a node that already has `shop:1.4` never pulls again, while new nodes pull the re-pushed image, so the cluster runs a mix. Treat tags as immutable: give every build a new tag, or pin the digest, which identifies exactly one image. `imagePullPolicy: Always` only hides the problem, because rollbacks and restarts can still pull different bytes.",
+    "reference": "Kubernetes docs: Images — image pull policy; Docker docs: Pull an image by digest"
+  },
+  {
+    "id": "DKR-DEP-035",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 3,
+    "stem": "A team keeps separate `Dockerfile.staging` and `Dockerfile.prod` files and runs a separate build for each environment. Which three problems does this cause? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The image that reaches production was never the one tested in staging",
+        "why": "Every environment gets its own build, so tests don't cover the shipped artifact."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Builds at different times can pull different base images or dependency versions",
+        "why": "Floating tags and loose versions make each build a new snapshot."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Rolling back means rebuilding an old commit, which may not reproduce the old image",
+        "why": "Without a stored, promoted artifact, rollback is a fresh, untested build."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Docker can't build two Dockerfiles from the same build context",
+        "why": "You can point `-f` at any Dockerfile with the same context."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Registries can only hold one image per repository, so tags overwrite each other",
+        "why": "A repository holds many tags and digests side by side."
+      }
+    ],
+    "explanation": "Twelve-factor separates build, release and run: build one artifact per commit, combine it with environment config at release, and run it unchanged. Per-environment builds break that chain, so production runs untested bytes, environments drift as base images and packages move, and rollbacks become rebuilds. Promote one digest and inject config at run time.",
+    "reference": "The Twelve-Factor App: V. Build, release, run; X. Dev/prod parity"
+  },
+  {
+    "id": "DKR-DEP-036",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Each replica of an API runs `migrate up && node server.js` as its command. During a rolling deploy to 6 replicas, the migration fails intermittently with lock errors and duplicate-object errors. What is the best fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add a random sleep before `migrate up` so replicas are less likely to collide",
+        "why": "That reduces the odds but still lets migrations race."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Use `restart: always` so failed replicas retry the migration until it succeeds",
+        "why": "Retrying a race can leave the schema half-migrated."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Run migrations once as a separate release job before the rollout",
+        "why": "A single migration run per release removes the race between replicas."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Run the migration only in replicas started with `--init`, which coordinates them",
+        "why": "An init process forwards signals; it doesn't coordinate replicas."
+      }
+    ],
+    "explanation": "When every replica migrates on startup, several processes apply the same migration concurrently during a rolling update. Run migrations exactly once per release: a CI step, a one-off container (`docker compose run --rm migrate`), a Kubernetes Job or Helm hook. Keep migrations backward compatible (expand, then contract) so old and new replicas both work during the rollout.",
+    "reference": "The Twelve-Factor App: XII. Admin processes"
+  },
+  {
+    "id": "DKR-DEP-037",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Cloud Run service responds with `202 Accepted` and then keeps processing the job in a background thread. With the default settings, the background work often stalls for minutes. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Cloud Run kills any thread that isn't the one handling the current HTTP request",
+        "why": "Threads aren't killed; they get little or no CPU outside requests."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "By default CPU is only allocated while requests are being processed",
+        "why": "After the response, the instance's CPU is throttled, so background work barely runs."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Cloud Run enforces a 1-second timeout on every request, including the background job",
+        "why": "The request timeout is configurable and much longer; the issue is CPU allocation."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The instance is restarted after every response, which discards the job's memory",
+        "why": "Instances are reused across requests; they aren't restarted per response."
+      }
+    ],
+    "explanation": "With Cloud Run's default request-based billing, CPU is allocated only while the instance is handling requests. Work done after the response is throttled and may be cut off when the instance is idle or scaled in. Use instance-based billing (\"CPU always allocated\"), or hand the job to Cloud Tasks, Pub/Sub or Cloud Run jobs.",
+    "reference": "Google Cloud Run docs: Billing settings and CPU allocation"
+  },
+  {
+    "id": "DKR-DEP-038",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two properties make a container disposable in the Twelve-Factor sense, so an orchestrator can kill and replace it at any moment? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "It starts quickly, so new instances can take traffic within seconds",
+        "why": "Fast startup makes scaling and rescheduling cheap."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It handles SIGTERM by finishing or handing back in-flight work, then exits",
+        "why": "Graceful shutdown avoids losing requests or jobs during deploys."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It writes state to its local filesystem so it can resume after a restart",
+        "why": "A replacement container starts with a fresh filesystem, so that state is lost."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It ignores SIGTERM so the orchestrator can't interrupt long-running jobs",
+        "why": "Ignoring SIGTERM just leads to SIGKILL after the grace period."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "It runs with a restart policy of `always` so it never needs to stop",
+        "why": "Restart policies help recovery but don't make shutdown or startup safe."
+      }
+    ],
+    "explanation": "Factor IX: processes should start fast and shut down gracefully on SIGTERM, returning unfinished jobs to the queue and finishing in-flight requests. Combined with no local state (Factor VI), that lets orchestrators reschedule, scale and roll out containers freely.",
+    "reference": "The Twelve-Factor App: IX. Disposability"
+  },
+  {
+    "id": "DKR-DEP-039",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Java 21 service runs in a container with a 512 MiB memory limit and no `-Xmx` flag. Under moderate load it throws `java.lang.OutOfMemoryError: Java heap space` while the container still has plenty of memory free. What is going on?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The JVM can't see container limits, so it sized the heap from the host's RAM and crashed",
+        "why": "Modern JVMs are container-aware; a host-sized heap would get OOM-killed instead."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The default maximum heap is 25% of the container limit, about 128 MiB here",
+        "why": "Raise it with `-XX:MaxRAMPercentage`, for example to 75."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Java 21 reserves the whole limit for metaspace unless `-Xss` is set",
+        "why": "`-Xss` sets thread stack size; metaspace isn't sized that way."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The container's swap is disabled, so the heap can't grow beyond its initial size",
+        "why": "Heap growth isn't blocked by swap; the max heap setting caps it."
+      }
+    ],
+    "explanation": "Container-aware JVMs (JDK 10+, backported to 8u191) read the cgroup limit, but by default cap the heap at `MaxRAMPercentage=25`: about 128 MiB of a 512 MiB limit. The heap fills long before the container does. Set `-XX:MaxRAMPercentage=75` (or an explicit `-Xmx`) and leave headroom for non-heap memory.",
+    "reference": "JDK docs: java command — -XX:MaxRAMPercentage; Docker docs: Java language guide"
+  },
+  {
+    "id": "DKR-DEP-040",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A TypeScript service's Dockerfile sets `ENV NODE_ENV=production`, then runs `npm ci` and `npm run build`. The build fails with `tsc: not found`. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "With `NODE_ENV=production`, `npm ci` omits devDependencies, including TypeScript",
+        "why": "Build in a stage without that setting, then install only production deps for the final stage."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`npm ci` never installs binaries into `node_modules/.bin` inside Docker builds",
+        "why": "npm ci links package binaries normally; the package itself is missing here."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Production mode makes `npm run` refuse to run scripts that call TypeScript",
+        "why": "npm runs scripts regardless of NODE_ENV; the compiler just isn't installed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "TypeScript must be installed globally with `npm i -g`, because local installs are ignored",
+        "why": "Local `node_modules/.bin` binaries are on PATH for npm scripts."
+      }
+    ],
+    "explanation": "npm treats `NODE_ENV=production` as `--omit=dev`, so devDependencies such as `typescript` aren't installed and `tsc` isn't found. Use a multi-stage build: compile in a builder stage with dev dependencies, then in the final stage run `npm ci --omit=dev` and copy in the compiled output.",
+    "reference": "npm docs: npm ci (--omit and NODE_ENV); Docker docs: Node.js language guide"
+  },
+  {
+    "id": "DKR-DEP-041",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "You need to roll back production fast after a bad release. Which setup lets you redeploy exactly the previous build within minutes?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Deploy `app:latest` and push the previous commit's image to `latest` again",
+        "why": "Re-pointing `latest` requires a rebuild or retag, and nodes may cache the bad image."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Rebuild the previous Git tag in CI and deploy the result once tests pass",
+        "why": "A rebuild can differ from the original image and takes the full pipeline time."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Keep releases as immutable SHA tags or digests and redeploy the previous one",
+        "why": "The previous artifact still exists in the registry, unchanged and already tested."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use `docker commit` on a running production container to snapshot a known good state",
+        "why": "Snapshots of live containers aren't reproducible builds and miss the real artifact."
+      }
+    ],
+    "explanation": "If every release is an immutable tag or digest that stays in the registry, a rollback is just a redeploy of the previous reference: no rebuild and no tests to rerun. Swarm (`docker service rollback`) and Kubernetes (`kubectl rollout undo`) can also return to the previous spec.",
+    "reference": "Docker docs: docker service rollback; Image tagging best practices"
+  },
+  {
+    "id": "DKR-DEP-042",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A busy container writes logs to stdout using Docker's default `json-file` logging driver. After a few weeks the host disk fills up. What is the cause and fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Docker stores logs in the image layers; rebuild the image to clear them",
+        "why": "Container logs are stored per container on the host, not in image layers."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "json-file doesn't rotate logs by default; set `max-size` and `max-file` options",
+        "why": "Without rotation, the per-container log file grows until the disk fills."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "stdout logging is buffered in memory and spills to swap; switch to writing log files",
+        "why": "Writing to files inside the container makes the problem worse and hides logs."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The json-file driver keeps logs from deleted containers forever; prune images weekly",
+        "why": "Logs are removed with their container; the issue is unbounded growth while running."
+      }
+    ],
+    "explanation": "The json-file driver writes each container's output to a file under the Docker data directory and, by default, performs no rotation. Set `--log-opt max-size=10m --log-opt max-file=3`, set those defaults in `daemon.json`, or use the `local` driver, which rotates by default. In production, logs are usually also shipped to a central system.",
+    "reference": "Docker docs: JSON File logging driver; Configure logging drivers"
+  },
+  {
+    "id": "DKR-DEP-043",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A GitHub Actions job on `ubuntu-latest` runs integration tests directly on the runner (not in a job container) and declares a `postgres` service container with `ports: ['5432:5432']`. Which two statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The tests should connect to the database at `localhost:5432`",
+        "why": "When the job runs on the runner, mapped service ports are reached through localhost."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Service containers are supported only on Linux runners",
+        "why": "GitHub documents service containers as Linux-only."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The tests must connect using the hostname `postgres`, the service label",
+        "why": "The label hostname works when the job itself runs inside a container."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Service containers stay running between jobs so later jobs reuse the data",
+        "why": "Service containers are created for the job and removed when it finishes."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Port mapping is ignored for service containers, so the port is unreachable",
+        "why": "Mapping exposes the service port on the runner host."
+      }
+    ],
+    "explanation": "If the job runs directly on the runner, service containers are reached on `localhost` through the ports you map. If the job runs in a `container:`, both share a Docker network and the service is reached by its label (`postgres:5432`) without mapping. Service containers are Linux-only and are created and destroyed per job.",
+    "reference": "GitHub Docs: About service containers"
+  },
+  {
+    "id": "DKR-DEP-044",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "CI pushed a tested multi-platform image (linux/amd64 and linux/arm64) as `registry.example.com/api@sha256:4be1…`. A release job promotes it with `docker pull`, `docker tag … api:prod` and `docker push` on an amd64 runner using the classic image store. Production arm64 nodes then fail with \"no matching manifest\". Which promotion step avoids this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add `--platform linux/arm64` to `docker pull` so the runner fetches both platforms",
+        "why": "`--platform` selects one platform; the local classic store still holds just one."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`docker buildx imagetools create -t …/api:prod …/api@sha256:4be1…`",
+        "why": "It writes a new tag for the existing image index in the registry, keeping every platform."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Rebuild with `--platform linux/amd64,linux/arm64` and push it as `api:prod`",
+        "why": "That produces new, untested bytes instead of promoting the tested digest."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Run `docker push --all-tags` so every platform variant is uploaded at once",
+        "why": "`--all-tags` pushes local tags; the arm64 variant was never in the local store."
+      }
+    ],
+    "explanation": "A multi-platform image is an index (manifest list) pointing at one manifest per platform. Pulling into the classic image store fetches only the runner's platform, so retagging and pushing publishes a single-platform image. `docker buildx imagetools create` works in the registry: it tags the existing index without pulling layers, so the promoted tag is byte-for-byte the tested multi-platform image.",
+    "reference": "Docker docs: docker buildx imagetools create; Multi-platform images"
+  },
+  {
+    "id": "DKR-DEP-045",
+    "domain": 4,
+    "skill": "deployment-ci",
+    "difficulty": 4,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the steps of a blue/green release for a containerised web app in order.",
+    "options": [
+      {
+        "id": "C",
+        "text": "Switch the router or load balancer so all traffic goes to green"
+      },
+      {
+        "id": "A",
+        "text": "Deploy the new version (green) alongside the running version (blue)"
+      },
+      {
+        "id": "D",
+        "text": "Watch error rates and keep blue running for a quick rollback"
+      },
+      {
+        "id": "B",
+        "text": "Run health checks and smoke tests against green without user traffic"
+      },
+      {
+        "id": "E",
+        "text": "Decommission blue once green has proven stable"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "Blue/green deploys the full new version next to the old one, verifies it before any user sees it, then switches traffic in one step. Keeping blue warm turns rollback into a traffic switch instead of a redeploy. Only after the observation window do you tear blue down.",
+    "reference": "Martin Fowler: BlueGreenDeployment; Docker docs: Deploying containers"
+  }
+]

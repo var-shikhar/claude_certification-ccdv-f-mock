@@ -1,0 +1,1687 @@
+[
+  {
+    "id": "SQL-TXN-001",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A bank commits a transfer. Seconds later the database server loses power. After restart, the transfer is still there. Which ACID property guarantees this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Atomicity",
+        "why": "Atomicity is about all-or-nothing within a transaction, not surviving crashes after commit."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Consistency",
+        "why": "Consistency means a transaction moves the database between states that satisfy its constraints."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Isolation",
+        "why": "Isolation controls what concurrent transactions see of each other, not crash recovery."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Durability",
+        "why": "Once COMMIT returns, the change is in the write-ahead log on stable storage and survives a crash."
+      }
+    ],
+    "explanation": "Durability means a committed transaction stays committed even if the server crashes immediately afterwards. PostgreSQL achieves this by flushing the transaction's WAL records to disk before COMMIT returns (with the default `synchronous_commit = on`).",
+    "reference": "PostgreSQL docs: Reliability and the Write-Ahead Log"
+  },
+  {
+    "id": "SQL-TXN-002",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In PostgreSQL, running `BEGIN; CREATE TABLE t (x int); INSERT INTO t VALUES (1); ROLLBACK;` leaves no table `t` behind.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "PostgreSQL DDL is transactional, so the rollback undoes the CREATE TABLE as well as the INSERT."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "This is true in MySQL, where DDL causes an implicit commit, but not in PostgreSQL."
+      }
+    ],
+    "explanation": "Almost all DDL in PostgreSQL is transactional: CREATE, ALTER, DROP and TRUNCATE can be rolled back. Afterwards `SELECT * FROM t` fails with `relation \"t\" does not exist`. This makes multi-step schema migrations safe to wrap in one transaction. (A few commands, such as `CREATE INDEX CONCURRENTLY` and `CREATE DATABASE`, cannot run inside a transaction block.)",
+    "reference": "PostgreSQL docs: BEGIN"
+  },
+  {
+    "id": "SQL-TXN-003",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "Inside a transaction block, which single SQL command discards every change made since `BEGIN`? Type the command.",
+    "accepted": [
+      "ROLLBACK",
+      "ROLLBACK;",
+      "ROLLBACK TRANSACTION",
+      "ROLLBACK WORK",
+      "ABORT"
+    ],
+    "explanation": "`ROLLBACK` (or its PostgreSQL synonym `ABORT`) ends the current transaction and undoes all of its changes. `ROLLBACK TO SAVEPOINT name` undoes only the changes made after a savepoint and keeps the transaction open.",
+    "reference": "PostgreSQL docs: ROLLBACK",
+    "options": []
+  },
+  {
+    "id": "SQL-TXN-004",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer runs these two statements in `psql` without any `BEGIN`. The second fails with a constraint violation. What happens to the first statement's change?\n\n```sql\nUPDATE accounts SET balance = balance - 100 WHERE id = 1;\nUPDATE accounts SET balance = balance + 100 WHERE id = 999;  -- fails\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It is rolled back automatically, because both updates form one transfer",
+        "why": "The database has no idea the two statements belong together unless they share a transaction."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It stays committed, because each statement ran in its own transaction",
+        "why": "In autocommit mode every statement is committed on its own, so the money has left account 1."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It waits uncommitted until the session ends, then is rolled back",
+        "why": "Autocommit commits each successful statement immediately; nothing is left pending."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It is undone only if the session closes before the next statement",
+        "why": "There is no delayed undo; the first update was committed as soon as it finished."
+      }
+    ],
+    "explanation": "Without `BEGIN`, PostgreSQL (and psql) run in autocommit mode: each statement is a transaction of its own. The first update commits, the second fails alone, and the money is lost from account 1. Wrapping both in `BEGIN … COMMIT` makes the transfer atomic.",
+    "reference": "PostgreSQL docs: Transactions (tutorial)"
+  },
+  {
+    "id": "SQL-TXN-005",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each ACID property with what it guarantees.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Atomicity",
+        "why": "All or nothing."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Consistency",
+        "why": "Constraints hold."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Isolation",
+        "why": "Concurrent work does not interfere."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Durability",
+        "why": "Committed data survives crashes."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Either every statement in the transaction takes effect, or none does",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "A transaction cannot leave a row that violates a CHECK or foreign key constraint",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "A transaction does not see another transaction's uncommitted changes",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "After COMMIT returns, the change survives a power failure",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Atomicity: all or nothing. Consistency: each transaction takes the database from one valid state to another (constraints, foreign keys). Isolation: concurrent transactions behave as if they were (more or less) alone, depending on the isolation level. Durability: committed changes are persisted.",
+    "reference": "PostgreSQL docs: Transactions (tutorial)"
+  },
+  {
+    "id": "SQL-TXN-006",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A fresh PostgreSQL installation runs `BEGIN;` with no isolation level specified. Which isolation level does the transaction use?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "READ COMMITTED",
+        "why": "This is PostgreSQL's default (`default_transaction_isolation`)."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "REPEATABLE READ",
+        "why": "That is the default in MySQL InnoDB, not in PostgreSQL."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "SERIALIZABLE",
+        "why": "SERIALIZABLE is the SQL standard's default, but PostgreSQL defaults to read committed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "READ UNCOMMITTED",
+        "why": "PostgreSQL never uses it as a default, and it behaves as read committed anyway."
+      }
+    ],
+    "explanation": "`SHOW default_transaction_isolation` returns `read committed` on a stock PostgreSQL server. Each statement sees a fresh snapshot of committed data. MySQL InnoDB defaults to REPEATABLE READ, and the SQL standard nominally specifies SERIALIZABLE as the default.",
+    "reference": "PostgreSQL docs: Transaction Isolation"
+  },
+  {
+    "id": "SQL-TXN-007",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about savepoints in PostgreSQL are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`ROLLBACK TO SAVEPOINT s` undoes the changes made after `s` and keeps the transaction open",
+        "why": "Only the work after the savepoint is undone; earlier changes and the transaction remain."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "After `ROLLBACK TO SAVEPOINT s`, the savepoint `s` still exists and can be rolled back to again",
+        "why": "Rolling back to a savepoint does not destroy it; `RELEASE` does."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`RELEASE SAVEPOINT s` commits the changes made since `s` permanently",
+        "why": "Release just forgets the savepoint; nothing is committed until the outer COMMIT."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`SAVEPOINT s` can be used in autocommit mode to protect a single statement",
+        "why": "It fails with \"SAVEPOINT can only be used in transaction blocks\"."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Rolling back to a savepoint also releases row locks taken before the savepoint",
+        "why": "Locks acquired before the savepoint are kept until the transaction ends."
+      }
+    ],
+    "explanation": "Savepoints mark points inside a transaction. `ROLLBACK TO` undoes later work but keeps the savepoint (and the transaction) alive. `RELEASE` destroys the savepoint without undoing anything, and the changes still need the outer COMMIT. Savepoints only exist inside a transaction block.",
+    "reference": "PostgreSQL docs: SAVEPOINT"
+  },
+  {
+    "id": "SQL-TXN-008",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In PostgreSQL, `BEGIN; TRUNCATE orders; ROLLBACK;` leaves the `orders` table with all its original rows.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "TRUNCATE is transactional in PostgreSQL, so the rollback restores the rows."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "In some other engines TRUNCATE commits implicitly, but PostgreSQL can roll it back."
+      }
+    ],
+    "explanation": "PostgreSQL's TRUNCATE is MVCC-unsafe for concurrent readers in some edge cases, but it is fully transactional: rolling back restores the table. In MySQL, TRUNCATE causes an implicit commit and cannot be rolled back.",
+    "reference": "PostgreSQL docs: TRUNCATE"
+  },
+  {
+    "id": "SQL-TXN-009",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What happens at step 4?\n\n```sql\nBEGIN;\nUPDATE acct SET bal = bal - 10 WHERE id = 1;   -- 1 row\nSELECT 1/0;                                     -- ERROR: division by zero\nSELECT bal FROM acct WHERE id = 1;              -- step 4\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It returns 90, the value after the update",
+        "why": "After an error PostgreSQL refuses every further statement in the transaction."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It returns 100, because the error rolled back the update",
+        "why": "Nothing is rolled back yet; the transaction is merely marked as aborted."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "It fails: \"current transaction is aborted\" (SQLSTATE 25P02)",
+        "why": "An error puts the transaction into the aborted state (SQLSTATE 25P02)."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It succeeds, because only the failed statement is undone, as in MySQL",
+        "why": "PostgreSQL does not roll back just the failed statement; the whole block is aborted."
+      }
+    ],
+    "explanation": "In PostgreSQL any error inside a transaction block aborts the whole transaction. Every later statement fails with error 25P02 until you issue ROLLBACK (or ROLLBACK TO an earlier savepoint). Client libraries that want statement-level recovery have to set savepoints around each statement.",
+    "reference": "PostgreSQL docs: Transactions (tutorial)"
+  },
+  {
+    "id": "SQL-TXN-010",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Continuing from an aborted transaction (an error occurred after `UPDATE acct SET bal = bal - 10 WHERE id = 1`), the client sends `COMMIT;`. What is `bal` for id 1 afterwards, if it started at 100?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "90, because COMMIT still saves the update that succeeded before the error",
+        "why": "An aborted transaction cannot commit any of its work."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "100, because COMMIT on an aborted transaction performs a rollback",
+        "why": "PostgreSQL treats it as ROLLBACK and reports the ROLLBACK command tag."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "COMMIT fails with an error, leaving the transaction open",
+        "why": "COMMIT ends the aborted transaction, it just rolls it back."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "90, but only if the error came from a SELECT rather than a write",
+        "why": "The kind of failing statement does not matter; any error aborts the block."
+      }
+    ],
+    "explanation": "Issuing COMMIT in an aborted transaction ends it with a rollback; psql shows `ROLLBACK` as the command tag. Applications that ignore the command tag can wrongly believe the transfer committed, so always check for errors rather than assuming COMMIT succeeded.",
+    "reference": "PostgreSQL docs: COMMIT"
+  },
+  {
+    "id": "SQL-TXN-011",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Starting with rows `(1, 100)` and `(2, 50)` in `acct(id PRIMARY KEY, bal)`, what does the final query return?\n\n```sql\nBEGIN;\nUPDATE acct SET bal = 0 WHERE id = 2;\nSAVEPOINT s1;\nINSERT INTO acct VALUES (1, 5);   -- ERROR: duplicate key\nROLLBACK TO SAVEPOINT s1;\nCOMMIT;\nSELECT * FROM acct ORDER BY id;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "(1, 100) and (2, 50): the failed insert aborted everything",
+        "why": "The rollback to the savepoint cleared the error, so the earlier update survived."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "(1, 100) and (2, 0)",
+        "why": "Only the failed insert was undone; the update before the savepoint was committed."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "(1, 5) and (2, 0)",
+        "why": "The insert failed, so no row with balance 5 was ever written."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An error at COMMIT, because the transaction had failed",
+        "why": "Rolling back to the savepoint returned the transaction to a usable state."
+      }
+    ],
+    "explanation": "`ROLLBACK TO SAVEPOINT s1` undoes everything after the savepoint, including the failed insert, and clears the aborted state. The UPDATE made before the savepoint is kept and committed.",
+    "reference": "PostgreSQL docs: SAVEPOINT"
+  },
+  {
+    "id": "SQL-TXN-012",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A session runs `BEGIN ISOLATION LEVEL READ UNCOMMITTED;` in PostgreSQL. `SHOW transaction_isolation` reports `read uncommitted`. Can this transaction read another session's uncommitted changes?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Yes: that is exactly what the READ UNCOMMITTED level means in every database",
+        "why": "PostgreSQL accepts the level name but never exposes uncommitted data."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "No: PostgreSQL treats READ UNCOMMITTED exactly like READ COMMITTED",
+        "why": "MVCC means dirty reads are impossible at every level in PostgreSQL."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Only for tables without primary keys",
+        "why": "There is no such special case; no table ever exposes dirty data."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Only if the other session also uses READ UNCOMMITTED",
+        "why": "Isolation level settings never make one session's uncommitted data visible to another."
+      }
+    ],
+    "explanation": "The SQL standard defines four levels, but PostgreSQL implements three. READ UNCOMMITTED is accepted and reported, yet it behaves exactly like READ COMMITTED because its MVCC design always reads committed row versions.",
+    "reference": "PostgreSQL docs: Transaction Isolation"
+  },
+  {
+    "id": "SQL-TXN-013",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Two app servers run this code at the same moment for the same product, starting at `stock = 10`. Both run in READ COMMITTED. What is the most likely final stock, and what is the fix?\n\n```sql\n-- app code, per request\nBEGIN;\nSELECT stock FROM products WHERE id = 7;      -- app reads 10\n-- app computes 10 - 1 = 9\nUPDATE products SET stock = 9 WHERE id = 7;\nCOMMIT;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "8; READ COMMITTED already serialises these updates",
+        "why": "Each request writes the literal 9 it computed, so the second write simply overwrites the first."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "9 (a lost update); use `UPDATE … SET stock = stock - 1` instead",
+        "why": "The atomic expression is evaluated on the latest row version, so both decrements apply."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "9; fix it by raising the isolation level to READ UNCOMMITTED for both servers",
+        "why": "That level behaves as read committed in PostgreSQL and fixes nothing."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An error; PostgreSQL rejects the second update with a conflict",
+        "why": "Read committed waits for the first writer and then applies the second update without error."
+      }
+    ],
+    "explanation": "This is a lost update: both requests read 10 and both write 9. Computing in the database with `SET stock = stock - 1` fixes it, because the second UPDATE waits for the first and then re-evaluates the expression on the new row version (9 → 8). Alternatives are `SELECT … FOR UPDATE` before computing, or REPEATABLE READ with retries on 40001.",
+    "reference": "PostgreSQL docs: Transaction Isolation (Read Committed)"
+  },
+  {
+    "id": "SQL-TXN-014",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about PostgreSQL row-locking clauses are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`FOR UPDATE SKIP LOCKED` returns only rows that no other transaction has locked",
+        "why": "Locked rows are silently skipped, which suits work-queue consumers."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`FOR UPDATE NOWAIT` raises an error immediately instead of waiting for a locked row",
+        "why": "NOWAIT fails fast with SQLSTATE 55P03 rather than blocking."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`FOR UPDATE` makes plain `SELECT` statements in other sessions wait",
+        "why": "MVCC readers never block on row locks; only writers and other locking reads wait."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`SKIP LOCKED` gives a consistent view of the table, good for reports",
+        "why": "Skipping locked rows gives an inconsistent picture; the docs warn against general use."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`FOR SHARE` lets two transactions both update the same row safely",
+        "why": "FOR SHARE blocks updates; it only allows other share locks to coexist."
+      }
+    ],
+    "explanation": "Row locks taken with FOR UPDATE / FOR SHARE block other writers and other locking reads, but never plain SELECTs. NOWAIT turns waiting into an immediate error; SKIP LOCKED skips locked rows, which is ideal for queue workers but unsuitable for anything needing a consistent view.",
+    "reference": "PostgreSQL docs: SELECT (The Locking Clause)"
+  },
+  {
+    "id": "SQL-TXN-015",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Session A runs `BEGIN; UPDATE acct SET bal = 0 WHERE id = 1;` and has not committed. Session B (READ COMMITTED, autocommit) then runs statements. Which are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`SELECT bal FROM acct WHERE id = 1` in B returns the old committed value immediately",
+        "why": "Readers see the last committed version and do not wait for writers."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`UPDATE acct SET bal = 5 WHERE id = 1` in B waits until A commits or rolls back",
+        "why": "Two writers to the same row are serialised by the row lock."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`SELECT bal FROM acct WHERE id = 1` in B returns 0",
+        "why": "That would be a dirty read, which PostgreSQL never allows."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`SELECT bal FROM acct WHERE id = 1` in B waits for A to finish",
+        "why": "Under MVCC readers do not block on writers."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`UPDATE acct SET bal = 5 WHERE id = 2` in B waits for A",
+        "why": "Row locks are per row; A only locked id 1."
+      }
+    ],
+    "explanation": "MVCC keeps the old row version available, so plain reads never wait for writers and never see uncommitted data. Writers to the same row do wait for each other. Rows that A did not touch are unaffected.",
+    "reference": "PostgreSQL docs: Concurrency Control (Introduction)"
+  },
+  {
+    "id": "SQL-TXN-016",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the steps of an optimistic-concurrency update of a document (with a `version` column) in the correct order.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Read the row, remembering its current `version` (say 3)",
+        "why": "First step: capture the version the edit is based on."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Let the user edit and compute the new values in the application",
+        "why": "Work happens without holding any database lock."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Run `UPDATE docs SET …, version = 4 WHERE id = $1 AND version = 3`",
+        "why": "The WHERE clause only matches if nobody else changed the row."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Check the affected row count: 1 means success, 0 means a conflict to reload and retry",
+        "why": "Zero rows updated tells you someone else committed first."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "explanation": "Optimistic concurrency holds no locks during the user's edit. The conditional UPDATE acts as compare-and-swap: it only succeeds if the version is unchanged, and the affected-row count tells the app whether it won. On 0 rows, reload and let the user merge or retry.",
+    "reference": "PostgreSQL docs: UPDATE (outputs)"
+  },
+  {
+    "id": "SQL-TXN-017",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "A SERIALIZABLE transaction in PostgreSQL fails with \"could not serialize access due to read/write dependencies among transactions\". What five-character SQLSTATE should the application check for to decide to retry? Type the code.",
+    "accepted": [
+      "40001"
+    ],
+    "explanation": "SQLSTATE 40001 is `serialization_failure`. PostgreSQL raises it in REPEATABLE READ and SERIALIZABLE when it cannot guarantee the isolation level. The correct response is to retry the whole transaction from the beginning. Deadlocks use 40P01.",
+    "reference": "PostgreSQL docs: Serialization Failure Handling",
+    "options": []
+  },
+  {
+    "id": "SQL-TXN-018",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What happens when the third statement runs?\n\n```sql\nBEGIN;\nSELECT count(*) FROM orders;\nSET TRANSACTION ISOLATION LEVEL SERIALIZABLE;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The transaction switches to SERIALIZABLE for all of its remaining statements",
+        "why": "The level is fixed once the first query has taken its snapshot."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It fails: SET TRANSACTION ISOLATION LEVEL must be called before any query",
+        "why": "The isolation level can only be set before the first query (SQLSTATE 25001)."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It silently does nothing and the transaction stays READ COMMITTED",
+        "why": "PostgreSQL reports an error rather than ignoring the command."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It applies to the next transaction started in this session",
+        "why": "That is what SET SESSION CHARACTERISTICS does, not SET TRANSACTION."
+      }
+    ],
+    "explanation": "The isolation level must be chosen at BEGIN (`BEGIN ISOLATION LEVEL SERIALIZABLE`) or with SET TRANSACTION before the first query. Afterwards PostgreSQL raises \"SET TRANSACTION ISOLATION LEVEL must be called before any query\", which also aborts the transaction.",
+    "reference": "PostgreSQL docs: SET TRANSACTION"
+  },
+  {
+    "id": "SQL-TXN-019",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In MySQL (InnoDB), `START TRANSACTION; INSERT …; ALTER TABLE orders ADD COLUMN note TEXT; ROLLBACK;` undoes both the insert and the ALTER TABLE.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "MySQL DDL causes an implicit commit, so the insert is committed before the ALTER runs."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "The ALTER TABLE implicitly commits the open transaction; neither change is rolled back."
+      }
+    ],
+    "explanation": "Unlike PostgreSQL, MySQL commits implicitly before (and after) most DDL statements. The INSERT is committed when ALTER TABLE starts, and the ALTER itself cannot be rolled back. This is why multi-step MySQL migrations cannot be made atomic with one transaction.",
+    "reference": "MySQL docs: Statements That Cause an Implicit Commit"
+  },
+  {
+    "id": "SQL-TXN-020",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "`acct` id 1 has `bal = 100`. Session A uses READ COMMITTED. What does A's second SELECT return?\n\n```sql\n-- Session A                         -- Session B\nBEGIN;\nSELECT bal FROM acct WHERE id = 1;    -- 100\n                                      UPDATE acct SET bal = 80 WHERE id = 1;\n                                      -- (autocommit: committed)\nSELECT bal FROM acct WHERE id = 1;    -- ?\nCOMMIT;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "100, because A's snapshot was taken at its first SELECT",
+        "why": "That is REPEATABLE READ behaviour; read committed takes a new snapshot per statement."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "80, a non-repeatable read",
+        "why": "Each statement in read committed sees everything committed before it started."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It waits until A commits, then returns 80",
+        "why": "Plain reads never wait, and B is already committed anyway."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An error, because the row changed during A's transaction",
+        "why": "Read committed raises no error for this; it simply sees the new value."
+      }
+    ],
+    "explanation": "In READ COMMITTED, every statement gets a fresh snapshot, so two identical SELECTs in one transaction can return different values: a non-repeatable read. Under REPEATABLE READ the second SELECT would still return 100.",
+    "reference": "PostgreSQL docs: Transaction Isolation (Read Committed)"
+  },
+  {
+    "id": "SQL-TXN-021",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "`acct` id 1 has `bal = 100`. What does Session A's SELECT return?\n\n```sql\n-- Session A                                -- Session B\nBEGIN ISOLATION LEVEL REPEATABLE READ;\n                                             UPDATE acct SET bal = 80 WHERE id = 1;\n                                             -- (autocommit: committed)\nSELECT bal FROM acct WHERE id = 1;           -- ?\nCOMMIT;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "100, because the snapshot was taken at BEGIN",
+        "why": "PostgreSQL takes the snapshot at the first statement, not at BEGIN."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "80, because the snapshot is taken at A's first query",
+        "why": "B committed before A's first statement, so it is inside A's snapshot."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "An error: could not serialize access due to concurrent update",
+        "why": "That error needs A to write a row changed after its snapshot; A only reads here."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It waits for B, then returns 80",
+        "why": "B has already committed, and reads never wait."
+      }
+    ],
+    "explanation": "A REPEATABLE READ transaction sees a snapshot taken at the start of its first non-transaction-control statement, not at BEGIN. B committed before that, so A sees 80, and will keep seeing 80 for the rest of the transaction. To pin a snapshot earlier, run a query right after BEGIN.",
+    "reference": "PostgreSQL docs: Transaction Isolation (Repeatable Read)"
+  },
+  {
+    "id": "SQL-TXN-022",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "`acct` id 1 has `bal = 100`. What happens at A's UPDATE?\n\n```sql\n-- Session A                                -- Session B\nBEGIN ISOLATION LEVEL REPEATABLE READ;\nSELECT bal FROM acct WHERE id = 1;  -- 100\n                                             UPDATE acct SET bal = 80 WHERE id = 1;\n                                             -- (autocommit: committed)\nUPDATE acct SET bal = bal - 10 WHERE id = 1;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It succeeds and sets the balance to 90, computed from the 100 in A's snapshot",
+        "why": "Writing 90 would silently discard B's committed change: a lost update."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It succeeds and sets the balance to 70 using B's value",
+        "why": "That is what read committed would do, not repeatable read."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "It fails with \"could not serialize access due to concurrent update\" (40001)",
+        "why": "The row changed after A's snapshot, so PostgreSQL refuses rather than lose an update."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It blocks until B's transaction ends, then succeeds",
+        "why": "B already committed; there is nothing to wait for, only a conflict to report."
+      }
+    ],
+    "explanation": "In REPEATABLE READ, PostgreSQL will not let a transaction modify or lock a row that was changed by another transaction committed after its snapshot. It raises a serialization failure, and the application must roll back and retry the whole transaction.",
+    "reference": "PostgreSQL docs: Transaction Isolation (Repeatable Read)"
+  },
+  {
+    "id": "SQL-TXN-023",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "`acct` id 1 has `bal = 100`. Both sessions use READ COMMITTED. What is the final balance?\n\n```sql\n-- Session A                                -- Session B\nBEGIN;\nUPDATE acct SET bal = bal - 30 WHERE id = 1;\n                                             BEGIN;\n                                             UPDATE acct SET bal = bal - 50 WHERE id = 1;\n                                             -- (waits)\nCOMMIT;\n                                             -- (proceeds)\n                                             COMMIT;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "20",
+        "why": "B re-evaluates `bal - 50` on A's committed version (70), giving 20."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "50",
+        "why": "B does not reuse the value it would have seen before A committed."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "70",
+        "why": "B's update is not lost; it waits and then applies on top of A's."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "B fails with a serialization error",
+        "why": "Only REPEATABLE READ and SERIALIZABLE raise that; read committed just re-checks."
+      }
+    ],
+    "explanation": "In READ COMMITTED, when an UPDATE finds a row locked by a concurrent writer, it waits. If the writer commits, the UPDATE re-reads the newest row version, re-checks its WHERE clause, and applies its SET expressions to that version. So 100 becomes 70 after session A, then 20 after session B.",
+    "reference": "PostgreSQL docs: Transaction Isolation (Read Committed)"
+  },
+  {
+    "id": "SQL-TXN-024",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "`acct` id 1 has `bal = 100`. Both sessions use READ COMMITTED. How many rows does B's UPDATE change?\n\n```sql\n-- Session A                                -- Session B\nBEGIN;\nUPDATE acct SET bal = 40 WHERE id = 1;\n                                             UPDATE acct SET bal = bal - 50\n                                              WHERE id = 1 AND bal >= 50;\n                                             -- (waits)\nCOMMIT;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "1, because the row matched when B first looked at it",
+        "why": "B re-checks its WHERE clause against the committed version after waiting."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "0, because the re-checked row has `bal = 40`",
+        "why": "After A commits, B re-evaluates the condition on the new version and it no longer matches."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "1, leaving a balance of -10",
+        "why": "The condition `bal >= 50` is re-checked, which prevents the overdraft here."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "None: B fails with a serialization error",
+        "why": "Read committed resolves this by re-checking, not by raising 40001."
+      }
+    ],
+    "explanation": "When a READ COMMITTED UPDATE waits on a locked row and the other transaction commits, PostgreSQL re-evaluates the WHERE clause against the updated version (the EvalPlanQual recheck). Here 40 >= 50 is false, so B updates nothing. Checking guard conditions in the UPDATE itself is safer than checking them in a separate SELECT.",
+    "reference": "PostgreSQL docs: Transaction Isolation (Read Committed)"
+  },
+  {
+    "id": "SQL-TXN-025",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about PostgreSQL's REPEATABLE READ level are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Rows inserted and committed by others after its snapshot never appear in its queries",
+        "why": "PostgreSQL RR is snapshot isolation, so it also prevents phantoms for reads."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Two transactions can each read data and write disjoint rows, producing write skew",
+        "why": "Snapshot isolation does not detect read/write dependencies; SERIALIZABLE does."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It can read another transaction's uncommitted rows under heavy load",
+        "why": "Dirty reads are impossible at every PostgreSQL level."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A concurrent update to the same row is silently overwritten",
+        "why": "PostgreSQL raises error 40001 instead of losing the other update."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "It behaves identically to SERIALIZABLE in PostgreSQL",
+        "why": "SERIALIZABLE adds SSI checks that catch write skew; RR does not."
+      }
+    ],
+    "explanation": "PostgreSQL implements REPEATABLE READ as snapshot isolation: a stable snapshot (no non-repeatable reads, no phantoms) and first-updater-wins conflicts on the same row. It is stronger than the standard requires for phantoms, but it still allows write skew, which only SERIALIZABLE prevents.",
+    "reference": "PostgreSQL docs: Transaction Isolation (Repeatable Read)"
+  },
+  {
+    "id": "SQL-TXN-026",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A rule says the app must always keep at least one admin. Two admins, Ana and Bo, exist. Both sessions run in REPEATABLE READ at the same time. What is the outcome?\n\n```sql\n-- Session A (demotes Ana)              -- Session B (demotes Bo)\nBEGIN ISOLATION LEVEL REPEATABLE READ;  BEGIN ISOLATION LEVEL REPEATABLE READ;\nSELECT count(*) FROM users             SELECT count(*) FROM users\n WHERE role = 'admin';  -- 2             WHERE role = 'admin';  -- 2\nUPDATE users SET role = 'user'         UPDATE users SET role = 'user'\n WHERE name = 'Ana';                     WHERE name = 'Bo';\nCOMMIT;                                COMMIT;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "B's COMMIT fails with a serialization error",
+        "why": "Repeatable read only detects conflicts on the same row; these updates touch different rows."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Both commit and no admin remains",
+        "why": "This is write skew: each saw two admins and changed a different row."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "B's UPDATE waits for A and then sees only one admin",
+        "why": "The two updates lock different rows, so neither waits."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "One UPDATE fails because both read the same rows",
+        "why": "Reading the same rows creates no lock conflict under MVCC."
+      }
+    ],
+    "explanation": "Snapshot isolation lets two transactions make decisions on the same snapshot and then write different rows. Neither write conflicts, so both commit and the invariant breaks. Under SERIALIZABLE, PostgreSQL's SSI detects the read/write dependency and aborts one transaction with 40001.",
+    "reference": "PostgreSQL docs: Transaction Isolation (Serializable)"
+  },
+  {
+    "id": "SQL-TXN-027",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "With the \"keep at least one admin\" rule, the team must stay in READ COMMITTED. Which change makes the concurrent demotions safe?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Check `count(*)` twice inside the transaction before updating",
+        "why": "Both sessions still read the same committed state and pass the check."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Lock the admin rows first with `SELECT … WHERE role = 'admin' FOR UPDATE`",
+        "why": "The second session waits, then re-reads and sees only one admin left."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add a table CHECK constraint `role IN ('admin', 'user')` on the users table",
+        "why": "A row-level CHECK cannot express a rule about how many rows exist."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use `SELECT … FOR UPDATE SKIP LOCKED` to count the admins",
+        "why": "Skipping locked rows would undercount and break the rule another way."
+      }
+    ],
+    "explanation": "Locking the rows the decision depends on turns write skew into a normal conflict. B's FOR UPDATE waits for A; after A commits, PostgreSQL re-checks the row and excludes Ana (no longer an admin), so B counts one admin and refuses. SERIALIZABLE with retries is the alternative.",
+    "reference": "PostgreSQL docs: Explicit Locking (Row-Level Locks)"
+  },
+  {
+    "id": "SQL-TXN-028",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Two transfers run at the same time in READ COMMITTED. What happens?\n\n```sql\n-- Session A                                -- Session B\nBEGIN;                                       BEGIN;\nUPDATE acct SET bal = bal - 10 WHERE id = 1;\n                                             UPDATE acct SET bal = bal - 10 WHERE id = 2;\nUPDATE acct SET bal = bal + 10 WHERE id = 2;\n                                             UPDATE acct SET bal = bal + 10 WHERE id = 1;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both sessions wait forever until an administrator manually kills one of them",
+        "why": "PostgreSQL detects lock cycles automatically."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "After about `deadlock_timeout` (1 s), one is aborted with \"deadlock detected\"",
+        "why": "The detector breaks the cycle; the victim gets SQLSTATE 40P01."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Both fail immediately with a serialization error",
+        "why": "This is a lock wait, not an isolation conflict, and only one session fails."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The second UPDATE in each session is skipped and both commit",
+        "why": "Updates never skip rows silently; they wait for the lock."
+      }
+    ],
+    "explanation": "A holds row 1 and wants row 2; B holds row 2 and wants row 1. After waiting `deadlock_timeout` (default 1 s), PostgreSQL runs deadlock detection and aborts one transaction with \"deadlock detected\". The usual prevention is to always lock rows in a consistent order, such as ascending id.",
+    "reference": "PostgreSQL docs: Explicit Locking (Deadlocks)"
+  },
+  {
+    "id": "SQL-TXN-029",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Jobs 1, 2 and 3 have `status = 'new'`. Two workers run this at the same moment, each inside its own transaction. Which jobs do they get?\n\n```sql\nBEGIN;\nSELECT id FROM jobs\n WHERE status = 'new'\n ORDER BY id\n LIMIT 1\n FOR UPDATE SKIP LOCKED;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both get job 1, and one of them then fails",
+        "why": "SKIP LOCKED makes the second worker pass over job 1 instead of waiting."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "One gets job 1 and the other gets job 2, with no waiting",
+        "why": "The locked row is skipped and the next unlocked row is returned."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "One gets job 1 and the other waits until it commits",
+        "why": "Waiting is what plain FOR UPDATE does; SKIP LOCKED never waits."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Each gets a random job, since SKIP LOCKED ignores ORDER BY",
+        "why": "ORDER BY still applies; the lowest unlocked id is returned."
+      }
+    ],
+    "explanation": "`FOR UPDATE SKIP LOCKED` is the standard PostgreSQL job-queue pattern: each worker locks the first row nobody else holds, so workers grab different jobs in parallel. The lock lasts until the transaction ends, so the worker updates the job's status and commits.",
+    "reference": "PostgreSQL docs: SELECT (The Locking Clause)"
+  },
+  {
+    "id": "SQL-TXN-030",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the steps of a worker processing one job from a PostgreSQL table queue in the correct order.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`BEGIN;`",
+        "why": "Start the transaction that will hold the row lock."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`SELECT id, payload FROM jobs WHERE status = 'new' ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED;`",
+        "why": "Claim one unlocked job."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Process the job in the application",
+        "why": "Work happens while the row lock prevents other workers from taking it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`UPDATE jobs SET status = 'done' WHERE id = $1;`",
+        "why": "Mark the job finished in the same transaction."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`COMMIT;`",
+        "why": "Releases the lock and makes the status change visible."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "The row lock only lasts for the transaction, so the claim, the status change and the commit belong together. If the worker crashes before COMMIT, the transaction rolls back and the job becomes available again. For long jobs, teams often claim with a short transaction that sets `status = 'running'` and a lease time instead.",
+    "reference": "PostgreSQL docs: SELECT (The Locking Clause)"
+  },
+  {
+    "id": "SQL-TXN-031",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 3,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each PostgreSQL row-lock mode with its effect.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "FOR UPDATE",
+        "why": "Strongest row lock."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "FOR NO KEY UPDATE",
+        "why": "Taken by ordinary UPDATEs of non-key columns."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "FOR SHARE",
+        "why": "Shared lock against updates."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "FOR KEY SHARE",
+        "why": "Weakest lock, used by foreign-key checks."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Blocks every other row lock, including the foreign-key checks of inserts into child tables",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Taken by a normal UPDATE that does not change key columns; still lets child rows referencing it be inserted",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Lets other transactions take the same lock, but blocks any UPDATE or DELETE of the row",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Only blocks DELETE and changes to the row's key; ordinary updates of other columns proceed",
+        "answer": "D"
+      }
+    ],
+    "explanation": "From strongest to weakest: FOR UPDATE, FOR NO KEY UPDATE, FOR SHARE, FOR KEY SHARE. Inserting a child row takes FOR KEY SHARE on the referenced parent, which conflicts only with FOR UPDATE and key changes. That is why choosing FOR NO KEY UPDATE matters for parent tables.",
+    "reference": "PostgreSQL docs: Explicit Locking (Row-Level Locks)"
+  },
+  {
+    "id": "SQL-TXN-032",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An API saves an edited document with the statement below and the driver reports `UPDATE 0`. The row with id 42 exists. What does this mean, and what should the API do?\n\n```sql\nUPDATE docs SET body = $1, version = version + 1\n WHERE id = 42 AND version = 3;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The update succeeded but no columns changed; return 200",
+        "why": "Zero affected rows means the WHERE clause matched nothing."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Someone saved a newer version first; return a conflict (409) and reload",
+        "why": "The version is no longer 3, so the compare-and-swap failed."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The row is locked by another session; wait briefly and retry the same statement",
+        "why": "A lock would make the statement wait, not return 0 rows."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The transaction aborted; issue ROLLBACK and try again",
+        "why": "Returning 0 rows is a successful statement, not an error."
+      }
+    ],
+    "explanation": "With optimistic concurrency the version check is part of the WHERE clause. If another writer committed version 4, the condition matches no rows and the UPDATE reports 0. The API should surface a conflict so the client can reload, merge and resubmit, rather than blindly overwrite.",
+    "reference": "PostgreSQL docs: UPDATE (outputs)"
+  },
+  {
+    "id": "SQL-TXN-033",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What does the final SELECT return? `acct` id 1 starts at `bal = 100`.\n\n```sql\nBEGIN;\nUPDATE acct SET bal = 1 WHERE id = 1;\nSAVEPOINT s;\nUPDATE acct SET bal = 2 WHERE id = 1;\nSAVEPOINT s;\nUPDATE acct SET bal = 3 WHERE id = 1;\nROLLBACK TO SAVEPOINT s;\nROLLBACK TO SAVEPOINT s;\nSELECT bal FROM acct WHERE id = 1;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "1, because the second rollback reaches the first savepoint",
+        "why": "ROLLBACK TO keeps the newest savepoint named s, so it is used again."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "2",
+        "why": "Both rollbacks target the most recent savepoint s, which survives the first rollback."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "100, because two rollbacks undo the whole transaction",
+        "why": "ROLLBACK TO never goes past a savepoint, and the transaction stays open."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An error: savepoint \"s\" does not exist",
+        "why": "ROLLBACK TO does not destroy the savepoint, so it is still there."
+      }
+    ],
+    "explanation": "When savepoint names are reused, the most recent one is used. `ROLLBACK TO SAVEPOINT` undoes later work but keeps that savepoint, so the second rollback goes to the same place: the value 2. Only `RELEASE SAVEPOINT s` would expose the older savepoint of the same name.",
+    "reference": "PostgreSQL docs: SAVEPOINT"
+  },
+  {
+    "id": "SQL-TXN-034",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A team builds a job queue with `SELECT … WHERE status = 'new' ORDER BY id LIMIT 1 FOR UPDATE` (no SKIP LOCKED). Each worker holds its transaction open while processing for about 2 seconds. With 10 workers, what throughput will they see?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 10 jobs every 2 seconds, since each worker locks a different row",
+        "why": "Every worker targets the same lowest-id row and queues on its lock."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Roughly one job at a time, because the other workers wait on the same row",
+        "why": "Plain FOR UPDATE makes later workers block behind the first one's lock."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "About 10 jobs every 2 seconds, but some jobs get processed twice by different workers",
+        "why": "Waiting workers re-check the row after the commit, so a finished job is not taken again."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Zero: the workers deadlock immediately",
+        "why": "A single shared lock wait forms no cycle, so there is no deadlock."
+      }
+    ],
+    "explanation": "Without SKIP LOCKED, every worker asks for the same first row and waits for its lock, so the queue is processed almost serially. When the holder commits, the waiting workers re-check that row against the WHERE clause, so a finished job is not taken twice, but the time spent waiting is lost. `SKIP LOCKED` lets workers take different rows in parallel.",
+    "reference": "PostgreSQL docs: SELECT (The Locking Clause)"
+  },
+  {
+    "id": "SQL-TXN-035",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Meeting-room bookings must never overlap. The code checks `SELECT count(*) FROM bookings WHERE room = $1 AND during && $2` and inserts if the count is 0. Under REPEATABLE READ, two users occasionally double-book a room. Which fix prevents overlaps without any application retry logic?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Switch every booking transaction to the SERIALIZABLE isolation level",
+        "why": "It prevents the anomaly, but by aborting one transaction with 40001, which then needs a retry."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "An exclusion constraint: `EXCLUDE USING gist (room WITH =, during WITH &&)`",
+        "why": "The database rejects the overlapping insert itself, at any isolation level."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add `FOR UPDATE` to the count query",
+        "why": "There is no existing row to lock when the room is free, so both checks pass."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Add a UNIQUE constraint on `(room, during)` so the same slot can never be repeated",
+        "why": "Uniqueness only rejects identical ranges, not overlapping ones."
+      }
+    ],
+    "explanation": "The race is a phantom: each transaction checks for rows that do not exist yet. Row locks cannot lock missing rows, and SERIALIZABLE turns the race into a retryable error. An exclusion constraint (with the btree_gist extension for the `=` on room) makes the database itself refuse the second overlapping insert.",
+    "reference": "PostgreSQL docs: Exclusion Constraints"
+  },
+  {
+    "id": "SQL-TXN-036",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 3,
+    "stem": "A team moves its booking logic to SERIALIZABLE in PostgreSQL. Which statements are true? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The application must retry whole transactions that fail with SQLSTATE 40001",
+        "why": "SSI resolves conflicts by aborting one transaction, which the app must re-run."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "SSI can abort transactions even when no real anomaly would have happened",
+        "why": "Its tracking is conservative, so false-positive serialization failures occur."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "A `READ ONLY DEFERRABLE` transaction can wait for a safe snapshot and then never fail",
+        "why": "Deferrable read-only transactions avoid serialization failures entirely."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Readers take shared table locks, so reports block writers",
+        "why": "SSI uses predicate tracking (SIRead locks) that never block anyone."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Only the statement that failed needs to be retried",
+        "why": "The whole transaction must be retried, since its earlier reads are stale."
+      }
+    ],
+    "explanation": "PostgreSQL's SERIALIZABLE uses Serializable Snapshot Isolation: non-blocking SIRead \"locks\" track reads, and dangerous patterns abort a transaction with 40001. Some aborts are false positives, so retries are mandatory. Long read-only reports can use `SERIALIZABLE READ ONLY DEFERRABLE` to avoid failures.",
+    "reference": "PostgreSQL docs: Transaction Isolation (Serializable)"
+  },
+  {
+    "id": "SQL-TXN-037",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "Monitoring shows a session in state `idle in transaction` for 6 hours on a busy OLTP database. Which effects can it have? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "VACUUM cannot remove dead row versions newer than its snapshot, so tables bloat",
+        "why": "Its old snapshot keeps the xmin horizon back for the whole cluster."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Any row locks it took keep blocking writers to those rows",
+        "why": "Locks are held until the transaction ends, idle or not."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "PostgreSQL commits it automatically after an hour by default",
+        "why": "There is no default auto-commit; `idle_in_transaction_session_timeout` is 0 (off)."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It blocks every plain SELECT on the tables it touched",
+        "why": "MVCC readers are not blocked by row locks or open snapshots."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "It holds no resources until it runs another statement",
+        "why": "Its snapshot and locks persist while it sits idle."
+      }
+    ],
+    "explanation": "An abandoned open transaction keeps its locks and pins the oldest snapshot still in use, so VACUUM cannot remove dead row versions created after it. Tables bloat, and in extreme cases transaction ID wraparound becomes a risk. Set `idle_in_transaction_session_timeout` and fix the client that forgot to COMMIT.",
+    "reference": "PostgreSQL docs: Routine Vacuuming"
+  },
+  {
+    "id": "SQL-TXN-038",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "During peak traffic a migration runs `ALTER TABLE orders ADD COLUMN note text;`. A 20-minute analytics query is already reading `orders`. Within seconds, all API requests touching `orders` hang. Why, and what is the standard mitigation?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "ADD COLUMN rewrites the table; run it with `CONCURRENTLY`",
+        "why": "Adding a nullable column without a default is metadata-only, and ALTER has no CONCURRENTLY."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The ALTER queues for its exclusive lock and new queries queue behind it; use `lock_timeout`",
+        "why": "Queued lock requests block later ones, so one waiting ALTER stalls everyone."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The analytics query holds row locks on `orders`; raise `statement_timeout` for the API requests",
+        "why": "Reads take only a weak table lock, and a longer timeout would make the hang worse."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A deadlock occurred; increase `deadlock_timeout`",
+        "why": "Nothing forms a cycle; the requests are simply queued behind the ALTER."
+      }
+    ],
+    "explanation": "ALTER TABLE needs an ACCESS EXCLUSIVE lock, which conflicts with the analytics query's ACCESS SHARE lock, so it waits. Lock requests queue in order, so every new SELECT and UPDATE waits behind the ALTER. Running migrations with `SET lock_timeout = '3s'` (and retrying) makes the ALTER give up instead of freezing traffic.",
+    "reference": "PostgreSQL docs: Explicit Locking (Table-Level Locks)"
+  },
+  {
+    "id": "SQL-TXN-039",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "In one session, what do these two queries return?\n\n```sql\nSELECT pg_try_advisory_lock(42) AS a, pg_try_advisory_lock(42) AS b;\nSELECT pg_advisory_unlock(42) AS c, pg_advisory_unlock(42) AS d, pg_advisory_unlock(42) AS e;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "a = true, b = false; then c = true, d = false, e = false",
+        "why": "The second call does not fail: the same session can take the lock again."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "a = true, b = true; then c = true, d = true, e = false",
+        "why": "Session advisory locks stack, so each acquisition needs its own unlock."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "a = true, b = true; then c = true, d = false, e = false",
+        "why": "One unlock only releases one of the two acquisitions."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "a = true, b = error; then c = true, d = false, e = false",
+        "why": "Re-acquiring a lock you already hold is allowed and returns true."
+      }
+    ],
+    "explanation": "Advisory locks are reentrant: a session that holds lock 42 can acquire it again, and the lock count goes up. Each `pg_advisory_unlock` releases one level; the lock is free only after two unlocks. A third unlock returns false (and logs a warning) because nothing is left to release.",
+    "reference": "PostgreSQL docs: Advisory Lock Functions"
+  },
+  {
+    "id": "SQL-TXN-040",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A cron job takes `pg_advisory_lock(7)` at the start so only one copy runs, and calls `pg_advisory_unlock(7)` at the end. The app connects through PgBouncer in transaction-pooling mode. Occasionally, other unrelated requests start failing to get lock 7 forever. What is the cause and fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Advisory locks expire after `deadlock_timeout` elapses; renew them in a loop while the job runs",
+        "why": "Advisory locks never expire on their own."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Session locks stay on the reused server connection; use `pg_advisory_xact_lock` instead",
+        "why": "Transaction-level locks are released at COMMIT, so they can't leak across pooled clients."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "PgBouncer forwards each lock call to a different database",
+        "why": "Calls go to the same database, just over whichever server connection is free."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Advisory lock ids must be greater than 1000; choose a larger key",
+        "why": "Any bigint key is valid."
+      }
+    ],
+    "explanation": "In transaction pooling, a client gets a server connection only for the duration of one transaction. A session-level advisory lock outlives that transaction and stays attached to the server connection, which other clients then reuse. If the unlock runs on a different connection, the lock leaks. `pg_advisory_xact_lock` ties the lock to a transaction and releases it automatically.",
+    "reference": "PostgreSQL docs: Advisory Locks"
+  },
+  {
+    "id": "SQL-TXN-041",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 4,
+    "type": "fill",
+    "select": 1,
+    "stem": "`acct` id 1 has `bal = 100`. Both sessions use READ COMMITTED. What is the final balance? Type a number.\n\n```sql\n-- Session A                                -- Session B\nBEGIN;\nUPDATE acct SET bal = bal * 2 WHERE id = 1;\n                                             BEGIN;\n                                             UPDATE acct SET bal = bal + 10 WHERE id = 1;\n                                             -- (waits)\nCOMMIT;\n                                             COMMIT;\n```",
+    "accepted": [
+      "210"
+    ],
+    "explanation": "A doubles 100 to 200 and commits. B was waiting on the row lock; it then re-evaluates `bal + 10` against the committed version 200, giving 210. Applying the operations in the other order would have given 220, so the outcome depends on which transaction locked the row first.",
+    "reference": "PostgreSQL docs: Transaction Isolation (Read Committed)",
+    "options": []
+  },
+  {
+    "id": "SQL-TXN-042",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "`acct` id 1 has `bal = 100`. What happens at A's locking read?\n\n```sql\n-- Session A                                -- Session B\nBEGIN ISOLATION LEVEL REPEATABLE READ;\nSELECT count(*) FROM acct;  -- takes snapshot\n                                             UPDATE acct SET bal = 0 WHERE id = 1;\n                                             -- (autocommit: committed)\nSELECT bal FROM acct WHERE id = 1 FOR UPDATE;\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It returns 100 from A's snapshot and locks the row",
+        "why": "Locking would hide B's committed change, so PostgreSQL refuses."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It returns 0, the latest committed value, and then locks the row for A",
+        "why": "Repeatable read never returns data newer than its snapshot."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "It fails with \"could not serialize access due to concurrent update\"",
+        "why": "A row changed after the snapshot cannot be locked in repeatable read."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It waits until B's transaction ends",
+        "why": "B already committed, so there is nothing to wait for."
+      }
+    ],
+    "explanation": "In REPEATABLE READ, `SELECT … FOR UPDATE` follows the same rule as UPDATE: if the row was modified by a transaction that committed after this transaction's snapshot, PostgreSQL raises a serialization failure (40001). The application must retry the whole transaction.",
+    "reference": "PostgreSQL docs: Transaction Isolation (Repeatable Read)"
+  },
+  {
+    "id": "SQL-TXN-043",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 3,
+    "stem": "A team considers `PREPARE TRANSACTION` (two-phase commit) to coordinate PostgreSQL with another resource. Which statements are true? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A prepared transaction survives a server crash and must later be finished with COMMIT PREPARED or ROLLBACK PREPARED",
+        "why": "Preparing writes the transaction state durably and detaches it from the session."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It is disabled by default, because `max_prepared_transactions` is 0",
+        "why": "Running it on a stock server fails with \"prepared transactions are disabled\"."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "A forgotten prepared transaction keeps its locks and holds back VACUUM indefinitely",
+        "why": "Orphaned prepared transactions are a classic cause of bloat and blocking."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Two-phase commit removes blocking: participants can always decide on their own",
+        "why": "If the coordinator disappears, prepared participants must wait for a decision."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "After PREPARE TRANSACTION the session can keep issuing statements in it",
+        "why": "The session is dissociated; the prepared transaction can only be committed or rolled back."
+      }
+    ],
+    "explanation": "PREPARE TRANSACTION is the first phase of 2PC for an external transaction manager. The prepared state is durable and independent of the session, which is exactly why abandoned ones are dangerous: they hold locks and old snapshots forever. The feature is off by default; the docs suggest using it only with a proper transaction manager.",
+    "reference": "PostgreSQL docs: PREPARE TRANSACTION"
+  },
+  {
+    "id": "SQL-TXN-044",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 4,
+    "type": "order",
+    "select": 1,
+    "stem": "Put the steps of a correct SERIALIZABLE transfer with retries in order.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`BEGIN ISOLATION LEVEL SERIALIZABLE;`",
+        "why": "Each attempt starts a fresh transaction."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Read both account balances and check the business rules",
+        "why": "Reads happen inside the transaction so SSI can track them."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Write the debit and the credit",
+        "why": "Writes go in the same transaction as the reads they depend on."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`COMMIT;` and, only after it succeeds, send the confirmation email",
+        "why": "Side effects must wait until the commit is known to have succeeded."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "On SQLSTATE 40001 at any step: `ROLLBACK;` and restart from BEGIN",
+        "why": "Retry the whole transaction, since every earlier read may be stale."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "A serialization failure can surface on any statement, including COMMIT. The whole transaction is then retried from the start, with fresh reads. External side effects such as emails belong after a successful COMMIT, never inside the retried block.",
+    "reference": "PostgreSQL docs: Serialization Failure Handling"
+  },
+  {
+    "id": "SQL-TXN-045",
+    "domain": 4,
+    "skill": "transactions",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An order-editing screen locks the order with `SELECT * FROM orders WHERE id = 1 FOR UPDATE;` and keeps the transaction open while the user edits. Meanwhile, the checkout service fails to add items: `INSERT INTO order_items (order_id, …) VALUES (1, …)` hangs (order_items has a foreign key to orders). Which change lets the inserts proceed while still preventing concurrent edits of the order?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Drop the foreign key so inserts no longer touch the parent row",
+        "why": "That removes integrity checks rather than fixing the lock choice."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Lock with `FOR NO KEY UPDATE` instead of `FOR UPDATE`",
+        "why": "The FK check takes FOR KEY SHARE, which only conflicts with FOR UPDATE and key changes."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Lock with `FOR SHARE` instead, so other sessions can still read",
+        "why": "Inserts would proceed, but a second editor could also take FOR SHARE and edit at the same time."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use `FOR UPDATE NOWAIT` so the insert fails fast",
+        "why": "NOWAIT on the editor's lock does nothing for the insert, which still waits."
+      }
+    ],
+    "explanation": "Inserting a child row takes FOR KEY SHARE on the referenced parent. FOR UPDATE conflicts with it, so every insert waits for the editor. FOR NO KEY UPDATE (the lock an ordinary UPDATE takes) still blocks other editors' locks and updates, but lets foreign-key checks through.",
+    "reference": "PostgreSQL docs: Explicit Locking (Row-Level Locks)"
+  }
+]

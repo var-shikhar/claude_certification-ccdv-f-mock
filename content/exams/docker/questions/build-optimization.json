@@ -1,0 +1,1645 @@
+[
+  {
+    "id": "DKR-BLD-001",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "In a Node.js Dockerfile, why do teams copy `package.json` and `package-lock.json` and run `npm ci` before copying the rest of the source code?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Because `npm ci` refuses to run when application source files are present",
+        "why": "`npm ci` only needs the manifest and lockfile; other files in the directory do not stop it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "So source-only edits reuse the cached dependency layer instead of reinstalling",
+        "why": "The install layer only depends on the two manifest files, so it stays cached until they change."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Because Docker builds the COPY instructions in parallel when they are split up",
+        "why": "Instructions in one stage run in order; splitting them is about caching, not parallelism."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "So the final image is smaller, since the dependencies end up in a separate image",
+        "why": "Both layers still end up in the same image; the split does not shrink it."
+      }
+    ],
+    "explanation": "Each instruction is a cache step, and a cache miss invalidates every step after it. Copying only the dependency manifests first means the expensive `npm ci` layer depends on just those files. Editing application code then only invalidates the later `COPY . .` and build steps, and the dependency layer is reused.",
+    "reference": "Docker docs: Optimize cache usage in builds"
+  },
+  {
+    "id": "DKR-BLD-002",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "A Dockerfile downloads a 400 MB toolchain in one `RUN` instruction and deletes it in a later `RUN` instruction. The deletion makes the final image 400 MB smaller.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Each instruction creates its own layer, and earlier layers are kept unchanged in the image."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: the later layer only records a deletion, while the 400 MB still lives in the earlier layer."
+      }
+    ],
+    "explanation": "Image layers are additive. A file deleted in a later layer is hidden from the container's view, but the bytes remain in the layer that added it, so the image does not shrink. Download, use and delete inside the same `RUN`, or do the work in a builder stage of a multi-stage build and copy out only what you need.",
+    "reference": "Docker docs: Image layers"
+  },
+  {
+    "id": "DKR-BLD-003",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What is the main benefit of a multi-stage build?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It runs each stage in its own container at runtime, isolating services",
+        "why": "Stages exist only at build time; a running container comes from one final image."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It caches every stage in the registry so later builds never repeat work",
+        "why": "Caching is separate; whether stages are exported depends on cache options like mode=max."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Build tools stay in earlier stages, and only the artefacts you copy reach the final image",
+        "why": "The final stage starts fresh and receives only what you copy with `COPY --from`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It lets one Dockerfile produce images for several CPU architectures in a single build invocation",
+        "why": "Multi-platform output comes from `--platform`, not from having several stages."
+      }
+    ],
+    "explanation": "In a multi-stage build each `FROM` starts a new stage. You can compile in a stage that has compilers and dev dependencies, then start a slim final stage and `COPY --from=<stage>` only the built output. The final image carries none of the toolchain, which makes it smaller and gives it less attack surface.",
+    "reference": "Docker docs: Multi-stage builds"
+  },
+  {
+    "id": "DKR-BLD-004",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "Which file in the build context root lists paths that the client should not send to the builder, such as `node_modules` and `.env`? Type the file name.",
+    "options": [],
+    "accepted": [
+      ".dockerignore",
+      "dockerignore"
+    ],
+    "explanation": "A `.dockerignore` file excludes matching paths from the build context. That keeps the context small, stops secrets such as `.env` from being sent to the builder, and prevents unrelated file changes from invalidating `COPY . .` cache steps.",
+    "reference": "Docker docs: .dockerignore files"
+  },
+  {
+    "id": "DKR-BLD-005",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "You want to see which instructions added the most bytes to an existing image. Which command shows the size of each layer?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`docker image inspect myapp`, which lists layer digests and their sizes",
+        "why": "Inspect shows layer digests in RootFS but not a per-instruction size breakdown."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`docker history myapp`, which lists each instruction and its layer size",
+        "why": "History shows the instruction that created each layer alongside the layer size."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`docker system df`, which breaks down storage used by each image",
+        "why": "`system df` reports totals per image and cache, not the layers inside one image."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`docker buildx du`, which reports the size of each layer of a tagged image",
+        "why": "`buildx du` shows build cache usage, not the layers of a tagged image."
+      }
+    ],
+    "explanation": "`docker history <image>` (also `docker image history`) lists the image's layers newest first, with the instruction that created each one and its size. Large entries point at the instructions to optimise. Tools such as dive go further and show which files each layer added.",
+    "reference": "Docker docs: docker image history"
+  },
+  {
+    "id": "DKR-BLD-006",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each base image choice with its description.",
+    "options": [
+      {
+        "id": "A",
+        "text": "`scratch`"
+      },
+      {
+        "id": "B",
+        "text": "A distroless image"
+      },
+      {
+        "id": "C",
+        "text": "A `-slim` Debian variant"
+      },
+      {
+        "id": "D",
+        "text": "An Alpine image"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Completely empty: no shell, libraries or CA certificates; suits fully static binaries",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Runtime libraries only, with no shell or package manager",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "A trimmed glibc-based distro that still has apt and a shell",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "A tiny distro built on musl libc and BusyBox, with the apk package manager",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Smaller bases mean fewer bytes and fewer packages to patch. `scratch` is empty and only works for self-contained binaries. Distroless images ship language runtimes without a shell or package manager. Slim variants keep a familiar glibc userland. Alpine is very small but uses musl, which can break binaries compiled against glibc.",
+    "reference": "Docker docs: Choose the right base image"
+  },
+  {
+    "id": "DKR-BLD-007",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two changes reduce the size of the final image? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Use a multi-stage build and copy only the compiled output into a slim runtime stage",
+        "why": "The toolchain and source stay behind in the builder stage."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Install packages and clean the package cache in the same `RUN` instruction",
+        "why": "Cleaning in the same layer means the cache bytes are never committed."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add `RUN rm -rf /var/cache/apt` as a separate final instruction",
+        "why": "A later layer cannot remove bytes already committed by an earlier one."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Split one long `RUN` into several shorter `RUN` instructions",
+        "why": "More layers do not reduce bytes and can stop cleanup from shrinking anything."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Rely on `.dockerignore`, which strips unused files from the final image",
+        "why": "`.dockerignore` only limits what COPY can see; it does not prune image content."
+      }
+    ],
+    "explanation": "Only bytes never committed to a layer save space. Multi-stage builds keep build tools out of the final stage, and cleaning caches in the same `RUN` that created them stops them being stored. Cleanup in a later layer, or splitting commands, does not shrink earlier layers.",
+    "reference": "Docker docs: Building best practices"
+  },
+  {
+    "id": "DKR-BLD-008",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "With BuildKit, which change to a file in the build context causes a cache miss for `COPY config.yaml /etc/app/`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Running `touch config.yaml`, which only updates its modification time",
+        "why": "mtime is not part of the cache checksum, so touching the file keeps the cache."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Renaming an unrelated `notes.md` file that is also in the context",
+        "why": "Only files the instruction copies feed its checksum."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Editing one value in `config.yaml`, which changes its content checksum",
+        "why": "The checksum covers the copied file's content, so editing it misses the cache."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Rebuilding on a different machine with an otherwise identical checkout of the repository",
+        "why": "Identical content gives an identical checksum, whichever host computed it."
+      }
+    ],
+    "explanation": "For `COPY` and `ADD`, the builder computes a checksum of the files being copied and their relevant metadata. The modification time is not taken into account, so `touch` or a fresh checkout does not bust the cache. A content change in a copied file does, and so does every instruction after it.",
+    "reference": "Docker docs: Build cache invalidation"
+  },
+  {
+    "id": "DKR-BLD-009",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "This image has been built once and nothing else has changed. A developer edits `src/routes.js` and rebuilds. How many of the `COPY`/`RUN` instructions are executed again instead of being taken from cache? Type a number.\n\n```dockerfile\nFROM node:22-slim\nWORKDIR /app\nCOPY package.json package-lock.json ./\nRUN npm ci\nCOPY . .\nRUN npm run build\nCMD [\"node\", \"dist/server.js\"]\n```",
+    "options": [],
+    "accepted": [
+      "2",
+      "two"
+    ],
+    "explanation": "The `COPY package.json package-lock.json ./` step and `RUN npm ci` stay cached, because neither lockfile changed. `COPY . .` copies `src/routes.js`, so its checksum changes and it misses the cache. Every later step then misses too: `RUN npm run build` runs again. `CMD` only sets metadata. That makes 2 instructions executed again.",
+    "reference": "Docker docs: Build cache invalidation"
+  },
+  {
+    "id": "DKR-BLD-010",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A Dockerfile has `RUN apt-get update` on one line and `RUN apt-get install -y curl nginx` on the next. Months later someone adds `vim` to the install line and the build fails with 404 errors for some packages. What is the cause?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "apt cannot install more than two packages in one non-interactive command",
+        "why": "apt installs any number of packages in one call; the count is not the problem."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The cached `apt-get update` layer holds an old package index that points at removed versions",
+        "why": "Only the install line changed, so the stale update layer was reused from cache."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "BuildKit runs the two RUN instructions in parallel, so the install starts before update finishes",
+        "why": "Instructions in one stage run sequentially, so update always finishes first."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`vim` is not in the Debian archive, so the whole transaction fails with 404",
+        "why": "vim is a standard package; the 404s come from outdated index entries."
+      }
+    ],
+    "explanation": "RUN cache keys are based on the command string. Changing the install line busts only that step, so the old cached `apt-get update` layer and its index are reused, and they reference package versions that no longer exist on the mirror. Run `apt-get update && apt-get install -y …` in one `RUN` so the index refreshes whenever the package list changes.",
+    "reference": "Docker docs: Building best practices (apt-get)"
+  },
+  {
+    "id": "DKR-BLD-011",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A build needs a private npm token to install packages. Which approach keeps the token out of the image and its history?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`ARG NPM_TOKEN`, then `RUN echo \"//registry.npmjs.org/:_authToken=$NPM_TOKEN\" > .npmrc && npm ci`",
+        "why": "Build argument values are recorded and visible through `docker history`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`COPY .npmrc .`, then `RUN npm ci && rm .npmrc` in a later instruction",
+        "why": "The token stays in the COPY layer even though a later layer deletes it."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`RUN --mount=type=secret,id=npmrc,target=/root/.npmrc npm ci` with `--secret id=npmrc,src=…`",
+        "why": "Secret mounts exist only while that RUN executes and are never written to a layer."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`ENV NPM_TOKEN=…` in the builder stage of a multi-stage build",
+        "why": "ENV values are stored in that stage's config and can leak via cache or history."
+      }
+    ],
+    "explanation": "A secret mount exposes a file (or environment variable) to a single `RUN` and never commits it to the image. Build arguments are visible in `docker history` and in max-mode provenance attestations, and copying a file then deleting it leaves the bytes in an earlier layer. Pass the secret with `docker build --secret id=npmrc,src=$HOME/.npmrc .`.",
+    "reference": "Docker docs: Build secrets"
+  },
+  {
+    "id": "DKR-BLD-012",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "Put these Dockerfile lines for a Node.js service in the order that gives the best cache reuse.",
+    "options": [
+      {
+        "id": "A",
+        "text": "FROM node:22-slim"
+      },
+      {
+        "id": "B",
+        "text": "WORKDIR /app"
+      },
+      {
+        "id": "C",
+        "text": "COPY package.json package-lock.json ./"
+      },
+      {
+        "id": "D",
+        "text": "RUN npm ci --omit=dev"
+      },
+      {
+        "id": "E",
+        "text": "COPY . ."
+      },
+      {
+        "id": "F",
+        "text": "CMD [\"node\", \"server.js\"]"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "explanation": "Order instructions from least to most frequently changing. The base image and working directory almost never change, the manifests change occasionally, and source code changes on nearly every commit. Installing dependencies before copying the source keeps that slow step cached for code-only edits. `CMD` goes last because it is just metadata.",
+    "reference": "Docker docs: Optimize cache usage in builds"
+  },
+  {
+    "id": "DKR-BLD-013",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Starting from a fully cached build of this Dockerfile, which two changes cause `RUN npm ci` to run again? (Choose two.)\n\n```dockerfile\nFROM node:22-slim\nWORKDIR /app\nCOPY package.json package-lock.json ./\nRUN npm ci\nCOPY . .\nRUN npm run build\nCMD [\"node\", \"dist/server.js\"]\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Upgrading a dependency so that `package-lock.json` changes",
+        "why": "The lockfile is copied right before the install, so its new checksum busts that step."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Changing the first line to `FROM node:24-slim`",
+        "why": "A new base image invalidates every instruction built on top of it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Editing `README.md` in the project root",
+        "why": "README.md is first copied by `COPY . .`, which comes after the install."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Running `touch package.json` without changing its content",
+        "why": "mtime is ignored in the cache checksum, so the copy step still hits the cache."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Adding a new file under `src/`",
+        "why": "New source files only affect `COPY . .` and the steps after it."
+      }
+    ],
+    "explanation": "A step misses the cache when its own inputs change or when any earlier step misses. The lockfile feeds the `COPY` right before `npm ci`, and the base image sits under everything. Source and documentation edits only reach `COPY . .`, which comes after the install. Touching a file changes only its mtime, which BuildKit ignores.",
+    "reference": "Docker docs: Build cache invalidation"
+  },
+  {
+    "id": "DKR-BLD-014",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A Dockerfile has stages `deps`, `build`, `test` and `runtime`. CI runs `docker build --target test .` to execute the tests. What does `--target test` do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It builds every stage in the file and then tags the `test` stage as the result",
+        "why": "With BuildKit, stages that `test` does not depend on are skipped."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It stops at the `test` stage and builds only the stages that `test` depends on",
+        "why": "The target becomes the output, and unrelated stages are never processed."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It runs the `test` stage as a container after the full build completes, then exits",
+        "why": "Targeting a stage builds it as an image; it does not start a container."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It skips the `test` stage, so a test image is never pushed by accident",
+        "why": "The target is the stage to build, not a stage to exclude."
+      }
+    ],
+    "explanation": "`--target <stage>` makes that stage the build result. BuildKit walks the dependency graph back from the target and builds only the stages it needs. Here `test` probably depends on `deps` and `build`, and `runtime` is skipped entirely. This lets one Dockerfile serve CI test runs and production images.",
+    "reference": "Docker docs: Multi-stage builds (Stop at a specific build stage)"
+  },
+  {
+    "id": "DKR-BLD-015",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "With BuildKit, `docker build --target stage2 .` also processes `stage1`, even when `stage2` never references `stage1` through `FROM` or `COPY --from`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "BuildKit builds only the stages the target depends on, so unrelated stages are skipped."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: BuildKit skips stages the target does not depend on."
+      }
+    ],
+    "explanation": "The legacy builder processed every stage up to the target. BuildKit builds only the stages the target depends on, through `FROM <stage>` or `COPY --from=<stage>`. In the docs example, building `stage2` processes only `base` and `stage2`. Independent stages that are needed can even run in parallel.",
+    "reference": "Docker docs: Multi-stage builds (Differences between legacy builder and BuildKit)"
+  },
+  {
+    "id": "DKR-BLD-016",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A Dockerfile uses `RUN --mount=type=cache,target=/root/.npm npm ci`. What happens to the files npm writes to `/root/.npm`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "They are committed to the layer, so the image includes the npm download cache",
+        "why": "Cache mount content is never committed to the image's layers."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "They persist in the builder between builds but are not committed to the image",
+        "why": "The cache directory lives in the builder's storage and survives across builds."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "They are discarded after each build, so the next build downloads everything again",
+        "why": "Discarding them would defeat the purpose; they persist between builder runs."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "They are pushed to the registry next to the image so other builders can reuse them",
+        "why": "Cache mounts are local to the builder rather than an exported artefact."
+      }
+    ],
+    "explanation": "A cache mount is a persistent directory owned by the builder. Its content survives between builds without invalidating the instruction cache, so a changed lockfile reruns `npm ci` but reuses already downloaded packages. Nothing in the mount becomes part of the image layer. The docs warn that builds must work with any cache content, since GC may clear it.",
+    "reference": "Dockerfile reference: RUN --mount=type=cache"
+  },
+  {
+    "id": "DKR-BLD-017",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A repository has no `.dockerignore`, and the Dockerfile uses `COPY . .`. Developers notice that the build context upload is slow and that the cache misses on nearly every build. Which explanation fits?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Without `.dockerignore`, BuildKit disables layer caching for COPY instructions",
+        "why": "Caching still works; it misses because the copied files keep changing."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Local `node_modules`, `.git` and build output are sent and copied, so their churn busts `COPY . .`",
+        "why": "Every changed file under those folders alters the checksum of the copy step."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The context is uploaded uncompressed, so the checksum includes upload timing",
+        "why": "Checksums depend on file content, not on how long the transfer took."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "BuildKit hashes the entire repository history, so every new commit invalidates the whole layer cache",
+        "why": "BuildKit hashes the files a COPY reads, not the repository history."
+      }
+    ],
+    "explanation": "Without a `.dockerignore`, everything in the directory is part of the context: local dependency folders, the `.git` directory, logs and build artefacts. `COPY . .` copies all of it, so any change to those paths changes its checksum and every step after it reruns. Ignoring them shrinks the upload and stabilises the cache.",
+    "reference": "Docker docs: .dockerignore files"
+  },
+  {
+    "id": "DKR-BLD-018",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 2,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each BuildKit `RUN --mount` type with its typical use.",
+    "options": [
+      {
+        "id": "A",
+        "text": "`type=cache`"
+      },
+      {
+        "id": "B",
+        "text": "`type=secret`"
+      },
+      {
+        "id": "C",
+        "text": "`type=ssh`"
+      },
+      {
+        "id": "D",
+        "text": "`type=bind`"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Keep a package manager's download directory between builds",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Expose an API token to one command without storing it in a layer",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Clone a private repository using the host's SSH agent",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Read `go.sum` from the context during `go mod download` without copying it into a layer",
+        "answer": "D"
+      }
+    ],
+    "explanation": "BuildKit mounts attach resources to a single `RUN` without committing them. Cache mounts hold reusable downloads, secret mounts carry credentials, SSH mounts forward an agent socket for authenticated fetches, and bind mounts expose context or stage files read-only.",
+    "reference": "Dockerfile reference: RUN --mount"
+  },
+  {
+    "id": "DKR-BLD-019",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A CI pipeline runs every build on a fresh, ephemeral VM, and every build reinstalls all dependencies even though the lockfile rarely changes. What fixes this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add `--no-cache` so the builder stops consulting stale cache on each run",
+        "why": "`--no-cache` disables caching entirely, which makes the problem worse."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Add `RUN --mount=type=cache` to the install step, which on its own carries the cache across fresh VMs",
+        "why": "Cache mounts live in the local builder, and a fresh VM starts with them empty."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Export and import build cache with `--cache-to`/`--cache-from` (registry or `gha` backend)",
+        "why": "An external cache backend gives each fresh runner the layers from earlier builds."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Pin the base image by digest so the builder can reuse the layers locally",
+        "why": "Pinning makes the base stable, but a fresh VM still has no cached layers."
+      }
+    ],
+    "explanation": "Layer cache lives in the builder's local storage, so a brand-new runner starts cold. External cache backends (`registry`, `gha`, `s3`, `azblob`, `local`) let `--cache-to` save layers after a build and `--cache-from` restore them on the next run, so unchanged steps such as dependency installs are reused.",
+    "reference": "Docker docs: Cache storage backends"
+  },
+  {
+    "id": "DKR-BLD-020",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A Dockerfile has `ARG APP_VERSION` near the top, followed by `RUN apt-get update && apt-get install -y curl`, which never mentions `$APP_VERSION`. CI passes a new `--build-arg APP_VERSION=…` on every build. What happens to the apt step?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It stays cached, because the command string never references `$APP_VERSION`",
+        "why": "RUN steps after an ARG see it as an environment variable, so it still counts."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It misses the cache on every build, because RUN steps after the ARG use it implicitly",
+        "why": "A changed ARG value causes a miss at the first RUN after the ARG is declared."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It misses only when the ARG is also declared in a later stage",
+        "why": "Declaring it once in this stage is enough to affect the RUN steps after it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It fails, because build args must be referenced in the same stage that declares them",
+        "why": "An unused ARG is legal; it only produces a lint warning in some tools."
+      }
+    ],
+    "explanation": "ARG values affect the cache at their first usage, and every `RUN` after an `ARG` instruction receives it implicitly as an environment variable. So a changing value invalidates the apt step even though the command never mentions it. Declare volatile args such as versions as late as possible, just before the steps that need them.",
+    "reference": "Dockerfile reference: ARG (Impact on build caching)"
+  },
+  {
+    "id": "DKR-BLD-021",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "A Dockerfile ends with `RUN rm -rf /var/lib/apt/lists/* /tmp/*` on its own line, yet the image is still 1.2 GB. Which three statements are true? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The deleted files still exist in the earlier layers that created them",
+        "why": "Layers are immutable, so an earlier layer's bytes ship with the image."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Cleaning must happen in the same `RUN` that created the files to save space",
+        "why": "Bytes removed before the layer is committed are never stored."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Moving the build into a builder stage and copying only the output can remove most of the size",
+        "why": "The final stage then contains only the artefacts it explicitly copies."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The final `rm` layer itself is about as large as the files it deletes",
+        "why": "A deletion layer only records whiteouts and is tiny; the size is in older layers."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Running `docker image prune` after the build reclaims the deleted bytes inside the image",
+        "why": "Prune removes unused images; it cannot rewrite the layers of an image in use."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "BuildKit merges layers automatically whenever a later layer deletes files",
+        "why": "BuildKit does not squash layers automatically, so earlier layers are kept as they are."
+      }
+    ],
+    "explanation": "An image is a stack of read-only layers. A later deletion adds whiteout entries that hide files at runtime, but the bytes remain in the layer that added them. To actually save space, clean up in the same instruction or keep the heavy work in a builder stage and copy only what the final stage needs.",
+    "reference": "Docker docs: Image layers"
+  },
+  {
+    "id": "DKR-BLD-022",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "CI uses `--cache-to type=registry,ref=reg/app:cache` and `--cache-from` the same ref with a multi-stage Dockerfile. The final runtime layers are reused, but the `build` stage's `npm ci` reruns on every pipeline. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The registry backend can only store caches for single-stage Dockerfiles",
+        "why": "Registry caches support multi-stage builds; it is the export mode that matters."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Default `mode=min` exports only final-image layers, so builder-stage layers aren't cached",
+        "why": "Builder layers are not in the result, so min mode leaves them out of the cache."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Cache imports apply only to the final stage, whatever export mode is used",
+        "why": "Imported cache is consulted for every stage that has matching layers."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The ref must end in `:buildcache` for BuildKit to recognise the image as a build cache source",
+        "why": "The cache image name is arbitrary; the suffix has no special meaning."
+      }
+    ],
+    "explanation": "In min mode (the default) only layers that end up in the resulting image are exported. Intermediate stages such as a dependency install in a builder stage are not saved, so the next runner rebuilds them. `--cache-to type=registry,ref=…,mode=max` exports every layer, including intermediate stages, at the cost of a larger cache.",
+    "reference": "Docker docs: Cache storage backends (Cache mode)"
+  },
+  {
+    "id": "DKR-BLD-023",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A team builds a Go service for `linux/amd64,linux/arm64` on amd64 runners. The arm64 half takes about 10× longer than amd64. What is the standard way to fix this?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add `--platform=linux/arm64` to the runtime `FROM` so arm64 runs natively",
+        "why": "That still runs the arm64 build steps under QEMU emulation on amd64 runners."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Pin the builder stage to `$BUILDPLATFORM` and cross-compile via `TARGETOS`/`TARGETARCH`",
+        "why": "The compiler runs natively and emits arm64 binaries without emulation."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Build the two platforms in two separate Dockerfiles and merge them by hand",
+        "why": "Two files add maintenance but leave the emulation that slows arm64 down."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Raise the builder's CPU limit, because QEMU is constrained by default quotas on most runners",
+        "why": "QEMU translates every instruction; extra CPU helps little against that."
+      }
+    ],
+    "explanation": "Under emulation every arm64 instruction is translated by QEMU, which can be much slower for compute-heavy work like compilation. For languages that can cross-compile, run the build stage natively with `FROM --platform=$BUILDPLATFORM golang AS build` and set `GOOS`/`GOARCH` from the automatic `TARGETOS`/`TARGETARCH` args. Only the final copy step targets each platform.",
+    "reference": "Docker docs: Multi-platform builds (Cross-compilation)"
+  },
+  {
+    "id": "DKR-BLD-024",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "In a cross-compiling Dockerfile, which automatic build argument holds the platform of the machine running the build (for example `linux/amd64`), so that `FROM --platform=$…` can pin the builder stage to it? Type the argument name.",
+    "options": [],
+    "accepted": [
+      "BUILDPLATFORM",
+      "$BUILDPLATFORM"
+    ],
+    "explanation": "BuildKit sets `BUILDPLATFORM` (and `BUILDOS`/`BUILDARCH`) to the build host, and `TARGETPLATFORM` (and `TARGETOS`/`TARGETARCH`) to each requested output platform. Pin compiler stages to `$BUILDPLATFORM` so they run natively, and use the `TARGET*` values to tell the compiler what to produce.",
+    "reference": "Docker docs: Multi-platform builds"
+  },
+  {
+    "id": "DKR-BLD-025",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An engineer passed a token with `--build-arg TOKEN=…` and used it only inside a multi-stage builder stage, so they believe it cannot leak. Which risk remains?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "None: build args from earlier stages are always stripped from history and metadata",
+        "why": "Build args are visible in history and in max-mode provenance attestations."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Build arg values can show up in `docker history` and max-mode provenance attestations",
+        "why": "The docs warn against build args for secrets for exactly these reasons."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The token is copied into every stage, so `docker exec` in the running container can read it",
+        "why": "An ARG is scoped to its stage and is not set in the running container."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The token is written to `/etc/environment` in the final image by default",
+        "why": "ARG values are not persisted as environment variables in the final image."
+      }
+    ],
+    "explanation": "The Dockerfile reference warns against using build arguments for credentials. Their values are visible through `docker history` and in max-mode provenance attestations, which Buildx GitHub Actions attach by default for public repositories. Use `RUN --mount=type=secret` instead, so the value is available to one command and never recorded.",
+    "reference": "Dockerfile reference: ARG"
+  },
+  {
+    "id": "DKR-BLD-026",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A Dockerfile uses `RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements.txt`. Builds run on fresh, ephemeral CI runners with `--cache-from`/`--cache-to type=registry,mode=max`. Which two statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Each fresh runner starts with an empty pip cache mount, because the mount lives in the local builder",
+        "why": "Cache mount content stays in the builder that created it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "If requirements.txt is unchanged, the registry cache can still let the whole step be reused",
+        "why": "An imported matching layer skips the RUN entirely, mount or not."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The pip cache mount contents are added to the exported cache image",
+        "why": "Exported cache holds layers; the mount's files were never in a layer."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Adding the cache mount changes nothing on a long-lived builder that keeps its storage",
+        "why": "On a persistent builder the mount speeds up reinstalls after a lockfile change."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The cache mount makes the `pip install` layer smaller only when `mode=max` is set",
+        "why": "Mount content never enters the layer, whatever the cache export mode is."
+      }
+    ],
+    "explanation": "Two different caches are in play. Layer cache can be exported and imported, so an unchanged step is skipped entirely on any runner. A cache mount is a directory in the local builder's storage that speeds up a step that does rerun. It is not part of the exported layers, so ephemeral runners start with it empty unless you persist the builder state another way.",
+    "reference": "Docker docs: Optimize cache usage; Cache storage backends"
+  },
+  {
+    "id": "DKR-BLD-027",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A Dockerfile runs `COPY . .` and then `RUN npm ci && npm run build`. The team says builds are slow even for one-line code changes. What is the root cause?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "npm ci always ignores existing packages and reinstalls from scratch",
+        "why": "That is true of npm ci, but a cache hit would skip the step completely."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Any source edit changes the `COPY . .` checksum, so the install below it reruns too",
+        "why": "The dependency install is downstream of a step that changes on every commit."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Combining two commands in one RUN disables layer caching for that step",
+        "why": "A combined RUN is cached like any other; the problem is its position."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The build script edits package.json, so the next build starts with a changed manifest",
+        "why": "A build script changing package.json is unusual and is not the issue described."
+      }
+    ],
+    "explanation": "Once `COPY . .` misses the cache, every later instruction runs again. Putting dependency installation after a copy of the whole source ties it to every code change. Copy the manifests, install, then copy the source, or use a cache mount so reinstalls are fast.",
+    "reference": "Docker docs: Optimize cache usage in builds"
+  },
+  {
+    "id": "DKR-BLD-028",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "Order these lines of a Dockerfile that cross-compiles a Go service for several platforms and ships a tiny final image.",
+    "options": [
+      {
+        "id": "A",
+        "text": "FROM --platform=$BUILDPLATFORM golang:1.24 AS build"
+      },
+      {
+        "id": "B",
+        "text": "ARG TARGETOS TARGETARCH"
+      },
+      {
+        "id": "C",
+        "text": "COPY go.mod go.sum ./ then RUN go mod download"
+      },
+      {
+        "id": "D",
+        "text": "COPY . ."
+      },
+      {
+        "id": "E",
+        "text": "RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /out/app"
+      },
+      {
+        "id": "F",
+        "text": "FROM scratch then COPY --from=build /out/app /app"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "explanation": "The build stage runs natively on the build platform and declares the automatic target args it needs. Module downloads come before the source copy so they stay cached. The compile step targets each platform, and `CGO_ENABLED=0` produces a static binary. The final `scratch` stage then receives only that binary.",
+    "reference": "Docker docs: Multi-platform builds (Cross-compiling a Go application)"
+  },
+  {
+    "id": "DKR-BLD-029",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 3,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Pinning the base image as `FROM node:22-slim@sha256:<digest>` means a rebuild uses exactly the same base layers, even after the `node:22-slim` tag is moved to a newer image.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: a digest identifies one immutable image, so tag moves do not affect it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "A digest is content-addressed, so the referenced image cannot change."
+      }
+    ],
+    "explanation": "Tags are mutable pointers, while digests are content hashes. Pinning by digest makes builds reproducible and keeps the base layer cached, but it also means you stop getting security patches until you bump the digest on purpose, for example with automated update PRs.",
+    "reference": "Docker docs: Pin base image versions"
+  },
+  {
+    "id": "DKR-BLD-030",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "The Dockerfile reference shows this pattern for caching apt downloads with BuildKit. Why does it remove `/etc/apt/apt.conf.d/docker-clean` and use `sharing=locked`?\n\n```dockerfile\nRUN rm -f /etc/apt/apt.conf.d/docker-clean; echo 'Binary::apt::APT::Keep-Downloaded-Packages \"true\";' > /etc/apt/apt.conf.d/keep-cache\nRUN --mount=type=cache,target=/var/cache/apt,sharing=locked \\\n    --mount=type=cache,target=/var/lib/apt,sharing=locked \\\n    apt-get update && apt-get --no-install-recommends install -y gcc\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "docker-clean speeds up apt, and `locked` makes the cache read-only for the build",
+        "why": "`locked` serialises access between builds rather than making the mount read-only."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Debian images auto-delete downloaded `.deb` files, and apt needs exclusive access to its cache",
+        "why": "Removing docker-clean keeps the packages; `locked` makes parallel builds wait their turn."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "docker-clean conflicts with BuildKit, and `locked` stops the cache mount from going into the image",
+        "why": "Cache mounts never enter the image anyway; `locked` is about concurrent builds."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Both are needed so apt verifies package signatures inside a cache mount",
+        "why": "Signature checks are unaffected; the changes are about keeping files and locking."
+      }
+    ],
+    "explanation": "Official Debian and Ubuntu images ship a `docker-clean` apt config that deletes downloaded packages after each install, which would leave the cache mount empty. Removing it and setting `Keep-Downloaded-Packages` keeps them. apt also needs exclusive access to its data, so `sharing=locked` makes parallel builds using the same mount wait for each other.",
+    "reference": "Dockerfile reference: RUN --mount=type=cache (Example: cache apt packages)"
+  },
+  {
+    "id": "DKR-BLD-031",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What does `COPY --link` change compared with a plain `COPY`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It creates hard links to the context files instead of copying their bytes",
+        "why": "The files are still copied; `--link` changes how the layer is assembled."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The copied files get an independent layer that stays valid when earlier layers change",
+        "why": "Linked layers can be reused, or rebased onto a new base, without being redone."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It makes the copied files read-only inside the running container",
+        "why": "File permissions are controlled by `--chmod`, not by `--link`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It lets COPY read files that lie outside the build context by following symbolic links",
+        "why": "Context boundaries still apply, and symlinks cannot escape the context."
+      }
+    ],
+    "explanation": "With `--link`, files are copied into an empty directory and that becomes its own layer, as if built `FROM scratch` and then merged. Because it does not depend on the earlier layers, changing those layers (for example a new base image) does not force the copy to be redone, and builders can rebase the image instead of rebuilding.",
+    "reference": "Dockerfile reference: COPY --link"
+  },
+  {
+    "id": "DKR-BLD-032",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Why would you write `RUN --mount=type=bind,source=go.sum,target=go.sum --mount=type=bind,source=go.mod,target=go.mod go mod download` instead of `COPY go.mod go.sum ./` followed by `RUN go mod download`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Bind mounts let the step write `go.sum` changes back to the host project directory",
+        "why": "Build bind mounts are read-only by default, so nothing is written back."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The files are visible to that step only and are not committed as an extra layer",
+        "why": "The step still gets a correct cache key without adding a COPY layer."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Bind mounts disable caching, so modules are always fresh",
+        "why": "Bind-mounted files feed the cache checksum like COPY sources do."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "COPY cannot copy files whose names start with `go.`",
+        "why": "COPY handles any file name; there is no such restriction."
+      }
+    ],
+    "explanation": "Bind mounts expose context files to a single `RUN` without committing them to the image. The builder still checksums bind-mounted files to decide cache validity, so the step reruns only when `go.mod` or `go.sum` change. The image just doesn't carry an extra layer with those files.",
+    "reference": "Docker docs: Optimize cache usage (Use bind mounts)"
+  },
+  {
+    "id": "DKR-BLD-033",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A Node image builds two independent stages, `frontend` (8 minutes) and `backend` (5 minutes), and the final stage copies output from both. Roughly how long does the build take with BuildKit on a capable machine, compared with the legacy builder?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "About 13 minutes with both builders, because stages always run one after another",
+        "why": "BuildKit runs independent stages concurrently."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "About 8 minutes with BuildKit, versus about 13 with the legacy builder",
+        "why": "BuildKit runs the two stages in parallel, so the longer one sets the time."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "About 5 minutes, because BuildKit only rebuilds the shorter stage",
+        "why": "Both stages are needed by the final stage, so both must be built."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "About 13 minutes with BuildKit, because COPY --from forces sequential builds",
+        "why": "COPY --from only orders the final stage after its dependencies."
+      }
+    ],
+    "explanation": "BuildKit builds a dependency graph and runs independent stages in parallel, so total time approaches the longest path rather than the sum. The legacy builder processes stages sequentially. Structuring Dockerfiles as independent stages joined at the end is a cheap way to cut build time.",
+    "reference": "Docker docs: Multi-stage builds"
+  },
+  {
+    "id": "DKR-BLD-034",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Dockerfile copies the app into the image and then fixes ownership:\n\n```dockerfile\nFROM node:22-slim\nCOPY build/ /app/\nRUN chown -R node:node /app\nUSER node\n```\n\n`build/` is 300 MB, and the image grew by about 600 MB. Why, and what is the better fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`chown` compresses badly; use `RUN chmod -R` instead to keep it smaller",
+        "why": "chmod also rewrites every file into a new layer, so it has the same cost."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Changing ownership copies every file into a new layer; use `COPY --chown=node:node`",
+        "why": "Setting ownership during COPY writes each file once instead of twice."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`USER node` duplicates the app directory into the user's home folder",
+        "why": "USER only sets which user runs later steps and the container."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The 300 MB is counted twice by `docker images`, so the image only looks bigger than it is",
+        "why": "Both layers are really stored and shipped in the image."
+      }
+    ],
+    "explanation": "Layers store whole files. When a later layer changes a file's metadata, such as owner or permissions, the full file is written again into the new layer, so 300 MB of content now exists twice. Set ownership as the files are added (`COPY --chown`, or `--chmod`) so each file is written once.",
+    "reference": "Dockerfile reference: COPY --chown"
+  },
+  {
+    "id": "DKR-BLD-035",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team wants two builds of the same commit to produce bit-for-bit identical images. Which two measures address real sources of difference? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Pin the base image by digest instead of a moving tag",
+        "why": "Otherwise a moved tag silently changes the base layers between builds."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Set `SOURCE_DATE_EPOCH` to a fixed value, such as the commit timestamp, for file timestamps",
+        "why": "Build-time timestamps otherwise differ on every build."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Use `--no-cache` so no stale layer can leak into the image",
+        "why": "Rebuilding everything makes timestamps and downloads vary more, not less."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use `ADD` instead of `COPY`, because ADD records content hashes",
+        "why": "Both checksum content; ADD only adds remote-URL and archive handling."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Split the Dockerfile into more stages so each one stays deterministic",
+        "why": "Stage count has no effect on timestamps or on moving dependencies."
+      }
+    ],
+    "explanation": "Common sources of non-reproducibility are moving base tags, unpinned package versions, and timestamps embedded in files and image metadata. Digest pinning fixes the base. `SOURCE_DATE_EPOCH` gives BuildKit a fixed timestamp for created files. Note that changing `SOURCE_DATE_EPOCH` invalidates the cache from `WORKDIR` onwards, so use a fixed value if you care about cache hits.",
+    "reference": "Docker docs: Build cache invalidation (WORKDIR and SOURCE_DATE_EPOCH)"
+  },
+  {
+    "id": "DKR-BLD-036",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A security team rotates the private registry token used by `RUN --mount=type=secret,id=npmrc,target=/root/.npmrc npm ci`. The next build reuses the cached step, and packages that the old token had access to are not refetched. Is this expected, and how do you force a rerun when needed?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "No: a changed secret value always invalidates the step, so this means the secret was never mounted during the build",
+        "why": "Secret content is deliberately excluded from the cache key."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Yes: secret contents are not part of the cache key; add an `ARG CACHEBUST` that you change with the secret",
+        "why": "Build args do invalidate the cache, so changing one forces the RUN again."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Yes, but only `--no-cache` can ever force the step to run again",
+        "why": "A targeted build arg, or `--no-cache-filter`, forces a rerun more cheaply."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "No: renaming the file on the host is what normally invalidates the cache",
+        "why": "Host file names are not part of the checksum; the secret id and mount path are."
+      }
+    ],
+    "explanation": "The Docker docs state that build secret contents are not part of the build cache, so changing a secret value does not invalidate anything. The secret id and mount path are included, so changing those does. To force a rerun after rotating a secret, pass a build argument whose value you change at the same time, or use `--no-cache-filter <stage>`.",
+    "reference": "Docker docs: Build cache invalidation (Build secrets)"
+  },
+  {
+    "id": "DKR-BLD-037",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "On a Docker Engine host that still uses the classic image store, `docker buildx build --platform linux/amd64,linux/arm64 -t app --load .` fails. What is the reason, and what are the documented options?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "QEMU is missing; installing `qemu-user-static` on the host lets `--load` succeed",
+        "why": "Emulation is about running steps; the failure is about storing the multi-platform result."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The classic store can't hold manifest lists: enable containerd, or push via a docker-container builder",
+        "why": "Multi-platform images need an image store that supports manifest lists."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`--load` accepts only one `--platform` value, so the build must run twice and the results be merged manually",
+        "why": "The limit is the store, not the flag; containerd-backed engines can load them."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Multi-platform builds require Docker Desktop and never work on Docker Engine running on Linux servers",
+        "why": "Docker Engine supports them with the containerd store or a container builder."
+      }
+    ],
+    "explanation": "Multi-platform images are manifest lists, which the classic image store can't hold. Docker Desktop and Docker Engine 29+ use the containerd image store by default. On older engines you can enable it in the daemon config, or create a `docker-container` builder and push the result to a registry instead of loading it locally.",
+    "reference": "Docker docs: Multi-platform builds (Prerequisites)"
+  },
+  {
+    "id": "DKR-BLD-038",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Dockerfile downloads a tool with `RUN curl -fsSL https://example.com/tool-latest.tar.gz | tar -xz -C /usr/local/bin`. Upstream publishes a fixed version under the same URL, but rebuilds keep shipping the old binary. Which fix is both correct and cache-friendly?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add `--no-cache` to every build so curl always fetches the newest file from upstream",
+        "why": "That works but throws away the whole cache on every build."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Pin a versioned URL with `ADD --checksum=sha256:…`, and bump both when upgrading",
+        "why": "A changed URL or checksum misses the cache only when you upgrade on purpose."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Swap `curl` for `wget`, which BuildKit re-runs whenever a download changes",
+        "why": "BuildKit doesn't look inside RUN; any download tool behaves the same way."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Move the RUN line to the end so it always runs after the cached steps",
+        "why": "Position doesn't matter; a RUN with an unchanged command string is still cached."
+      }
+    ],
+    "explanation": "RUN cache is keyed on the command string, so BuildKit can't see that the remote file changed. A \"latest\" URL makes builds non-reproducible and silently stale. Pin a versioned artefact and verify it, for example with `ADD --checksum=sha256:<hash> <url> <dest>` (Dockerfile 1.6+). Changing the version is then an explicit edit that busts exactly that step.",
+    "reference": "Dockerfile reference: ADD --checksum; RUN cache invalidation"
+  },
+  {
+    "id": "DKR-BLD-039",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 3,
+    "stem": "You inspect a 900 MB image with `docker history --no-trunc` and a layer explorer such as dive. Which three findings point to concrete size reductions? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "A 350 MB layer from `RUN apt-get install build-essential` in the final stage",
+        "why": "Compilers belong in a builder stage, not in the runtime image."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A 120 MB layer whose files are deleted by a later `RUN rm -rf` layer",
+        "why": "Wasted space: the files must be cleaned in the layer that created them."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Two layers that each hold the same 200 MB of files, one from COPY and one from `chmod -R`",
+        "why": "Metadata changes duplicate files, so set modes during COPY instead."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A 0 B layer created by `ENV NODE_ENV=production`",
+        "why": "Metadata-only instructions add no bytes and cost nothing."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "A 40 MB base layer from `debian:bookworm-slim`",
+        "why": "That is a reasonable runtime base, and shrinking it further brings trade-offs."
+      }
+    ],
+    "explanation": "Look for build tools in the runtime image, files added and then deleted in separate layers, and files duplicated by metadata changes such as chmod or chown. Metadata-only instructions like ENV, CMD and LABEL add no bytes, and a slim base is usually fine. dive reports \"wasted space\" for exactly these duplicated or deleted bytes.",
+    "reference": "Docker docs: Image layers; docker image history"
+  },
+  {
+    "id": "DKR-BLD-040",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Go binary built with default settings in `golang:1.24` is copied into `FROM scratch`. The container fails to start with `exec /app: no such file or directory`, although `/app` exists. What is the cause?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The binary needs execute permission, and files in scratch images default to mode 0644",
+        "why": "A permission problem gives \"permission denied\", not \"no such file\"."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The binary is dynamically linked, and scratch lacks the libc and loader it needs",
+        "why": "The missing file is the dynamic loader, so the kernel reports ENOENT."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "scratch images cannot run any binary unless it is named `/bin/sh`",
+        "why": "scratch runs any static executable; no shell is required."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The image was built for arm64, so the kernel cannot find the file",
+        "why": "An architecture mismatch gives \"exec format error\" instead."
+      }
+    ],
+    "explanation": "With cgo enabled (often the default), Go may produce a dynamically linked binary. The kernel then looks for its ELF interpreter, the dynamic loader, which does not exist in `scratch`, and reports ENOENT for the executable. Build with `CGO_ENABLED=0` for a static binary, or use a distroless base that ships libc. Also remember CA certificates if the app makes TLS calls.",
+    "reference": "Docker docs: Multi-stage builds; Go cgo documentation"
+  },
+  {
+    "id": "DKR-BLD-041",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 4,
+    "type": "fill",
+    "select": 1,
+    "stem": "Which value of the `mode` option on `--cache-to` exports the layers of every build stage, including intermediate stages that are not part of the final image? Type the value.",
+    "options": [],
+    "accepted": [
+      "max",
+      "mode=max"
+    ],
+    "explanation": "In min mode (the default) only layers in the resulting image are cached. `mode=max` exports every layer, so builder-stage work such as dependency installs can be reused on another runner. It is supported by all cache backends except `inline`.",
+    "reference": "Docker docs: Cache storage backends (Cache mode)"
+  },
+  {
+    "id": "DKR-BLD-042",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A team's scanner reports a critical CVE in the `node:22-slim` base. The tag has been republished upstream with the fix, but rebuilding the app image still reports the CVE. Which two actions get the patched base into the image? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Rebuild with `--pull` so the builder resolves the tag again instead of using its local copy",
+        "why": "Without `--pull`, an existing local copy of the tag may be reused."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Bump the digest when `FROM` pins one, since a pinned digest never moves",
+        "why": "A pin keeps the vulnerable base until you change it on purpose."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Add `RUN apt-get upgrade -y` as the last line of the final stage",
+        "why": "It can patch packages, but it isn't the base and adds another large layer."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Run `docker image prune -a` on the registry to drop the vulnerable layers",
+        "why": "Prune works on the local daemon; it can't change which base your build uses."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Rebuild with `--no-cache`, which always pulls the newest base image",
+        "why": "It disables layer reuse but doesn't force a pull of the base tag."
+      }
+    ],
+    "explanation": "Builds can resolve `FROM` to a locally available image, so a republished tag is not picked up until the builder pulls again. `--pull` forces that. If the Dockerfile pins a digest, the base never changes until you bump the digest, which is the point of pinning. Automate digest bumps so security fixes flow in deliberately.",
+    "reference": "Docker docs: docker build --pull; Pin base image versions"
+  },
+  {
+    "id": "DKR-BLD-043",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A monorepo has one Dockerfile with stages `api-build`, `web-build`, `api` and `web`. A developer edits a file under `web/` and runs `docker build --target api .`. Assuming everything else is cached, what happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`web-build` reruns, because any change in the build context rebuilds every stage in the file",
+        "why": "BuildKit never processes stages that the target does not depend on."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Nothing reruns if `api` and `api-build` copy only `api/` paths, not the whole context",
+        "why": "Their cache keys don't involve web/ files, and web stages are skipped."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Only `web` reruns, because the change is under `web/`",
+        "why": "Building the `api` target never touches the `web` stage."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The build fails, because the targeted stage's context has changed",
+        "why": "Context changes never fail a build; they only affect cache keys."
+      }
+    ],
+    "explanation": "BuildKit builds only the stages the target depends on, and each COPY is keyed on the files it actually copies. If the api stages copy only `api/` paths, a change under `web/` affects no checksum they use, and every step is a cache hit. If an api stage did `COPY . .`, that copy and every later step would miss.",
+    "reference": "Docker docs: Multi-stage builds; Build cache invalidation"
+  },
+  {
+    "id": "DKR-BLD-044",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two practices commonly make Docker build caches miss in CI even when the source has not meaningfully changed? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Passing a build arg such as the commit SHA or a timestamp that is declared near the top",
+        "why": "Every RUN after that ARG sees a new value on each build and misses."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Running `COPY . .` early while CI writes generated files, such as coverage reports, into the workspace",
+        "why": "Generated files change the context checksum of that copy step."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Using `COPY --link` for source files",
+        "why": "`--link` makes layers more reusable, not less."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Adding `RUN --mount=type=cache` to the dependency install step",
+        "why": "Cache mounts don't affect cache keys; they only speed up reruns."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Pinning the base image by digest",
+        "why": "A fixed digest keeps the base stable across builds."
+      }
+    ],
+    "explanation": "Volatile build args declared early invalidate every `RUN` that follows. CI-generated or untracked files caught by a broad `COPY . .` change its checksum. Declare volatile args just before the steps that need them (or use labels at the end), add CI artefacts to `.dockerignore`, and copy narrow paths.",
+    "reference": "Dockerfile reference: ARG (Impact on build caching); .dockerignore"
+  },
+  {
+    "id": "DKR-BLD-045",
+    "domain": 2,
+    "skill": "build-optimization",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A team proposes `docker build --squash` to fix a bloated image made of many layers. Why do Docker's build docs steer you towards multi-stage builds instead?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Squashing makes the image larger, because it duplicates every layer's content into a new combined layer",
+        "why": "Squashing merges layers; it doesn't duplicate content."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`--squash` is a legacy-builder experiment; multi-stage ships only what you copy and keeps caching",
+        "why": "Multi-stage builds drop build tools and still reuse cached layers."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Squashed images cannot be pushed to registries that use OCI manifests",
+        "why": "Registries accept them; the issue is how you get there and what you lose."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Squashing is forbidden for images built from official base images",
+        "why": "There is no such rule; the problem is technical, not legal."
+      }
+    ],
+    "explanation": "`--squash` was an experimental legacy-builder feature that merged new layers into one. It does not work with BuildKit, and it throws away layer sharing between images. A multi-stage build gets the size benefit by keeping build tools in a builder stage, while the final image stays small, cacheable, and shares its base layers.",
+    "reference": "Docker docs: Multi-stage builds"
+  }
+]

@@ -1,0 +1,33 @@
+{
+  "networking": {
+    "summary": "Docker networking decides how containers find each other, how ports reach the outside world, and how host firewalls interact with container traffic. Use user-defined networks for name resolution and isolation, publish only what must be public, and remember that Docker's NAT rules sit in front of host firewalls like ufw.",
+    "points": [
+      "Containers without `--network` join the default `bridge`, where names don't resolve; user-defined bridges add DNS by name or alias through the embedded server at `127.0.0.11` and isolate unrelated stacks.",
+      "`-p host:container[/proto]` publishes to every host address (`0.0.0.0` and `[::]`) by default; prefix `127.0.0.1:` to keep a port host-only (reliable from Engine 28.0.0). `EXPOSE` only documents, and `-P` publishes exposed ports to random host ports.",
+      "Inside a container, `localhost` is the container itself. Apps must listen on `0.0.0.0` to receive published traffic, and on Linux you reach host services through `--add-host host.docker.internal:host-gateway` (Docker Desktop adds that name automatically).",
+      "Containers on different bridge networks talk only through published ports; attach a container to several networks (an `--internal` one for backends) and pin the default gateway with `gw-priority`.",
+      "Published traffic is DNAT-ed in the nat table and forwarded, so ufw's INPUT rules never see it. Put custom filters in `DOCKER-USER`, which runs before Docker's rules and sees the post-DNAT container address and port.",
+      "`--network host` shares the host stack (ports are ignored), `none` leaves only loopback, `container:<name>` shares another container's stack, overlay needs swarm mode plus `--attachable` for standalone containers, and macvlan containers can't talk to their own host.",
+      "Debug minimal images by running a tools container such as netshoot with `--network container:<name>`, and confirm membership with `docker network inspect`."
+    ],
+    "traps": [
+      "Publishing a port on Ubuntu with ufw enabled exposes it to the internet anyway: Docker's DNAT diverts the traffic before ufw's INPUT rules.",
+      "`--dns 127.0.0.1` points at the container's own loopback, not the host's local resolver.",
+      "Rules appended to FORWARD, or `DOCKER-USER` rules matching the original host port, don't filter published traffic: match the container port or use conntrack `--ctorigdstport`."
+    ],
+    "docs": [
+      {
+        "title": "Networking overview",
+        "url": "https://docs.docker.com/engine/network/"
+      },
+      {
+        "title": "Port publishing and mapping",
+        "url": "https://docs.docker.com/engine/network/port-publishing/"
+      },
+      {
+        "title": "Packet filtering and firewalls",
+        "url": "https://docs.docker.com/engine/network/packet-filtering-firewalls/"
+      }
+    ]
+  }
+}
