@@ -17,9 +17,9 @@ built one subject at a time, in this order:
 | 2 | JavaScript | `javascript` (the 20-item `js-essentials` quiz stays as a taster) | Done (6 Oct 2026): 450 items, 45 per skill, 4 levels |
 | 3 | TypeScript | `typescript` | Done (6 Oct 2026): 450 items, 45 per skill, checked with tsc 6.0.3 |
 | 4 | React | `react` | Done (6 Oct 2026): 450 items, 60% Advanced or Expert, checked by running React 19.3 |
-| 5 | Node.js | `nodejs` | Planned |
-| 6 | Python | `python` | Planned |
-| 7 | Next.js | `nextjs` | Planned |
+| 5 | Node.js | `nodejs` | Done (7 Oct 2026): 450 items, 58% Advanced or Expert, verified on Node 24 |
+| 6 | Python | `python` | Done (7 Oct 2026): 450 items, 58% Advanced or Expert, verified on CPython 3.13 |
+| 7 | Next.js | `nextjs` | In progress: 450 items, based on the bundled Next.js 16 docs |
 | … | More IT subjects (SQL, Docker/Kubernetes, AWS, DSA, Git, …) | | Later |
 
 Each bank uses the standard layout under `content/exams/<id>/`: `exam.json`
