@@ -1,0 +1,24 @@
+{
+  "proxy-middleware": {
+    "summary": "Next.js 16 renamed Middleware to Proxy: one `proxy.ts` file that runs on Node.js before routes render and can redirect, rewrite, set headers and cookies, or respond directly. Know where it sits in the request order, how matchers work, and why it is only an optimistic layer for auth.",
+    "points": [
+      "Put `proxy.ts` at the same level as `app` (the root, or `src/` if you use it) and export one function named `proxy` or a default export. Only one proxy file is allowed per project. `middleware.ts` is deprecated; the `middleware-to-proxy` codemod renames it.",
+      "Proxy defaults to the Node.js runtime and the `runtime` option can't be set in it (doing so throws). Teams that still need Edge are told to keep using `middleware` for now.",
+      "Order of checks: `next.config` headers → redirects → Proxy → `beforeFiles` rewrites → filesystem routes (`public/`, `_next/static`, pages) → `afterFiles` rewrites → dynamic routes → `fallback` rewrites. Config redirects therefore win over Proxy.",
+      "Without a matcher, Proxy runs on every request, including `_next/static`, `_next/image` and `public/` files. Matchers must be static constants, are anchored to the start of the path, and use path-to-regexp modifiers: `*` zero or more, `+` one or more, `?` zero or one. Objects can add `has`, `missing` and `locale`.",
+      "`redirect` (default 307, URL must be absolute) changes the browser URL. `rewrite` serves another route or an external URL while keeping the URL. `next({ request: { headers } })` forwards headers upstream, while `next({ headers })` sends them to the client.",
+      "Server Functions are POSTs to the page they're used on, so the matcher decides whether Proxy sees them. Proxy still runs for `_next/data` even if excluded. Flight headers such as `next-router-prefetch` are stripped from `request.headers`, so skip prefetches with matcher `missing` conditions.",
+      "Keep Proxy fast: it runs on prefetches too. `fetch` cache options have no effect, module-level state isn't shared between instances, and `event.waitUntil()` lets background work finish after the response."
+    ],
+    "traps": [
+      "Treating Proxy as your authorization layer. A matcher change, a moved Server Function or a framework bug (CVE-2025-29927) can skip it, so always re-check in the Data Access Layer and in every Server Function.",
+      "Negative matchers that are too broad or too narrow: `(?!api` also excludes `/apiary`, and forgetting to exclude `public/` assets makes auth or locale redirects break logos, favicons and the login page itself.",
+      "Leaving `proxy.ts` at the repository root after moving routes into `src/app`. Proxy silently stops running, with no error."
+    ],
+    "docs": [
+      { "title": "Proxy (getting started)", "url": "https://nextjs.org/docs/app/getting-started/proxy" },
+      { "title": "proxy.js file convention", "url": "https://nextjs.org/docs/app/api-reference/file-conventions/proxy" },
+      { "title": "Redirecting", "url": "https://nextjs.org/docs/app/guides/redirecting" }
+    ]
+  }
+}

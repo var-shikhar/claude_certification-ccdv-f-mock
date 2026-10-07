@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
 import { authClient, signIn, signUp } from '@/lib/auth-client';
+import { safeRedirectPath } from '@/lib/safe-redirect';
 
 type Mode = 'sign-in' | 'sign-up';
 
@@ -40,7 +41,7 @@ export function AuthForm({ mode, next, providers, isGuest }: { mode: Mode; next?
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const copy = COPY[mode];
-  const destination = next && next.startsWith('/') ? next : '/dashboard';
+  const destination = safeRedirectPath(next, '/dashboard');
 
   function done() {
     router.push(destination);
@@ -78,7 +79,7 @@ export function AuthForm({ mode, next, providers, isGuest }: { mode: Mode; next?
         setError(res.error.message ?? 'Could not start a guest session.');
         return;
       }
-      router.push(next && next.startsWith('/') ? next : '/onboarding');
+      router.push(safeRedirectPath(next, '/onboarding'));
       router.refresh();
     });
   }
