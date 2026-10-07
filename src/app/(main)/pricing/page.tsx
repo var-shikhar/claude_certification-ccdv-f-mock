@@ -7,7 +7,11 @@ import { Button } from '@/components/ui/button';
 import { billingEnabled, getPlan, getProPrice } from '@/server/billing';
 import { getUser } from '@/server/session';
 
-export const metadata: Metadata = { title: 'Pricing', description: 'Practise free. Upgrade for unlimited full mocks and more AI coaching.' };
+export const metadata: Metadata = {
+  title: 'Pricing',
+  description: 'Practise free. Upgrade for unlimited full mocks and more AI coaching.',
+  alternates: { canonical: '/pricing' },
+};
 
 const FREE = [
   'Every exam and quiz in the catalog',

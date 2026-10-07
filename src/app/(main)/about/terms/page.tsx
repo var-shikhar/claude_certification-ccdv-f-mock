@@ -1,6 +1,10 @@
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = { title: 'Terms' };
+export const metadata: Metadata = {
+  title: 'Terms',
+  description: 'The ground rules for using quizzMonkey, an independent practice platform not affiliated with any exam vendor.',
+  alternates: { canonical: '/about/terms' },
+};
 
 export default function Page() {
   return (

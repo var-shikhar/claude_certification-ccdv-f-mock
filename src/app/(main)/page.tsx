@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
@@ -11,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Spotlight } from '@/components/ui/spotlight-new';
 import { listExams } from '@/server/exams';
 import { getUser } from '@/server/session';
+
+export const metadata: Metadata = { alternates: { canonical: '/' } };
 
 export default async function LandingPage() {
   const user = await getUser();

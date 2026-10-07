@@ -1,6 +1,10 @@
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = { title: 'How scoring works' };
+export const metadata: Metadata = {
+  title: 'How scoring works',
+  description: 'How quizzMonkey scores mocks the way certification exams report results, and how your readiness score and predicted score are worked out.',
+  alternates: { canonical: '/about/scoring' },
+};
 
 export default function ScoringPage() {
   return (

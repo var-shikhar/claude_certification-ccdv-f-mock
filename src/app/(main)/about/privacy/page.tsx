@@ -1,6 +1,10 @@
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = { title: 'Privacy' };
+export const metadata: Metadata = {
+  title: 'Privacy',
+  description: 'What quizzMonkey stores about you, and why.',
+  alternates: { canonical: '/about/privacy' },
+};
 
 export default function Page() {
   return (
