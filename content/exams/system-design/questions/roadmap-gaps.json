@@ -1,0 +1,1377 @@
+[
+  {
+    "id": "SD-GAP-001",
+    "domain": 1,
+    "skill": "scaling-basics",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A legacy service written in an old language must call a remote payments API. The team wants retries, circuit breaking, TLS and request metrics on those calls without changing the legacy code. Which pattern fits best?",
+    "options": [
+      {
+        "id": "A",
+        "text": "An ambassador: a helper proxy beside the service that handles outbound calls on its behalf",
+        "why": "The ambassador sits next to the client and adds connectivity features to every outbound call without code changes.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "An anti-corruption layer that translates the payments API data model into the legacy model",
+        "why": "That isolates domain models; it does not add retries, TLS or circuit breaking to network calls.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "A strangler fig that gradually routes payment traffic away from the legacy service over time",
+        "why": "Strangler fig incrementally replaces a system; it does not add client-side resilience to it.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "A gatekeeper host that validates and sanitises every request before it reaches the service",
+        "why": "A gatekeeper protects inbound traffic to a service; the problem here is outbound calls.",
+        "correct": false
+      }
+    ],
+    "explanation": "The ambassador pattern places an out-of-process proxy (often a sidecar container) beside a client to handle cross-cutting connectivity concerns such as retries, circuit breaking, TLS, routing and telemetry. It is especially useful for legacy applications that are hard to modify. The cost is an extra local hop, so it suits calls where a little added latency is acceptable.",
+    "reference": "Azure Architecture Center: Ambassador pattern"
+  },
+  {
+    "id": "SD-GAP-002",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A new orders service must read customer data from a 20-year-old ERP whose API uses cryptic field codes, overloaded status values and different identifiers. The team wants the new service's domain model to stay clean while the ERP remains in use for years. What should they build?",
+    "options": [
+      {
+        "id": "A",
+        "text": "A shared library that exposes the ERP data model to every new service so they stay consistent",
+        "why": "That spreads the legacy model into every new service, which is exactly what the team wants to avoid.",
+        "correct": false
+      },
+      {
+        "id": "B",
+        "text": "An anti-corruption layer that translates between the ERP model and the new domain model",
+        "why": "Only the translation layer knows the ERP's quirks, so the new model stays clean and the layer can be retired later.",
+        "correct": true
+      },
+      {
+        "id": "C",
+        "text": "A database view inside the ERP that renames the cryptic columns into readable names",
+        "why": "Renaming columns doesn't fix overloaded semantics or identifiers, and it couples the new service to the ERP database.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "An API gateway route that forwards the new service's calls straight to the ERP endpoints",
+        "why": "Routing passes the legacy model through unchanged; a gateway does not translate domain semantics.",
+        "correct": false
+      }
+    ],
+    "explanation": "An anti-corruption layer (from Domain-Driven Design) is a façade or adapter between two subsystems with different semantics. It translates requests and responses so the newer system's model is not polluted by the legacy one. It adds a component to run and some latency, and the team that owns the new system should own it.",
+    "reference": "Azure Architecture Center: Anti-corruption Layer pattern"
+  },
+  {
+    "id": "SD-GAP-003",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A reporting endpoint calls a 400-line stored procedure that formats currency, builds XML and computes discounts for each row. At peak the database CPU sits at 95% while the five app servers idle at 20%, and adding app servers changes nothing. Which change addresses the root cause?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Add app servers and a bigger connection pool so more procedure calls run in parallel",
+        "why": "More parallel calls push even more work onto the database CPU, which is already the bottleneck.",
+        "correct": false
+      },
+      {
+        "id": "B",
+        "text": "Move formatting and business rules into the app tier, keeping only data access in SQL",
+        "why": "The database is the hardest tier to scale; moving non-data work to the scalable app tier relieves it.",
+        "correct": true
+      },
+      {
+        "id": "C",
+        "text": "Rewrite the stored procedure as several smaller procedures that each do part of the work",
+        "why": "Splitting the code does not reduce the total CPU work the database has to perform.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Cache the procedure's compiled plan so the database stops recompiling it on each call",
+        "why": "Plan caching saves parse and plan time, but the cost here is per-row formatting and logic.",
+        "correct": false
+      }
+    ],
+    "explanation": "This is the Busy Database antipattern: application processing (formatting, XML generation, business rules) runs inside the database, usually the hardest tier to scale. Keep the database for storing and retrieving data and move presentation and business logic to app servers, which scale out. Database CPU metrics and per-query statistics confirm the diagnosis.",
+    "reference": "Azure Architecture Center: Busy Database antipattern"
+  },
+  {
+    "id": "SD-GAP-004",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A web API resizes uploaded images (2–3 seconds of CPU each) inside the request handler. When uploads spike, every endpoint, including simple reads, becomes slow and starts timing out. What is the standard fix?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Return 202, queue the resize and process it on separate background workers",
+        "why": "Moving long CPU work off the request path frees front-end threads, and the workers scale independently.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "Give the API servers more threads so the resizing and the reads stop competing",
+        "why": "More threads on the same CPUs only increase contention; the CPU-heavy work still starves other requests.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "Put a CDN in front of the API so read requests are served from edge caches instead",
+        "why": "A CDN might hide some reads, but it does nothing for uploads, and uncacheable endpoints still time out.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Raise the client timeout so uploads have time to finish under load",
+        "why": "Longer timeouts keep threads busy for longer and spread the slowdown further.",
+        "correct": false
+      }
+    ],
+    "explanation": "Busy Front End antipattern: resource-intensive work runs on the threads that serve user requests, so one workload degrades all the others. Offload it to background workers through a queue (Queue-Based Load Leveling), return 202 with a status location, and scale the workers separately from the front end.",
+    "reference": "Azure Architecture Center: Busy Front End antipattern"
+  },
+  {
+    "id": "SD-GAP-005",
+    "domain": 4,
+    "skill": "coordination",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An order flow spans payment, inventory and shipping services. Each service listens for the previous service's event and emits its own (`PaymentCaptured` → inventory reserves stock → `StockReserved` → shipping books a courier). As steps were added, nobody can tell which service reacts to which event, and failures leave orders stuck. What best describes the trade-off?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Choreography: no central coordinator, but the flow is implicit and hard to track as steps grow",
+        "why": "Choreography decentralises control through events; the price is that the end-to-end flow lives nowhere in code.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "Orchestration: a central coordinator owns the flow, so the stuck orders must come from that coordinator",
+        "why": "There is no coordinator here: each service reacts to events on its own.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "Two-phase commit: each service votes in turn, so one slow voter blocks every order",
+        "why": "No prepare/commit voting happens; services publish events after committing locally.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Choreography, which guarantees exactly-once processing, so stuck orders must be a broker bug",
+        "why": "Choreography gives no exactly-once guarantee; stuck orders come from missing compensation and monitoring.",
+        "correct": false
+      }
+    ],
+    "explanation": "In a choreographed saga, services react to each other's events with no central controller. That is simple and loosely coupled for a few steps, but as the flow grows it becomes hard to understand, test and monitor, and cyclic dependencies can creep in. An orchestrator (a saga coordinator or workflow engine) makes the flow explicit and centralises compensation and timeouts, at the cost of a component that must itself be highly available.",
+    "reference": "Azure Architecture Center: Choreography pattern"
+  },
+  {
+    "id": "SD-GAP-006",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A service must publish 25 MB scanned documents for downstream processing, but the message broker's maximum message size is 1 MB and large messages slow every consumer. What is the usual pattern?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Put the file in object storage and publish a message carrying only its reference",
+        "why": "The claim check keeps messages small; consumers fetch the payload from storage using the reference.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "Split each document into 1 MB chunks and publish them as a sequence of messages",
+        "why": "Chunking works around the limit but makes reassembly, ordering and retries harder for every consumer.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "Raise the broker's message size limit to 32 MB so whole documents fit in one message",
+        "why": "Large messages hurt broker memory, replication and throughput for everyone, and many brokers cap the limit.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Compress each document with gzip so it shrinks below the 1 MB limit before publishing",
+        "why": "Scanned images barely compress, and larger files would still break the limit.",
+        "correct": false
+      }
+    ],
+    "explanation": "Claim-Check pattern: store a large payload in an external data store and send a token (the claim check) that consumers use to retrieve it. This keeps the messaging system fast and within its limits. Plan the payload's lifecycle (delete it after processing or give it a TTL) and secure access to the store, for example with short-lived signed URLs.",
+    "reference": "Azure Architecture Center: Claim-Check pattern"
+  },
+  {
+    "id": "SD-GAP-007",
+    "domain": 1,
+    "skill": "scaling-basics",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A team runs 14 small internal services, each on its own VM. Most sit below 5% CPU all day, and the VM bill dominates their costs. The services have similar scaling needs and the same release cadence. What does the Compute Resource Consolidation pattern suggest?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Run the low-utilisation services together on fewer shared compute units",
+        "why": "Grouping services with similar scaling and lifecycles onto shared hosts raises utilisation and cuts cost.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "Rewrite all 14 services as one monolith so they share a single process and database",
+        "why": "Consolidation shares compute, not code or data; merging into a monolith couples deployments and data.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "Move each service to its own larger VM so all of them have headroom for spikes",
+        "why": "That increases cost and idle capacity, the opposite of what the team needs.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Keep one VM per service but shut every VM down overnight to save money",
+        "why": "Schedules save a little, but each service still carries a whole underused VM during the day.",
+        "correct": false
+      }
+    ],
+    "explanation": "Compute Resource Consolidation: combine multiple tasks or services into a single computational unit (a host, container cluster or app plan) when they have compatible scalability, lifetime and processing requirements. It improves utilisation and lowers cost and management overhead. Keep apart services with very different scaling profiles or security boundaries, because one noisy service can affect the others on a shared unit.",
+    "reference": "Azure Architecture Center: Compute Resource Consolidation pattern"
+  },
+  {
+    "id": "SD-GAP-008",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A single PostgreSQL primary serves users, products and orders for a marketplace, and it is saturated on writes. The three areas are rarely joined in the same query. Before sharding any table, which approach splits the load by function?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Federation: give users, products and orders their own separate databases",
+        "why": "Splitting by function divides the write load, and each database can be tuned and scaled on its own.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "Vertical scaling: move the primary to a much larger machine",
+        "why": "Bigger hardware delays the problem but does not split the write load, and it has a ceiling.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "Read replicas: add four replicas and send all reads to them while writes stay put",
+        "why": "Replicas add read capacity only; the bottleneck here is writes on the single primary.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Sharding: split every table by user id across eight identical clusters of databases",
+        "why": "Sharding splits rows within a function and adds cross-shard complexity; federation splits by function first.",
+        "correct": false
+      }
+    ],
+    "explanation": "Federation (functional partitioning) splits databases by function, so each handles less read and write traffic, gets better cache locality and can be scaled independently. The cost is that joins across functions move into the application and cross-database transactions become harder. It is often a first step before sharding the hottest function.",
+    "reference": "System Design Primer: Federation"
+  },
+  {
+    "id": "SD-GAP-009",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A service that holds storage account keys is exposed to the internet. Security wants a design where, if the public-facing component is compromised, the attacker still can't reach the keys or the storage directly. Which design follows the Gatekeeper pattern?",
+    "options": [
+      {
+        "id": "A",
+        "text": "A separate, keyless front host that validates requests and forwards valid ones to the trusted service",
+        "why": "The gatekeeper holds no secrets and runs in its own trust zone, so compromising it does not expose the keys or storage.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "A web application firewall module running on the same host as the service, blocking bad requests first",
+        "why": "Filtering on the same host adds no boundary: compromising that host still exposes the keys.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "Store the keys in environment variables or a mounted secret instead of in files on the public-facing host",
+        "why": "The keys still live on the internet-facing host, so a compromise still reveals them.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Rotate the storage keys every hour so that any key stolen from the public-facing service expires quickly",
+        "why": "Rotation shortens the window, but the exposed host still holds valid keys at every moment.",
+        "correct": false
+      }
+    ],
+    "explanation": "Gatekeeper pattern: a dedicated host acts as a broker between clients and the application. It validates and sanitises requests and passes them to trusted hosts over an internal channel, but it holds no credentials itself. This limits the blast radius of an attack on the public-facing tier, at the cost of an extra hop and another component to scale.",
+    "reference": "Azure Architecture Center: Gatekeeper pattern"
+  },
+  {
+    "id": "SD-GAP-010",
+    "domain": 1,
+    "skill": "scaling-basics",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A Node.js service creates a new HTTP client with a fresh connection pool, and a new database client, inside every request handler. Under load it shows rising latency, many sockets in TIME_WAIT and occasional \"connection refused\" errors from the database. What is the fix?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Create the clients once at startup and reuse them for every request",
+        "why": "Long-lived clients keep warm connection pools, so requests skip handshakes and stop exhausting sockets.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "Close each client at the end of every request so its sockets are released right away",
+        "why": "Closing faster still pays the handshake costs on every request and keeps churning ephemeral ports.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "Raise the database's max_connections limit",
+        "why": "That raises the ceiling, but each connection is expensive and the database eventually hits memory limits.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Retry failed connections with exponential backoff until the pool has room again",
+        "why": "Retries add load to an already exhausted resource and hide the real bug.",
+        "correct": false
+      }
+    ],
+    "explanation": "Improper Instantiation antipattern: objects designed to be created once and shared (HTTP clients with connection pools, database clients, SDK clients) are created per request. That wastes handshakes, exhausts sockets and connections and adds latency. Create them once, as singletons or long-lived injected instances, and reuse them; they are designed to be shared safely across concurrent requests.",
+    "reference": "Azure Architecture Center: Improper Instantiation antipattern"
+  },
+  {
+    "id": "SD-GAP-011",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "One SQL database holds both an application's high-volume telemetry writes and its business order data. Telemetry bursts slow checkout queries, and backups of the order data now take hours. What antipattern is this, and what is the fix?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Busy database: move the telemetry logic out of stored procedures into the app tier",
+        "why": "The problem isn't logic inside the database; it is unrelated workloads sharing one store.",
+        "correct": false
+      },
+      {
+        "id": "B",
+        "text": "Monolithic persistence: store telemetry in a store suited to it, apart from order data",
+        "why": "Different data has different access patterns; a time-series or log store fits telemetry, and orders stay relational.",
+        "correct": true
+      },
+      {
+        "id": "C",
+        "text": "Noisy neighbor: give the telemetry writes a lower transaction isolation level",
+        "why": "Isolation levels change concurrency semantics, not the I/O and storage contention between workloads.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Chatty I/O: batch the telemetry writes so there are far fewer round trips to the database",
+        "why": "Batching helps a little, but both workloads still compete for the same storage and backups.",
+        "correct": false
+      }
+    ],
+    "explanation": "Monolithic Persistence antipattern: putting all of an application's data in one store regardless of how each kind is used. Telemetry (append-heavy, time-ordered, rarely updated) competes with transactional data for I/O, locks and backup windows. Polyglot persistence, using a store that fits each kind of data, removes the contention at the cost of running more systems.",
+    "reference": "Azure Architecture Center: Monolithic Persistence antipattern"
+  },
+  {
+    "id": "SD-GAP-012",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "The No Caching antipattern only applies to data that never changes: if data changes even occasionally, a cache cannot help and every request should go to the database.",
+    "options": [
+      {
+        "id": "A",
+        "text": "True",
+        "why": "Data that changes occasionally is a prime candidate: a short TTL or invalidation on change keeps it fresh while absorbing most reads.",
+        "correct": false
+      },
+      {
+        "id": "B",
+        "text": "False",
+        "why": "Correct: caching also works for slowly changing data, using TTLs or event-driven invalidation to bound staleness.",
+        "correct": true
+      }
+    ],
+    "explanation": "No Caching antipattern: repeatedly fetching the same data from its origin when it could be cached. Even data that changes can usually tolerate seconds or minutes of staleness. Use cache-aside with a TTL, or invalidate on change, and watch the hit ratio. Uncached repeated reads cost latency, throughput and money, and raise the risk of overloading the database.",
+    "reference": "Azure Architecture Center: No Caching antipattern"
+  },
+  {
+    "id": "SD-GAP-013",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An image pipeline runs decode → virus scan → resize → watermark → upload, all in one process. Scanning is ten times slower than the other steps, and a bug in the watermark code forces a redeploy of everything. What does the Pipes and Filters pattern suggest?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Run the whole pipeline on bigger machines so the slow scan step finishes faster",
+        "why": "Vertical scaling speeds everything equally and keeps the coupling; the slow step still limits throughput.",
+        "correct": false
+      },
+      {
+        "id": "B",
+        "text": "Make each step an independent filter joined by queues, so each scales and deploys on its own",
+        "why": "Independent filters let you run more scanners than watermarkers and redeploy one stage without the rest.",
+        "correct": true
+      },
+      {
+        "id": "C",
+        "text": "Merge the scan and resize steps into a single stage so there are fewer hand-offs between parts",
+        "why": "Merging couples a slow step to a fast one, so neither can scale independently.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Run the five steps in parallel threads inside the same process so all of the cores get used",
+        "why": "The steps depend on each other in order, and one process still deploys as one unit.",
+        "correct": false
+      }
+    ],
+    "explanation": "Pipes and Filters: decompose processing into independent, reusable filter components connected by pipes, often queues. Each filter can be scaled, deployed and replaced on its own, and slow stages simply get more instances. The trade-offs are more moving parts, latency from hand-offs, and the need for idempotent filters, because messages may be redelivered.",
+    "reference": "Azure Architecture Center: Pipes and Filters pattern"
+  },
+  {
+    "id": "SD-GAP-014",
+    "domain": 4,
+    "skill": "coordination",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A provisioning workflow calls a cloud API, a DNS provider and a billing system for each new tenant. Steps sometimes fail midway or hang. The team wants the workflow to detect stuck steps, retry them and, if needed, undo completed steps. In the Scheduler Agent Supervisor pattern, what does the supervisor do?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Runs each step against the remote service and reports success or failure to the scheduler",
+        "why": "That is the agent's job: agents wrap the calls to remote services.",
+        "correct": false
+      },
+      {
+        "id": "B",
+        "text": "Orders the steps, records each step's state, and invokes agents to carry them out",
+        "why": "That describes the scheduler, which drives the workflow and keeps its state.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "Watches step state for failures or timeouts and arranges recovery: retry or compensation",
+        "why": "The supervisor monitors the recorded state and triggers retries or compensating actions for failed steps.",
+        "correct": true
+      },
+      {
+        "id": "D",
+        "text": "Balances requests across replicas of each remote service so no single instance overloads",
+        "why": "That is a load balancer's job, not part of this pattern.",
+        "correct": false
+      }
+    ],
+    "explanation": "Scheduler Agent Supervisor coordinates a distributed workflow. The scheduler arranges the steps and records their state in a durable store, agents encapsulate the calls to remote services, and the supervisor periodically looks for steps that failed or timed out and triggers recovery: retrying them, or running compensating actions to undo completed work. Steps must be idempotent and the state store durable.",
+    "reference": "Azure Architecture Center: Scheduler Agent Supervisor pattern"
+  },
+  {
+    "id": "SD-GAP-015",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two signals are most useful to collect for security monitoring of a public API? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "text": "Failed authentication and authorization attempts, by account and source IP",
+        "why": "Spikes reveal credential stuffing, brute-force attacks and privilege probing.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "Audit logs of sensitive actions, such as role changes, key creation and data exports",
+        "why": "These trace who did what, which is essential for detecting and investigating misuse.",
+        "correct": true
+      },
+      {
+        "id": "C",
+        "text": "Average CPU utilisation of the API servers over the last hour",
+        "why": "Useful for capacity planning, but it says little about attacks or misuse.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "The number of distinct third-party packages in the build",
+        "why": "That is a supply-chain hygiene metric, not a runtime security signal.",
+        "correct": false
+      },
+      {
+        "id": "E",
+        "text": "Cache hit ratio of the CDN in front of the API",
+        "why": "A performance metric; it does not reveal unauthorized access.",
+        "correct": false
+      }
+    ],
+    "explanation": "Security monitoring focuses on events that indicate attacks or misuse: authentication and authorization failures, unusual access patterns, privilege changes and access to sensitive data. Centralise these logs, protect them from tampering and alert on them, for example with rate-based alerts on failed logins. Never log secrets or tokens while doing so.",
+    "reference": "OWASP Logging Cheat Sheet"
+  },
+  {
+    "id": "SD-GAP-016",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A team must replace a large legacy monolith that cannot be switched off. They want to move functionality gradually, with low risk. Which approach is the Strangler Fig pattern?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Freeze the monolith, rewrite everything in a new system, then cut over in a single weekend",
+        "why": "A big-bang rewrite is exactly the risk the strangler fig avoids.",
+        "correct": false
+      },
+      {
+        "id": "B",
+        "text": "Put a routing façade in front and move features one by one to new services behind it",
+        "why": "The façade routes each migrated feature to its new service, so the legacy system shrinks until it can be retired.",
+        "correct": true
+      },
+      {
+        "id": "C",
+        "text": "Run the old and new systems side by side and have both write to the same database",
+        "why": "Sharing a database couples the two systems and makes the migration harder, not incremental.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Wrap the monolith in an anti-corruption layer so new code never needs to replace it",
+        "why": "An anti-corruption layer isolates models but does not migrate functionality away from the monolith.",
+        "correct": false
+      }
+    ],
+    "explanation": "Strangler Fig: migrate a legacy system incrementally by placing a façade (a proxy or API gateway) in front of it and routing individual features to new implementations as they are built. Users see one system throughout, risk is contained per feature, and the legacy system is retired once nothing routes to it. The façade must not become a bottleneck or single point of failure.",
+    "reference": "Azure Architecture Center: Strangler Fig pattern"
+  },
+  {
+    "id": "SD-GAP-017",
+    "domain": 1,
+    "skill": "scaling-basics",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A Java service uses a fixed pool of 200 threads. Each request makes a blocking HTTP call to a partner API that normally takes 50 ms. When the partner slows to 2 s, throughput drops from about 4,000 to about 100 requests per second, even though CPU is nearly idle. Why?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Blocked threads hold pool slots while waiting: 200 ÷ 2 s caps it at 100 req/s",
+        "why": "Throughput is threads ÷ time per request: 200 ÷ 0.05 s = 4,000, and 200 ÷ 2 s = 100.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "The CPU must poll each blocking socket, so the slow calls burn processor time",
+        "why": "Blocked threads sleep in the kernel; the CPU is idle, as the scenario shows.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "The partner API's rate limit drops to 100 requests per second whenever it is slow",
+        "why": "Nothing points to a rate limit; the thread-pool arithmetic explains the number exactly.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Garbage collection pauses grow with response time, freezing the threads",
+        "why": "GC pauses are not tied to how long remote calls take, and idle CPU points elsewhere.",
+        "correct": false
+      }
+    ],
+    "explanation": "Synchronous I/O antipattern: blocking a thread while it waits for I/O ties throughput to thread count ÷ latency (Little's Law). With 200 threads, 50 ms calls allow 200 ÷ 0.05 = 4,000 req/s, but 2 s calls allow only 200 ÷ 2 = 100 req/s. Fixes include asynchronous, non-blocking I/O, timeouts and bulkheads for slow dependencies, and caching or queuing where possible.",
+    "reference": "Azure Architecture Center: Synchronous I/O antipattern"
+  },
+  {
+    "id": "SD-GAP-018",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A SaaS product wants to know which features each customer uses, so it can bill per API call and decide what to retire. Which kind of monitoring serves this?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Health monitoring: probes that check each service responds",
+        "why": "Health checks show availability, not who uses which feature or how much.",
+        "correct": false
+      },
+      {
+        "id": "B",
+        "text": "Usage monitoring: per-tenant counts of features and API calls used",
+        "why": "Usage data attributed to tenants and features drives metering, billing and product decisions.",
+        "correct": true
+      },
+      {
+        "id": "C",
+        "text": "Performance monitoring: latency percentiles and throughput per endpoint",
+        "why": "Latency data does not attribute usage to customers or features.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Security monitoring: failed logins and changes to roles and permissions",
+        "why": "Security events reveal misuse, not normal feature adoption or billable volume.",
+        "correct": false
+      }
+    ],
+    "explanation": "Usage monitoring tracks how features and resources are used, by tenant, user and feature, to support billing (metering), capacity planning and product decisions. It needs accurate attribution (a tenant ID on every event), aggregation pipelines and care with privacy. It is distinct from health, performance and security monitoring, though all can share one telemetry pipeline.",
+    "reference": "Azure Architecture Center: Monitoring and diagnostics guidance"
+  },
+  {
+    "id": "SD-GAP-019",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Every anonymous visitor to a news site's home page triggers the same rendering work on the app servers, even though the page changes about once a minute. What is the cheapest effective fix at the web tier?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Let the reverse proxy cache the rendered page for about a minute",
+        "why": "One render per minute then serves every anonymous visitor straight from the proxy.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "Add app servers behind the load balancer until rendering keeps up at peak",
+        "why": "That scales the wasted work instead of removing it.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "Cache each SQL query result in Redis and keep rendering the page per request",
+        "why": "This helps the database, but every visitor still pays the full rendering cost.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Render on the client and return raw JSON",
+        "why": "A big rewrite that shifts work to devices; the identical page is still produced over and over.",
+        "correct": false
+      }
+    ],
+    "explanation": "Web server (reverse proxy) caching: proxies such as NGINX or Varnish can cache whole responses and serve repeated requests without touching the app servers. For pages that are identical for all anonymous users, a short TTL, or microcaching for a few seconds, removes most of the load. Choose the cache key carefully and bypass the cache for logged-in or personalised content.",
+    "reference": "System Design Primer: Web server caching"
+  },
+  {
+    "id": "SD-GAP-020",
+    "domain": 1,
+    "skill": "scaling-basics",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A web tier both serves HTTP and runs heavy business logic. The team splits it into a thin web layer and a separate application (service) layer. What is the main benefit?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Each layer scales and deploys on its own, sized to its own load",
+        "why": "You can add web servers for connections and app servers for CPU-heavy logic independently.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "Requests become faster because there is one fewer network hop on every call",
+        "why": "Splitting adds a hop; the benefit is independent scaling, not lower latency.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "The database no longer needs replicas because the app layer caches everything",
+        "why": "Layering does not remove the need to scale the database.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "It removes the need for a load balancer",
+        "why": "Each tier still needs load balancing across its own instances.",
+        "correct": false
+      }
+    ],
+    "explanation": "Separating the web layer from an application (platform or service) layer lets you scale and configure each independently, adding web servers for connection handling and app servers for CPU-heavy logic, and lets several front ends (web, mobile, workers) share the same services. The cost is an extra network hop and more operational surface, and it often evolves into microservices.",
+    "reference": "System Design Primer: Application layer"
+  },
+  {
+    "id": "SD-GAP-021",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A checkout service reports healthy on its internal `/health` endpoint, but customers in one region can't complete purchases because a CDN rule there is broken. Which monitoring would have caught this first?",
+    "options": [
+      {
+        "id": "A",
+        "text": "More frequent internal health checks against each instance's /health endpoint",
+        "why": "The instances are healthy; internal checks never exercise the customer's path through the CDN.",
+        "correct": false
+      },
+      {
+        "id": "B",
+        "text": "Synthetic probes that run a real checkout from several regions",
+        "why": "Black-box probes follow the user's real path, including DNS and the CDN, from each region.",
+        "correct": true
+      },
+      {
+        "id": "C",
+        "text": "CPU and memory alerts on the instances",
+        "why": "Resource metrics stay normal when traffic fails upstream of the service.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Error-rate alerts computed from the checkout service's own access logs",
+        "why": "Requests blocked at the CDN never reach the service, so its logs look clean.",
+        "correct": false
+      }
+    ],
+    "explanation": "Availability monitoring should measure availability as users experience it. Synthetic (black-box) probes exercise key user journeys from several locations and catch failures in DNS, CDNs, certificates or regional routing that internal health checks and server-side metrics miss. Combine them with SLO-based alerts on real-user error rates.",
+    "reference": "Google SRE Book: Monitoring Distributed Systems"
+  },
+  {
+    "id": "SD-GAP-022",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A producer pushes 10,000 events per second into an in-memory buffer, but the consumer can only process 6,000. Memory grows until the process crashes. Which change applies back pressure?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Make the in-memory buffer unbounded so no event is ever dropped",
+        "why": "An unbounded buffer is exactly what is growing until the crash.",
+        "correct": false
+      },
+      {
+        "id": "B",
+        "text": "Bound the buffer and block or slow the producer when it is full, signalling it to back off",
+        "why": "A bounded buffer turns overload into a \"slow down\" signal upstream instead of unbounded memory growth.",
+        "correct": true
+      },
+      {
+        "id": "C",
+        "text": "Add a second in-memory buffer so that overflow from the first one always has somewhere to go",
+        "why": "More buffering only delays the crash when input exceeds output indefinitely.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Increase the consumer's batch size so it reads more events from the buffer per call",
+        "why": "That may help a little, but without a limit the producer can still outrun the consumer.",
+        "correct": false
+      }
+    ],
+    "explanation": "Back pressure propagates \"slow down\" upstream when a stage cannot keep up: bounded queues, blocking writes, credit-based flow control (as in TCP windows or Reactive Streams), or rejecting with 429 or 503 so clients back off. Without it, buffers grow without bound and the system fails under sustained overload. If input truly exceeds capacity, you must also shed, sample or scale out the consumer.",
+    "reference": "Reactive Streams specification; Google SRE Book: Handling Overload"
+  },
+  {
+    "id": "SD-GAP-023",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An e-commerce product catalogue gets 500 reads for every write. Reads need flexible search and denormalised views, while writes enforce complex validation rules. Which statement about applying CQRS here is accurate?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Separate the write model from read models tuned for queries, accepting that reads may lag writes",
+        "why": "Each side is optimised and scaled for its own job; the usual price is eventual consistency between them.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "CQRS requires event sourcing, so the catalogue must store every change as an event",
+        "why": "CQRS and event sourcing are often combined but independent; CQRS works with an ordinary database.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "CQRS guarantees that reads always see the latest write, because both of its models share one table",
+        "why": "With separate read models, updates usually propagate asynchronously, so reads can be stale.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "CQRS is meant for simple CRUD apps with equal read and write load and identical shapes",
+        "why": "That is where CQRS adds complexity for little gain; it pays off when read and write needs differ.",
+        "correct": false
+      }
+    ],
+    "explanation": "CQRS (Command Query Responsibility Segregation) separates the model that handles writes (commands, with validation and invariants) from one or more models optimised for reads (projections, search indexes, denormalised views). The two sides scale independently. The usual costs are eventual consistency between them and more infrastructure, so use it where read and write requirements genuinely diverge.",
+    "reference": "Azure Architecture Center: CQRS pattern"
+  },
+  {
+    "id": "SD-GAP-024",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A PostgreSQL server has 64 GB of RAM and a 40 GB working set, but `shared_buffers` is left at the 128 MB default. Which statement best describes how the database caches data?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Every read goes to disk, because PostgreSQL only caches full query results inside its shared_buffers area",
+        "why": "PostgreSQL caches data pages, not results, and the OS page cache also holds file pages.",
+        "correct": false
+      },
+      {
+        "id": "B",
+        "text": "Data pages are cached in shared_buffers and the OS page cache; ~25% of RAM is a common start",
+        "why": "PostgreSQL relies on both caches; raising shared_buffers toward about 25% of RAM is the documented starting point.",
+        "correct": true
+      },
+      {
+        "id": "C",
+        "text": "The database caches complete query results and reuses them for identical SQL text",
+        "why": "PostgreSQL has no result cache; it caches data pages, and plans for prepared statements.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Caching is disabled until you install a separate cache such as Redis in front of it",
+        "why": "Databases always cache pages internally; Redis is an application-level cache.",
+        "correct": false
+      }
+    ],
+    "explanation": "Databases cache data pages in memory: PostgreSQL uses shared_buffers plus the operating system's page cache, and MySQL InnoDB uses its buffer pool. Query results are not cached (MySQL removed its query cache in 8.0). The PostgreSQL documentation suggests about 25% of RAM for shared_buffers as a starting point on a dedicated server, relying on the OS cache for the rest. Watch the buffer hit ratio to see whether the working set fits.",
+    "reference": "PostgreSQL docs: Resource Consumption (shared_buffers)"
+  },
+  {
+    "id": "SD-GAP-025",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A content platform stores articles with nested sections, tags, authors and custom fields that vary by article type. Each article is always read and written as a whole. Which store fits best, and why?",
+    "options": [
+      {
+        "id": "A",
+        "text": "A document store: each article is one self-describing document with flexible, nested fields",
+        "why": "Whole-aggregate reads and writes with a varying schema are exactly what document stores serve best.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "A graph database: articles relate to authors and tags, so the relationships should come first",
+        "why": "The relationships here are simple; access is by whole article, which documents serve best.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "A wide-column store: articles need very high write throughput across many columns",
+        "why": "Nothing suggests extreme write volume; the need is a flexible nested structure.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "A key-value cache: articles are fetched by id, so a cache is the only store needed",
+        "why": "Caches are not durable primary stores, and you would lose querying by fields.",
+        "correct": false
+      }
+    ],
+    "explanation": "Document stores (MongoDB, Couchbase, Firestore) keep each entity as a JSON-like document with nested, flexible fields. That suits aggregates that are read and written together and schemas that vary per item. The trade-offs are weak joins across documents and duplicated data that the application must keep consistent.",
+    "reference": "System Design Primer: Document store"
+  },
+  {
+    "id": "SD-GAP-026",
+    "domain": 4,
+    "skill": "reliability",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Twenty services read settings such as feature toggles and connection strings from config files baked into their container images. Changing one value means rebuilding and redeploying every service. What does the External Configuration Store pattern recommend?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Keep config in a central store the services read at runtime, with access control and versioning",
+        "why": "Settings change without redeploys, stay consistent across services and can be audited and rolled back.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "Bake the config into a shared base image so a single rebuild updates every service",
+        "why": "Every service still has to rebuild and redeploy; config stays tied to images.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "Hard-code sensible defaults in each service and let operators override them through code changes",
+        "why": "Code changes for config are even slower and riskier than redeploys.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Copy the config files to every host over SSH whenever a value needs to change",
+        "why": "Manual distribution is error-prone and hard to audit or roll back.",
+        "correct": false
+      }
+    ],
+    "explanation": "External Configuration Store: move configuration out of deployment packages into a centralised store, such as a config service, key-value store or app-configuration service. Services read it at runtime, often caching it and refreshing on change. Benefits: consistent settings, changes without redeploys, auditing and access control. Keep secrets in a dedicated secrets manager, and make services tolerate the store being briefly unavailable.",
+    "reference": "Azure Architecture Center: External Configuration Store pattern"
+  },
+  {
+    "id": "SD-GAP-027",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A mobile list screen shows each product's name and price, but the API returns the full product (40 fields, including long descriptions and image arrays) for 200 products. Pages load slowly on cellular networks. Which fix targets the Extraneous Fetching antipattern?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Return only the fields and rows the screen needs, via field selection and pagination",
+        "why": "Fetching less at the source cuts database I/O, serialisation, bandwidth and client memory together.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "Enable gzip so the full 40-field payload transfers in fewer bytes",
+        "why": "Compression helps, but the server still reads, serialises and sends data nobody uses.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "Cache the full response on the device so the second load is fast",
+        "why": "The first load is still slow, and the cache stores data that is never shown.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Move the API to HTTP/2 so all 200 products are multiplexed over a single shared connection",
+        "why": "Multiplexing does not shrink an oversized payload.",
+        "correct": false
+      }
+    ],
+    "explanation": "Extraneous Fetching antipattern: retrieving more data than an operation needs (extra columns, rows or nested objects) wastes database I/O, serialisation CPU, bandwidth and client memory. Fixes include projections that select only the needed columns, field masks or GraphQL selections, server-side pagination and filtering, and purpose-built endpoints (a backend for frontend) for constrained clients.",
+    "reference": "Azure Architecture Center: Extraneous Fetching antipattern"
+  },
+  {
+    "id": "SD-GAP-028",
+    "domain": 5,
+    "skill": "api-design",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "A gateway combines calls to five backend services into one response for a mobile dashboard. Which two practices keep this gateway aggregation robust? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "text": "Call the backends in parallel with per-call timeouts instead of one after another",
+        "why": "Parallel fan-out keeps total latency close to the slowest call, and timeouts bound it.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "Return partial results when a non-critical backend fails, flagging what is missing",
+        "why": "Graceful degradation stops one failing service from breaking the whole screen.",
+        "correct": true
+      },
+      {
+        "id": "C",
+        "text": "Retry every failed backend call up to five times before responding",
+        "why": "Aggressive retries multiply load and push latency past what the client will wait for.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Put the shared business rules for all five services inside the gateway",
+        "why": "Business logic in the gateway couples it to every service and makes it a bottleneck to change.",
+        "correct": false
+      },
+      {
+        "id": "E",
+        "text": "Require every backend to share one database so the gateway can join their data",
+        "why": "That couples the services at the data layer and defeats the purpose of aggregation.",
+        "correct": false
+      }
+    ],
+    "explanation": "Gateway Aggregation reduces chattiness by letting one gateway request fan out to many services and combine the results. Keep it fast and resilient with parallel calls, timeouts, circuit breakers and partial responses when non-essential services fail. Keep it thin: orchestration and business logic belong in services, or the gateway becomes a distributed monolith.",
+    "reference": "Azure Architecture Center: Gateway Aggregation pattern"
+  },
+  {
+    "id": "SD-GAP-029",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A dashboard query joins orders, line items and products across 50 million rows to show revenue by category. It runs 2,000 times a minute and each run takes 4 s. The numbers may be up to five minutes old. What is the best fit?",
+    "options": [
+      {
+        "id": "A",
+        "text": "A materialized view of revenue by category, refreshed every few minutes",
+        "why": "One periodic aggregation then serves thousands of cheap reads, within the allowed staleness.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "A composite index on order_lines(product_id, order_id) so the join runs faster",
+        "why": "An index speeds the join, but every run still aggregates millions of rows.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "A read replica so the 2,000 queries a minute run off the primary database",
+        "why": "That moves the load, but each query still takes seconds of work.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "A larger database instance so each 4-second query finishes faster",
+        "why": "Vertical scaling gives modest gains for repeated full aggregations.",
+        "correct": false
+      }
+    ],
+    "explanation": "Materialized View pattern: precompute and store query results shaped for reads, refreshing them on a schedule or on change. When some staleness is acceptable, an expensive repeated aggregation becomes a cheap lookup. In PostgreSQL, REFRESH MATERIALIZED VIEW CONCURRENTLY (which needs a unique index on the view) avoids blocking readers during the refresh.",
+    "reference": "Azure Architecture Center: Materialized View pattern"
+  },
+  {
+    "id": "SD-GAP-030",
+    "domain": 3,
+    "skill": "messaging",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Premium customers' report jobs and free customers' jobs share one FIFO queue, and during busy hours premium jobs wait behind thousands of free ones. The team adds a second queue for premium jobs. What else is needed so free jobs still make progress?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Nothing more: consumers should always drain the premium queue fully before reading from the free queue",
+        "why": "Strict priority can starve free jobs indefinitely while premium load stays high.",
+        "correct": false
+      },
+      {
+        "id": "B",
+        "text": "Dedicated or weighted consumers per queue, so premium is favoured but free jobs still get capacity",
+        "why": "Weighted or separate consumer pools give premium jobs priority without starving free ones.",
+        "correct": true
+      },
+      {
+        "id": "C",
+        "text": "A longer visibility timeout on the free queue so its jobs are not lost while waiting",
+        "why": "Visibility timeouts affect redelivery of in-flight messages, not which jobs get processed first.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Merging the two queues again and sorting messages by priority inside the broker",
+        "why": "Many brokers cannot reorder queued messages, and this reintroduces head-of-line blocking.",
+        "correct": false
+      }
+    ],
+    "explanation": "Priority Queue pattern: send higher-priority work to separate queues (or use broker priorities) and give them more consumers or a larger share of polling. Pure strict priority risks starving low-priority work, so use dedicated consumer pools or weighted polling, and monitor the age of the oldest message in each queue.",
+    "reference": "Azure Architecture Center: Priority Queue pattern"
+  },
+  {
+    "id": "SD-GAP-031",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A site moves its assets to a pull CDN. What happens the first time a user in Tokyo requests `/app.4f3a.js`, which no edge has cached yet?",
+    "options": [
+      {
+        "id": "A",
+        "text": "The Tokyo edge fetches it from the origin, returns it, and caches it for later requests",
+        "why": "On a miss, a pull CDN edge fetches from the origin once, then serves later requests from its cache.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "The request fails until the team uploads the file to the CDN's Tokyo edge",
+        "why": "That describes a push CDN; a pull CDN fetches from the origin on a miss.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "The browser is redirected to the origin server for every later request to that same file",
+        "why": "Only the miss goes to the origin; after that the edge serves the file from cache.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Every edge worldwide fetches the file at once so all regions are warm",
+        "why": "Pull CDNs fetch per edge, on demand, not globally in advance.",
+        "correct": false
+      }
+    ],
+    "explanation": "With a pull CDN, an edge fetches content from your origin on the first request (a cache miss), then serves it from cache until its TTL expires. It needs little maintenance and suits high-traffic sites; the first user at each edge pays the origin round trip. Long TTLs combined with content-hashed filenames work well.",
+    "reference": "System Design Primer: Pull CDNs"
+  },
+  {
+    "id": "SD-GAP-032",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Which site benefits most from a push CDN rather than a pull CDN?",
+    "options": [
+      {
+        "id": "A",
+        "text": "A low-traffic site whose few, large files rarely change between releases",
+        "why": "Pushing a small, stable set of files once per release keeps origin traffic minimal.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "A busy news site whose thousands of pages change every few minutes",
+        "why": "Pushing constantly changing pages is laborious; pull with short TTLs suits it better.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "A site whose user-generated images are uploaded continuously by millions of users",
+        "why": "Pushing every upload is costly; pull fetches only what is actually requested.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Any site where origin servers are cheap and always reachable from the edges",
+        "why": "That argues for pull: misses can always be filled from the origin.",
+        "correct": false
+      }
+    ],
+    "explanation": "With a push CDN you upload content to the CDN yourself and control when it expires. It minimises origin traffic and suits sites with little traffic or content that rarely changes, though CDN storage is used for everything you push. Pull CDNs fetch on demand and suit high-traffic sites, where only requested content gets cached.",
+    "reference": "System Design Primer: Push CDNs"
+  },
+  {
+    "id": "SD-GAP-033",
+    "domain": 1,
+    "skill": "scaling-basics",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "Services written in Go, Java and Python each need mTLS, retries and request metrics. Instead of adding libraries in three languages, the team deploys an Envoy container next to each service instance in the same pod. Which statement about this sidecar is accurate?",
+    "options": [
+      {
+        "id": "A",
+        "text": "It shares the pod's lifecycle and network, adding language-neutral features at the cost of an extra hop",
+        "why": "The sidecar runs beside each instance, so any language gains the same features, for one local hop per call.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "It runs once per node and handles traffic for every pod scheduled on that node",
+        "why": "That is a node agent (a DaemonSet); a sidecar is deployed with each instance.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "It removes the need for any network calls between the services, because all of the traffic stays in-process",
+        "why": "Traffic still crosses the network between services; the sidecar adds a local hop.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "It must be written in the same language as the main service so they can share memory",
+        "why": "Sidecars talk over localhost or IPC, so any language works.",
+        "correct": false
+      }
+    ],
+    "explanation": "Sidecar pattern: deploy helper components (proxies, log shippers, config watchers) alongside the main application on the same host or in the same pod. They share its lifecycle, network namespace and often storage, so they add capabilities without changing the app, in any language. The costs are extra resource use and a local hop per call. Service meshes use sidecar proxies for mTLS, retries and telemetry.",
+    "reference": "Azure Architecture Center: Sidecar pattern"
+  },
+  {
+    "id": "SD-GAP-034",
+    "domain": 2,
+    "skill": "data-modeling",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two requirements most strongly favour a relational (SQL) database over a typical NoSQL store? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "text": "Multi-row transactions that must keep account balances consistent",
+        "why": "Relational databases offer mature ACID transactions across rows and tables.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "Ad hoc queries and joins across many entities for reporting",
+        "why": "SQL and its query planners handle flexible joins and aggregations well.",
+        "correct": true
+      },
+      {
+        "id": "C",
+        "text": "Schemaless records whose fields vary widely between items",
+        "why": "A flexible schema is a typical reason to choose a document store.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Massive write throughput spread over many cheap nodes with simple key access",
+        "why": "That is the classic case for wide-column or key-value stores.",
+        "correct": false
+      },
+      {
+        "id": "E",
+        "text": "Storing large blobs such as videos and images",
+        "why": "Blobs belong in object storage, whichever database holds the metadata.",
+        "correct": false
+      }
+    ],
+    "explanation": "Choose a relational database for structured data with relationships, strong consistency, multi-row transactions and rich ad hoc querying. NoSQL stores trade some of that for flexible schemas, simpler horizontal scaling and very high throughput on known access patterns. Many systems use both.",
+    "reference": "System Design Primer: SQL or NoSQL"
+  },
+  {
+    "id": "SD-GAP-035",
+    "domain": 1,
+    "skill": "scaling-basics",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Which workload is the best fit for UDP rather than TCP?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Live voice calls, where a late packet is useless and retransmitting just adds delay",
+        "why": "Real-time audio prefers dropping a packet to waiting for a retransmission.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "Uploading a 2 GB backup file to a server, where every single byte must arrive in order",
+        "why": "That needs TCP's reliable, ordered delivery.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "An HTTP/1.1 REST API returning JSON to browsers",
+        "why": "HTTP/1.1 runs over TCP, and JSON responses must arrive complete.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Database replication streams between a primary and its replicas",
+        "why": "Replication must not lose or reorder changes, so it uses TCP.",
+        "correct": false
+      }
+    ],
+    "explanation": "UDP is connectionless, with no delivery, ordering or congestion guarantees, so it has lower overhead and no head-of-line blocking. It suits real-time traffic (voice, video, games), DNS lookups and protocols that build their own reliability on top, such as QUIC for HTTP/3. TCP suits anything that must arrive complete and in order.",
+    "reference": "System Design Primer: UDP"
+  },
+  {
+    "id": "SD-GAP-036",
+    "domain": 2,
+    "skill": "replication-consistency",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "On a live video call, a participant loses connection for 3 seconds. When they reconnect, they don't receive the audio from those 3 seconds; the call just carries on. Which consistency pattern is this?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Weak consistency: after a write, reads may or may not see it; it is only best effort",
+        "why": "Missed real-time data is simply skipped, which is the defining trait of weak consistency.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "Eventual consistency: the missed audio will be delivered once the network connection recovers",
+        "why": "Eventual consistency promises convergence; here the missed data is never delivered.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "Strong consistency: every participant always hears the same audio at the same time",
+        "why": "Strong consistency would require waiting for, or replaying, the missed data.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "Causal consistency: audio is delivered in cause-and-effect order to every listener",
+        "why": "Ordering is not the issue; the missed audio is simply dropped.",
+        "correct": false
+      }
+    ],
+    "explanation": "Weak consistency: after a write, reads may or may not see it, and the system makes a best effort. It suits real-time uses such as VoIP, video chat and multiplayer games, where stale or missing data is better skipped than waited for. Eventual consistency guarantees that replicas converge given time; strong consistency guarantees that reads see the latest write.",
+    "reference": "System Design Primer: Weak consistency"
+  },
+  {
+    "id": "SD-GAP-037",
+    "domain": 3,
+    "skill": "caching",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A gaming leaderboard uses write-behind caching: score updates go to Redis, and a background worker flushes them to PostgreSQL every 30 seconds. Which risk must the design handle?",
+    "options": [
+      {
+        "id": "A",
+        "text": "Acknowledged updates not yet flushed are lost if the cache node fails first",
+        "why": "Writes are acknowledged before the database has them, so a cache failure loses the unflushed window.",
+        "correct": true
+      },
+      {
+        "id": "B",
+        "text": "Every single score update now has to wait for PostgreSQL to commit before the player can see it",
+        "why": "That describes write-through; write-behind acknowledges before the database write.",
+        "correct": false
+      },
+      {
+        "id": "C",
+        "text": "Reads must always go to PostgreSQL because Redis may hold stale scores",
+        "why": "In write-behind the cache holds the newest data; it is the database that lags.",
+        "correct": false
+      },
+      {
+        "id": "D",
+        "text": "The background worker doubles the number of writes reaching PostgreSQL",
+        "why": "Write-behind usually reduces database writes by coalescing updates.",
+        "correct": false
+      }
+    ],
+    "explanation": "Write-behind (write-back) acknowledges writes once the cache has them and persists them to the database asynchronously, often in batches. It gives low write latency and coalesces updates, but it risks losing unflushed data if the cache fails and leaves the database lagging. Mitigate with replicated or persistent caches (for example Redis AOF), short flush intervals and idempotent flushing.",
+    "reference": "System Design Primer: Write-behind (write-back)"
+  }
+]

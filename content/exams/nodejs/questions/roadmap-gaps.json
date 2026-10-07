@@ -1,0 +1,968 @@
+[
+  {
+    "id": "NJS-GAP-001",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "You run `node --watch main.cjs`. `main.cjs` does `require('./dep.cjs')` and reads `data.txt` with `fs.readFileSync`. Which edit makes Node restart the script?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Editing `data.txt`, because watch mode follows every file the process opens",
+        "why": "Watch mode tracks the module graph, not files read with `fs`. Editing `data.txt` does nothing."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Editing `dep.cjs`, because watch mode tracks the entry file and the modules it loads",
+        "why": "Node watches the entry point plus every module it `require`s or `import`s."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Editing any file in the working directory, because `--watch` watches the current folder",
+        "why": "That describes nodemon's default, not Node's built-in watch mode."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "None of them until you pass `--watch-path`, because `--watch` alone only prints a notice",
+        "why": "`--watch` restarts on its own; `--watch-path` only changes what is watched."
+      }
+    ],
+    "explanation": "Built-in watch mode (stable since Node 22) restarts the process when the entry file or any module in its dependency graph changes. Data files read with `fs` are not part of that graph, so editing them never triggers a restart; add them with `--watch-path` if you need that. Verified on Node 24: editing `data.txt` and an unrelated file caused no restart, while editing `dep.cjs` did.",
+    "reference": "Node.js docs: --watch"
+  },
+  {
+    "id": "NJS-GAP-002",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A service is started with `node --watch-path=./config main.cjs`, and `main.cjs` requires `./dep.cjs`. A developer edits `dep.cjs`, then edits `config/app.json`. How many times does the process restart?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Twice, because `--watch-path` adds `./config` on top of the module graph that watch mode already tracks",
+        "why": "It does not add to the module graph: it replaces it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Once, after `config/app.json` changes: `--watch-path` turns off watching of loaded modules",
+        "why": "Only the listed paths are watched, so the `dep.cjs` edit is ignored."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Never, because `--watch-path` only works when `--watch` is also passed",
+        "why": "`--watch-path` starts watch mode by itself."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Once, after `dep.cjs` changes, because JSON files are never watched",
+        "why": "Any file under a watched path triggers a restart, including JSON."
+      }
+    ],
+    "explanation": "Per the Node.js CLI docs, `--watch-path` starts watch mode and watches only the given paths, turning off watching of required or imported modules even if `--watch` is also passed. So the `dep.cjs` edit is ignored and the `config/app.json` edit restarts the process. Verified on Node 24. To watch both, list every path you need, for example `--watch-path=./src --watch-path=./config`.",
+    "reference": "Node.js docs: --watch-path"
+  },
+  {
+    "id": "NJS-GAP-003",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "Which Node.js command-line flag restarts your script automatically when it or a module it imports changes, without installing nodemon? Type the flag.",
+    "options": [],
+    "accepted": [
+      "--watch",
+      "node --watch"
+    ],
+    "explanation": "`node --watch app.js` is built-in watch mode, stable since Node 22. It restarts the process when the entry file or its imported modules change, and clears the console on restart unless you pass `--watch-preserve-output`. Tools like nodemon are now optional for this simple case.",
+    "reference": "Node.js docs: --watch"
+  },
+  {
+    "id": "NJS-GAP-004",
+    "domain": 3,
+    "skill": "testing-debugging",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A test calls `assert.strictEqual(1, '1')` from `node:assert` and catches the error as `err`. Which statement is true?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`err` is a `TypeError`, because the two values have different types",
+        "why": "Assertion failures are always `AssertionError`, whatever the values."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`err.code` is `'ERR_ASSERTION'` and `err.actual` holds the number `1`",
+        "why": "AssertionError exposes `actual`, `expected`, `operator` and the code `ERR_ASSERTION`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`err.expected` holds the number `1`, because both sides are coerced first",
+        "why": "`strictEqual` never coerces; `expected` is the string `'1'`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`err.operator` is `'==='`, the JavaScript operator that was used",
+        "why": "`operator` names the assertion method: `'strictEqual'`."
+      }
+    ],
+    "explanation": "A failed assertion throws `assert.AssertionError` with `name` `'AssertionError'`, `code` `'ERR_ASSERTION'`, and the fields `actual` (1), `expected` (`'1'`) and `operator` (`'strictEqual'`). Test runners read these fields to show diffs. `generatedMessage` is `true` because no custom message was passed. Verified on Node 24.",
+    "reference": "Node.js docs: assert.AssertionError"
+  },
+  {
+    "id": "NJS-GAP-005",
+    "domain": 2,
+    "skill": "async-patterns",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "An error factory is used everywhere, so every stack trace starts inside it. What does adding `Error.captureStackTrace(e, httpError)` change?\n\n```js\nfunction httpError(status, msg) {\n  const e = new Error(msg);\n  e.status = status;\n  Error.captureStackTrace(e, httpError);\n  return e;\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It copies the current stack into `e.cause` so the original error is preserved",
+        "why": "`captureStackTrace` sets `e.stack`; it never touches `cause`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It rebuilds `e.stack` so the frames start at the code that called `httpError`",
+        "why": "Frames above and including the given function are left out of the trace."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It stops V8 from collecting a stack at all, which makes the factory faster",
+        "why": "It still captures a stack, just starting from a different frame."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It turns the error into an `AssertionError` so test runners print a diff",
+        "why": "The class and name stay the same; only the stack text changes."
+      }
+    ],
+    "explanation": "`Error.captureStackTrace(targetObject, constructorOpt)` writes a fresh `stack` to the target, omitting `constructorOpt` and every frame above it. Helpers and custom error classes use it so the trace points at the real call site instead of the helper. Verified on Node 24: without it the top frame was the factory; with it the top frame was the caller.",
+    "reference": "Node.js docs: Error.captureStackTrace"
+  },
+  {
+    "id": "NJS-GAP-006",
+    "domain": 3,
+    "skill": "testing-debugging",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What happens when this runs on Node 24?\n\n```js\nconst assert = require('node:assert');\nassert.throws(() => { throw new TypeError('x'); }, RangeError);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It passes, because any thrown error satisfies `assert.throws`",
+        "why": "The second argument is a validation: the error must be a `RangeError`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The original `TypeError` propagates out unchanged",
+        "why": "Node wraps the mismatch in an assertion failure instead of rethrowing as is."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "It throws an `AssertionError` saying a `RangeError` was expected but a `TypeError` was received",
+        "why": "A thrown error that fails the class check becomes an assertion failure."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It throws a `TypeError` of its own, because an error class is not a valid second argument for `assert.throws`",
+        "why": "Passing an error class is one of the documented validation forms."
+      }
+    ],
+    "explanation": "When the function throws but the error fails the validation (a class, regular expression, object or function), `assert.throws` fails with an `AssertionError`. In Node 24 the message reads: The error is expected to be an instance of \"RangeError\". Received \"TypeError\", followed by the original message. That makes it easy to spot a test that only passes because the wrong error is thrown.",
+    "reference": "Node.js docs: assert.throws"
+  },
+  {
+    "id": "NJS-GAP-007",
+    "domain": 2,
+    "skill": "async-patterns",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print?\n\n```js\nclass ValidationError extends Error {}\nconst err = new ValidationError('bad email');\nconsole.log(err.name, String(err));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`ValidationError ValidationError: bad email`",
+        "why": "`name` is inherited from `Error.prototype` unless you set it yourself."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`Error Error: bad email`",
+        "why": "The subclass inherits `name = 'Error'`, so logs show the generic name."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`undefined Error: bad email`",
+        "why": "`name` is defined on `Error.prototype`, so it is never undefined."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`ValidationError bad email`",
+        "why": "`String(err)` always uses the `name: message` format."
+      }
+    ],
+    "explanation": "Extending `Error` does not change `name`; it is still the inherited `Error.prototype.name`, which is `'Error'`. Logs, `String(err)` and the first line of `err.stack` therefore all say `Error: bad email`. Set it in the constructor (`this.name = 'ValidationError'`) or as a class field. Branching on `err instanceof ValidationError` works either way. Verified on Node 24.",
+    "reference": "MDN: Error.prototype.name"
+  },
+  {
+    "id": "NJS-GAP-008",
+    "domain": 2,
+    "skill": "async-patterns",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A logger writes structured logs with `JSON.stringify({ msg: 'charge failed', err })`, where `err` is an `Error` with a custom `this.name = 'PaymentError'` and a `cause`. What appears under `err` in the log line?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The name, message and stack, because `Error` defines a `toJSON` method",
+        "why": "`Error` has no `toJSON`; only enumerable own properties are serialised."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Only `{\"name\":\"PaymentError\"}`: `message`, `stack` and `cause` are non-enumerable",
+        "why": "The assigned `name` is enumerable; the built-in fields are not."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "An empty object, because `JSON.stringify` skips every property of an `Error`, including ones you set",
+        "why": "Properties you assign yourself, like `name`, are enumerable and are kept."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The message only, because `JSON.stringify` calls `String(err)` for errors",
+        "why": "It serialises objects by their enumerable own properties, not by `toString`."
+      }
+    ],
+    "explanation": "`message`, `stack` and `cause` are created as non-enumerable own properties, so `JSON.stringify` drops them, and a plain `new Error('x')` serialises to `{}`. Assigning `this.name` creates an enumerable property, so it alone survives. Use the logger's error serializer (for example pino's `err` serializer) or copy the fields explicitly. Verified on Node 24.",
+    "reference": "MDN: JSON.stringify; Node.js docs: Errors"
+  },
+  {
+    "id": "NJS-GAP-009",
+    "domain": 2,
+    "skill": "async-patterns",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "`fs.readFileSync('missing.txt')` throws because the file does not exist. Which two statements about the thrown error are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`err.code` is `'ENOENT'`, the portable way to branch on the failure",
+        "why": "System errors carry the POSIX-style code as a string."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`err.syscall` is `'open'` and `err.path` holds the path that failed",
+        "why": "System errors record the failing system call and its arguments."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`err.errno` is always `-2`, so you can compare it on every platform",
+        "why": "`errno` is platform-specific (for example -4058 on Windows), so compare `code`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`err.name` is `'SystemError'`, a dedicated error class",
+        "why": "The object is an ordinary `Error`; `name` is `'Error'`."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The error is only reported through `process.on('error')`",
+        "why": "Synchronous fs calls throw directly, so `try`/`catch` handles them."
+      }
+    ],
+    "explanation": "Node's system errors are `Error` objects with extra fields: `code` (such as `ENOENT`, `EACCES`, `EADDRINUSE`), `syscall`, `path`, and a numeric `errno` whose value differs between platforms. Branch on `code`, never on `errno` or the message text. Verified on Node 24 on Windows: `ENOENT`, `open`, and `errno` -4058.",
+    "reference": "Node.js docs: System errors"
+  },
+  {
+    "id": "NJS-GAP-010",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A CLI is run as `node app.js deploy --dry-run`. What is `process.argv[2]`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`'app.js'`",
+        "why": "Index 1 holds the script path; index 2 is the first user argument."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`'deploy'`",
+        "why": "Index 0 is the node binary, 1 the script, and user arguments start at 2."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`'--dry-run'`",
+        "why": "That is the second user argument, at index 3."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`'node'`",
+        "why": "The executable path is at index 0, not 2."
+      }
+    ],
+    "explanation": "`process.argv[0]` is the absolute path of the Node executable, `process.argv[1]` the absolute path of the script, and user arguments start at index 2, which is why CLIs use `process.argv.slice(2)` or `util.parseArgs()`. Verified on Node 24.",
+    "reference": "Node.js docs: process.argv"
+  },
+  {
+    "id": "NJS-GAP-011",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this print?\n\n```bash\nnode -e \"console.log(process.argv.slice(1))\" a b\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`[ '-e', 'a', 'b' ]`",
+        "why": "Node consumes its own flags; they never appear in `process.argv`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`[ 'a', 'b' ]`",
+        "why": "With `-e` there is no script path, so user arguments start at index 1."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`[ '[eval]', 'a', 'b' ]`",
+        "why": "`[eval]` is the module name used in stack traces, not an argv entry."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`[ 'a' ]`",
+        "why": "Every trailing argument is passed through, not just the first."
+      }
+    ],
+    "explanation": "With a script file, `process.argv[1]` is the script path. With `-e` or `-p` there is no file, so the first user argument lands at index 1, and code that blindly does `slice(2)` loses it. Prefer `util.parseArgs()`, which reads arguments correctly in both cases. Verified on Node 24.",
+    "reference": "Node.js docs: process.argv; Command-line options"
+  },
+  {
+    "id": "NJS-GAP-012",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A script must read all of its piped input, as in `cat data.csv | node import.js`. Which code reads the whole input correctly?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`const data = process.stdin.read();` at the top of the script",
+        "why": "At startup nothing has been buffered yet, so `read()` returns `null`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`let s = ''; for await (const chunk of process.stdin) s += chunk;`",
+        "why": "The loop collects every chunk and ends when the input stream closes."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`process.stdin.on('data', (c) => { parse(c); });`, parsing each chunk",
+        "why": "A chunk can end mid-line, so parsing chunks separately breaks records."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`const data = require('fs').readFileSync(process.stdin.fd);` after checking `isTTY`",
+        "why": "Reading the descriptor synchronously can fail on pipes on some platforms; the stream API is the portable choice."
+      }
+    ],
+    "explanation": "`process.stdin` is a Readable stream, so `for await` collects every chunk until end of input, and the joined text can then be parsed safely. Chunk boundaries are arbitrary, so per-chunk parsing splits lines; use `readline` if you want line by line. `process.stdin.isTTY` is `undefined` when input is piped, which is how a CLI tells piped input from an interactive terminal. Verified on Node 24.",
+    "reference": "Node.js docs: process.stdin; readline"
+  },
+  {
+    "id": "NJS-GAP-013",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A package declares `\"bin\": { \"mkreport\": \"./cli.js\" }`, and `cli.js` starts with `#!/usr/bin/env node`. After `npm install mkreport` in a project, typing `mkreport` in the shell prints \"command not found\". Why, and what is the usual fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The shebang is wrong; it must be `#!/usr/bin/node` or npm ignores the file",
+        "why": "`/usr/bin/env node` is the recommended, portable shebang."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Local bins go to `node_modules/.bin`, which isn't on the PATH; use `npx mkreport` or a script",
+        "why": "npm scripts and npx add `node_modules/.bin` to the PATH for you."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The `bin` field only works for packages published under a scope such as `@acme/`, not plain names",
+        "why": "Scoped and unscoped packages both support `bin`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "npm needs `\"type\": \"module\"` before it can link any executable",
+        "why": "The module type is unrelated to how npm links executables."
+      }
+    ],
+    "explanation": "npm links each `bin` entry into the project's `node_modules/.bin` (with `.cmd` shims on Windows). That folder is not on your shell's PATH, but `npm run` scripts and `npx` add it, so `npx mkreport` or a `\"scripts\"` entry works. A global install (`npm i -g`) links into a folder that is on the PATH. The shebang tells Unix shells to run the file with Node.",
+    "reference": "npm docs: package.json bin; npm docs: folders"
+  },
+  {
+    "id": "NJS-GAP-014",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "`package.json` defines `\"prebuild\": \"node tools/gen.js\"` and `\"build\": \"node tools/build.js\"`. What is the difference between `npm run build` and `node --run build` (Node 22+)?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "None: `node --run` is an alias that launches npm under the hood",
+        "why": "`node --run` runs the script itself without starting npm."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`npm run build` runs `prebuild` first; `node --run build` runs only `build`",
+        "why": "`node --run` deliberately skips pre and post scripts to stay fast and simple."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`node --run build` runs `prebuild` and `build` in parallel",
+        "why": "It never runs `prebuild` at all."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`node --run` only works for scripts whose command starts with `node`, not other shell commands",
+        "why": "It runs any shell command in the script, like npm does."
+      }
+    ],
+    "explanation": "`node --run <script>` executes a `package.json` script directly, adding `node_modules/.bin` to the PATH, and starts much faster than npm. To stay small it does not run `pre`/`post` lifecycle scripts. Verified on Node 24: `npm run build` printed the prebuild output and then build; `node --run build` printed only build. Extra arguments go after `--` with both commands.",
+    "reference": "Node.js docs: --run"
+  },
+  {
+    "id": "NJS-GAP-015",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "`package.json` has `pretest`, `test` and `posttest` scripts, and you run `npm test`. Put what npm runs in order.",
+    "options": [
+      {
+        "id": "A",
+        "text": "`pretest`"
+      },
+      {
+        "id": "B",
+        "text": "`test`"
+      },
+      {
+        "id": "C",
+        "text": "`posttest`"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C"
+    ],
+    "explanation": "For any script `x`, npm runs `prex`, then `x`, then `postx`, stopping if one exits non-zero. So a failing `test` means `posttest` never runs. The same applies to `npm run build` with `prebuild` and `postbuild`. `node --run` skips the pre and post scripts. Verified with npm 11 on Node 24.",
+    "reference": "npm docs: scripts (pre and post scripts)"
+  },
+  {
+    "id": "NJS-GAP-016",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A repo has `\"workspaces\": [\"packages/*\"]` in the root `package.json`, with `packages/util` (named `@acme/util`) and `packages/app`, which depends on `@acme/util`. After `npm install` at the root, how does `require('@acme/util')` in `packages/app` resolve?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "npm downloads `@acme/util` from the registry into `packages/app/node_modules`",
+        "why": "Matching workspaces are linked locally, not fetched from the registry."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Through a symlink at the root `node_modules/@acme/util` pointing to `packages/util`",
+        "why": "Edits in `packages/util` show up immediately, with no publish or reinstall."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Through a copy of `packages/util` that npm makes during install and refreshes on `npm run build`",
+        "why": "npm creates a link, not a copy, so there is nothing to refresh."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It fails until `packages/util` is published, because workspaces only share scripts",
+        "why": "Workspaces exist so that local packages can depend on each other."
+      }
+    ],
+    "explanation": "npm workspaces link each workspace package into the root `node_modules` (a symlink, or a junction on Windows). Node's resolver walks up from `packages/app`, finds the root `node_modules/@acme/util`, and follows the link to `packages/util`. The lockfile records it as `{\"resolved\": \"packages/util\", \"link\": true}`. Verified with npm 11 on Node 24.",
+    "reference": "npm docs: workspaces"
+  },
+  {
+    "id": "NJS-GAP-017",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "In an npm workspaces monorepo the root `package.json` has no `build` or `lint` script, `packages/app` and `packages/util` both define `build`, and only `packages/util` defines `lint`. Which two commands, run at the root, succeed? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`npm run build -w app`, which runs `build` only in the `app` workspace",
+        "why": "`-w` (or `--workspace`) targets one workspace by name or path."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`npm run lint --workspaces --if-present`, which skips workspaces without `lint`",
+        "why": "`--if-present` turns a missing script into a no-op instead of an error."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`npm run build`, which runs `build` in every workspace automatically",
+        "why": "Without `-w` or `--workspaces` npm looks only at the root, and the root has no `build`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`npm run lint --workspaces`, which skips `app` because it has no `lint`",
+        "why": "Without `--if-present` it fails with \"Missing script\" in `app`."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`npm run build --workspace=util`, using the folder name instead of the package name",
+        "why": "The package is named `@acme/util`; use that name or the path `packages/util`."
+      }
+    ],
+    "explanation": "Workspace flags select where a script runs: `-w <name|path>` for one workspace, `--workspaces` for all. A missing script is an error in every selected workspace unless you add `--if-present`. Plain `npm run build` at the root runs only the root's scripts and fails with \"Missing script\". Verified with npm 11 (`build -w app`, `--if-present`, and the two failures).",
+    "reference": "npm docs: workspaces; npm run-script"
+  },
+  {
+    "id": "NJS-GAP-018",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "`package.json` lists `\"express\": \"^4.18.0\"`. The installed version is 4.18.2, the newest 4.x is 4.21.2, and 5.1.0 is tagged `latest`. What does `npm update express` do with npm 10?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Installs 5.1.0 and rewrites the range to `^5.1.0`",
+        "why": "`npm update` never crosses the range in `package.json`; a major bump needs `npm install express@5`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Installs 4.21.2 and updates the lockfile, leaving the range in `package.json` unchanged",
+        "why": "It moves to the highest version that satisfies `^4.18.0` and only saves ranges with `--save`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Nothing, because a caret range locks the exact version already installed",
+        "why": "`^4.18.0` allows any 4.x at or above 4.18.0."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Installs 4.21.2 and also rewrites the range to `^4.21.2` in `package.json` to match the lockfile",
+        "why": "npm 8 and later don't touch `package.json` ranges unless you pass `--save`."
+      }
+    ],
+    "explanation": "`npm update` installs the newest version that satisfies each declared range and records it in `package-lock.json`. By default (npm 8+) it leaves the semver ranges in `package.json` alone; `npm update --save` also bumps them. Moving to a new major is a deliberate `npm install pkg@5`. `npm outdated` shows this as Current 4.18.2, Wanted 4.21.2, Latest 5.1.0.",
+    "reference": "npm docs: npm update; npm outdated"
+  },
+  {
+    "id": "NJS-GAP-019",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 2,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each `npm outdated` column with what it shows.",
+    "options": [
+      {
+        "id": "A",
+        "text": "The version installed in `node_modules` now"
+      },
+      {
+        "id": "B",
+        "text": "The highest version that satisfies the range in `package.json`"
+      },
+      {
+        "id": "C",
+        "text": "The version tagged `latest` in the registry"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Current",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Wanted",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Latest",
+        "answer": "C"
+      }
+    ],
+    "explanation": "`npm outdated` compares three versions per dependency. Current is what is installed. Wanted is the newest version your declared range allows, which is what `npm update` would install. Latest is the registry's `latest` tag, which may be a new major outside your range. Red rows mean Wanted is above Current; yellow means Latest is above your range.",
+    "reference": "npm docs: npm outdated"
+  },
+  {
+    "id": "NJS-GAP-020",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A developer runs `npm install -g eslint`. `eslint` now works in the terminal, but `require('eslint')` inside a project fails with `MODULE_NOT_FOUND`. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Global packages need `\"type\": \"module\"` before they can be required",
+        "why": "The module type has nothing to do with where Node looks for packages."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Global installs go to npm's global prefix, which isn't on the module resolution path",
+        "why": "Node searches `node_modules` folders above the requiring file, not the global prefix."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "npm installs only the executable globally and throws away the package's library code",
+        "why": "The full package is installed in the global `node_modules`; Node just doesn't look there."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The project's lockfile blocks every package it doesn't list",
+        "why": "Lockfiles drive installs, not runtime resolution."
+      }
+    ],
+    "explanation": "Global installs land in `{prefix}/lib/node_modules` (or `%AppData%\\npm\\node_modules` on Windows), and their bins are linked into a folder on your PATH. Node's resolver only walks up the `node_modules` folders above the requiring file, so the global copy is invisible to `require`. Install libraries locally (`npm i -D eslint`) and keep globals for standalone CLIs, or use `npx`. `npm root -g` shows the global folder.",
+    "reference": "npm docs: folders; Node.js docs: modules (loading from node_modules)"
+  },
+  {
+    "id": "NJS-GAP-021",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A build script uses `fs.globSync('src/**/*.js')` (Node 22+) and then checks `files.includes('src/a/y.js')`. It passes in CI on Linux but fails on a Windows laptop even though the file exists. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`fs.globSync` is not supported on Windows, so it silently returns an empty array there",
+        "why": "It works on Windows; it just returns native paths."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It returns paths with the platform separator, such as `src\\a\\y.js` on Windows",
+        "why": "Compare with `path.join(...)` or normalise the results before matching."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`**` matches only one directory level on Windows",
+        "why": "The globstar matches any depth on every platform."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Windows paths are case-insensitive, so the results are upper-cased",
+        "why": "Case is preserved; the difference is the separator."
+      }
+    ],
+    "explanation": "`fs.glob`/`fs.globSync` return paths built with the platform's separator, so on Windows the result is `src\\a\\y.js`. Comparing against a hard-coded forward-slash string breaks there. Build expected paths with `path.join`, or normalise results (for example `p.split(path.sep).join('/')`). Verified on Node 24 on Windows: `[\"src\\\\a\\\\y.js\",\"src\\\\x.js\"]`.",
+    "reference": "Node.js docs: fs.globSync"
+  },
+  {
+    "id": "NJS-GAP-022",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this CommonJS file print?\n\n```js\nvar config = { debug: true };\nconsole.log(globalThis.config, global === globalThis);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`{ debug: true } true`",
+        "why": "Top-level `var` in a browser script becomes a global, but Node modules have their own scope."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`undefined true`",
+        "why": "The module wrapper keeps `config` local, and `global` is an alias of `globalThis`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`undefined false`",
+        "why": "`global` and `globalThis` are the same object in Node."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A `ReferenceError`, because `global` is not defined in CommonJS",
+        "why": "`global` exists in every Node module type."
+      }
+    ],
+    "explanation": "Node wraps each CommonJS module in a function, and ES modules have their own scope too, so top-level `var`, `let` and `function` declarations never become properties of the global object. Only explicit assignments such as `globalThis.config = ...` do. In Node, `global` is a legacy alias for `globalThis`. Verified on Node 24.",
+    "reference": "Node.js docs: Globals; Modules (the module wrapper)"
+  },
+  {
+    "id": "NJS-GAP-023",
+    "domain": 3,
+    "skill": "modules-packages",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A shared library detects the browser with `const isBrowser = typeof navigator !== 'undefined';` and then touches `window.localStorage`. After the team moves its server from Node 18 to Node 22, server rendering crashes with `ReferenceError: window is not defined`. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Node 22 removed the `global` object, so every `typeof` check now returns `'object'`",
+        "why": "`global` still exists, and `typeof` checks behave as before."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Node 21+ defines a global `navigator`, so the check now treats Node as a browser",
+        "why": "`navigator.userAgent` is `Node.js/22` in Node; test for `window` or `document` instead."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Node 22 started setting `window` during server rendering, then deletes it",
+        "why": "Node has never defined `window`; that is exactly why the code crashes."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The bundler replaced `navigator` with `undefined` only in production builds",
+        "why": "The crash comes from the runtime, not from a bundler substitution."
+      }
+    ],
+    "explanation": "Node 21 added a browser-compatible global `navigator` (with `hardwareConcurrency`, `language`, `platform` and `userAgent`), so `typeof navigator` is `'object'` on the server and the detection misfires. Feature-detect what you actually use (`typeof window !== 'undefined'` or `typeof document`), or check `process.versions?.node`. Verified on Node 24: `typeof navigator` is `object` and `navigator.userAgent` is `Node.js/24`.",
+    "reference": "Node.js docs: navigator (global)"
+  },
+  {
+    "id": "NJS-GAP-024",
+    "domain": 3,
+    "skill": "testing-debugging",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A team adds OpenTelemetry auto-instrumentation by calling `sdk.start()` in `tracing.js`, which `app.js` requires after `const express = require('express')`. Traces show outgoing HTTP calls but no Express route spans. What is the fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Switch to the `diagnostics_channel` API instead, because Express has no OpenTelemetry instrumentation",
+        "why": "Express spans come from the OpenTelemetry Express instrumentation once it loads first."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Load the instrumentation before any app code, for example `node --require ./tracing.js app.js`",
+        "why": "Instrumentations patch modules as they load, so Express must load after them."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Call `sdk.start()` inside every route handler so each request gets a span",
+        "why": "Starting the SDK repeatedly doesn't patch modules that were already loaded."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Increase the sampling rate, because route spans are sampled out by default",
+        "why": "Sampling drops whole traces; it can't remove only the Express spans."
+      }
+    ],
+    "explanation": "OpenTelemetry's Node auto-instrumentations work by hooking `require`/`import` and patching libraries as they load. If `express` was required before the SDK started, it is already loaded unpatched, so no route spans appear, while `http` (patched differently) may still show up. Start the SDK first with a preload: `node --require ./tracing.js app.js` for CommonJS, or `node --import ./tracing.mjs app.mjs` for ES modules.",
+    "reference": "OpenTelemetry docs: Node.js getting started (instrumentation setup)"
+  },
+  {
+    "id": "NJS-GAP-025",
+    "domain": 4,
+    "skill": "security",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An Express app renders profiles with EJS, using `<p><%- user.bio %></p>`. A user saves a bio containing `<script>…</script>`, and it runs in other visitors' browsers. What is the fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Switch to `res.send()` instead of `res.render()`, which escapes HTML",
+        "why": "`res.send` sends the string as is; it escapes nothing."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Use `<%= user.bio %>`, which HTML-escapes the value before output",
+        "why": "`<%-` writes raw HTML; `<%=` escapes it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Strip `<script>` tags from the bio with a regular expression before saving",
+        "why": "Regex filtering misses event handlers and other payloads; escape on output instead."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Set `app.set('view cache', true)` so templates are compiled safely",
+        "why": "View caching only affects performance, not escaping."
+      }
+    ],
+    "explanation": "EJS has two output tags: `<%= value %>` escapes HTML special characters, and `<%- value %>` inserts raw HTML for trusted markup only. Rendering user content with `<%-` is stored XSS. Other engines work the same way: Pug uses `#{}` (escaped) and `!{}` (raw), Handlebars `{{}}` and `{{{}}}`. Escape on output, and add a Content Security Policy as defence in depth.",
+    "reference": "EJS docs: Tags; OWASP: Cross Site Scripting Prevention Cheat Sheet"
+  },
+  {
+    "id": "NJS-GAP-026",
+    "domain": 4,
+    "skill": "http-networking",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "An Express app calls `app.set('view engine', 'ejs')` and a route calls `res.render('profile', { user })`. With no other view settings, which file does Express render?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`./profile.ejs` in the folder where the server was started",
+        "why": "Express looks in the views folder, not the project root."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`views/profile.ejs`, relative to the process's working directory",
+        "why": "The default `views` setting is `process.cwd() + '/views'`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`public/profile.html`, served as a static file",
+        "why": "Static files are served by `express.static`, not `res.render`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`views/profile.html`, because templates must use the `.html` extension",
+        "why": "The `view engine` setting supplies the extension, here `.ejs`."
+      }
+    ],
+    "explanation": "The `views` application setting defaults to `process.cwd() + '/views'`, and the `view engine` setting supplies the default extension. So `res.render('profile')` loads `views/profile.ejs` from the folder the server was started in. Because that depends on the working directory, apps usually set `app.set('views', path.join(__dirname, 'views'))`.",
+    "reference": "Express docs: Using template engines; app.set (views)"
+  },
+  {
+    "id": "NJS-GAP-027",
+    "domain": 2,
+    "skill": "fs-process",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "What does this command print? Type the output.\n\n```bash\nnode -p \"6 * 7\"\n```",
+    "options": [],
+    "accepted": [
+      "42"
+    ],
+    "explanation": "`node -p` (or `--print`) evaluates the expression and prints the result, while `node -e` evaluates without printing. Both are handy for one-liners in shell scripts, for example `node -p \"require('./package.json').version\"`. Verified on Node 24.",
+    "reference": "Node.js docs: -p, --print"
+  }
+]

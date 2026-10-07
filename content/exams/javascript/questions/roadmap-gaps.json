@@ -1,0 +1,1817 @@
+[
+  {
+    "id": "JSM-GAP-001",
+    "domain": 1,
+    "skill": "types-coercion",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nconsole.log(~~3.7, ~~-3.7, 5 & 3, 5 | 3, 5 ^ 3, 1 << 3);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`3 -4 1 7 6 8`",
+        "why": "`~~` truncates toward zero like `Math.trunc`, so `-3.7` becomes `-3`, not `-4`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`3 -3 1 7 6 8`",
+        "why": "Each `~` converts to a 32-bit integer (dropping the fraction), then the bit operations run on 101 and 011."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`3 -3 15 7 6 8`",
+        "why": "`5 & 3` keeps only bits set in both: 101 & 011 = 001, which is 1."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`4 -4 1 7 2 6`",
+        "why": "Bitwise operators truncate rather than round, and XOR of 101 and 011 is 110, which is 6."
+      }
+    ],
+    "explanation": "Bitwise operators first apply ToInt32, which drops the fractional part (truncation toward zero), so `~~3.7` is 3 and `~~-3.7` is -3. With 5 = 101 and 3 = 011: AND keeps shared bits (001 = 1), OR keeps any set bit (111 = 7), XOR keeps differing bits (110 = 6), and `1 << 3` shifts left three places (1000 = 8).",
+    "reference": "MDN: Bitwise operators"
+  },
+  {
+    "id": "JSM-GAP-002",
+    "domain": 1,
+    "skill": "types-coercion",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nconsole.log(2 ** 31 | 0, -1 >>> 0, 2 ** 32 + 5 | 0);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`2147483648 -1 4294967301`, with no 32-bit wrapping at all",
+        "why": "`| 0` and `>>> 0` never return values outside 32 bits; they wrap."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`2147483647 4294967295 5`",
+        "why": "ToInt32 wraps modulo 2^32 rather than clamping to the largest 32-bit value."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`-2147483648 4294967295 5`",
+        "why": "`| 0` converts to a signed 32-bit integer and `>>> 0` to an unsigned one, both wrapping modulo 2^32."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`-2147483648 -1 5`",
+        "why": "`>>> 0` produces an unsigned 32-bit result, so -1 becomes 4294967295."
+      }
+    ],
+    "explanation": "`x | 0` applies ToInt32: the value is taken modulo 2^32 and read as a signed 32-bit integer. 2^31 is one past the largest positive value, so it wraps to -2147483648, and 2^32 + 5 wraps to 5. `x >>> 0` applies ToUint32 instead, so -1 becomes 2^32 - 1 = 4294967295. This is why `| 0` is unsafe for numbers beyond ±2^31 such as timestamps in milliseconds.",
+    "reference": "ECMA-262: ToInt32 / ToUint32"
+  },
+  {
+    "id": "JSM-GAP-003",
+    "domain": 1,
+    "skill": "types-coercion",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In older code you may see `if (~list.indexOf(item)) { ... }`. This condition is true exactly when `item` is in `list`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "`indexOf` returns -1 when not found, and `~(-1)` is 0, the only falsy result; any index 0 or above gives a nonzero number."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "It works: `~n` equals `-(n + 1)`, which is 0 only for n = -1, so found items always give a truthy value."
+      }
+    ],
+    "explanation": "`~n` is `-(n + 1)` for 32-bit integers. When `indexOf` finds the item at index 0 or later, `~index` is -1, -2 and so on, all truthy; when it returns -1, `~(-1)` is 0, which is falsy. The idiom works, but `list.includes(item)` says the same thing more clearly and also finds `NaN`.",
+    "reference": "MDN: Bitwise NOT (~)"
+  },
+  {
+    "id": "JSM-GAP-004",
+    "domain": 5,
+    "skill": "coding-patterns",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "Permissions are stored as bit flags:\n\n```js\nconst READ = 1, WRITE = 2, EXEC = 4;\nlet perms = READ | WRITE;\n```\n\nWhich expression always clears `WRITE`, whether or not it is currently set, and leaves the other flags unchanged?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`perms ^ WRITE`",
+        "why": "XOR toggles the bit: it clears WRITE when set but turns it on when it is not."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`perms - WRITE`",
+        "why": "Subtraction only works if WRITE is set; otherwise it borrows from other bits or goes negative."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`perms & ~WRITE`",
+        "why": "`~WRITE` has every bit set except WRITE, so AND keeps all other flags and forces WRITE to 0."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`perms | ~WRITE`",
+        "why": "OR with `~WRITE` sets every other bit, granting flags that were never there."
+      }
+    ],
+    "explanation": "To clear a flag, AND with its complement: `perms & ~FLAG`. To set one, use `perms | FLAG`; to test it, `(perms & FLAG) !== 0`; to toggle it, `perms ^ FLAG`. Checking with READ alone (1): `1 & ~2` is 1 (correct), `1 ^ 2` is 3 (WRITE turned on), and `1 - 2` is -1.",
+    "reference": "MDN: Bitwise AND (&)"
+  },
+  {
+    "id": "JSM-GAP-005",
+    "domain": 1,
+    "skill": "types-coercion",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nlet a = 1;\nconst x = (a++, a * 10);\nconsole.log(a, x);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`2 10`",
+        "why": "The comma operator evaluates its left side first, so `a` is already 2 when `a * 10` runs."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`2 20`",
+        "why": "The comma operator evaluates each operand left to right and returns the last one, after `a++` has run."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`1 20`",
+        "why": "`a++` does increment `a`; only the value of that sub-expression (1) is discarded."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A `SyntaxError`, because `const` cannot take two values",
+        "why": "Inside parentheses the comma is the comma operator, producing one value."
+      }
+    ],
+    "explanation": "The comma operator evaluates its operands from left to right and returns the value of the last one. `a++` runs first (a becomes 2), then `a * 10` is 20, which is what `x` receives. It shows up in `for (let i = 0, j = n; ...; i++, j--)` loops and in minified code, and it is easy to misread.",
+    "reference": "MDN: Comma operator (,)"
+  },
+  {
+    "id": "JSM-GAP-006",
+    "domain": 2,
+    "skill": "functions-closures",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\n'use strict';\nconst obj = { m() { return this; } };\nconsole.log(obj.m() === obj, (obj.m)() === obj, (0, obj.m)() === obj);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`true false false`",
+        "why": "Parentheses around a property access are only grouping; the call still has `obj` as its base."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`true true false`",
+        "why": "`(obj.m)()` keeps the reference to `obj`, but the comma expression yields a plain function value."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`true true true`",
+        "why": "The comma operator returns the function value itself, so the call has no `this` object."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`true false true`",
+        "why": "Grouping parentheses preserve the method reference, so they never lose `this`."
+      }
+    ],
+    "explanation": "A call gets its `this` from the reference it calls. `obj.m` and `(obj.m)` both evaluate to a reference whose base is `obj`, because grouping parentheses do not change a reference. The comma operator, like assignment, evaluates to the plain function value and loses the base, so in strict mode `this` is `undefined`. Bundlers emit `(0, fn)()` deliberately to call an imported function without a `this`.",
+    "reference": "ECMA-262: Function calls and References"
+  },
+  {
+    "id": "JSM-GAP-007",
+    "domain": 1,
+    "skill": "types-coercion",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nconst n = 5;\nconsole.log('n is ' + n > 3 ? 'big' : 'small', false ? 1 : true ? 2 : 3);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`n is big 2`",
+        "why": "`+` binds tighter than `?:`, so the string is built first and then compared."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`small 2`",
+        "why": "`'n is 5' > 3` compares NaN with 3, which is false, and the nested ternary groups from the right."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`big 3`",
+        "why": "The comparison is false, and `false ? 1 : (true ? 2 : 3)` evaluates to 2."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`n is small 1`",
+        "why": "The whole concatenation becomes the condition, so its text is never printed."
+      }
+    ],
+    "explanation": "Operator precedence makes the first argument `((\"n is \" + n) > 3) ? \"big\" : \"small\"`. `\"n is 5\"` converts to NaN, and any comparison with NaN is false, so it prints `small`. The conditional operator is right-associative, so `false ? 1 : true ? 2 : 3` means `false ? 1 : (true ? 2 : 3)`, which is 2. Wrap the ternary in parentheses when it sits inside a larger expression.",
+    "reference": "MDN: Conditional (ternary) operator"
+  },
+  {
+    "id": "JSM-GAP-008",
+    "domain": 1,
+    "skill": "types-coercion",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nfunction kind(x) {\n  switch (x) {\n    case 1: return 'num';\n    case '1': return 'str';\n    default: return 'other';\n  }\n}\nconsole.log(kind('1'), kind(true));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`num num`",
+        "why": "`switch` does not coerce: the string `'1'` never matches `case 1`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`num other`",
+        "why": "Cases are compared with strict equality, so `'1'` skips `case 1`."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`str other`",
+        "why": "`switch` compares with `===`, so `'1'` matches only `case '1'` and `true` matches nothing."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`str num`",
+        "why": "`true === 1` is false; `switch` never converts booleans to numbers."
+      }
+    ],
+    "explanation": "A `switch` compares the discriminant with each `case` value using strict equality (`===`). `'1'` therefore skips `case 1` and matches `case '1'`, and `true` matches no case, so it falls to `default`. Form values arrive as strings, which is a common source of switches that never match.",
+    "reference": "MDN: switch"
+  },
+  {
+    "id": "JSM-GAP-009",
+    "domain": 2,
+    "skill": "functions-closures",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "What does this log? Type the output exactly.\n\n```js\nlet out = '';\nswitch (2) {\n  case 1: out += 'a';\n  case 2: out += 'b';\n  case 3: out += 'c'; break;\n  default: out += 'd';\n}\nconsole.log(out);\n```",
+    "options": [],
+    "accepted": [
+      "bc"
+    ],
+    "explanation": "Execution jumps to `case 2` and then keeps running the following cases until it reaches a `break`. That appends `b`, falls through to `case 3`, appends `c` and breaks, so `default` never runs. Forgotten `break` statements are a classic bug; linters flag fall-through unless it is marked with a comment.",
+    "reference": "MDN: switch (fall-through)"
+  },
+  {
+    "id": "JSM-GAP-010",
+    "domain": 2,
+    "skill": "functions-closures",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What happens when this script is loaded?\n\n```js\nfunction label(x) {\n  switch (x) {\n    case 1:\n      let msg = 'one';\n      return msg;\n    case 2:\n      let msg = 'two';\n      return msg;\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It loads, and `label(2)` returns `two`",
+        "why": "Both `let` declarations live in one block, so the script never gets that far."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A `SyntaxError`: `msg` has already been declared",
+        "why": "All cases share the single block of the `switch`, so two `let msg` declarations collide."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It loads, but `label(2)` throws a `ReferenceError`",
+        "why": "The duplicate `let` is caught at parse time, before any call happens."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It loads, and each `case` gets its own `msg`",
+        "why": "A `case` label does not start a block; only braces do."
+      }
+    ],
+    "explanation": "The body of a `switch` is one block, and `case` labels do not create new scopes. Two `let msg` declarations in the same block are an early `SyntaxError`, so the whole script fails to load. Wrap each case body in braces (`case 1: { let msg = ...; }`) to give it its own scope.",
+    "reference": "MDN: switch (lexical scoping)"
+  },
+  {
+    "id": "JSM-GAP-011",
+    "domain": 2,
+    "skill": "functions-closures",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nswitch (2) {\n  case 1:\n    let y = 1;\n    break;\n  case 2:\n    y = 5;\n    console.log(y);\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`5`",
+        "why": "`y` exists in the shared block, but its declaration never ran, so it is still uninitialised."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`undefined`",
+        "why": "Unlike `var`, a `let` binding is not initialised to `undefined` when the block starts."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "A `ReferenceError` from the temporal dead zone",
+        "why": "Jumping to `case 2` skips the `let y` line, so `y` stays in its temporal dead zone."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A `SyntaxError`, because `y` is used in another case",
+        "why": "Using a binding declared in another case is legal syntax; the failure happens at run time."
+      }
+    ],
+    "explanation": "`let y` is scoped to the whole `switch` block, so `case 2` can see the name. But execution jumped straight to `case 2`, skipping the declaration, so `y` is still in its temporal dead zone and assigning to it throws `ReferenceError: Cannot access 'y' before initialization`. Braces around each case avoid this.",
+    "reference": "MDN: let (temporal dead zone)"
+  },
+  {
+    "id": "JSM-GAP-012",
+    "domain": 2,
+    "skill": "functions-closures",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "What does this log? Type the value.\n\n```js\nlet i = 10;\ndo {\n  console.log(i);\n  i++;\n} while (i < 5);\n```",
+    "options": [],
+    "accepted": [
+      "10"
+    ],
+    "explanation": "A `do...while` loop runs its body once before checking the condition, so it logs 10 and then stops because 11 < 5 is false. A plain `while (i < 5)` loop would log nothing. Use `do...while` when the body must run at least once, such as prompting until the input is valid.",
+    "reference": "MDN: do...while"
+  },
+  {
+    "id": "JSM-GAP-013",
+    "domain": 2,
+    "skill": "functions-closures",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nlet i = 0, steps = 0;\ndo {\n  steps++;\n  if (steps > 100) break;\n  if (i === 2) continue;\n  i++;\n} while (i < 5);\nconsole.log(i, steps);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`5 6`",
+        "why": "Once `i` is 2, `continue` skips the increment every time, so `i` never reaches 5."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`3 4`",
+        "why": "`continue` does not skip the rest of the loop; it jumps to the condition, which is still true."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`2 101`",
+        "why": "`continue` jumps to the `while` check; with `i` stuck at 2 the loop only ends at the `break`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Nothing: the loop never ends",
+        "why": "The `steps > 100` guard breaks out on the 101st pass."
+      }
+    ],
+    "explanation": "In a `do...while`, `continue` jumps to the condition check, not to the top of the body. When `i` reaches 2, every pass hits `continue` before `i++`, the condition `2 < 5` stays true, and the loop spins until the guard breaks on the 101st pass. Without the guard this would hang. Put the increment before any `continue`.",
+    "reference": "MDN: continue"
+  },
+  {
+    "id": "JSM-GAP-014",
+    "domain": 2,
+    "skill": "functions-closures",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nouter: for (let i = 0; i < 3; i++) {\n  for (let j = 0; j < 3; j++) {\n    if (j === 1) continue outer;\n    if (i === 2) break outer;\n    console.log(i, j);\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`0 0` then `1 0`",
+        "why": "Each outer pass logs j = 0, then `continue outer` skips ahead; at i = 2 the `break outer` ends both loops."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`0 0`, `1 0` then `2 0`",
+        "why": "At i = 2 the `break outer` check runs before the log, so nothing prints."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`0 0`, `0 2`, `1 0` then `1 2`",
+        "why": "`continue outer` leaves the inner loop entirely, so j = 2 is never reached."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A `SyntaxError`, because labels only work with `while`",
+        "why": "Labels can be attached to any statement, including `for` loops."
+      }
+    ],
+    "explanation": "A label lets `break` and `continue` target an outer loop. `continue outer` abandons the inner loop and starts the next outer iteration, and `break outer` exits both loops. So i = 0 logs `0 0`, i = 1 logs `1 0`, and at i = 2 the loop breaks before logging.",
+    "reference": "MDN: label"
+  },
+  {
+    "id": "JSM-GAP-015",
+    "domain": 2,
+    "skill": "collections",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What happens when this runs?\n\n```js\n[1, 2, 3].forEach((n) => {\n  if (n === 2) break;\n  console.log(n);\n});\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It logs `1` and stops at the `break`",
+        "why": "`break` cannot leave a callback, so the script never starts running."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "It logs `1` and `3`, skipping 2",
+        "why": "That is what `return` inside the callback would do, not `break`."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "A `SyntaxError` (illegal `break`); nothing runs",
+        "why": "`break` must be inside a loop or `switch` in the same function, and the callback is a separate function."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It logs 1, 2 and 3, because `break` is ignored",
+        "why": "An illegal `break` is a parse error, not something silently skipped."
+      }
+    ],
+    "explanation": "`break` only works inside a loop or `switch` within the same function. Inside a `forEach` callback it is an early `SyntaxError` (`Illegal break statement`), so the script does not run at all. `forEach` cannot be stopped early; use `for...of` with `break`, or `some` and `find`, which stop when the callback returns a truthy value.",
+    "reference": "MDN: Array.prototype.forEach"
+  },
+  {
+    "id": "JSM-GAP-016",
+    "domain": 2,
+    "skill": "functions-closures",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which of these are valid variable names in JavaScript? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`$el`",
+        "why": "Identifiers may start with `$`, which is why jQuery and many libraries use it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`_private`",
+        "why": "Identifiers may start with an underscore."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`café`",
+        "why": "Identifiers can contain Unicode letters, not just ASCII."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`2fast`",
+        "why": "An identifier cannot start with a digit; the parser would read a number."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`my-var`",
+        "why": "A hyphen is the minus operator, so this reads as `my - var`."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "`class`",
+        "why": "`class` is a reserved word and cannot be used as a variable name."
+      }
+    ],
+    "explanation": "An identifier starts with a letter (any Unicode letter), `$` or `_`, and continues with those or digits. It cannot start with a digit, contain operators such as `-`, or be a reserved word such as `class`, `const` or `return`. Conventions such as camelCase are style, not syntax.",
+    "reference": "MDN: Lexical grammar (identifiers)"
+  },
+  {
+    "id": "JSM-GAP-017",
+    "domain": 2,
+    "skill": "functions-closures",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nfunction f() {\n  let undefined = 5;\n  return typeof undefined;\n}\nconsole.log(f(), typeof undefined);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A `SyntaxError`, because `undefined` is a reserved word",
+        "why": "`undefined` is a global property, not a reserved word, so it can be shadowed."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`number undefined`",
+        "why": "Inside `f` the local `undefined` holds 5; outside, the read-only global `undefined` is untouched."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`number number`",
+        "why": "The local binding is scoped to `f`; the global `undefined` is non-writable and unchanged."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`undefined undefined`",
+        "why": "The local `let` shadows the global name inside the function."
+      }
+    ],
+    "explanation": "`undefined` is a property of the global object, not a keyword, so a local variable can shadow it. The global property itself is non-writable and non-configurable, so the top-level `undefined` stays intact. That is why some code uses `void 0`, which always yields the real `undefined`, and why lint rules forbid shadowing it.",
+    "reference": "MDN: undefined"
+  },
+  {
+    "id": "JSM-GAP-018",
+    "domain": 2,
+    "skill": "collections",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about `WeakSet` are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`new WeakSet().add(1)` throws a `TypeError`",
+        "why": "A WeakSet holds objects (and non-registered symbols) only; primitives are rejected."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A WeakSet has no `size` property and cannot be iterated",
+        "why": "Its contents depend on garbage collection, so the API exposes only `add`, `has` and `delete`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`ws.has(1)` throws a `TypeError`",
+        "why": "`has` simply returns `false` for primitives; only `add` throws."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An object in a WeakSet stays alive as long as the set does",
+        "why": "The reference is weak: if nothing else points to the object, it can be collected."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Calling `ws.delete(obj)` frees the object's memory at once",
+        "why": "Deleting just removes the entry; collection happens later, and only if nothing else refers to it."
+      }
+    ],
+    "explanation": "A `WeakSet` stores objects weakly: membership never keeps an object alive. Because entries can disappear at any time, it is not iterable and has no `size`. Adding a primitive throws `TypeError: Invalid value used in weak set`, while `has` and `delete` just return `false`. It suits \"have I seen this object?\" checks, such as cycle detection or marking processed DOM nodes, without leaking.",
+    "reference": "MDN: WeakSet"
+  },
+  {
+    "id": "JSM-GAP-019",
+    "domain": 5,
+    "skill": "dom-browser",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "An `XMLHttpRequest` asks for a URL that returns `404 Not Found`. Which handler runs?\n\n```js\nconst xhr = new XMLHttpRequest();\nxhr.open('GET', '/missing');\nxhr.onload = () => console.log('load', xhr.status);\nxhr.onerror = () => console.log('error');\nxhr.send();\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`onerror` runs, because 404 is an error status",
+        "why": "`onerror` is for network-level failures; any HTTP response, even 404, counts as a load."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`onload` runs and logs `load 404`",
+        "why": "The request completed and a response arrived, so `onload` fires and you must check `status` yourself."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Both run: first `onerror`, then `onload`",
+        "why": "Exactly one of `load` or `error` fires for a request; a 404 is a load."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Neither runs unless `xhr.responseType` is set",
+        "why": "`responseType` changes how the body is parsed, not which events fire."
+      }
+    ],
+    "explanation": "Like `fetch`, `XMLHttpRequest` treats any completed HTTP response as success at the transport level. `onload` fires for 200, 404 and 500 alike, so code must check `xhr.status`. `onerror` fires only when no response arrives, such as a DNS failure, a refused connection or a CORS block.",
+    "reference": "MDN: XMLHttpRequest load event"
+  },
+  {
+    "id": "JSM-GAP-020",
+    "domain": 5,
+    "skill": "dom-browser",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A file-upload form must show a progress bar while a large file uploads, and it must work in every current browser. Which approach provides upload progress events?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`fetch` with an `onprogress` option in the request init",
+        "why": "`fetch` has no progress callback option; that key is simply ignored."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Reading `response.body` as a stream after `fetch` resolves",
+        "why": "That measures download progress of the response, after the upload has finished."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`XMLHttpRequest` with a listener on `xhr.upload.onprogress`",
+        "why": "XHR exposes upload progress events with `loaded` and `total`, which `fetch` still does not offer."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A `ReadableStream` body with `duplex: 'half'` in every browser",
+        "why": "Streaming request bodies are not available in all browsers and still emit no progress events."
+      }
+    ],
+    "explanation": "`fetch` is the modern default, but it still has no portable way to report upload progress. `XMLHttpRequest` fires `progress` events on `xhr.upload` with `loaded` and `total` byte counts, which is why upload widgets often still use XHR (or libraries built on it). Download progress is available with `fetch` by reading `response.body` as a stream.",
+    "reference": "MDN: XMLHttpRequest.upload"
+  },
+  {
+    "id": "JSM-GAP-021",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "A `debugger;` statement pauses execution for every user who loads the page, even if they have no developer tools open.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Without an attached debugger, the statement has no effect at all."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "`debugger` only pauses when a debugger such as DevTools is attached; otherwise it does nothing."
+      }
+    ],
+    "explanation": "The `debugger` statement acts as a breakpoint only when a debugger is attached, for example with DevTools open or Node started with `--inspect`. For everyone else it is a no-op. It should still be removed before shipping, because it pauses anyone who opens DevTools, and linters flag it with `no-debugger`.",
+    "reference": "MDN: debugger"
+  },
+  {
+    "id": "JSM-GAP-022",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "While debugging, you run this and later expand the logged object in Chrome DevTools:\n\n```js\nconst order = { status: 'pending' };\nconsole.log(order);\norder.status = 'paid';\n```\n\nThe expanded object shows `status: \"paid\"`, even though the log line ran before the change. Why, and how do you log the value as it was at that moment?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The console batches log calls until the event loop is idle, so log with `console.table` instead",
+        "why": "`console.table` also takes a reference; the issue is lazy evaluation, not batching."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "DevTools reads the live object when expanded; log a copy such as `structuredClone(order)`",
+        "why": "The preview may show the old value, but expanding reads the current object; a copy freezes it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Object assignment is asynchronous in V8; add `await` before the log",
+        "why": "Property writes are synchronous; the console simply evaluates the reference later."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The log ran after the assignment because of hoisting; move the log to the end",
+        "why": "Statements run in order. The log ran first, but DevTools reads the object again when expanded."
+      }
+    ],
+    "explanation": "`console.log(obj)` passes a reference, and DevTools evaluates an expanded object's properties when you click on it, not when the line ran (Chrome marks such values with a small \"i\" icon). To capture state at a point in time, log a copy (`structuredClone(obj)`, `JSON.parse(JSON.stringify(obj))` for plain data, or `{ ...obj }` for one level), or use a breakpoint or logpoint.",
+    "reference": "Chrome DevTools: Console reference"
+  },
+  {
+    "id": "JSM-GAP-023",
+    "domain": 4,
+    "skill": "performance-memory",
+    "difficulty": 2,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each debugging need with the Chrome DevTools feature built for it.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Conditional breakpoint",
+        "why": "Pauses only when an expression is true."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Logpoint",
+        "why": "Logs a message without pausing or editing code."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "DOM change breakpoint (subtree modifications)",
+        "why": "Pauses on code that changes a node."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "XHR/fetch breakpoint",
+        "why": "Pauses when a request URL matches."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Stop inside a loop only on the iteration where `user.id === 42`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Print a variable on every call in production code you cannot redeploy",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Find which script keeps removing an element from the page",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Pause just before the app sends a request to `/api/checkout`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "DevTools breakpoints go beyond plain line breakpoints. Conditional breakpoints pause only when an expression is true, logpoints log without pausing or editing source, DOM change breakpoints catch the script that mutates a node, and XHR/fetch breakpoints pause when a request URL contains a given string. These avoid scattering `console.log` and `debugger` through the code.",
+    "reference": "Chrome DevTools: Pause your code with breakpoints"
+  },
+  {
+    "id": "JSM-GAP-024",
+    "domain": 2,
+    "skill": "functions-closures",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Which of these calls throws an error?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`Math.max.apply(null, [1, 2])`",
+        "why": "An array is a valid argument list; this returns 2."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`Math.max.apply(null, { length: 2, 0: 1, 1: 5 })`",
+        "why": "Any array-like object works with `apply`; this returns 5."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`Math.max.apply(null, 'abc')`",
+        "why": "`apply` needs an object for its argument list; a string primitive throws a `TypeError`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`Math.max.apply(null, undefined)`",
+        "why": "`null` or `undefined` means \"no arguments\", so this returns -Infinity."
+      }
+    ],
+    "explanation": "`fn.apply(thisArg, args)` turns `args` into an argument list with CreateListFromArrayLike, which requires an object with a `length`, such as an array or array-like. `null` or `undefined` is treated as no arguments. A primitive such as a string is rejected with `TypeError: CreateListFromArrayLike called on non-object`, even though strings look array-like. Today `Math.max(...values)` is the usual way to spread an array.",
+    "reference": "MDN: Function.prototype.apply"
+  },
+  {
+    "id": "JSM-GAP-025",
+    "domain": 2,
+    "skill": "functions-closures",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nfunction f(a, b) { return [a, b]; }\nconsole.log(f.call(null, [1, 2]), f.apply(null, [1, 2]));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`[1, 2] [1, 2]`",
+        "why": "`call` passes its arguments one by one, so the whole array becomes `a`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`[[1, 2], undefined] [1, 2]`",
+        "why": "`call` passes the array as the single argument `a`; `apply` spreads it into `a` and `b`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`[[1, 2], undefined] [[1, 2], undefined]`",
+        "why": "`apply` unpacks its second argument into separate parameters."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`[1, 2] [[1, 2], undefined]`",
+        "why": "This swaps the two methods: it is `apply` that takes an array of arguments."
+      }
+    ],
+    "explanation": "`call` and `apply` both set `this` (here `null`) and invoke the function. `call` takes the arguments individually, so `f.call(null, [1, 2])` passes one argument, an array. `apply` takes one array-like of arguments and spreads it, so `a` is 1 and `b` is 2. A mnemonic: Apply takes an Array.",
+    "reference": "MDN: Function.prototype.call"
+  },
+  {
+    "id": "JSM-GAP-026",
+    "domain": 2,
+    "skill": "functions-closures",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nconsole.log(\n  Array.prototype.map.call('abc', (c) => c.toUpperCase()),\n  Array.prototype.join.call({ length: 2, 0: 'x', 1: 'y' }, '-'),\n);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A `TypeError`, because strings and plain objects have no `map` or `join`",
+        "why": "Borrowing calls the array method with another object as `this`; it does not look for the method on that object."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`ABC x-y`",
+        "why": "`map` always returns a new array, even when `this` is a string."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`[ 'A', 'B', 'C' ] x-y`",
+        "why": "Array methods are generic: they work on any `this` with a `length` and indexed elements."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`[ 'ABC' ] [object Object]`",
+        "why": "`map` visits each index of the string, and `join` reads the indexed properties."
+      }
+    ],
+    "explanation": "This is function borrowing: calling a method from one type with a different `this`. Most `Array.prototype` methods are deliberately generic and only need a `length` and indexed properties. A string has both, so `map` visits each character, and the array-like object gives `join` two elements. `Array.prototype.slice.call(arguments)` was the classic use before `Array.from` and rest parameters.",
+    "reference": "MDN: Array (generic array methods)"
+  },
+  {
+    "id": "JSM-GAP-027",
+    "domain": 1,
+    "skill": "types-coercion",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`2 ** 3 ** 2` evaluates to 512",
+        "why": "`**` is right-associative, so it is `2 ** (3 ** 2)` = 2 ** 9."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`-2 ** 2` is a `SyntaxError`",
+        "why": "A unary operator directly before `**` is ambiguous, so the grammar forbids it; write `(-2) ** 2` or `-(2 ** 2)`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`2 ** 3 ** 2` evaluates to 64",
+        "why": "That would be `(2 ** 3) ** 2`; exponentiation groups from the right."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`-2 ** 2` evaluates to -4",
+        "why": "Unlike many languages, JavaScript refuses to guess and throws a SyntaxError."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`(-2) ** 2` evaluates to -4",
+        "why": "Squaring -2 gives 4; the parentheses make the base negative."
+      }
+    ],
+    "explanation": "The exponentiation operator is right-associative: `a ** b ** c` is `a ** (b ** c)`. Because mathematicians and programmers disagree on whether `-2 ** 2` means `(-2) ** 2` or `-(2 ** 2)`, JavaScript makes a unary operator directly before `**` a SyntaxError and requires parentheses.",
+    "reference": "MDN: Exponentiation (**)"
+  },
+  {
+    "id": "JSM-GAP-028",
+    "domain": 1,
+    "skill": "types-coercion",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nconsole.log(-7 % 3, 7 % -3, 5.5 % 2);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`2 -2 1.5`",
+        "why": "That is mathematical modulo (result takes the divisor's sign); `%` is a remainder."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`-1 1 1.5`",
+        "why": "`%` is a remainder whose sign follows the dividend, and it works on fractions."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`-1 -1 1`",
+        "why": "The result takes the sign of the left operand, and `%` does not truncate fractions."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`1 1 1.5`",
+        "why": "A negative dividend gives a negative remainder: -7 = 3 × (-2) - 1."
+      }
+    ],
+    "explanation": "JavaScript's `%` is the remainder operator, not mathematical modulo: the result has the sign of the dividend (left operand). So `-7 % 3` is -1 and `7 % -3` is 1. It also works on non-integers: `5.5 % 2` is 1.5. For a true modulo that is always non-negative, use `((n % m) + m) % m`, for example when wrapping array indexes.",
+    "reference": "MDN: Remainder (%)"
+  },
+  {
+    "id": "JSM-GAP-029",
+    "domain": 1,
+    "skill": "types-coercion",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which statements about BigInt are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`-7n / 2n` evaluates to `-3n`",
+        "why": "BigInt division truncates toward zero, discarding the fraction."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`+5n` throws a `TypeError`",
+        "why": "Unary plus means \"convert to number\", which BigInt deliberately refuses to do implicitly."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`BigInt(1.5)` returns `1n`",
+        "why": "A non-integer number throws a `RangeError` rather than being truncated."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`2n > 1` throws a `TypeError`",
+        "why": "Relational comparisons between BigInt and Number work, so this is `true`."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`[10n, 9n, 1n].sort()` returns `[1n, 9n, 10n]`",
+        "why": "The default sort compares strings, giving `[1n, 10n, 9n]`; pass a comparator."
+      }
+    ],
+    "explanation": "BigInt arithmetic stays in integers: division truncates toward zero, so `-7n / 2n` is `-3n`. Unary `+` throws because it would silently lose precision, and `BigInt(1.5)` throws a RangeError instead of rounding. Comparisons with numbers (`2n > 1`) are allowed. The default `sort` converts elements to strings, so BigInt arrays need a comparator such as `(a, b) => (a < b ? -1 : a > b ? 1 : 0)`.",
+    "reference": "MDN: BigInt"
+  },
+  {
+    "id": "JSM-GAP-030",
+    "domain": 1,
+    "skill": "types-coercion",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nconsole.log('10' < '9', '10' < 9, 'a' < 'B', 'apple' < 'apricot');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`false false true true`",
+        "why": "Two strings are compared by code unit, not by numeric value."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`true false false true`",
+        "why": "String-to-string comparison is lexicographic by UTF-16 code unit; a number on one side forces numeric comparison."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`true true false true`",
+        "why": "`'10' < 9` converts the string to 10, and 10 < 9 is false."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`true false true false`",
+        "why": "Uppercase letters have lower code units than lowercase ones, so `'a' < 'B'` is false."
+      }
+    ],
+    "explanation": "When both operands are strings, `<` compares them code unit by code unit: `'1'` sorts before `'9'`, so `'10' < '9'`. If either side is a number, both are converted to numbers, so `'10' < 9` is `10 < 9`. Code units put all uppercase letters before lowercase ones (`'B'` is 66, `'a'` is 97). Use `localeCompare` or `Intl.Collator` for human-friendly ordering.",
+    "reference": "MDN: Less than (<)"
+  },
+  {
+    "id": "JSM-GAP-031",
+    "domain": 5,
+    "skill": "coding-patterns",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log, and what is the fix?\n\n```js\nconst roles = ['admin', 'editor'];\nif (roles.indexOf('admin')) console.log('yes');\nelse console.log('no');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`yes`; no fix is needed",
+        "why": "`indexOf` returns 0 for the first element, and 0 is falsy."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`no`; use `roles.includes('admin')`",
+        "why": "`indexOf` returns the index 0, which is falsy, so the check fails for the first element."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`no`; use `roles.indexOf('admin') > 0`",
+        "why": "`> 0` still rejects index 0; the right comparison would be `!== -1`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`yes`; but `includes` is faster",
+        "why": "The code logs `no`; speed is not the problem here."
+      }
+    ],
+    "explanation": "`indexOf` returns the position (0 for the first element) or -1 when the value is missing. Using it directly as a condition treats index 0 as false and -1 as true, which is backwards for the first element. Compare with `!== -1`, or better, use `includes`, which returns a boolean and also handles `NaN`.",
+    "reference": "MDN: Array.prototype.includes"
+  },
+  {
+    "id": "JSM-GAP-032",
+    "domain": 1,
+    "skill": "objects-prototypes",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nclass ValidationError extends Error {\n  constructor(message) {\n    super(message);\n    this.name = 'ValidationError';\n  }\n}\nconst e = new ValidationError('bad email');\nconsole.log(e instanceof Error, e instanceof ValidationError, String(e));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`false true ValidationError: bad email`",
+        "why": "`ValidationError.prototype` inherits from `Error.prototype`, so `instanceof Error` is true."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`true true Error: bad email`",
+        "why": "`String(e)` uses `e.name`, which the constructor changed to `ValidationError`."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`true true ValidationError: bad email`",
+        "why": "The subclass inherits from Error, and `Error.prototype.toString` prints `name: message`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`true false ValidationError: bad email`",
+        "why": "An instance made with `new ValidationError` is always an instance of that class."
+      }
+    ],
+    "explanation": "Extending `Error` with `class` gives a proper subclass: instances pass both `instanceof` checks and get a stack trace. `Error.prototype.toString` prints `${name}: ${message}`, so setting `this.name` makes logs readable. Custom error classes let `catch` blocks branch with `instanceof` instead of comparing message strings.",
+    "reference": "MDN: Error (custom error types)"
+  },
+  {
+    "id": "JSM-GAP-033",
+    "domain": 4,
+    "skill": "modern-features",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\ntry {\n  JSON.parse('{');\n} catch (e) {\n  const err = new Error('config invalid', { cause: e });\n  console.log(err.cause instanceof SyntaxError, err.message);\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`false config invalid`",
+        "why": "The options object's `cause` is stored as-is, and `JSON.parse` throws a SyntaxError."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`true config invalid`",
+        "why": "Since ES2022, `new Error(message, { cause })` keeps the original error on `err.cause`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`true config invalid: Unexpected end of JSON input`",
+        "why": "The cause is not merged into the message; it is a separate property."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A `TypeError`, because `Error` takes only one argument",
+        "why": "The second options argument has been standard since ES2022."
+      }
+    ],
+    "explanation": "ES2022 added an options argument to error constructors: `new Error(message, { cause })` stores the original error on `err.cause` without changing `message`. This is the standard way to wrap a low-level error with context while keeping the root cause for logging. Node and modern DevTools print the cause chain.",
+    "reference": "MDN: Error: cause"
+  },
+  {
+    "id": "JSM-GAP-034",
+    "domain": 1,
+    "skill": "types-coercion",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each expression with the error it throws.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "TypeError",
+        "why": "An operation on a value of the wrong type."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "ReferenceError",
+        "why": "A name that does not exist in scope."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "RangeError",
+        "why": "A value outside the allowed range."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "SyntaxError",
+        "why": "Text that cannot be parsed."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`null.length`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`missingVariable + 1` (never declared anywhere)",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`new Array(-1)`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`JSON.parse('{')`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Reading a property of `null` or `undefined` is a TypeError. Using a name that is not declared is a ReferenceError. An array length must be a non-negative integer, so `new Array(-1)` is a RangeError. `JSON.parse` reports malformed input as a SyntaxError at run time. Knowing the built-in error types makes stack traces quicker to read.",
+    "reference": "MDN: Error types"
+  },
+  {
+    "id": "JSM-GAP-035",
+    "domain": 5,
+    "skill": "coding-patterns",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\ntry {\n  throw 'oops';\n} catch (e) {\n  console.log(typeof e, e instanceof Error, e.stack);\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`object true` and a stack trace",
+        "why": "A thrown string is not wrapped in an Error; it arrives in `catch` unchanged."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A `TypeError`, because only Error objects can be thrown",
+        "why": "Any value can be thrown in JavaScript, including strings, numbers and `undefined`."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`string false undefined`",
+        "why": "`throw` passes the value unchanged, so there is no stack trace and no `instanceof Error`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`string true undefined`",
+        "why": "A primitive string is never an instance of `Error`."
+      }
+    ],
+    "explanation": "JavaScript lets you `throw` any value, and the `catch` block receives exactly that value. A thrown string has no `stack`, no `name` and no `cause`, so the error's origin is lost and code that checks `err instanceof Error` or reads `err.message` breaks. Always throw `Error` objects (or subclasses), and treat caught values as `unknown` until checked.",
+    "reference": "MDN: throw"
+  },
+  {
+    "id": "JSM-GAP-036",
+    "domain": 2,
+    "skill": "functions-closures",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nfunction f() {\n  try { return 'try'; } finally { return 'finally'; }\n}\nfunction g() {\n  try { throw new Error('x'); } finally { return 'swallowed'; }\n}\nconsole.log(f(), g());\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`try` and then an uncaught `Error: x`",
+        "why": "A `return` inside `finally` replaces both the pending return value and the pending exception."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`finally swallowed`",
+        "why": "A `return` in `finally` overrides whatever the `try` was doing, including a thrown error."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`try swallowed`",
+        "why": "`finally` runs after `return 'try'` is evaluated, and its own `return` wins."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`finally` and then an uncaught `Error: x`",
+        "why": "The error from `g` is discarded by the `return` in its `finally`."
+      }
+    ],
+    "explanation": "A `finally` block always runs, even after `return` or `throw` in `try`. If `finally` itself completes with `return` (or `throw`), that replaces the earlier completion. So `f` returns `finally`, and `g` returns `swallowed` while silently dropping the error. Avoid control flow (`return`, `break`, `throw`) in `finally`; ESLint's `no-unsafe-finally` rule flags it.",
+    "reference": "MDN: try...catch (finally)"
+  },
+  {
+    "id": "JSM-GAP-037",
+    "domain": 2,
+    "skill": "functions-closures",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nfunction h() {\n  let x = 1;\n  try { return x; } finally { x = 2; }\n}\nfunction k() {\n  const o = { v: 1 };\n  try { return o; } finally { o.v = 2; }\n}\nconsole.log(h(), k().v);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`2 2`",
+        "why": "`return x` captured the value 1 before `finally` ran; reassigning `x` cannot change it."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`1 1`",
+        "why": "`k` returns a reference to the object, and `finally` mutates that same object."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`1 2`",
+        "why": "The return value is fixed before `finally` runs, but a returned object can still be mutated."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`2 1`",
+        "why": "A primitive return value is copied before `finally`, while objects are shared."
+      }
+    ],
+    "explanation": "When `try` executes `return expr`, the expression is evaluated first and the result is held while `finally` runs. Reassigning `x` in `finally` does not change the held value 1. But for `k`, the held value is a reference to the object, so mutating `o.v` in `finally` is visible to the caller. Only a `return` inside `finally` would replace the held value itself.",
+    "reference": "ECMA-262: try statement evaluation"
+  },
+  {
+    "id": "JSM-GAP-038",
+    "domain": 2,
+    "skill": "functions-closures",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "This file uses no semicolons. What happens when it runs?\n\n```js\nconst a = 1\n(function () {\n  console.log('iife')\n})()\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It logs `iife`",
+        "why": "No semicolon is inserted after `1`, so the parenthesised function is parsed as a call on `1`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A `TypeError`: 1 is not a function",
+        "why": "A line starting with `(` continues the previous expression, so this parses as `1(function () {...})()`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A `SyntaxError`, because the IIFE is not terminated",
+        "why": "The code parses fine; the failure happens when `1` is called."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It logs `iife` and sets `a` to `undefined`",
+        "why": "The script throws before anything is logged or assigned."
+      }
+    ],
+    "explanation": "Automatic semicolon insertion only adds a semicolon when the next token cannot continue the statement. `(` can continue an expression, so `1\\n(function...)` is read as calling `1` with the function as an argument, which throws `TypeError: 1 is not a function`. Semicolon-free code must start lines beginning with `(`, `[` or a template literal with `;`, which is why old IIFEs were written as `;(function () { ... })()`.",
+    "reference": "MDN: Automatic semicolon insertion"
+  },
+  {
+    "id": "JSM-GAP-039",
+    "domain": 5,
+    "skill": "dom-browser",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "In an ES module, both listeners are registered on the same button `btn`. What do they log when it is clicked?\n\n```js\nbtn.addEventListener('click', function () {\n  console.log(this === btn);\n});\nbtn.addEventListener('click', () => {\n  console.log(this === btn);\n});\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`true` then `true`",
+        "why": "Arrow functions ignore the `this` that `addEventListener` provides."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`true` then `false`",
+        "why": "A regular listener gets `this` = the element it is registered on; the arrow uses the module's `this`, which is `undefined`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`false` then `true`",
+        "why": "It is the regular function that receives the element as `this`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`false` then `false`",
+        "why": "`addEventListener` calls a regular function listener with `this` set to `currentTarget`."
+      }
+    ],
+    "explanation": "When a regular function is used as a listener, the browser calls it with `this` set to `event.currentTarget`, the element the listener is attached to (not necessarily `event.target`). Arrow functions have no own `this`; they use the enclosing scope's, which is `undefined` at the top level of a module. Inside class components, use arrows or `bind` deliberately, and prefer `event.currentTarget` for clarity.",
+    "reference": "MDN: EventTarget.addEventListener (this)"
+  },
+  {
+    "id": "JSM-GAP-040",
+    "domain": 4,
+    "skill": "modern-features",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each feature with the ECMAScript edition that introduced it.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "ES2015 (ES6)",
+        "why": "The large modernisation release."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "ES2017",
+        "why": "Added async functions."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "ES2020",
+        "why": "Added optional chaining and nullish coalescing."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "ES2022",
+        "why": "Added top-level await and class private fields."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`let`, `const`, arrow functions and classes",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`async` functions and `await`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`user?.address` and `value ?? fallback`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`await` at the top level of a module, and `#private` class fields",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Since ES2015 the standard has shipped yearly editions. ES2015 brought `let`/`const`, arrows, classes, modules and promises; ES2017 added async functions; ES2020 added `?.` and `??`; ES2022 added top-level await, `#private` fields and `Error` cause. Knowing the edition helps decide what needs transpiling for older targets.",
+    "reference": "TC39: ECMAScript finished proposals"
+  },
+  {
+    "id": "JSM-GAP-041",
+    "domain": 2,
+    "skill": "functions-closures",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nfunction f(n) { return f(n + 1); }\ntry {\n  f(0);\n} catch (e) {\n  console.log(e instanceof RangeError, e.message);\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing: the process hangs forever",
+        "why": "Each call adds a stack frame, so the stack overflows quickly instead of looping forever."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`false Maximum call stack size exceeded`",
+        "why": "The engine reports stack overflow as a `RangeError`."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`true Maximum call stack size exceeded`",
+        "why": "Unbounded recursion exhausts the call stack, and V8 throws a catchable `RangeError`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The process crashes, because stack overflow cannot be caught",
+        "why": "In JavaScript it is an ordinary exception that `try...catch` can handle."
+      }
+    ],
+    "explanation": "Every function call pushes a frame onto the call stack, and the frame is popped when it returns. Infinite recursion keeps pushing until the engine's limit is hit, and V8 throws `RangeError: Maximum call stack size exceeded`, which can be caught. Engines do not do proper tail calls (except Safari), so deep recursion should become a loop or an explicit stack.",
+    "reference": "MDN: Too much recursion"
+  },
+  {
+    "id": "JSM-GAP-042",
+    "domain": 2,
+    "skill": "functions-closures",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "`a()` calls `b()`, which calls `c()`, which throws an `Error`. Put the function frames in the order they appear in `err.stack`, from the first line after the message to the last.\n\n```js\nfunction a() { b(); }\nfunction b() { c(); }\nfunction c() { throw new Error('boom'); }\ntry { a(); } catch (err) { console.log(err.stack); }\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`at a`",
+        "why": "The outermost of the three calls."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`at b`",
+        "why": "Called by `a`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`at c`",
+        "why": "Where the error was thrown."
+      }
+    ],
+    "answerOrder": [
+      "C",
+      "B",
+      "A"
+    ],
+    "explanation": "A stack trace lists frames from the innermost (where the error was created) to the outermost caller, like reading the call stack from the top down. So `c` comes first, then `b`, then `a`, then the top-level frames. Read a trace from the top to find where it failed, and downward to see how execution got there.",
+    "reference": "MDN: Error.prototype.stack"
+  },
+  {
+    "id": "JSM-GAP-043",
+    "domain": 2,
+    "skill": "collections",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nconsole.log('a-b-c'.replace('-', '+'), 'a-b-c'.replaceAll('-', '+'), 'a.b.c'.replace(/./g, '_'));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`a+b+c a+b+c a_b_c`",
+        "why": "A string pattern makes `replace` change only the first match, and `.` in a regex matches any character."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`a+b-c a+b+c _____`",
+        "why": "`replace` with a string replaces once; `replaceAll` replaces every match; `/./g` matches every character."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`a+b-c a+b+c a_b_c`",
+        "why": "An unescaped `.` in a regex matches any character, not a literal dot."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`a+b+c a+b-c _____`",
+        "why": "This swaps the two methods: `replace` with a string pattern changes only the first occurrence."
+      }
+    ],
+    "explanation": "`String.prototype.replace` with a string pattern replaces only the first occurrence. `replaceAll` (ES2021) replaces every occurrence. With a regex, `.` matches any character, so `/./g` replaces all five characters; use `/\\./g` to match literal dots. Before `replaceAll`, code relied on `split(sep).join(rep)` or a global regex.",
+    "reference": "MDN: String.prototype.replace"
+  },
+  {
+    "id": "JSM-GAP-044",
+    "domain": 2,
+    "skill": "collections",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nconst s = 'hello';\nconsole.log(JSON.stringify([s.slice(-3), s.substring(-3), s.slice(3, 1), s.substring(3, 1)]));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`[\"llo\",\"llo\",\"\",\"el\"]`",
+        "why": "`substring` treats negative arguments as 0, so it does not count from the end."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`[\"llo\",\"hello\",\"\",\"el\"]`",
+        "why": "`slice` counts negatives from the end and returns \"\" when start > end; `substring` clamps negatives and swaps reversed arguments."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`[\"llo\",\"hello\",\"el\",\"el\"]`",
+        "why": "`slice(3, 1)` does not swap its arguments; with start after end it returns an empty string."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`[\"hel\",\"hello\",\"\",\"lo\"]`",
+        "why": "`slice(-3)` takes the last three characters, and `substring(3, 1)` is `substring(1, 3)`."
+      }
+    ],
+    "explanation": "`slice(start, end)` interprets negative indexes as offsets from the end (`slice(-3)` is \"llo\") and returns an empty string when start is after end. `substring` clamps negative arguments to 0 (`substring(-3)` is the whole string) and swaps its arguments when start is greater than end (`substring(3, 1)` is `substring(1, 3)`, \"el\"). Prefer `slice`, which behaves like the array method.",
+    "reference": "MDN: String.prototype.substring"
+  },
+  {
+    "id": "JSM-GAP-045",
+    "domain": 1,
+    "skill": "types-coercion",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 3,
+    "stem": "Which expressions evaluate to `true`? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`void 0 === undefined`",
+        "why": "`void` evaluates its operand and always returns `undefined`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`+[] === 0`",
+        "why": "Unary plus converts `[]` to `\"\"` and then to 0."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`Number.isNaN(+{})`",
+        "why": "`{}` becomes the string \"[object Object]\", which converts to NaN."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`-'3' === '-3'`",
+        "why": "Unary minus converts to a number, giving -3, not a string."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`(() => { const a = [1, 2, 3]; delete a[1]; return a.length === 2; })()`",
+        "why": "`delete` leaves a hole; the array length stays 3."
+      }
+    ],
+    "explanation": "`void x` always yields `undefined`. Unary `+` and `-` convert their operand to a number: `[]` becomes 0 through the empty string, `{}` becomes NaN, and `-'3'` is the number -3. `delete arr[i]` removes the property but leaves a hole and does not change `length`; use `splice` to remove an element.",
+    "reference": "MDN: Unary operators"
+  },
+  {
+    "id": "JSM-GAP-046",
+    "domain": 2,
+    "skill": "collections",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nArray.prototype.extra = 1;\nconst arr = [10, 20];\nconst keys = [];\nfor (const k in arr) keys.push(typeof k + ':' + k);\ndelete Array.prototype.extra;\nconsole.log(keys.join(' '));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`number:0 number:1`",
+        "why": "`for...in` iterates property keys, and property keys are strings."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`string:10 string:20 string:extra`",
+        "why": "`for...in` gives keys (indexes), not values; `for...of` gives values."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`string:0 string:1 string:extra`",
+        "why": "`for...in` walks enumerable string keys, including inherited ones added to `Array.prototype`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`string:0 string:1`",
+        "why": "Inherited enumerable properties are included unless you filter with `Object.hasOwn`."
+      }
+    ],
+    "explanation": "`for...in` iterates enumerable string-keyed properties, own and inherited. Array indexes arrive as strings (\"0\", \"1\"), and anything enumerable added to `Array.prototype` by a library or polyfill shows up too. That is why `for...in` is discouraged for arrays: use `for...of`, `forEach` or a counting `for` loop.",
+    "reference": "MDN: for...in (array iteration)"
+  },
+  {
+    "id": "JSM-GAP-047",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 3,
+    "stem": "A Node.js function nests five levels of callbacks (read a file, parse it, query a database, write a report, send an email), with error checks at each level. Which changes flatten it? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Use the promise APIs (`fs/promises`, `util.promisify`) and write it with `async`/`await`",
+        "why": "Each step becomes one `await` line in a flat function with one `try...catch`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Return promises from each `.then` step to build one flat chain",
+        "why": "Returning a promise from `then` chains the next step instead of nesting it."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Move each anonymous callback into a named function",
+        "why": "Named functions flatten the visual pyramid and make each step testable, even without promises."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Switch to the synchronous APIs such as `fs.readFileSync` in the request handler",
+        "why": "That blocks the event loop for every request while the I/O runs."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Wrap each callback in `setTimeout(fn, 0)`",
+        "why": "Deferring callbacks changes timing but not the nesting or error handling."
+      }
+    ],
+    "explanation": "\"Callback hell\" is deeply nested callbacks with repeated error handling. The fixes are promises (flat `.then` chains), `async`/`await` (straight-line code with one `try...catch`), and, even with callbacks, extracting named functions. Synchronous APIs remove the nesting but block the event loop in a server.",
+    "reference": "MDN: Using promises"
+  },
+  {
+    "id": "JSM-GAP-048",
+    "domain": 3,
+    "skill": "async-promises",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A third-party SDK exposes `charge(card, callback)`. After a network retry, it sometimes calls `callback(null, receipt)` twice, and your code ships the order twice. Wrapping it like this fixes the duplicate shipments:\n\n```js\nconst chargeAsync = (card) =>\n  new Promise((resolve, reject) =>\n    charge(card, (err, receipt) => (err ? reject(err) : resolve(receipt))));\n\nconst receipt = await chargeAsync(card);\nshipOrder(receipt);\n```\n\nWhy?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`await` cancels the SDK's second network request before its callback can run",
+        "why": "Promises cannot cancel work; the SDK still calls back twice."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A promise settles only once, so the second `resolve` call is ignored",
+        "why": "This removes the \"inversion of control\" risk of trusting a callback to run exactly once."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The second callback throws a `TypeError`, which stops it",
+        "why": "Calling `resolve` again is silently ignored; nothing throws."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`new Promise` runs its executor only after the first callback",
+        "why": "The executor runs immediately; the guarantee comes from settling once."
+      }
+    ],
+    "explanation": "Handing a callback to someone else's code is \"inversion of control\": you trust them to call it once, not twice or never. A promise can be settled only once, so after the first `resolve` any later `resolve` or `reject` calls are ignored and the `await` continues exactly once. A timeout guards against the \"never called\" case.",
+    "reference": "MDN: Promise (settled state)"
+  }
+]
