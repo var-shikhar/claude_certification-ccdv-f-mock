@@ -1,0 +1,1656 @@
+[
+  {
+    "id": "K8S-SCH-001",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 1,
+    "type": "single",
+    "stem": "When kube-scheduler decides whether a Pod fits on a node, which numbers does it compare?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The sum of the Pod's requests against the node's remaining allocatable",
+        "why": "Scheduling is done on requests: the node must have enough allocatable left after the requests of Pods already placed there."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The Pod's resource limits against the node's total physical capacity",
+        "why": "Limits are enforced at runtime by the kubelet and kernel; the scheduler does not use them to place Pods."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The Pod's requests against the CPU and memory the node is actually using now",
+        "why": "The scheduler ignores live usage; a node can look idle in metrics and still be full by requests."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The larger of each container's request and limit against node capacity",
+        "why": "Only requests (plus Pod overhead) count, and they are compared with allocatable, not raw capacity."
+      }
+    ],
+    "explanation": "kube-scheduler filters out nodes whose allocatable cannot cover the Pod's requests once the requests of Pods already bound to the node are subtracted. Limits play no part in placement, and neither does actual usage. That is why a node can show 20% CPU in a dashboard yet refuse new Pods with \"Insufficient cpu\".",
+    "reference": "Kubernetes docs: Resource Management for Pods and Containers"
+  },
+  {
+    "id": "K8S-SCH-002",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 1,
+    "type": "truefalse",
+    "stem": "A container that tries to use more CPU than its CPU limit is OOM-killed and restarted by the kubelet.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "Exceeding a CPU limit is not fatal; CPU is a compressible resource, so the container is slowed down instead."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "CPU limits are enforced by throttling; only memory limits are enforced with out-of-memory kills."
+      }
+    ],
+    "explanation": "The kubelet turns a CPU limit into a CFS quota, so a busy container is throttled for the rest of each scheduling period once it uses its quota. Memory is not compressible: a container that exceeds its memory limit is killed by the kernel OOM killer and restarted according to the Pod's restartPolicy.",
+    "reference": "Kubernetes docs: Resource Management for Pods and Containers"
+  },
+  {
+    "id": "K8S-SCH-003",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 1,
+    "type": "fill",
+    "stem": "A container sets `resources.requests.cpu: 250m`. How many CPU cores is that? Type a decimal number.",
+    "options": [],
+    "accepted": [
+      "0.25",
+      ".25",
+      "0.25 cores",
+      "0.25 core",
+      "1/4"
+    ],
+    "explanation": "The `m` suffix means millicpu, a thousandth of a CPU. 250m is 250/1000 = 0.25 of a core (or vCPU/hyperthread). `0.25` and `250m` are equivalent ways to write the same request.",
+    "reference": "Kubernetes docs: Resource units in Kubernetes"
+  },
+  {
+    "id": "K8S-SCH-004",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 1,
+    "type": "match",
+    "stem": "Match each taint effect with what it does to Pods that do not tolerate the taint.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "New Pods are not scheduled onto the node; Pods already running there stay",
+        "why": "This is NoSchedule."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The scheduler tries to avoid the node but may still use it",
+        "why": "This is PreferNoSchedule."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "New Pods are not scheduled and running Pods are evicted",
+        "why": "This is NoExecute."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`NoSchedule`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`PreferNoSchedule`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`NoExecute`",
+        "answer": "C"
+      }
+    ],
+    "explanation": "NoSchedule only affects scheduling decisions. PreferNoSchedule is a soft version that the scheduler tries to honour. NoExecute also applies to Pods already on the node: untolerating Pods are evicted immediately, and tolerating Pods can be given a tolerationSeconds limit.",
+    "reference": "Kubernetes docs: Taints and Tolerations"
+  },
+  {
+    "id": "K8S-SCH-005",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 1,
+    "type": "single",
+    "stem": "No container in a Pod sets any CPU or memory requests or limits, and the namespace has no LimitRange. Which QoS class does the Pod get?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Burstable, because it can burst up to the node's free capacity",
+        "why": "Burstable needs at least one container with a CPU or memory request or limit."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "BestEffort",
+        "why": "With no requests or limits anywhere in the Pod, it is BestEffort."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Guaranteed, because nothing limits how much it can use",
+        "why": "Guaranteed requires every container to set CPU and memory limits equal to its requests."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "None: the API server rejects Pods without resources",
+        "why": "Resources are optional unless a ResourceQuota on CPU or memory applies to the namespace."
+      }
+    ],
+    "explanation": "BestEffort Pods have no resource requests or limits at all. They can use whatever is free but get no reservation, and under node memory pressure they are among the first candidates for eviction because any usage exceeds their (zero) requests.",
+    "reference": "Kubernetes docs: Pod Quality of Service Classes"
+  },
+  {
+    "id": "K8S-SCH-006",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 1,
+    "type": "single",
+    "stem": "What does a ResourceQuota object in a namespace control?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The default requests and limits given to containers that leave them out",
+        "why": "Defaults come from a LimitRange, not a ResourceQuota."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Aggregate resource usage and object counts across the whole namespace",
+        "why": "Quotas cap totals such as requests.cpu, limits.memory or the number of Pods in a namespace."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The maximum CPU and memory any single node may give the namespace",
+        "why": "Quotas are namespace totals, not per-node allowances."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Which nodes the namespace's Pods are allowed to be scheduled onto",
+        "why": "Node placement is controlled by selectors, affinity and taints, not quotas."
+      }
+    ],
+    "explanation": "A ResourceQuota limits the sum of resources (requests and limits for CPU, memory, storage and more) and the count of objects (Pods, Services, PVCs…) in a namespace. Requests that would push a namespace past its quota are rejected at admission time.",
+    "reference": "Kubernetes docs: Resource Quotas"
+  },
+  {
+    "id": "K8S-SCH-007",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 1,
+    "type": "single",
+    "stem": "A Pod spec contains the snippet below, but no node in the cluster has the label `disktype=ssd`. What happens?\n\n```yaml\nspec:\n  nodeSelector:\n    disktype: ssd\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The scheduler drops the selector and places the Pod on any free node",
+        "why": "nodeSelector is a hard requirement; it is never silently dropped."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It stays Pending with a FailedScheduling event until a node matches",
+        "why": "No node passes the filter, so the Pod waits unscheduled."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The scheduler adds `disktype=ssd` to the least-loaded node",
+        "why": "The scheduler never modifies node labels."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The Pod is scheduled, then fails with CrashLoopBackOff",
+        "why": "Placement fails before any container starts, so there is no crash loop."
+      }
+    ],
+    "explanation": "nodeSelector filters nodes by labels. If no node matches, the Pod remains Pending and `kubectl describe pod` shows a FailedScheduling event such as \"node(s) didn't match Pod's node affinity/selector\". Labelling a node (or removing the selector) lets it schedule.",
+    "reference": "Kubernetes docs: Assigning Pods to Nodes"
+  },
+  {
+    "id": "K8S-SCH-008",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 2,
+    "difficulty": 1,
+    "type": "multi",
+    "stem": "A container keeps allocating memory until it exceeds its memory limit. Which two things happen? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The kernel OOM-kills the container's process",
+        "why": "Memory limits are enforced by the out-of-memory killer."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The container is restarted per the Pod's restartPolicy and reports `OOMKilled`",
+        "why": "The kubelet restarts it in place; the last state shows reason OOMKilled, exit code 137."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The container is throttled until its usage drops below the limit",
+        "why": "Throttling applies to CPU, not memory."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The scheduler moves the Pod to a node with more memory",
+        "why": "Pods are never moved; a restart happens on the same node."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The kubelet raises the limit to fit the observed usage",
+        "why": "Limits are only changed by editing the spec, not automatically by the kubelet."
+      }
+    ],
+    "explanation": "A container over its memory limit is killed by the kernel. The kubelet then restarts it on the same node according to restartPolicy, and the status shows `Last State: Terminated, Reason: OOMKilled, Exit Code: 137`. Repeated kills lead to CrashLoopBackOff.",
+    "reference": "Kubernetes docs: Resource Management for Pods and Containers"
+  },
+  {
+    "id": "K8S-SCH-009",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 2,
+    "type": "single",
+    "stem": "Which QoS class does this Pod get?\n\n```yaml\ncontainers:\n- name: app\n  resources:\n    requests: { cpu: 500m, memory: 512Mi }\n    limits:   { cpu: 500m, memory: 512Mi }\n- name: log-shipper\n  image: fluent-bit\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Guaranteed, because the main app container has requests equal to limits",
+        "why": "Guaranteed needs every container to qualify, and the sidecar sets nothing."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Burstable",
+        "why": "At least one container sets resources, but not all have equal CPU and memory requests and limits."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "BestEffort, because one container sets no resources",
+        "why": "BestEffort needs every container to set no requests or limits."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Each container gets its own class: Guaranteed and BestEffort",
+        "why": "QoS class is a property of the whole Pod, not of each container."
+      }
+    ],
+    "explanation": "QoS class is decided for the Pod. Guaranteed requires every container to have CPU and memory limits with matching requests. Because the log-shipper sets nothing, the Pod falls to Burstable. Adding equal requests and limits to the sidecar too would make it Guaranteed.",
+    "reference": "Kubernetes docs: Pod Quality of Service Classes"
+  },
+  {
+    "id": "K8S-SCH-010",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 2,
+    "type": "single",
+    "stem": "A container sets only limits, and its namespace has no LimitRange. What are its requests, and what is the Pod's QoS class (it is the only container)?\n\n```yaml\nresources:\n  limits:\n    cpu: \"1\"\n    memory: 1Gi\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Requests are 0; the Pod is Burstable",
+        "why": "A missing request is not treated as zero when a limit is set."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Requests default to the limits; the Pod is Guaranteed",
+        "why": "When only a limit is given, Kubernetes copies it into the request."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Requests are unset; the Pod is BestEffort",
+        "why": "BestEffort means no requests or limits at all, but this container has limits."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The API server rejects the Pod until requests are added",
+        "why": "Requests are optional; they are defaulted from the limits."
+      }
+    ],
+    "explanation": "If a container specifies a limit but no request, and no admission-time default applies, the request is set equal to the limit. With CPU and memory requests equal to limits in its only container, the Pod is Guaranteed. This also means the scheduler reserves the full 1 CPU and 1 GiB.",
+    "reference": "Kubernetes docs: Resource Management for Pods and Containers"
+  },
+  {
+    "id": "K8S-SCH-011",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 2,
+    "type": "fill",
+    "stem": "Memory quantities can use decimal (`M`, `G`) or binary (`Mi`, `Gi`) suffixes. How many bytes is `1Mi`? Type the number.",
+    "options": [],
+    "accepted": [
+      "1048576",
+      "1,048,576",
+      "1 048 576",
+      "2^20",
+      "1048576 bytes"
+    ],
+    "explanation": "`Mi` is a mebibyte, 2^20 = 1,048,576 bytes, while `M` is a megabyte, 10^6 = 1,000,000 bytes. `128Mi` is about 4.9% more memory than `128M`, which matters when sizing limits close to what an app needs.",
+    "reference": "Kubernetes docs: Resource units in Kubernetes"
+  },
+  {
+    "id": "K8S-SCH-012",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 2,
+    "type": "single",
+    "stem": "A new Pod is Pending with `0/3 nodes are available: 3 Insufficient memory.` Yet the metrics dashboard shows every node using only about 35% of its memory. What is the most likely explanation?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "metrics-server is down, so the scheduler is reading stale usage numbers",
+        "why": "The scheduler never reads metrics; it works from requests."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Existing Pods request most of each node's allocatable memory",
+        "why": "Scheduling counts requests, so over-requested Pods block placement regardless of real usage."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The new Pod's memory limit is lower than its request, which is invalid",
+        "why": "A limit below the request is rejected at admission, not reported as Insufficient memory."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The nodes are under memory pressure and refuse new Pods",
+        "why": "Memory pressure shows up as a taint/condition, not as \"Insufficient memory\"."
+      }
+    ],
+    "explanation": "\"Insufficient memory\" means the sum of requests already on each node plus the new Pod's request would exceed allocatable. Usage is irrelevant to that check. Right-sizing over-generous requests (using actual usage data, or a VPA recommendation) frees schedulable capacity.",
+    "reference": "Kubernetes docs: Resource Management for Pods and Containers"
+  },
+  {
+    "id": "K8S-SCH-013",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 2,
+    "type": "single",
+    "stem": "A namespace has a ResourceQuota on `requests.cpu` and `requests.memory`, and no LimitRange. A Deployment whose containers set no resources is applied. What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The Pods run as BestEffort and do not count against the quota",
+        "why": "With a CPU/memory quota in place, Pods must state those resources."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Its Pod creations are rejected at admission, so no Pods appear",
+        "why": "Quota admission refuses Pods that omit a resource the quota tracks."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The Pods are created but stay Pending until the quota is raised",
+        "why": "They are rejected before creation, so they never reach Pending."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The quota controller fills in requests from the remaining quota",
+        "why": "Quotas never inject defaults; that is LimitRange's job."
+      }
+    ],
+    "explanation": "When a quota tracks cpu or memory, every new Pod must specify requests (or limits) for them, otherwise admission rejects it. The Deployment and ReplicaSet are created, but the ReplicaSet records FailedCreate events. Adding resources to the template, or a LimitRange that supplies defaults, fixes it.",
+    "reference": "Kubernetes docs: Resource Quotas"
+  },
+  {
+    "id": "K8S-SCH-014",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 2,
+    "type": "single",
+    "stem": "An admin adds a LimitRange with `defaultRequest` and `default` (limit) values to a namespace where 20 Pods without resources are already running. What happens to those 20 Pods?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "They are restarted with the new defaults applied",
+        "why": "LimitRange never touches existing Pods."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The kubelet applies the new limits to them on its next sync",
+        "why": "Limits are fixed in the Pod spec at admission time."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Nothing: defaults only apply when new Pods are admitted",
+        "why": "LimitRange is enforced by an admission plugin at creation time."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "They are evicted because they now violate the LimitRange",
+        "why": "Existing Pods are not re-validated against a new LimitRange."
+      }
+    ],
+    "explanation": "LimitRange defaults and constraints are applied by the LimitRanger admission plugin when a Pod is created. Running Pods keep their original spec. They pick up the defaults only when they are recreated, for example by a rollout of their Deployment.",
+    "reference": "Kubernetes docs: Limit Ranges"
+  },
+  {
+    "id": "K8S-SCH-015",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 2,
+    "type": "single",
+    "stem": "GPU nodes are tainted `gpu=true:NoSchedule`. The ML Pods have a matching toleration, yet many of them land on ordinary CPU nodes. Why, and what fixes it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The taint is wrong; it should use `NoExecute` to pull tolerating Pods in",
+        "why": "NoExecute evicts untolerating Pods; it never attracts tolerating ones."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Tolerations only allow a node; add a nodeSelector or node affinity too",
+        "why": "Taints keep others off; selectors or affinity are needed to pull these Pods on."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Tolerations need `operator: Exists` to take effect",
+        "why": "`Equal` with a value works; the operator does not attract Pods either."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The scheduler prefers untainted nodes; lowering the CPU nodes' score fixes it",
+        "why": "Scoring tweaks would not guarantee placement on GPU nodes."
+      }
+    ],
+    "explanation": "Taints and tolerations repel: a toleration means \"I may run on this tainted node\", not \"I must\". To dedicate nodes, combine a taint (to keep other workloads off) with a nodeSelector or required node affinity on a node label (to keep these workloads on).",
+    "reference": "Kubernetes docs: Taints and Tolerations"
+  },
+  {
+    "id": "K8S-SCH-016",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 2,
+    "difficulty": 2,
+    "type": "multi",
+    "stem": "Which two statements about `requiredDuringSchedulingIgnoredDuringExecution` node affinity are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Multiple `nodeSelectorTerms` are ORed: one matching term is enough",
+        "why": "Terms are alternatives."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Expressions inside one term's `matchExpressions` are ANDed",
+        "why": "Every expression in a single term must match."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "If `nodeSelector` is also set, it is ignored in favour of the affinity",
+        "why": "Both must be satisfied when both are present."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "If a node's labels change, Pods that no longer match are evicted",
+        "why": "IgnoredDuringExecution means running Pods are left alone."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "When no node matches, the Pod falls back to any node",
+        "why": "Required rules are hard; the Pod stays Pending instead."
+      }
+    ],
+    "explanation": "Within requiredDuringScheduling node affinity, the list of nodeSelectorTerms is ORed and the matchExpressions inside a term are ANDed. A plain nodeSelector, if present, must also match. \"IgnoredDuringExecution\" means later label changes don't evict running Pods.",
+    "reference": "Kubernetes docs: Assigning Pods to Nodes"
+  },
+  {
+    "id": "K8S-SCH-017",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 2,
+    "type": "single",
+    "stem": "A Pod was scheduled using required node affinity on `topology.kubernetes.io/zone In [eu-west-1a]`. Later an operator relabels its node to `eu-west-1b`. What happens to the running Pod?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It is evicted at once because it no longer matches",
+        "why": "That would need RequiredDuringExecution semantics, which this rule lacks."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It keeps running; the rule is only checked at scheduling time",
+        "why": "IgnoredDuringExecution means label changes do not affect running Pods."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It is evicted after the default 300-second toleration",
+        "why": "The 300 s defaults apply to not-ready/unreachable taints, not affinity."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The kubelet marks it NotReady until the zone label is restored",
+        "why": "Affinity has no effect on readiness."
+      }
+    ],
+    "explanation": "The second half of the name tells you the runtime behaviour: IgnoredDuringExecution. Affinity is evaluated when the Pod is placed, so later node label changes leave it running. It moves only when it is recreated, for example during a rollout.",
+    "reference": "Kubernetes docs: Assigning Pods to Nodes"
+  },
+  {
+    "id": "K8S-SCH-018",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 2,
+    "type": "order",
+    "stem": "Put these steps in the order they happen when a new Pod is created and placed by kube-scheduler.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The Pod is added to the scheduling queue"
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Filtering removes nodes that cannot run the Pod"
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Scoring ranks the remaining feasible nodes"
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The Pod is bound to the highest-scoring node"
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The kubelet on that node starts the containers"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "An unscheduled Pod enters the scheduling queue. The scheduling cycle filters out infeasible nodes (insufficient resources, taints, affinity), scores the rest, and picks the best. The binding cycle writes `spec.nodeName`, and the kubelet on that node then pulls images and starts the containers.",
+    "reference": "Kubernetes docs: Scheduling Framework"
+  },
+  {
+    "id": "K8S-SCH-019",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 2,
+    "type": "truefalse",
+    "stem": "Setting `spec.nodeName` directly in a Pod manifest bypasses kube-scheduler: the kubelet on that node tries to run the Pod without any scheduler filtering.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "nodeName assigns the node directly; the scheduler never handles the Pod."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "It is true: with nodeName set the scheduler never sees the Pod, though the kubelet can still reject it, for example with OutOfcpu."
+      }
+    ],
+    "explanation": "A Pod with nodeName is already bound, so kube-scheduler ignores it. The kubelet admits it if it can; if the node lacks resources the Pod fails with a reason such as OutOfcpu or OutOfmemory instead of waiting Pending. That is why nodeName is normally avoided in favour of selectors or affinity.",
+    "reference": "Kubernetes docs: Assigning Pods to Nodes"
+  },
+  {
+    "id": "K8S-SCH-020",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "A latency-sensitive Go service has `limits.cpu: 400m`. Dashboards show it averages 40% of one core, yet p99 latency spikes by ~90 ms, and `container_cpu_cfs_throttled_periods_total` keeps rising. Its 8 goroutine worker threads wake up together for each request burst. What is happening?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The node is overcommitted, so the kernel steals CPU from the Pod",
+        "why": "Steal would not appear as CFS throttling of this container."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The 40 ms per 100 ms quota is used up in ~5 ms by 8 threads, then throttled",
+        "why": "Quota is shared by all threads; bursts use it up early in each period."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The 400m request is too low, so the scheduler gives the Pod lower CPU priority",
+        "why": "Requests set CPU weight; the throttling counter is caused by the limit."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Go ignores cgroup limits, so the kubelet pauses the container",
+        "why": "The kubelet does not pause containers; the kernel throttles them."
+      }
+    ],
+    "explanation": "A 400m limit becomes a CFS quota of 40 ms of CPU time per 100 ms period. Eight threads running in parallel burn that in about 5 ms, after which the whole container is throttled for the remaining ~95 ms, even though average usage looks low. Common fixes are raising or removing the CPU limit (keeping a sensible request), or matching thread count (GOMAXPROCS) to the limit.",
+    "reference": "Kubernetes docs: Resource Management for Pods and Containers"
+  },
+  {
+    "id": "K8S-SCH-021",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "The kubelet hits a **hard** eviction threshold for `memory.available` and evicts a Pod whose `terminationGracePeriodSeconds` is 60. How long does the Pod get to shut down?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "60 seconds, the Pod's own grace period",
+        "why": "Hard eviction does not honour the Pod's grace period."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "None: hard eviction uses a 0-second grace period",
+        "why": "The kubelet shuts the Pod down immediately to reclaim memory."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The kubelet's `eviction-max-pod-grace-period`",
+        "why": "That setting applies to soft thresholds, not hard ones."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "30 seconds, the default grace period for evictions",
+        "why": "There is no 30-second default for node-pressure eviction."
+      }
+    ],
+    "explanation": "With hard thresholds the kubelet uses a 0 s grace period, an immediate shutdown. Soft thresholds pair a threshold with a grace period; when one is crossed, the kubelet uses the smaller of the Pod's terminationGracePeriodSeconds and evictionMaxPodGracePeriod. Node-pressure eviction also ignores PodDisruptionBudgets.",
+    "reference": "Kubernetes docs: Node-pressure Eviction"
+  },
+  {
+    "id": "K8S-SCH-022",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 2,
+    "difficulty": 3,
+    "type": "multi",
+    "stem": "A Deployment has a PodDisruptionBudget of `minAvailable: 2` with 2 replicas running. Which two of these disruptions honour that PDB? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`kubectl drain` on one of the nodes",
+        "why": "Drain uses the Eviction API, which refuses evictions that violate a PDB."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A POST to a Pod's `eviction` subresource",
+        "why": "API-initiated eviction checks PDBs and returns 429 when blocked."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The kubelet evicting under memory pressure",
+        "why": "Node-pressure eviction does not respect PDBs."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`kubectl delete pod` on one replica",
+        "why": "A direct delete bypasses PDBs entirely."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "A higher-priority Pod preempting a replica",
+        "why": "Preemption respects PDBs only on a best-effort basis."
+      }
+    ],
+    "explanation": "PDBs are enforced by the Eviction API, which `kubectl drain` and other API-initiated evictions use. Node-pressure eviction by the kubelet ignores PDBs, deleting a Pod directly skips them, and scheduler preemption tries to respect them but may violate them when it has no other choice.",
+    "reference": "Kubernetes docs: API-initiated Eviction"
+  },
+  {
+    "id": "K8S-SCH-023",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "Three zones currently hold 3, 2 and 2 matching Pods (zones a, b, c). A new Pod has the constraint below. Where can it be placed?\n\n```yaml\ntopologySpreadConstraints:\n- maxSkew: 1\n  topologyKey: topology.kubernetes.io/zone\n  whenUnsatisfiable: DoNotSchedule\n  labelSelector:\n    matchLabels: { app: web }\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Any zone, because the cluster is already within a skew of 1",
+        "why": "The check is for the zone the Pod would join, not the current state."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Only zone a, which has the most capacity for web Pods",
+        "why": "Joining zone a gives 4 − 2 = 2, which exceeds maxSkew."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Zone b or zone c",
+        "why": "Placing there gives 3 − 2 = 1, within maxSkew."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Nowhere: the Pod stays Pending until zones are rebalanced",
+        "why": "Zones b and c both satisfy the constraint."
+      }
+    ],
+    "explanation": "For DoNotSchedule, the skew of a candidate zone is (matching Pods there + 1) minus the global minimum across eligible zones, here 2. Zone a would become 4 − 2 = 2 > 1, so it is filtered out. Zones b and c would become 3 − 2 = 1, which is allowed.",
+    "reference": "Kubernetes docs: Pod Topology Spread Constraints"
+  },
+  {
+    "id": "K8S-SCH-024",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "A topology spread constraint uses `whenUnsatisfiable: ScheduleAnyway`. The only nodes with free capacity are all in one zone, which already has the most matching Pods. What does the scheduler do with the next Pod?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Leaves it Pending, because placing it in that zone would break maxSkew",
+        "why": "That is DoNotSchedule behaviour."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Schedules it in that zone; the skew only lowers those nodes' scores",
+        "why": "ScheduleAnyway turns the constraint into a scoring preference."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Evicts a Pod from the crowded zone to make room elsewhere",
+        "why": "Spread constraints never evict running Pods."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Schedules it, then the descheduler moves it automatically",
+        "why": "The descheduler is an optional add-on, not part of scheduling."
+      }
+    ],
+    "explanation": "With ScheduleAnyway, the scheduler gives higher scores to nodes that would reduce skew, but still schedules the Pod if only skew-increasing nodes are feasible. It is a soft preference, useful when availability matters more than a perfect spread.",
+    "reference": "Kubernetes docs: Pod Topology Spread Constraints"
+  },
+  {
+    "id": "K8S-SCH-025",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "A Deployment has 5 replicas and required pod anti-affinity against its own label with `topologyKey: kubernetes.io/hostname`. The cluster has 3 schedulable nodes with plenty of capacity. How many replicas run?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "5, spread as evenly as possible across the 3 nodes",
+        "why": "Required anti-affinity forbids two replicas on one node."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "3 run and 2 stay Pending",
+        "why": "Each node can host only one replica, and there are only 3 nodes."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "5, because anti-affinity is only a scoring preference",
+        "why": "That would be preferredDuringScheduling, not required."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "0, because the constraint can never be satisfied for all 5",
+        "why": "Each Pod is scheduled independently; the first 3 fit."
+      }
+    ],
+    "explanation": "requiredDuringScheduling anti-affinity with the hostname key means \"never put two of these Pods on the same node\". With 3 nodes, 3 replicas schedule and the other 2 wait Pending until more nodes join. A topology spread constraint or preferred anti-affinity gives softer spreading.",
+    "reference": "Kubernetes docs: Assigning Pods to Nodes"
+  },
+  {
+    "id": "K8S-SCH-026",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 3,
+    "type": "fill",
+    "stem": "Unless you set them yourself, Kubernetes adds NoExecute tolerations for `node.kubernetes.io/not-ready` and `node.kubernetes.io/unreachable` to every Pod. How many seconds is their `tolerationSeconds`? Type the number.",
+    "options": [],
+    "accepted": [
+      "300",
+      "300s",
+      "300 seconds",
+      "5 minutes",
+      "5m"
+    ],
+    "explanation": "The default tolerationSeconds is 300, so Pods stay bound to a node for 5 minutes after it becomes not-ready or unreachable before they are evicted and replaced. Stateful or latency-critical apps often lower it; DaemonSet Pods get these tolerations with no limit so they are never evicted for this reason.",
+    "reference": "Kubernetes docs: Taints and Tolerations"
+  },
+  {
+    "id": "K8S-SCH-027",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "A high-priority Pod is Pending, and the scheduler decides to preempt lower-priority Pods on node N. Which statement is correct?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The victims are killed instantly so that the new Pod can start right away",
+        "why": "Victims get their normal graceful termination period."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Its `status.nominatedNodeName` is set to N, but it may land elsewhere",
+        "why": "Nomination is not binding; another node may free up first."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The preemptor is bound to N immediately, before the victims exit",
+        "why": "Binding happens only after resources are actually available."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Preemption always respects PodDisruptionBudgets of the victims",
+        "why": "PDBs are respected only on a best-effort basis during preemption."
+      }
+    ],
+    "explanation": "When preemption succeeds, nominatedNodeName records node N, the victims are deleted with their graceful termination, and the preemptor waits. If another node becomes feasible first, the Pod may be scheduled there, so nominatedNodeName and nodeName can differ.",
+    "reference": "Kubernetes docs: Pod Priority and Preemption"
+  },
+  {
+    "id": "K8S-SCH-028",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "A PriorityClass for batch jobs has `value: 100000` and `preemptionPolicy: Never`. What does that combination do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Pods are never preempted by other Pods",
+        "why": "preemptionPolicy controls whether this Pod preempts others, not whether it can be preempted."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Pods queue ahead of lower-priority Pods but never evict anyone to make room",
+        "why": "It is a non-preempting priority class."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The priority value is ignored, so the Pods behave as priority 0",
+        "why": "The value still orders the scheduling queue."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The Pods are scheduled only when the cluster is otherwise idle",
+        "why": "Nothing waits for idleness; they schedule whenever resources fit."
+      }
+    ],
+    "explanation": "Non-preempting PriorityClasses (stable since v1.24) keep the queue-ordering benefit of a higher priority but stop the scheduler from evicting lower-priority Pods for them. They can still be preempted by Pods with higher priority.",
+    "reference": "Kubernetes docs: Pod Priority and Preemption"
+  },
+  {
+    "id": "K8S-SCH-029",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "A Pod has one init container requesting `cpu: 2` and two app containers requesting `cpu: 500m` each (no sidecars, no Pod overhead). What CPU request does the scheduler use for it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "3 cores: the init container plus both app containers",
+        "why": "Init containers finish before app containers start, so they are not summed with them."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "2 cores",
+        "why": "Effective request = max(largest init request, sum of app requests) = max(2, 1)."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "1 core: only the long-running app containers count",
+        "why": "The init container's request is reserved too, because it runs first."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "500m: the scheduler uses the smallest container request",
+        "why": "There is no such rule."
+      }
+    ],
+    "explanation": "For each resource, the Pod's effective request is the higher of the largest init container request and the sum of app container requests. Here max(2, 0.5 + 0.5) = 2 cores, so a heavy init container can reserve capacity the Pod never uses later.",
+    "reference": "Kubernetes docs: Init Containers"
+  },
+  {
+    "id": "K8S-SCH-030",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 3,
+    "type": "match",
+    "stem": "Match each scheduling-framework extension point with its job.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Rule out nodes that cannot run the Pod",
+        "why": "Filter."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Rank the nodes that passed",
+        "why": "Score."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Try to make the Pod schedulable when no node passed, typically by preemption",
+        "why": "PostFilter."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Attach the Pod to the chosen node",
+        "why": "Bind."
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Filter",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Score",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "PostFilter",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Bind",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Filter plugins mark nodes infeasible, Score plugins rank feasible ones, PostFilter runs only when no node is feasible (the default preemption plugin lives there), and Bind plugins bind the Pod to the selected node. Custom scheduler plugins hook into these same points.",
+    "reference": "Kubernetes docs: Scheduling Framework"
+  },
+  {
+    "id": "K8S-SCH-031",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 3,
+    "type": "truefalse",
+    "stem": "The Kubernetes docs recommend against using inter-pod affinity and anti-affinity in clusters larger than several hundred nodes, because they require substantial processing that can slow scheduling.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "The docs say exactly this; topology spread constraints scale better."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "The warning is real: inter-pod affinity is expensive to evaluate on large clusters."
+      }
+    ],
+    "explanation": "Evaluating inter-pod (anti-)affinity means checking other Pods' labels across topology domains, which grows with cluster size. The documentation warns against it in clusters larger than several hundred nodes; topology spread constraints are the usual alternative for spreading replicas.",
+    "reference": "Kubernetes docs: Assigning Pods to Nodes"
+  },
+  {
+    "id": "K8S-SCH-032",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "A manifest contains `resources.requests.memory: 400m`. How does Kubernetes interpret that request?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "400 mebibytes, because `m` is shorthand for MiB",
+        "why": "Lower-case m is the milli suffix, not mega."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "400 megabytes, because memory units are case-insensitive",
+        "why": "Units are case-sensitive: M is mega, m is milli."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "0.4 bytes",
+        "why": "The m suffix means thousandths, so 400m of memory is 0.4 bytes."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It is rejected: memory quantities cannot use a suffix",
+        "why": "Memory accepts suffixes such as M, Mi, G and Gi."
+      }
+    ],
+    "explanation": "Quantities are case-sensitive. `m` means milli (×10^-3), so `400m` of memory is 0.4 bytes, which the docs call out as a common mistake. Use `400Mi` or `400M` instead.",
+    "reference": "Kubernetes docs: Resource Management for Pods and Containers"
+  },
+  {
+    "id": "K8S-SCH-033",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 2,
+    "difficulty": 3,
+    "type": "multi",
+    "stem": "An operator runs `kubectl cordon node-7` and later the node becomes unreachable. Which two statements about the node-exporter DaemonSet Pod on node-7 are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Cordoning does not stop the DaemonSet controller from running a Pod there",
+        "why": "DaemonSet Pods tolerate the `node.kubernetes.io/unschedulable` taint."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It is not evicted after 300 seconds when the node is unreachable",
+        "why": "DaemonSet Pods get not-ready/unreachable tolerations with no tolerationSeconds."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Cordoning immediately evicts it because the node is marked NoExecute",
+        "why": "Cordon adds a NoSchedule taint, which evicts nothing."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It is rescheduled onto another node after 5 minutes",
+        "why": "DaemonSet Pods are tied to their node; they are never moved."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "It is evicted only if a PodDisruptionBudget allows it",
+        "why": "PDBs play no role here; these taints never trigger eviction for DaemonSet Pods."
+      }
+    ],
+    "explanation": "The DaemonSet controller adds tolerations so its Pods run on cordoned nodes and are never evicted for not-ready or unreachable conditions (NoExecute tolerations without tolerationSeconds). That keeps node agents such as log shippers and exporters in place.",
+    "reference": "Kubernetes docs: Taints and Tolerations"
+  },
+  {
+    "id": "K8S-SCH-034",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "A node hits its `memory.available` eviction threshold. Three Pods have equal priority. Pod A is BestEffort using 200Mi. Pod B is Burstable, requesting 500Mi and using 900Mi. Pod C is Guaranteed with 1Gi requested and using 1Gi. Which Pod does the kubelet evict first?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Pod A, because BestEffort Pods are always evicted first",
+        "why": "QoS class alone does not decide; usage above requests does."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Pod B, which is 400Mi over its request versus A's 200Mi",
+        "why": "Among Pods over their requests, it ranks by priority, then by how far over."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Pod C, because it uses the most memory in absolute terms",
+        "why": "C is within its requests, so it is last in line."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "All three are evicted together to reclaim memory quickly",
+        "why": "The kubelet evicts one Pod at a time and re-checks the signal."
+      }
+    ],
+    "explanation": "The kubelet ranks by: whether usage exceeds requests, then Pod priority, then usage relative to requests. A (200Mi over a zero request) and B (400Mi over 500Mi) both exceed requests and share priority, so B, which exceeds its request by more, goes first. Pods within their requests, like C, are evicted last.",
+    "reference": "Kubernetes docs: Node-pressure Eviction"
+  },
+  {
+    "id": "K8S-SCH-035",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "A node has 16Gi of memory, `kube-reserved` 1Gi, `system-reserved` 1Gi and a hard eviction threshold of `memory.available<500Mi`. Pods already bound there request 12Gi in total. Can a new Pod requesting 2Gi of memory be scheduled onto it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Yes: 16Gi − 12Gi leaves 4Gi of capacity",
+        "why": "The scheduler uses allocatable, not raw capacity."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Yes: reserved memory is only enforced by the kubelet, not the scheduler",
+        "why": "Reservations are subtracted to produce allocatable, which the scheduler uses."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "No: allocatable is 13.5Gi, so only 1.5Gi remains",
+        "why": "16 − 1 − 1 − 0.5 = 13.5Gi; 13.5 − 12 = 1.5Gi < 2Gi."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Only if the Pod is Guaranteed, because those bypass reservations",
+        "why": "QoS class does not change how requests are checked against allocatable."
+      }
+    ],
+    "explanation": "Node allocatable = capacity − kube-reserved − system-reserved − hard eviction threshold = 16 − 1 − 1 − 0.5 = 13.5Gi. The scheduler treats allocatable as the space for Pods. With 12Gi already requested, 1.5Gi is left, so a 2Gi request fails with \"Insufficient memory\".",
+    "reference": "Kubernetes docs: Reserve Compute Resources for System Daemons"
+  },
+  {
+    "id": "K8S-SCH-036",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "Nodes run the kubelet CPU manager with the `static` policy. A trading engine Pod is Guaranteed with `cpu: 1500m` (requests = limits), but profiling shows it still shares cores with other Pods. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The static policy only applies to Pods with a high PriorityClass",
+        "why": "Priority has nothing to do with CPU pinning."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Only Guaranteed containers with integer CPU requests get exclusive CPUs",
+        "why": "A fractional request such as 1500m runs in the shared pool."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Exclusive cores require the Pod to set `hostNetwork: true`",
+        "why": "Networking mode is unrelated to CPU assignment."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Exclusive CPUs are only granted to Burstable Pods with a limit",
+        "why": "It is the opposite: Burstable Pods never get exclusive CPUs."
+      }
+    ],
+    "explanation": "With the static policy, a container gets exclusive cores only if it belongs to a Guaranteed Pod and requests a whole number of CPUs. Guaranteed Pods with fractional requests stay in the shared pool. Requesting `cpu: 2` (equal to the limit) would pin two cores.",
+    "reference": "Kubernetes docs: Control CPU Management Policies on the Node"
+  },
+  {
+    "id": "K8S-SCH-037",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "A critical Pod is Pending. The only way to fit it is to preempt a lower-priority Pod protected by a PodDisruptionBudget that currently allows 0 disruptions. What can the scheduler do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing: preemption can never violate a PodDisruptionBudget",
+        "why": "PDB support during preemption is best effort, not a guarantee."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It prefers victims that don't violate PDBs, but may still preempt this Pod if it must",
+        "why": "Respecting PDBs during preemption is best effort."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It asks the PDB controller to raise the budget temporarily",
+        "why": "No such mechanism exists."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It uses the Eviction API, so the request is rejected with 429",
+        "why": "Preemption deletes victims directly; it does not go through eviction."
+      }
+    ],
+    "explanation": "The scheduler tries to choose victims whose eviction would not violate PDBs, but if no such set exists it can still preempt Pods protected by a PDB. Teams that need hard guarantees combine PDBs with appropriate priorities rather than relying on PDBs alone.",
+    "reference": "Kubernetes docs: Pod Priority and Preemption"
+  },
+  {
+    "id": "K8S-SCH-038",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 2,
+    "difficulty": 4,
+    "type": "multi",
+    "stem": "A Guaranteed Pod uses in-place resource resize (Kubernetes v1.33 or later) to raise CPU from 1 to 2 cores on a node that has only 0.5 cores of allocatable left. Which two statements are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The resize is applied through the Pod's `resize` subresource",
+        "why": "kubectl v1.32+ uses `--subresource=resize`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The Pod stays on its node; the resize is reported as Deferred or Infeasible",
+        "why": "The kubelet waits or reports it impossible; the Pod is not moved."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The scheduler moves the Pod to a node with enough free CPU",
+        "why": "In-place resize never reschedules a Pod."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The Pod becomes Burstable while its CPU limit is temporarily raised",
+        "why": "QoS class is fixed at creation; Guaranteed must keep requests equal to limits."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The container is always restarted to apply a new CPU value",
+        "why": "CPU resizes are applied without a restart by default."
+      }
+    ],
+    "explanation": "In-place resize updates resources through the Pod's resize subresource. If the node can't accommodate it now, the kubelet marks the resize Deferred (it may fit later) or Infeasible (it can never fit there); the Pod is not rescheduled. A resize can't change the QoS class, so a Guaranteed Pod must keep requests equal to limits.",
+    "reference": "Kubernetes docs: Resize CPU and Memory Resources assigned to Containers"
+  },
+  {
+    "id": "K8S-SCH-039",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "A Deployment uses the constraint below, but the cluster only has nodes in 2 zones. How many replicas can be scheduled before new ones stay Pending?\n\n```yaml\ntopologySpreadConstraints:\n- maxSkew: 1\n  minDomains: 3\n  topologyKey: topology.kubernetes.io/zone\n  whenUnsatisfiable: DoNotSchedule\n  labelSelector:\n    matchLabels: { app: api }\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "2: one per zone",
+        "why": "With fewer eligible domains than minDomains, the global minimum is 0, so each zone holds at most 1."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Unlimited, alternating between the two zones",
+        "why": "That would be true without minDomains, where the minimum tracks the emptier zone."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "3: minDomains lets one zone take an extra replica",
+        "why": "minDomains tightens the limit; it never loosens it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "0: minDomains cannot be satisfied, so nothing schedules",
+        "why": "Pods schedule as long as the skew against a minimum of 0 stays ≤ 1."
+      }
+    ],
+    "explanation": "When the number of eligible domains is less than minDomains, the global minimum is treated as 0. Each zone may then hold at most maxSkew = 1 matching Pod, so only 2 replicas schedule across 2 zones and the rest wait. This is how minDomains forces a cluster autoscaler to bring up a third zone.",
+    "reference": "Kubernetes docs: Pod Topology Spread Constraints"
+  },
+  {
+    "id": "K8S-SCH-040",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "To cut cloud costs, a platform team wants kube-scheduler to pack Pods onto as few nodes as possible so the cluster autoscaler can remove empty nodes. Which scheduler configuration change supports that?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Add a default topology spread constraint with `maxSkew: 1` per node",
+        "why": "That spreads Pods out, the opposite of packing."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Set the NodeResourcesFit plugin's scoring strategy to `MostAllocated`",
+        "why": "MostAllocated favours nodes that are already heavily requested."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Lower every Deployment's PriorityClass so Pods queue longer",
+        "why": "Priority affects queue order, not how full nodes are packed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use the default `LeastAllocated` strategy with stricter limits",
+        "why": "LeastAllocated spreads Pods onto emptier nodes."
+      }
+    ],
+    "explanation": "NodeResourcesFit scores nodes using a strategy. The default, LeastAllocated, prefers emptier nodes and spreads load. MostAllocated (or RequestedToCapacityRatio with a suitable shape) prefers fuller nodes, giving bin-packing that lets the autoscaler drain and remove underused nodes.",
+    "reference": "Kubernetes docs: Resource Bin Packing"
+  },
+  {
+    "id": "K8S-SCH-041",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 4,
+    "type": "order",
+    "stem": "Under node-pressure eviction, put the criteria the kubelet uses to rank Pods in the order it applies them.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Whether the Pod's resource usage exceeds its requests"
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The Pod's priority"
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The Pod's resource usage relative to its requests"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C"
+    ],
+    "explanation": "The kubelet first separates Pods whose usage exceeds requests from those within them, then orders by Pod priority, then by how far usage exceeds requests. That is why a well-sized Burstable Pod can outlive a greedy one, and why priority matters as well as QoS class.",
+    "reference": "Kubernetes docs: Node-pressure Eviction"
+  },
+  {
+    "id": "K8S-SCH-042",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "A team sets `schedulerName: batch-scheduler` on its Job Pods, but the custom scheduler was never deployed. What happens to those Pods?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "kube-scheduler places them, since it is the cluster's default scheduler",
+        "why": "The default scheduler only handles Pods naming `default-scheduler`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "They stay Pending, since no scheduler claims them",
+        "why": "Each scheduler only picks Pods whose schedulerName matches its own."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The API server rejects the Pods because the scheduler does not exist",
+        "why": "The field is not validated against running schedulers."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The kubelet on any node with capacity starts them directly",
+        "why": "Kubelets only run Pods that have been bound to their node."
+      }
+    ],
+    "explanation": "kube-scheduler ignores Pods whose spec.schedulerName names a different scheduler. If nothing serves that name, the Pods stay Pending with no FailedScheduling events from the default scheduler, which makes this an easy-to-miss cause of stuck Pods.",
+    "reference": "Kubernetes docs: Configure Multiple Schedulers"
+  },
+  {
+    "id": "K8S-SCH-043",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "A namespace has a ResourceQuota of `limits.memory: 4Gi` and a LimitRange that defaults each container's memory limit to 512Mi. A Deployment with 10 single-container replicas and no resources is applied to the empty namespace. What is the result?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "All 10 Pods run, because defaults do not count against quota",
+        "why": "Defaulted limits are real limits and count toward limits.memory."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "8 Pods are created; the other 2 are rejected at admission",
+        "why": "8 × 512Mi = 4Gi exhausts the quota, so the ReplicaSet's 9th and 10th creates fail."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "No Pods start, because the total of 5Gi exceeds the quota",
+        "why": "Quota is checked per Pod as it is created, not for the Deployment as a whole."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "10 Pods are created, and 2 stay Pending until quota frees up",
+        "why": "Quota rejects creation; over-quota Pods never exist to be Pending."
+      }
+    ],
+    "explanation": "The LimitRange gives each Pod a 512Mi limit at admission, and the quota counts it. After 8 Pods (4Gi) the quota is full, so further creations are rejected and the ReplicaSet records FailedCreate events while it keeps retrying. Raising the quota or lowering the defaults lets the rest through.",
+    "reference": "Kubernetes docs: Resource Quotas"
+  },
+  {
+    "id": "K8S-SCH-044",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 2,
+    "difficulty": 4,
+    "type": "multi",
+    "stem": "A Pod shows `0/6 nodes are available: 2 Insufficient cpu, 4 node(s) had untolerated taint {dedicated: infra}. preemption: 0/6 nodes are available: 2 No preemption victims found for incoming pod, 4 Preemption is not helpful for scheduling.` Which two conclusions are justified? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "On 2 nodes, the Pod's CPU request doesn't fit in the remaining allocatable",
+        "why": "\"Insufficient cpu\" is a request-versus-allocatable failure."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "4 nodes were excluded by a taint the Pod does not tolerate",
+        "why": "Untolerated taints filter those nodes out regardless of capacity."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The Pod will schedule once actual CPU usage on the 2 nodes drops",
+        "why": "Usage is irrelevant; only requests free up capacity."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Preempting Pods on the tainted nodes would make room for it",
+        "why": "Preemption cannot fix a taint mismatch, which is why it says \"not helpful\"."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The 2 CPU-constrained nodes also carry the infra taint",
+        "why": "The 2 and 4 nodes add up to all 6; nothing says the CPU-bound nodes are tainted."
+      }
+    ],
+    "explanation": "The scheduler reports why each node failed. Two failed the resource fit on CPU requests; four failed the taint check. Preemption found no lower-priority victims worth removing on the CPU-bound nodes and could not help on the tainted ones. Options are to lower the request, free capacity, add nodes, or deliberately tolerate the infra taint.",
+    "reference": "Kubernetes docs: Taints and Tolerations"
+  },
+  {
+    "id": "K8S-SCH-045",
+    "domain": 3,
+    "skill": "scheduling-resources",
+    "select": 2,
+    "difficulty": 4,
+    "type": "multi",
+    "stem": "After a node-pool upgrade, the new nodes are nearly empty while old nodes are crowded with long-running Pods. Which two statements are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "kube-scheduler never moves running Pods; it only places new ones",
+        "why": "Scheduling decisions are made once, at Pod creation."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The descheduler project can evict Pods so they are rescheduled more evenly",
+        "why": "It is an add-on that evicts according to rebalancing policies."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The scheduler rebalances automatically every five minutes",
+        "why": "There is no periodic rebalancing in kube-scheduler."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Topology spread constraints evict Pods that violate maxSkew",
+        "why": "Constraints apply only when a Pod is scheduled."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Raising every Pod's PriorityClass makes them migrate to empty nodes",
+        "why": "Priority does not move running Pods."
+      }
+    ],
+    "explanation": "Placement is decided once. To rebalance, something must evict Pods so their controllers recreate them and the scheduler places them again, for example the descheduler (kubernetes-sigs) or a rolling restart of the affected Deployments. Spread constraints and affinity are only checked at scheduling time.",
+    "reference": "Kubernetes docs: Scheduling, Preemption and Eviction"
+  }
+]
