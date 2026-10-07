@@ -1,5 +1,6 @@
 'use client';
 
+import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -9,9 +10,12 @@ import type { StartInput } from '@/server/attempts';
 /** Starts any kind of attempt and opens the player; one place handles "you already have one running". */
 export function useStartAttempt() {
   const router = useRouter();
-  return useMutation({
+  const [opening, startOpening] = useTransition();
+  const mutation = useMutation({
     mutationFn: (input: StartInput) => api.post<{ id: string }>('/api/attempts', input),
-    onSuccess: ({ id }) => router.push(`/attempt/${id}`),
+    // Inside a transition, so callers stay pending until the player has rendered (not just until the API
+    // answered); otherwise the button re-enables early and a second click hits "already in progress".
+    onSuccess: ({ id }) => startOpening(() => router.push(`/attempt/${id}`)),
     onError: (err) => {
       if (err instanceof ApiError && err.code === 'ACTIVE_ATTEMPT') {
         const attemptId = typeof err.data?.attemptId === "string" ? err.data.attemptId : undefined;
@@ -32,4 +36,5 @@ export function useStartAttempt() {
       toast.error(err instanceof Error ? err.message : 'Could not start. Please try again.');
     },
   });
+  return { ...mutation, isPending: mutation.isPending || opening };
 }

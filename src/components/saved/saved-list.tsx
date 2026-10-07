@@ -85,8 +85,10 @@ export function SavedList({ initial, aiTutor = false }: { initial: SavedItem[]; 
             <AnimatePresence initial={false}>
               {list.map((item) => {
                 const expanded = open === item.questionId;
+                // No `layout`: it re-measured every item on each expand and note save. The exit's height
+                // collapse already slides the items below into place.
                 return (
-                  <motion.li key={item.questionId} layout exit={{ opacity: 0, height: 0 }} className="overflow-hidden rounded-2xl border bg-card">
+                  <motion.li key={item.questionId} exit={{ opacity: 0, height: 0 }} className="overflow-hidden rounded-2xl border bg-card">
                     <button type="button" onClick={() => setOpen(expanded ? null : item.questionId)} aria-expanded={expanded} className="flex w-full items-start gap-3 p-4 text-left hover:bg-accent/30">
                       <Bookmark className="mt-0.5 size-4 shrink-0 fill-primary text-primary" />
                       <span className="min-w-0 flex-1">

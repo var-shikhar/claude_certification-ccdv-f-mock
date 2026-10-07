@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { certificate, exam } from '@/db/schema';
@@ -21,7 +22,8 @@ export interface CertificateView {
 
 const CODE = /^CM-[A-Z2-9]{5}-[A-Z2-9]{5}$/;
 
-export async function getCertificate(code: string): Promise<CertificateView | null> {
+/** Per request: the certificate and verify pages read it for their metadata and again to render. */
+export const getCertificate = cache(async (code: string): Promise<CertificateView | null> => {
   const normalized = code.trim().toUpperCase();
   if (!CODE.test(normalized)) return null;
   const [row] = await db
@@ -45,4 +47,4 @@ export async function getCertificate(code: string): Promise<CertificateView | nu
     difficultyLabel: difficultyMode(row.config, row.c.difficulty).label,
     issuedAt: row.c.issuedAt.toISOString(),
   };
-}
+});

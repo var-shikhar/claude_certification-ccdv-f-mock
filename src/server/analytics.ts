@@ -1,14 +1,16 @@
 import 'server-only';
 import { cache } from 'react';
-import { and, count, desc, eq, lte, max, sql } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, lte, max, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { attempt, attemptItem, bookmark, certificate, enrollment, exam, reviewCard } from '@/db/schema';
-import { computeReadiness, type Readiness } from '@/lib/readiness';
+import { computeReadiness, type AnswerRecord, type Readiness } from '@/lib/readiness';
 import { getActiveAttempts, listAttempts } from './attempts';
 import { getExam } from './exams';
 
 const HISTORY_LIMIT = 800;
 
+// Newest first. A mock's answers are saved together and share a timestamp, so position breaks the tie
+// (later items count as more recent) and every caller sees the same order.
 export const getReadiness = cache(async (userId: string, examId: string): Promise<Readiness | null> => {
   const ex = await getExam(examId);
   if (!ex) return null;
@@ -16,10 +18,51 @@ export const getReadiness = cache(async (userId: string, examId: string): Promis
     .select({ skill: attemptItem.skill, difficulty: attemptItem.difficulty, correct: attemptItem.correct })
     .from(attemptItem)
     .where(and(eq(attemptItem.userId, userId), eq(attemptItem.examId, examId), eq(attemptItem.answered, true)))
-    .orderBy(desc(attemptItem.createdAt))
+    .orderBy(desc(attemptItem.createdAt), desc(attemptItem.position))
     .limit(HISTORY_LIMIT);
   return computeReadiness(ex.config, history);
 });
+
+/** getReadiness's input for several exams in one query: each exam's latest answers, newest first. */
+async function recentAnswersByExam(userId: string, examIds: string[]) {
+  const res = await db.execute<{ exam_id: string; skill: string; difficulty: number; correct: boolean }>(sql`
+    select exam_id, skill, difficulty, correct from (
+      select exam_id, skill, difficulty, correct, created_at, position,
+        row_number() over (partition by exam_id order by created_at desc, position desc) as n
+      from ${attemptItem}
+      where user_id = ${userId} and exam_id in ${examIds} and answered
+    ) recent
+    where n <= ${HISTORY_LIMIT}
+    order by exam_id, created_at desc, position desc`);
+  const byExam = new Map<string, AnswerRecord[]>();
+  for (const r of res.rows) {
+    const list = byExam.get(r.exam_id) ?? [];
+    list.push({ skill: r.skill, difficulty: Number(r.difficulty), correct: Boolean(r.correct) });
+    byExam.set(r.exam_id, list);
+  }
+  return byExam;
+}
+
+/** countDue for several exams in one query. */
+async function dueByExam(userId: string, examIds: string[]) {
+  const rows = await db.select({ examId: reviewCard.examId, n: count() }).from(reviewCard)
+    .where(and(eq(reviewCard.userId, userId), inArray(reviewCard.examId, examIds), lte(reviewCard.due, new Date())))
+    .groupBy(reviewCard.examId);
+  return new Map(rows.map((r) => [r.examId, r.n]));
+}
+
+/** countMistakes for several exams in one query. */
+async function mistakesByExam(userId: string, examIds: string[]) {
+  const res = await db.execute<{ exam_id: string; n: number }>(sql`
+    select exam_id, count(*)::int as n from (
+      select distinct on (exam_id, question_id) exam_id, correct
+      from ${attemptItem}
+      where user_id = ${userId} and exam_id in ${examIds} and answered
+      order by exam_id, question_id, created_at desc
+    ) latest where not correct
+    group by exam_id`);
+  return new Map(res.rows.map((r) => [r.exam_id, Number(r.n)]));
+}
 
 export const countDue = cache(async (userId: string, examId?: string) => {
   const where = [eq(reviewCard.userId, userId), lte(reviewCard.due, new Date())];
@@ -40,10 +83,11 @@ export const countMistakes = cache(async (userId: string, examId: string) => {
   return Number(res.rows[0]?.n ?? 0);
 });
 
-export async function getEnrollment(userId: string, examId: string) {
+/** Per request: the exam hub and its study plan both read it. */
+export const getEnrollment = cache(async (userId: string, examId: string) => {
   const [row] = await db.select().from(enrollment).where(and(eq(enrollment.userId, userId), eq(enrollment.examId, examId))).limit(1);
   return row ?? null;
-}
+});
 
 export interface ExamHubData {
   readiness: Readiness | null;
@@ -107,9 +151,18 @@ export async function getMyExams(userId: string, limit = 4): Promise<DashboardEx
     .where(eq(enrollment.userId, userId))
     .orderBy(sql`last_activity desc nulls last`, desc(enrollment.createdAt))
     .limit(limit);
+  if (!rows.length) return [];
 
-  return Promise.all(rows.map(async (r) => {
-    const [readiness, due, mistakes] = await Promise.all([getReadiness(userId, r.id), countDue(userId, r.id), countMistakes(userId, r.id)]);
+  // Three queries for all the exams together, instead of three per exam.
+  const ids = rows.map((r) => r.id);
+  const [answers, due, mistakes, exams] = await Promise.all([
+    recentAnswersByExam(userId, ids),
+    dueByExam(userId, ids),
+    mistakesByExam(userId, ids),
+    Promise.all(ids.map((id) => getExam(id))),
+  ]);
+  return rows.map((r, i) => {
+    const ex = exams[i];
     return {
       id: r.id,
       code: r.code,
@@ -117,11 +170,11 @@ export async function getMyExams(userId: string, limit = 4): Promise<DashboardEx
       accent: r.meta.accent ?? null,
       targetDate: r.targetDate,
       lastActivity: r.lastActivity ? new Date(r.lastActivity).toISOString() : null,
-      readiness,
-      due,
-      mistakes,
+      readiness: ex ? computeReadiness(ex.config, answers.get(r.id) ?? []) : null,
+      due: due.get(r.id) ?? 0,
+      mistakes: mistakes.get(r.id) ?? 0,
     };
-  }));
+  });
 }
 
 export interface ProgressData {

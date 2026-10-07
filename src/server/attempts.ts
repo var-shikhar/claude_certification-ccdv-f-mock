@@ -233,9 +233,11 @@ export async function getPlayerState(userId: string, attemptId: string): Promise
   const ex = (await getExam(a.examId))!;
   const cfg = ex.config;
   const names = nameMaps(cfg);
-  const questions = await getQuestionsByIds(a.itemIds);
-  const saved = await db.select({ questionId: bookmark.questionId }).from(bookmark)
-    .where(and(eq(bookmark.userId, userId), inArray(bookmark.questionId, a.itemIds)));
+  const [questions, saved] = await Promise.all([
+    getQuestionsByIds(a.itemIds),
+    db.select({ questionId: bookmark.questionId }).from(bookmark)
+      .where(and(eq(bookmark.userId, userId), inArray(bookmark.questionId, a.itemIds))),
+  ]);
 
   const revealed: PlayerState['revealed'] = {};
   for (const q of questions) {
@@ -318,18 +320,17 @@ export async function saveProgress(userId: string, attemptId: string, patch: Pro
 
 /** Instant-feedback drills: lock in an answer and reveal the key for one item. */
 export async function checkAnswer(userId: string, attemptId: string, questionId: string, response: string[]) {
-  const a = await loadActive(userId, attemptId);
+  // Independent reads, so they share one round trip; the checks below still run before anything is written.
+  const [a, [q], profile] = await Promise.all([loadActive(userId, attemptId), getQuestionsByIds([questionId]), getOrCreateProfile(userId)]);
   if (!a.settings.instant) throw new AppError('Answers are revealed when you submit this attempt.', 400);
   const position = a.itemIds.indexOf(questionId);
-  if (position < 0) throw notFound('That question');
-  const [q] = await getQuestionsByIds([questionId]);
+  if (position < 0 || !q) throw notFound('That question');
   const given = a.checked[questionId] ? (a.responses[questionId] ?? []) : response;
   const correct = isCorrect(q, given);
   const revealed = { ...toRevealedQuestion(q, a.optionOrder[questionId]), correct };
   if (a.checked[questionId]) return revealed;
   if (!given.length) throw new AppError('Choose an answer first.', 400);
 
-  const profile = await getOrCreateProfile(userId);
   await db.transaction(async (tx) => {
     await tx.update(attempt).set({
       responses: sql`${attempt.responses} || ${JSON.stringify({ [questionId]: given })}::jsonb`,
@@ -373,7 +374,7 @@ function certificateCode() {
 async function finalize(a: AttemptRow, { timedOut }: { timedOut: boolean }) {
   const ex = (await getExam(a.examId))!;
   const cfg = ex.config;
-  const questions = await getQuestionsByIds(a.itemIds);
+  const [questions, profile] = await Promise.all([getQuestionsByIds(a.itemIds), getOrCreateProfile(a.userId)]);
   const report = scoreAttempt(cfg, questions, a.responses);
   const now = new Date();
   const limitMs = a.minutes ? a.minutes * 60_000 : Number.POSITIVE_INFINITY;
@@ -389,7 +390,6 @@ async function finalize(a: AttemptRow, { timedOut }: { timedOut: boolean }) {
   };
   const scored = KINDS[a.kind].scored;
   const earnsCertificate = a.kind === 'full' && report.passed && difficultyMode(cfg, a.difficulty).certificate;
-  const profile = await getOrCreateProfile(a.userId);
 
   await db.transaction(async (tx) => {
     const [closed] = await tx.update(attempt).set({
