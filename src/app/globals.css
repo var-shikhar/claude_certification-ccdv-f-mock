@@ -6,6 +6,8 @@
 
 /* The worktrees other sessions use live under .claude/; keep them out of class scanning. */
 @source not "../../.claude";
+/* Question-bank JSON is data, not markup: scanning it only adds unused utilities to the CSS. */
+@source not "../../content";
 
 @theme inline {
     --font-heading: var(--font-display);
@@ -59,6 +61,9 @@
     --animate-shimmer: shimmer 1.6s ease-in-out infinite;
     --animate-float: float 6s ease-in-out infinite;
     --animate-pop: pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    /* backwards: holds the start state through any delay, then lets hover transforms apply. */
+    --animate-reveal: reveal 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    --animate-drift: drift 7s ease-in-out infinite;
 
     @keyframes shimmer {
         0% { background-position: -200% 0; }
@@ -71,6 +76,13 @@
     @keyframes pop {
         0% { transform: scale(0.92); opacity: 0; }
         100% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes reveal {
+        from { opacity: 0; transform: translateY(16px); }
+    }
+    /* A transform-only loop, so the compositor runs it without main-thread work. */
+    @keyframes drift {
+        50% { transform: translateX(var(--drift, 100px)); }
     }
 }
 
@@ -205,6 +217,21 @@
 }
 
 @layer utilities {
+  /*
+   * Entrance animation in plain CSS: it starts on first paint, so content never
+   * waits for JavaScript to become visible (or to count as the largest paint), and
+   * crawlers see it. <Reveal> holds sections that start below the fold in the
+   * waiting state until they scroll into view. Stagger with --reveal-delay.
+   */
+  .reveal {
+    animation: var(--animate-reveal);
+    animation-delay: var(--reveal-delay, 0s);
+  }
+  .reveal[data-reveal='waiting'] {
+    animation: none;
+    opacity: 0;
+    transform: translateY(16px);
+  }
   /* Loading placeholders: a soft glint sweeping across the block. */
   .shimmer {
     background-image: linear-gradient(90deg, var(--shimmer-base) 0%, var(--shimmer-base) 35%, var(--shimmer-glint) 50%, var(--shimmer-base) 65%, var(--shimmer-base) 100%);

@@ -78,8 +78,9 @@ export function AdaptivePlayer({ initial }: { initial: PlayerState }) {
             key={item.id}
             initial={reduce ? false : { opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={reduce ? undefined : { opacity: 0, x: -24 }}
-            transition={{ duration: 0.22 }}
+            // mode="wait" holds the next question until the exit ends, so keep the exit short.
+            exit={reduce ? undefined : { opacity: 0, x: -24, transition: { duration: 0.1, ease: 'easeIn' } }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
             className="space-y-5"
           >
             <span className="font-heading text-sm font-semibold text-muted-foreground">Question {position}</span>

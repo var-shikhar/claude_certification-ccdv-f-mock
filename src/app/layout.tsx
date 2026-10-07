@@ -7,7 +7,8 @@ import './globals.css';
 
 const sans = Geist({ subsets: ['latin'], variable: '--font-sans' });
 const display = Bricolage_Grotesque({ subsets: ['latin'], variable: '--font-display' });
-const mono = Geist_Mono({ subsets: ['latin'], variable: '--font-mono' });
+// Only timers and code use it, so don't make every page preload it.
+const mono = Geist_Mono({ subsets: ['latin'], variable: '--font-mono', preload: false });
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.BETTER_AUTH_URL ?? 'http://localhost:3000'),

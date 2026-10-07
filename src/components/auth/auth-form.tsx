@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
-import { motion } from 'motion/react';
 import { ArrowRight, Eye, EyeOff, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -85,12 +84,8 @@ export function AuthForm({ mode, next, providers, isGuest }: { mode: Mode; next?
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: 'easeOut' }}
-      className="w-full max-w-sm"
-    >
+    // CSS entrance: the form is visible in the server HTML instead of waiting for hydration.
+    <div className="reveal w-full max-w-sm">
       <div className="rounded-3xl border bg-card/90 p-6 shadow-[0_30px_80px_-40px_oklch(0.38_0.06_45/0.5)] backdrop-blur sm:p-8">
         <div className="mb-6 space-y-1.5 text-center">
           <h1 className="text-2xl font-semibold">{copy.title}</h1>
@@ -179,7 +174,7 @@ export function AuthForm({ mode, next, providers, isGuest }: { mode: Mode; next?
           {copy.switchLink}
         </Link>
       </p>
-    </motion.div>
+    </div>
   );
 }
 

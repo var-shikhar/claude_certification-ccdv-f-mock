@@ -2,7 +2,7 @@ import 'server-only';
 import { and, count, eq, gte, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { attempt, attemptItem, question, user } from '@/db/schema';
-import { getItemStats, type ItemFlag } from './analysis';
+import { getItemStatsSnapshot, type ItemFlag } from './analysis';
 
 export async function getAdminOverview(examId: string) {
   const weekAgo = new Date(Date.now() - 7 * 86_400_000);
@@ -11,7 +11,7 @@ export async function getAdminOverview(examId: string) {
     db.select({ n: count() }).from(user).where(sql`coalesce(${user.isAnonymous}, false) = false`),
     db.select({ n: count() }).from(attempt).where(and(eq(attempt.examId, examId), gte(attempt.startedAt, weekAgo))),
     db.select({ n: count() }).from(attemptItem).where(and(eq(attemptItem.examId, examId), eq(attemptItem.answered, true), gte(attemptItem.createdAt, weekAgo))),
-    getItemStats(examId),
+    getItemStatsSnapshot(examId),
   ]);
   const flags: Partial<Record<ItemFlag, number>> = {};
   for (const s of Object.values(stats)) for (const f of s.flags) flags[f] = (flags[f] ?? 0) + 1;

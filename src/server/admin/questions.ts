@@ -1,13 +1,15 @@
 import 'server-only';
-import { and, asc, count, desc, eq, ilike, inArray, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, ilike, inArray, or, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/db';
 import { exam, question, questionReport, questionRevision, type QuestionPool, type QuestionStatus } from '@/db/schema';
 import { validateQuestion } from '@/lib/content/validate';
 import type { Question } from '@/lib/engine';
-import { invalidateCatalog } from '../cache';
+import { cached, invalidateCatalog } from '../cache';
 import { AppError, notFound } from '../errors';
 import { getExam, rowToQuestion } from '../exams';
-import { flagsFor, getItemStats, type ItemStat } from './analysis';
+import { flagsFor, getItemStats, getItemStatsSnapshot, type ItemStat } from './analysis';
+
+export type QuestionSort = 'updated' | 'id' | 'p' | 'n';
 
 export interface QuestionListFilters {
   examId: string;
@@ -17,87 +19,205 @@ export interface QuestionListFilters {
   skill?: string;
   q?: string;
   flagged?: boolean;
-  sort?: 'updated' | 'id' | 'p' | 'n';
-  page?: number;
+  sort?: QuestionSort;
 }
 
 export interface QuestionListRow {
   id: string;
-  stem: string;
+  /** the stem as one plain line, code blocks collapsed, cut to what a table row shows */
+  preview: string;
   type: Question['type'];
-  skill: string;
   skillName: string;
   difficulty: number;
   status: QuestionStatus;
   pool: QuestionPool;
-  source: string;
   version: number;
-  updatedAt: string;
   openReports: number;
-  stats: Pick<ItemStat, 'n' | 'p' | 'discrimination' | 'flags'> | null;
+  stats: Pick<ItemStat, 'n' | 'p' | 'flags'> | null;
 }
 
-const PAGE_SIZE = 25;
+export interface QuestionListPage {
+  rows: QuestionListRow[];
+  /** send back as `cursor` for the next page; null on the last page */
+  nextCursor: string | null;
+  /** how many questions match; sent with the first page */
+  total: number | null;
+}
 
-export async function listQuestions(f: QuestionListFilters) {
+/** Rows per request. The table virtualises its rows, so this only bounds each response. */
+const LIST_PAGE_SIZE = 100;
+/** The largest set one bulk status change (or "select all matching") may cover. */
+const MAX_BULK = 5000;
+
+const listColumns = {
+  id: question.id,
+  // Enough of the stem for a two-line preview; long code-heavy stems stay in the database.
+  stem: sql<string>`left(${question.stem}, 600)`,
+  type: question.type,
+  skill: question.skill,
+  difficulty: question.difficulty,
+  status: question.status,
+  pool: question.pool,
+  version: question.version,
+  // Full precision for the cursor: a JS Date would drop the microseconds Postgres compares on.
+  updatedAtText: sql<string>`${question.updatedAt}::text`,
+  openReports: sql<number>`(select count(*)::int from ${questionReport} r where r.question_id = ${question.id} and r.status = 'open')`,
+};
+
+interface ListRecord {
+  id: string;
+  stem: string;
+  type: Question['type'];
+  skill: string;
+  difficulty: number;
+  status: QuestionStatus;
+  pool: QuestionPool;
+  version: number;
+  updatedAtText: string;
+  openReports: number;
+}
+
+/**
+ * One page of an exam's questions. Pages are keyset-paginated (the cursor is
+ * the last row's sort key), so later pages cost the same as the first and
+ * edits made meanwhile never shift rows into or out of view. The statistic
+ * sorts order the matching ids in memory and slice by offset instead.
+ */
+export async function listQuestions(f: QuestionListFilters & { cursor?: string | null }): Promise<QuestionListPage> {
   const ex = await getExam(f.examId);
   if (!ex) throw notFound('That exam');
-  const where: SQL[] = [eq(question.examId, ex.id)];
+  const sort = f.sort ?? 'updated';
+  const cursor = readCursor(f.cursor);
+  const statsP = getItemStatsSnapshot(ex.id);
+  const where = filterWhere(ex.id, f);
+  if (f.flagged && !addFlagged(where, await statsP)) return { rows: [], nextCursor: null, total: 0 };
+
+  const skillName = new Map(ex.config.skills.map((s) => [s.id, s.name]));
+  const toRow = (r: ListRecord, stats: Record<string, ItemStat>): QuestionListRow => {
+    const s = stats[r.id];
+    return {
+      id: r.id,
+      preview: toPreview(r.stem),
+      type: r.type,
+      skillName: skillName.get(r.skill) ?? r.skill,
+      difficulty: r.difficulty,
+      status: r.status,
+      pool: r.pool,
+      version: r.version,
+      openReports: r.openReports,
+      stats: s ? { n: s.n, p: s.p, flags: s.flags } : null,
+    };
+  };
+
+  if (sort === 'p' || sort === 'n') {
+    const [matches, stats] = await Promise.all([db.select({ id: question.id }).from(question).where(and(...where)), statsP]);
+    const key = (id: string) => (sort === 'p' ? stats[id]?.p ?? 2 : -(stats[id]?.n ?? 0));
+    const ordered = matches.map((m) => m.id).sort((a, b) => key(a) - key(b) || (a < b ? -1 : a > b ? 1 : 0));
+    const offset = cursor ? cursorOffset(cursor) : 0;
+    const pageIds = ordered.slice(offset, offset + LIST_PAGE_SIZE);
+    const records = pageIds.length ? await db.select(listColumns).from(question).where(inArray(question.id, pageIds)) : [];
+    const byId = new Map(records.map((r) => [r.id, r]));
+    return {
+      rows: pageIds.flatMap((id) => {
+        const r = byId.get(id);
+        return r ? [toRow(r, stats)] : [];
+      }),
+      nextCursor: offset + LIST_PAGE_SIZE < ordered.length ? writeCursor({ o: offset + LIST_PAGE_SIZE }) : null,
+      total: ordered.length,
+    };
+  }
+
+  // The total ignores the cursor, so it is counted (once, with the first page) before the keyset condition joins.
+  const counted = cursor ? null : db.select({ n: count() }).from(question).where(and(...where));
+  if (cursor) where.push(keysetAfter(sort, cursor));
+  const order = sort === 'id' ? [asc(question.id)] : [desc(question.updatedAt), asc(question.id)];
+  const [records, total, stats] = await Promise.all([
+    db.select(listColumns).from(question).where(and(...where)).orderBy(...order).limit(LIST_PAGE_SIZE + 1),
+    counted?.then(([r]) => r?.n ?? 0) ?? null,
+    statsP,
+  ]);
+  const more = records.length > LIST_PAGE_SIZE;
+  const page = more ? records.slice(0, LIST_PAGE_SIZE) : records;
+  const last = page.at(-1);
+  return {
+    rows: page.map((r) => toRow(r, stats)),
+    nextCursor: more && last ? writeCursor(sort === 'id' ? { id: last.id } : { t: last.updatedAtText, id: last.id }) : null,
+    total,
+  };
+}
+
+/** Every id that matches the filters, for "select all matching". */
+export async function listQuestionIds(f: QuestionListFilters) {
+  const ex = await getExam(f.examId);
+  if (!ex) throw notFound('That exam');
+  const where = filterWhere(ex.id, f);
+  if (f.flagged && !addFlagged(where, await getItemStatsSnapshot(ex.id))) return { ids: [] as string[] };
+  const rows = await db.select({ id: question.id }).from(question).where(and(...where)).limit(MAX_BULK + 1);
+  if (rows.length > MAX_BULK) throw new AppError(`More than ${MAX_BULK.toLocaleString('en-US')} questions match. Narrow the filters first.`, 400);
+  return { ids: rows.map((r) => r.id) };
+}
+
+export async function questionStatusCounts(examId: string) {
+  const rows = await db.select({ status: question.status, n: count() }).from(question).where(eq(question.examId, examId)).groupBy(question.status);
+  return { counts: Object.fromEntries(rows.map((r) => [r.status, r.n])) as Partial<Record<QuestionStatus, number>> };
+}
+
+function filterWhere(examId: string, f: QuestionListFilters): SQL[] {
+  const where: SQL[] = [eq(question.examId, examId)];
   if (f.status && f.status !== 'all') where.push(eq(question.status, f.status));
   if (f.pool && f.pool !== 'all') where.push(eq(question.pool, f.pool));
   if (f.type) where.push(eq(question.type, f.type as Question['type']));
   if (f.skill) where.push(eq(question.skill, f.skill));
-  if (f.q?.trim()) {
-    const term = `%${f.q.trim().replace(/[%_]/g, (c) => `\\${c}`)}%`;
+  const q = f.q?.trim();
+  if (q) {
+    const term = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
     where.push(or(ilike(question.stem, term), ilike(question.id, term))!);
   }
-
-  const stats = await getItemStats(ex.id);
-  if (f.flagged) {
-    const flaggedIds = Object.values(stats).filter((s) => s.flags.length).map((s) => s.questionId);
-    if (!flaggedIds.length) return { rows: [], total: 0, page: 1, pageSize: PAGE_SIZE, counts: await statusCounts(ex.id) };
-    where.push(inArray(question.id, flaggedIds));
-  }
-
-  const [{ total }] = await db.select({ total: count() }).from(question).where(and(...where));
-  const page = Math.max(1, f.page ?? 1);
-  const order = f.sort === 'id' ? [asc(question.id)] : [desc(question.updatedAt), asc(question.id)];
-  let rows = await db
-    .select({
-      id: question.id, stem: question.stem, type: question.type, skill: question.skill, difficulty: question.difficulty,
-      status: question.status, pool: question.pool, source: question.source, version: question.version, updatedAt: question.updatedAt,
-      openReports: sql<number>`(select count(*)::int from ${questionReport} r where r.question_id = ${question.id} and r.status = 'open')`,
-    })
-    .from(question)
-    .where(and(...where))
-    .orderBy(...order)
-    .limit(f.sort === 'p' || f.sort === 'n' ? 5000 : PAGE_SIZE)
-    .offset(f.sort === 'p' || f.sort === 'n' ? 0 : (page - 1) * PAGE_SIZE);
-
-  // Stat-based sorts happen in memory over the filtered set, then paginate.
-  if (f.sort === 'p' || f.sort === 'n') {
-    const key = (id: string) => (f.sort === 'p' ? stats[id]?.p ?? 2 : -(stats[id]?.n ?? 0));
-    rows = rows.sort((a, b) => key(a.id) - key(b.id)).slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  }
-
-  const skillName = Object.fromEntries(ex.config.skills.map((s) => [s.id, s.name]));
-  return {
-    rows: rows.map<QuestionListRow>((r) => ({
-      ...r,
-      skillName: skillName[r.skill] ?? r.skill,
-      updatedAt: r.updatedAt.toISOString(),
-      stats: stats[r.id] ? { n: stats[r.id].n, p: stats[r.id].p, discrimination: stats[r.id].discrimination, flags: stats[r.id].flags } : null,
-    })),
-    total,
-    page,
-    pageSize: PAGE_SIZE,
-    counts: await statusCounts(ex.id),
-  };
+  return where;
 }
 
-async function statusCounts(examId: string) {
-  const rows = await db.select({ status: question.status, n: count() }).from(question).where(eq(question.examId, examId)).groupBy(question.status);
-  return Object.fromEntries(rows.map((r) => [r.status, r.n])) as Partial<Record<QuestionStatus, number>>;
+/** Adds the "needs attention" condition. False when nothing is flagged, so nothing can match. */
+function addFlagged(where: SQL[], stats: Record<string, ItemStat>) {
+  const ids = Object.values(stats).filter((s) => s.flags.length).map((s) => s.questionId);
+  if (!ids.length) return false;
+  where.push(inArray(question.id, ids));
+  return true;
+}
+
+/** A stem as one plain line for tables: code blocks become [code] and whitespace collapses. */
+function toPreview(stem: string) {
+  const line = stem.replace(/```[\s\S]*?(?:```|$)/g, ' [code] ').replace(/\s+/g, ' ').trim();
+  return line.length > 240 ? `${line.slice(0, 239).trimEnd()}…` : line;
+}
+
+interface Cursor { t?: string; id?: string; o?: number }
+
+const writeCursor = (c: Cursor) => Buffer.from(JSON.stringify(c)).toString('base64url');
+const badCursor = () => new AppError('That list position has expired. Reload the list.', 400, 'BAD_CURSOR');
+
+function readCursor(raw: string | null | undefined): Cursor | null {
+  if (!raw) return null;
+  try {
+    const c: unknown = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
+    if (c && typeof c === 'object') return c as Cursor;
+  } catch {
+    // reported below
+  }
+  throw badCursor();
+}
+
+/** Rows strictly after the cursor in the list's order. */
+function keysetAfter(sort: 'updated' | 'id', c: Cursor): SQL {
+  if (sort === 'id' && typeof c.id === 'string') return gt(question.id, c.id);
+  if (sort === 'updated' && typeof c.t === 'string' && typeof c.id === 'string') {
+    return sql`(${question.updatedAt} < ${c.t}::timestamptz or (${question.updatedAt} = ${c.t}::timestamptz and ${question.id} > ${c.id}))`;
+  }
+  throw badCursor();
+}
+
+function cursorOffset(c: Cursor) {
+  if (typeof c.o === 'number' && Number.isInteger(c.o) && c.o >= 0) return c.o;
+  throw badCursor();
 }
 
 export async function getQuestionForEditor(id: string) {
@@ -188,24 +308,41 @@ export async function saveQuestion(userId: string, examId: string, draft: Questi
   }).finally(() => invalidateCatalog());
 }
 
+/** Moves questions to a status in one statement; items that fail validation can't be published or sent to review. */
 export async function setQuestionStatus(userId: string, ids: string[], status: QuestionStatus) {
-  if (!ids.length) return { updated: 0, blocked: [] as string[] };
-  const rows = await db.select().from(question).where(inArray(question.id, ids));
+  const unique = [...new Set(ids)];
+  if (!unique.length) return { updated: 0, blocked: [] as string[] };
+  if (unique.length > MAX_BULK) throw new AppError(`Change at most ${MAX_BULK.toLocaleString('en-US')} questions at a time.`, 400);
+
+  let allowed = unique;
   const blocked: string[] = [];
-  let updated = 0;
-  for (const row of rows) {
-    if (status === 'published' || status === 'review') {
-      const ex = (await getExam(row.examId))!;
-      const { errors } = validateQuestion(ex.config, rowToQuestion(row) as Question & Record<string, unknown>);
-      if (errors.length) { blocked.push(row.id); continue; }
+  if (status === 'published' || status === 'review') {
+    const rows = await db.select().from(question).where(inArray(question.id, unique));
+    const exams = new Map(await Promise.all([...new Set(rows.map((r) => r.examId))].map(async (id) => [id, await getExam(id)] as const)));
+    allowed = [];
+    for (const row of rows) {
+      const ex = exams.get(row.examId);
+      const { errors } = ex ? validateQuestion(ex.config, rowToQuestion(row) as Question & Record<string, unknown>) : { errors: ['unknown exam'] };
+      if (errors.length) blocked.push(row.id);
+      else allowed.push(row.id);
     }
-    await db.update(question).set({ status, source: row.source === 'seed' ? 'admin' : row.source }).where(eq(question.id, row.id));
-    updated += 1;
   }
+
+  const updated = allowed.length
+    ? await db.update(question)
+      // Edited in the app now, so the seed must leave these rows alone.
+      .set({ status, source: sql`case when ${question.source} = 'seed' then 'admin' else ${question.source} end` })
+      .where(inArray(question.id, allowed))
+      .returning({ id: question.id })
+    : [];
   invalidateCatalog();
-  return { updated, blocked };
+  return { updated: updated.length, blocked };
 }
 
-export async function listExamsForAdmin() {
-  return db.select({ id: exam.id, code: exam.code, title: exam.title, config: exam.config }).from(exam).orderBy(asc(exam.sortOrder));
-}
+/** Exams for the admin switcher and pages. Cached with the catalog, which admin writes clear. */
+export const listExamsForAdmin = () =>
+  cached('catalog:admin-exams', () => db.select({ id: exam.id, code: exam.code, title: exam.title, config: exam.config }).from(exam).orderBy(asc(exam.sortOrder)));
+
+/** What the exam switcher needs. Passing whole exams would ship every blueprint to the browser. */
+export const examOptions = (exams: { id: string; code: string; title: string }[]) =>
+  exams.map(({ id, code, title }) => ({ id, code, title }));

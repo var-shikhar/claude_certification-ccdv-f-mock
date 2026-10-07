@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { attempt, challenge, exam, user } from '@/db/schema';
@@ -28,23 +29,25 @@ export async function createChallenge(userId: string, attemptId: string) {
   return { id };
 }
 
-export async function getChallenge(code: string) {
+/** Per request (the page reads it for its metadata and again to render); the challenge and its board load together. */
+export const getChallenge = cache(async (code: string) => {
   if (!/^[a-z2-9]{8}$/.test(code)) return null;
-  const [row] = await db
-    .select({ c: challenge, examCode: exam.code, examTitle: exam.title, scale: sql<{ min: number; max: number; passing: number }>`${exam.config}->'scale'`, creator: user.name })
-    .from(challenge)
-    .innerJoin(exam, eq(exam.id, challenge.examId))
-    .innerJoin(user, eq(user.id, challenge.creatorId))
-    .where(eq(challenge.id, code))
-    .limit(1);
+  const [[row], board] = await Promise.all([
+    db
+      .select({ c: challenge, examCode: exam.code, examTitle: exam.title, scale: sql<{ min: number; max: number; passing: number }>`${exam.config}->'scale'`, creator: user.name })
+      .from(challenge)
+      .innerJoin(exam, eq(exam.id, challenge.examId))
+      .innerJoin(user, eq(user.id, challenge.creatorId))
+      .where(eq(challenge.id, code))
+      .limit(1),
+    // Best finished run per person: highest score, then fastest.
+    db.execute<{ user_id: string; name: string; is_anonymous: boolean | null; scaled: number; duration_ms: number; passed: boolean | null }>(sql`
+      select distinct on (a.user_id) a.user_id, u.name, u.is_anonymous, a.scaled, (a.summary->>'durationMs')::float as duration_ms, a.passed
+      from ${attempt} a join ${user} u on u.id = a.user_id
+      where a.challenge_id = ${code} and a.status = 'submitted' and a.scaled is not null
+      order by a.user_id, a.scaled desc, (a.summary->>'durationMs')::float asc`),
+  ]);
   if (!row) return null;
-
-  // Best finished run per person: highest score, then fastest.
-  const board = await db.execute<{ user_id: string; name: string; is_anonymous: boolean | null; scaled: number; duration_ms: number; passed: boolean | null }>(sql`
-    select distinct on (a.user_id) a.user_id, u.name, u.is_anonymous, a.scaled, (a.summary->>'durationMs')::float as duration_ms, a.passed
-    from ${attempt} a join ${user} u on u.id = a.user_id
-    where a.challenge_id = ${code} and a.status = 'submitted' and a.scaled is not null
-    order by a.user_id, a.scaled desc, (a.summary->>'durationMs')::float asc`);
   const leaderboard = board.rows
     .sort((x, y) => y.scaled - x.scaled || x.duration_ms - y.duration_ms)
     .slice(0, 20)
@@ -63,7 +66,7 @@ export async function getChallenge(code: string) {
     createdAt: row.c.createdAt.toISOString(),
     leaderboard,
   };
-}
+});
 
 /** The fixed form a challenge attempt uses. */
 export async function getChallengeForm(code: string) {

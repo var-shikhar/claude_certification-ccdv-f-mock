@@ -4,6 +4,7 @@ import { and, count, eq, gte } from 'drizzle-orm';
 import { cache } from 'react';
 import { db } from '@/db';
 import { attempt, profile, subscription, user } from '@/db/schema';
+import { cached } from './cache';
 import { AppError } from './errors';
 
 // Stripe over plain HTTPS (no SDK needed). Everything here is inert until
@@ -34,8 +35,12 @@ export interface ProPrice { amount: number; currency: string; interval: string }
 export const getProPrice = cache(async (): Promise<ProPrice | null> => {
   if (!billingEnabled()) return null;
   try {
-    const p = await stripe<{ unit_amount: number; currency: string; recurring?: { interval: string } }>(`prices/${process.env.STRIPE_PRICE_ID}`, undefined, 'GET');
-    return { amount: p.unit_amount / 100, currency: p.currency.toUpperCase(), interval: p.recurring?.interval ?? 'month' };
+    // Prices rarely change, so ask Stripe at most hourly per server instance. A failed lookup throws
+    // past the cache (which never keeps failures), so a Stripe hiccup isn't remembered for an hour.
+    return await cached('billing:pro-price', async () => {
+      const p = await stripe<{ unit_amount: number; currency: string; recurring?: { interval: string } }>(`prices/${process.env.STRIPE_PRICE_ID}`, undefined, 'GET');
+      return { amount: p.unit_amount / 100, currency: p.currency.toUpperCase(), interval: p.recurring?.interval ?? 'month' };
+    }, 60 * 60_000);
   } catch {
     return null;
   }

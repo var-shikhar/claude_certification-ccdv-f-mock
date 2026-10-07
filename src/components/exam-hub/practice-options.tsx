@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'motion/react';
 import { ArrowRight, BookOpenCheck, CalendarClock, ChevronDown, Gauge, Hourglass, RotateCcw, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -68,15 +67,13 @@ export function PracticeOptions({ exam, signedIn, defaultName, hasImported, due,
       </div>
       <div className="grid gap-3 md:grid-cols-3">
         {cards.filter((c) => c.key !== 'quick' || exam.modes.quick).map((c, i) => (
-          <motion.button
+          <button
             key={c.key}
             type="button"
             onClick={() => open(c.key)}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
+            style={{ '--reveal-delay': `${i * 0.05}s` } as React.CSSProperties}
             className={cn(
-              'group relative flex flex-col gap-3 overflow-hidden rounded-2xl border bg-card p-5 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_18px_40px_-28px_oklch(0.38_0.06_45/0.6)]',
+              'reveal group relative flex flex-col gap-3 overflow-hidden rounded-2xl border bg-card p-5 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_18px_40px_-28px_oklch(0.38_0.06_45/0.6)]',
               c.accent && 'border-primary/30',
             )}
           >
@@ -90,7 +87,7 @@ export function PracticeOptions({ exam, signedIn, defaultName, hasImported, due,
               <span>{c.meta}</span>
               <ArrowRight className="size-4 transition group-hover:translate-x-0.5 group-hover:text-primary" />
             </div>
-          </motion.button>
+          </button>
         ))}
       </div>
 

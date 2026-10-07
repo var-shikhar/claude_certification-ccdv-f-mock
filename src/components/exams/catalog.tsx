@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -19,12 +19,14 @@ export function Catalog({ exams, readiness }: { exams: ExamCardData[]; readiness
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]['key']>('all');
   const present = new Set(exams.map((e) => e.category));
+  // The input updates at once; the card grid (and its layout animation) follows when the browser is free.
+  const deferredQuery = useDeferredValue(query);
 
   const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = deferredQuery.trim().toLowerCase();
     return exams.filter((e) => (category === 'all' || e.category === category)
       && (!q || [e.code, e.title, e.vendor, e.meta.tagline, ...(e.meta.tags ?? [])].join(' ').toLowerCase().includes(q)));
-  }, [exams, query, category]);
+  }, [exams, deferredQuery, category]);
 
   return (
     <div className="space-y-6">
@@ -58,7 +60,8 @@ export function Catalog({ exams, readiness }: { exams: ExamCardData[]; readiness
         </div>
       ) : (
         <motion.div layout className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <AnimatePresence mode="popLayout">
+          {/* initial={false}: cards present on load render visible (and in the server HTML); filtering still animates. */}
+          <AnimatePresence mode="popLayout" initial={false}>
             {visible.map((exam) => (
               <motion.div key={exam.id} layout initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}>
                 <ExamCard exam={exam} readiness={readiness[exam.id]} />

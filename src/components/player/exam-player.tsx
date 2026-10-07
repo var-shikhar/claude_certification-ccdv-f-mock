@@ -242,8 +242,9 @@ export function ExamPlayer({ initial }: { initial: PlayerState }) {
               custom={direction}
               initial={reduceMotion ? false : { opacity: 0, x: direction * 24 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={reduceMotion ? undefined : { opacity: 0, x: direction * -24 }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
+              // mode="wait" holds the next question until the exit ends, so keep the exit short.
+              exit={reduceMotion ? undefined : { opacity: 0, x: direction * -24, transition: { duration: 0.1, ease: 'easeIn' } }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
               className="space-y-5"
             >
               <div className="flex flex-wrap items-center gap-2">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
 import { Monitor, Moon, Sun } from 'lucide-react';
@@ -61,7 +61,11 @@ export function SettingsForm({ initial }: { initial: Settings }) {
     onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not delete your account.'),
   });
 
-  const zones = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [prefs.timezone];
+  // About 420 zones: build the options once, not on every keystroke in the name field.
+  const zones = useMemo(() => {
+    const all = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
+    return { known: new Set(all), options: all.map((z) => <option key={z} value={z}>{z.replaceAll('_', ' ')}</option>) };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -94,7 +98,9 @@ export function SettingsForm({ initial }: { initial: Settings }) {
             onChange={(e) => savePrefs.mutate({ timezone: e.target.value })}
             className="h-11 w-full rounded-lg border bg-background px-3 text-sm sm:max-w-sm"
           >
-            {zones.map((z) => <option key={z} value={z}>{z.replaceAll('_', ' ')}</option>)}
+            {/* The saved zone may be an alias the browser doesn't list (Chrome omits "UTC"). */}
+            {!zones.known.has(prefs.timezone) && <option value={prefs.timezone}>{prefs.timezone.replaceAll('_', ' ')}</option>}
+            {zones.options}
           </select>
           <p className="text-xs text-muted-foreground">Streaks roll over at midnight in this time zone.</p>
         </div>
