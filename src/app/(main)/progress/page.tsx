@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Award, ChevronRight, Compass, LineChart } from 'lucide-react';
 import { MasteryBars } from '@/components/charts/mastery-bars';
 import { ScoreTrend } from '@/components/charts/score-trend';
+import { LinkPending } from '@/components/common/link-pending';
 import { Reveal } from '@/components/common/reveal';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -59,13 +60,14 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
               href={`/progress?exam=${e.id}${tab ? `&tab=${tab}` : ''}`}
               className={cn('shrink-0 rounded-full border px-3.5 py-1.5 text-sm transition-colors', e.id === data.examId ? 'border-primary bg-primary text-primary-foreground' : 'hover:border-primary/40')}
             >
-              {e.code}
+              <LinkPending>{e.code}</LinkPending>
             </Link>
           ))}
         </div>
       )}
 
-      <Tabs defaultValue={defaultTab} className="gap-6">
+      {/* Keyed so a link to another ?tab= (e.g. the user menu's Certificates) switches tabs while already here. */}
+      <Tabs key={defaultTab} defaultValue={defaultTab} className="gap-6">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
