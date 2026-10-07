@@ -1,0 +1,1657 @@
+[
+  {
+    "id": "NJS-EVL-001",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 1,
+    "type": "single",
+    "stem": "In which phase of the Node.js event loop do `setImmediate()` callbacks run?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The timers phase",
+        "why": "The timers phase runs expired `setTimeout` and `setInterval` callbacks."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The poll phase",
+        "why": "Poll retrieves new I/O events and runs their callbacks; immediates wait until it ends."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The check phase",
+        "why": "libuv runs the check phase right after poll, and that is where immediates run."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The close callbacks phase",
+        "why": "That phase handles close events such as `socket.on('close')`."
+      }
+    ],
+    "explanation": "Each loop iteration runs timers, pending callbacks, idle/prepare, poll, check and close callbacks. `setImmediate` is designed to run once the current poll phase completes, which is the check phase. That is why, inside an I/O callback, an immediate always runs before a zero-delay timer.",
+    "reference": "Node.js docs: The Node.js Event Loop"
+  },
+  {
+    "id": "NJS-EVL-002",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 1,
+    "type": "truefalse",
+    "stem": "`process.nextTick()` callbacks run in their own phase of the libuv event loop, between the poll and check phases.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "There is no libuv phase for nextTick; it is a queue Node drains between operations."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: Node drains the nextTick queue after the current operation finishes, before the loop moves on, whatever the phase."
+      }
+    ],
+    "explanation": "The nextTick queue is not part of libuv. Node processes it, followed by the promise microtask queue, after the current JavaScript operation completes: after the main script, after each timer callback, after each immediate and so on. That is why a nextTick callback always runs before the loop continues to any further phase.",
+    "reference": "Node.js docs: The Node.js Event Loop"
+  },
+  {
+    "id": "NJS-EVL-003",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 1,
+    "type": "fill",
+    "stem": "With no environment variables set, how many threads does libuv's thread pool have in Node.js? Type a number.",
+    "options": [],
+    "accepted": [
+      "4",
+      "four"
+    ],
+    "explanation": "The default `UV_THREADPOOL_SIZE` is 4, regardless of how many CPU cores the machine has. It can be raised (up to 1024) with the environment variable. Only work that uses the pool is limited by it: file system calls, `dns.lookup`, most async crypto and zlib.",
+    "reference": "Node.js docs: Don't Block the Event Loop"
+  },
+  {
+    "id": "NJS-EVL-004",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 1,
+    "type": "single",
+    "stem": "A script finishes running its top-level code. Which of these, still pending, keeps the Node.js process running?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A promise that never settles",
+        "why": "Promises are not libuv handles; a pending promise alone does not keep the loop alive."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A `setTimeout` that has had `.unref()` called on it",
+        "why": "`unref()` tells the loop not to wait for that timer."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "An HTTP server that is listening on a port",
+        "why": "A listening server is an active, referenced handle, so the loop keeps running."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A listener registered with `process.on('exit')`",
+        "why": "Exit listeners run as the process shuts down; they do not keep it alive."
+      }
+    ],
+    "explanation": "The loop exits when there are no referenced handles or requests left: no ref'd timers, open sockets, listening servers, in-flight file or DNS requests, and so on. A pending promise is just an object in memory. If nothing else is scheduled, Node exits even though the promise will never settle.",
+    "reference": "Node.js docs: The Node.js Event Loop"
+  },
+  {
+    "id": "NJS-EVL-005",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 1,
+    "type": "single",
+    "stem": "Which of these operations does NOT go through libuv's thread pool?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`fs.readFile()` reading a file from disk",
+        "why": "File system operations use the pool on all platforms."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`crypto.pbkdf2()` deriving a key",
+        "why": "Async pbkdf2 runs on a pool thread so the main thread stays free."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`zlib.gzip()` compressing a buffer",
+        "why": "Async zlib work is also handed to the pool."
+      },
+      {
+        "id": "D",
+        "correct": true,
+        "text": "Reading data from a TCP socket",
+        "why": "Network I/O uses the OS's async mechanisms (epoll, kqueue, IOCP) directly."
+      }
+    ],
+    "explanation": "libuv uses the operating system's non-blocking networking APIs for sockets, so network I/O never occupies a pool thread. File system calls, `dns.lookup`, and CPU-heavy async APIs such as pbkdf2, scrypt, randomBytes and zlib do use the pool. This split explains why a busy pool can slow file reads but not socket traffic.",
+    "reference": "Node.js docs: Don't Block the Event Loop"
+  },
+  {
+    "id": "NJS-EVL-006",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 1,
+    "type": "order",
+    "stem": "You run this CommonJS script. Put the four lines in the order they are logged.\n\n```js\nconst EventEmitter = require('events');\nconst ee = new EventEmitter();\nee.on('x', () => console.log('listener'));\nsetImmediate(() => console.log('immediate'));\nPromise.resolve().then(() => console.log('microtask'));\nee.emit('x');\nconsole.log('after emit');\n```",
+    "options": [
+      {
+        "id": "A",
+        "text": "immediate"
+      },
+      {
+        "id": "B",
+        "text": "listener"
+      },
+      {
+        "id": "C",
+        "text": "after emit"
+      },
+      {
+        "id": "D",
+        "text": "microtask"
+      }
+    ],
+    "answerOrder": [
+      "B",
+      "C",
+      "D",
+      "A"
+    ],
+    "explanation": "`emit()` calls listeners synchronously, so `listener` prints before `after emit`. When the script finishes, Node drains the microtask queue, then the loop starts and the check phase runs the immediate. EventEmitter is not asynchronous on its own: a listener that throws throws into the code that called `emit`.",
+    "reference": "Node.js docs: Events"
+  },
+  {
+    "id": "NJS-EVL-007",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 1,
+    "type": "match",
+    "stem": "Match each API with the queue or place where its callback runs.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The nextTick queue, drained before promise callbacks",
+        "why": "nextTick"
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The V8 microtask queue, shared with promise callbacks",
+        "why": "microtask"
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The check phase of the event loop",
+        "why": "check"
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A libuv thread-pool thread, with the callback in the poll phase",
+        "why": "pool"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`process.nextTick(cb)`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`queueMicrotask(cb)`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`setImmediate(cb)`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`crypto.pbkdf2(..., cb)`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "nextTick and microtasks are both drained between operations, with nextTick first. `queueMicrotask` uses exactly the same queue as `.then` callbacks. Immediates belong to the check phase. Async pbkdf2 does its work on a pool thread, and its callback is delivered to the main thread when libuv polls for completed work.",
+    "reference": "Node.js docs: The Node.js Event Loop"
+  },
+  {
+    "id": "NJS-EVL-008",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 1,
+    "type": "single",
+    "stem": "What delay does Node.js actually use for `setTimeout(fn, 0)`?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "0 ms, so the callback runs before any other queued work",
+        "why": "Even a 0 ms timer waits for the timers phase; it never preempts running code."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "1 ms, because Node treats delays below 1 as 1",
+        "why": "Node sets any delay below 1, above 2147483647 or not a number to 1 ms."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "4 ms, the same minimum browsers use",
+        "why": "The 4 ms clamp is a browser rule for deeply nested timers, not Node's."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It depends on the OS timer resolution, typically 15.6 ms",
+        "why": "Node's own rule is 1 ms; the OS only affects how precisely it fires."
+      }
+    ],
+    "explanation": "Node documents that a delay below 1, above 2,147,483,647 or not a number is set to 1. So `setTimeout(fn, 0)` and `setTimeout(fn, 1)` mean the same thing. This is also why timers created with 0 and 1 in a row fire in the order they were created.",
+    "reference": "Node.js docs: Timers"
+  },
+  {
+    "id": "NJS-EVL-009",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 2,
+    "type": "single",
+    "stem": "You run this file as an ES module with `node main.mjs`. What is logged?\n\n```js\nprocess.nextTick(() => console.log('tick'));\nPromise.resolve().then(() => console.log('promise'));\nconsole.log('sync');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`sync`, `tick`, `promise`",
+        "why": "That is the CommonJS order, where the script runs as a plain task."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`sync`, `promise`, `tick`",
+        "why": "An ES module body runs inside the microtask machinery, so microtasks drain before nextTick."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`tick`, `promise`, `sync`",
+        "why": "Neither callback can run before the synchronous code finishes."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`sync`, then `tick` and `promise` in a random order",
+        "why": "The order is deterministic; it just differs between module types."
+      }
+    ],
+    "explanation": "In CommonJS the main script runs as an ordinary task, so the nextTick queue drains first and `tick` comes before `promise`. ES modules are evaluated asynchronously: the module body runs as part of a promise job. When it finishes, V8 is still draining the microtask queue, so `promise` runs before Node gets to the nextTick queue. Verified on Node 24: the ESM order is `sync promise tick`.",
+    "reference": "Node.js docs: process"
+  },
+  {
+    "id": "NJS-EVL-010",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 2,
+    "type": "single",
+    "stem": "What does this CommonJS script log?\n\n```js\nsetTimeout(() => {\n  setTimeout(() => console.log('timeout'), 0);\n  setImmediate(() => console.log('immediate'));\n}, 0);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`timeout` then `immediate`, because timers always come first",
+        "why": "The new timer can only run in the next timers phase, after this iteration's check phase."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`immediate` then `timeout`, every time",
+        "why": "After the timers phase the loop reaches check before it reaches timers again."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Either order, because zero-delay timers race with immediates",
+        "why": "The race only exists in the main module, where the loop has not started yet."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Only `immediate`, because a timer created inside a timer is dropped",
+        "why": "Nested timers are scheduled normally."
+      }
+    ],
+    "explanation": "Both are scheduled from inside the timers phase. The loop continues to poll and then check, where `immediate` runs. The new timer waits for the next iteration's timers phase. The nondeterministic `setTimeout` vs `setImmediate` race only happens in the main module, where it depends on whether 1 ms has passed when the loop starts.",
+    "reference": "Node.js docs: The Node.js Event Loop"
+  },
+  {
+    "id": "NJS-EVL-011",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 2,
+    "type": "single",
+    "stem": "What does this CommonJS script log?\n\n```js\nPromise.resolve().then(() => console.log('p1'));\nqueueMicrotask(() => console.log('q1'));\nPromise.resolve().then(() => console.log('p2'));\nprocess.nextTick(() => console.log('t1'));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`p1 q1 p2 t1`",
+        "why": "nextTick callbacks are processed before the promise queue in CommonJS."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`t1 q1 p1 p2`",
+        "why": "`queueMicrotask` has no priority over `.then`; they share one FIFO queue."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`t1 p1 q1 p2`",
+        "why": "nextTick first, then the microtask queue in the order the jobs were queued."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`t1 p1 p2 q1`",
+        "why": "That would need `.then` callbacks to have their own queue ahead of `queueMicrotask`."
+      }
+    ],
+    "explanation": "After the main script, Node drains the nextTick queue (`t1`) and then V8's microtask queue. `queueMicrotask` and promise reactions go into that same queue, so they run strictly in the order they were queued: `p1`, `q1`, `p2`.",
+    "reference": "Node.js docs: queueMicrotask"
+  },
+  {
+    "id": "NJS-EVL-012",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 2,
+    "type": "fill",
+    "stem": "A CommonJS script starts 6 `crypto.pbkdf2()` calls at once on an 8-core machine, run with `UV_THREADPOOL_SIZE=2`. Each call needs about 0.4 s of CPU. Into how many waves do the callbacks arrive? Type a number.",
+    "options": [],
+    "accepted": [
+      "3",
+      "three"
+    ],
+    "explanation": "With 2 pool threads, only 2 hashes run at a time: 6 ÷ 2 = 3 waves, finishing at roughly 0.4, 0.8 and 1.2 seconds. Measured on Node 24, the pairs arrived at about 0.3–0.4 s, 0.7 s and 1.1 s. The 8 cores don't help, because pool size, not core count, limits how much async crypto runs in parallel.",
+    "reference": "Node.js docs: Don't Block the Event Loop"
+  },
+  {
+    "id": "NJS-EVL-013",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 2,
+    "type": "single",
+    "stem": "A CommonJS script starts four `crypto.pbkdf2()` calls (about 1 s each) and then calls `fs.readFile()` on a small file. With the default thread pool, the `readFile` callback arrives after roughly 1.2 s. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Hashing runs on the main thread, blocking all callbacks",
+        "why": "Async pbkdf2 runs on pool threads; the main thread stays free."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The four pool threads are busy hashing, so the read queues",
+        "why": "fs operations share the same 4-thread pool, so they queue behind the hashes."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The disk is slowed down by CPU contention from the hashing",
+        "why": "The file is small and cached; the delay comes from queueing, not the disk."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`readFile` callbacks always wait for crypto callbacks first",
+        "why": "There is no priority between pool users; the read simply had no free thread."
+      }
+    ],
+    "explanation": "The thread pool is a shared resource. Four long hashes occupy all four default threads, so the read's open, stat and read steps queue behind them. Measured on Node 24: about 1.2 s. In production this shows up as file I/O or `dns.lookup` slowing down while password hashing is busy.",
+    "reference": "Node.js docs: Don't Block the Event Loop"
+  },
+  {
+    "id": "NJS-EVL-014",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 2,
+    "type": "truefalse",
+    "stem": "`dns.lookup()` runs on libuv's thread pool, so a burst of slow `crypto.pbkdf2()` calls can delay it.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: `dns.lookup` uses the system resolver through `getaddrinfo` on a pool thread."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "It does share the pool; only `dns.resolve*()` uses the network directly."
+      }
+    ],
+    "explanation": "`dns.lookup` calls `getaddrinfo`, which is synchronous in C, so libuv runs it on the thread pool. `http.get` and most clients use `dns.lookup` by default. With four long pbkdf2 calls in flight, a lookup measured on Node 24 waited until a thread freed up. `dns.resolve4()` and friends use c-ares over the network and do not use the pool.",
+    "reference": "Node.js docs: DNS (Implementation considerations)"
+  },
+  {
+    "id": "NJS-EVL-015",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 2,
+    "type": "single",
+    "stem": "What does this CommonJS script do?\n\n```js\nconst t = setTimeout(() => console.log('timer'), 200);\nt.unref();\nrequire('fs').readFile(__filename, () => console.log('read'));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Logs `read`, then `timer` 200 ms later, then exits",
+        "why": "An unref'd timer can't hold the process open once nothing else is pending."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Logs `read`, then exits; `timer` never fires",
+        "why": "After the read finishes, only the unref'd timer is left, so the loop exits."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Exits immediately without logging anything",
+        "why": "The in-flight file read is a referenced request that keeps the loop alive."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Logs `timer` and `read` in either order",
+        "why": "The read finishes in a few ms; the timer would need 200 ms of process lifetime."
+      }
+    ],
+    "explanation": "`unref()` means \"don't keep the process alive for this timer\". The file read is a referenced request, so the loop runs until it completes and logs `read`. After that the only thing left is the unref'd timer, so Node exits and the timer never fires. Use `unref` for housekeeping timers such as metrics flushes.",
+    "reference": "Node.js docs: Timers"
+  },
+  {
+    "id": "NJS-EVL-016",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 2,
+    "type": "single",
+    "stem": "What does this CommonJS script log?\n\n```js\nsetTimeout(() => console.log('t100'), 100);\nsetTimeout(() => console.log('t50'), 50);\nconst end = Date.now() + 200;\nwhile (Date.now() < end) {} // busy-wait 200 ms\nsetTimeout(() => console.log('t0'), 0);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`t100 t50 t0`, in the order the timers were created",
+        "why": "Expired timers fire in order of their expiry time, not their creation order."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`t50 t100 t0`",
+        "why": "t50 expires at 50 ms and t100 at 100 ms; t0 was created at 200 ms, so it expires last."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`t0 t50 t100`, since zero-delay timers jump the queue",
+        "why": "t0's expiry is about 201 ms, later than the others."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`t50 t100`, and t0 never fires because the loop was blocked",
+        "why": "Blocking only delays timers; all three fire."
+      }
+    ],
+    "explanation": "Timers are ordered by when they expire, which is creation time plus delay. By the time the loop reaches the timers phase all three are due, and they fire by expiry: t50 (50 ms), t100 (100 ms), then t0 (about 201 ms, because it was created after the busy-wait). Blocking delays timers but never reorders or drops them.",
+    "reference": "Node.js docs: Timers"
+  },
+  {
+    "id": "NJS-EVL-017",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 2,
+    "type": "single",
+    "stem": "A CommonJS script schedules `setTimeout(cb, 10)` and then calls `crypto.pbkdf2Sync()` with enough iterations to take about 600 ms. When does `cb` run?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "After 10 ms, interrupting the hash",
+        "why": "JavaScript runs to completion; a timer can't interrupt synchronous code."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "After 10 ms on a pool thread, in parallel with the hash",
+        "why": "Timer callbacks always run on the main thread."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "After the hash returns, at roughly 600 ms",
+        "why": "The synchronous hash blocks the event loop, so the timers phase waits."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Never, because the expired timer is dropped",
+        "why": "Late timers still fire; they are only delayed."
+      }
+    ],
+    "explanation": "The `Sync` crypto functions do their work on the main thread, so nothing else in the process can run until they return. The timer becomes due at 10 ms but fires at about 600 ms. In a server that means every other request is stalled for the duration. Use the async version, which runs on the pool, or a worker thread.",
+    "reference": "Node.js docs: Don't Block the Event Loop"
+  },
+  {
+    "id": "NJS-EVL-018",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 2,
+    "difficulty": 2,
+    "type": "multi",
+    "stem": "You suspect that something is blocking the event loop of a production Node.js service. Which two built-in tools measure that directly? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`perf_hooks.monitorEventLoopDelay()`, which records a histogram of loop delay",
+        "why": "It samples how late a periodic timer fires, which is exactly the delay."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`performance.eventLoopUtilization()`, which reports how busy the loop has been",
+        "why": "It reports the share of time the loop spent running code rather than idle."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`process.memoryUsage()`, which reports heap and RSS",
+        "why": "Memory figures say nothing about time spent blocked."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`os.loadavg()`, which reports average system load",
+        "why": "It is system-wide, not about one process's loop, and isn't available on Windows."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`process.cpuUsage()` compared with the number of CPU cores",
+        "why": "High CPU may be legitimate work; it does not show whether callbacks are waiting."
+      }
+    ],
+    "explanation": "`monitorEventLoopDelay` reports min, max, mean and percentiles of how late its sampling timer fires; a p99 of hundreds of milliseconds means callbacks are waiting. `eventLoopUtilization` gives the ratio of active to total time, and close to 1 means the loop never idles. Measured on Node 24: a 200 ms busy-wait showed up as a max delay of over 150 ms.",
+    "reference": "Node.js docs: perf_hooks"
+  },
+  {
+    "id": "NJS-EVL-019",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 2,
+    "type": "single",
+    "stem": "The main thread of a CommonJS script starts a `worker_threads` Worker whose code sets `setTimeout(report, 50)`, then busy-waits for 400 ms. When does the worker's timer fire?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "After 400 ms, once the main thread is free",
+        "why": "The worker does not depend on the main thread's loop."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "After about 50 ms: the worker has its own loop",
+        "why": "A Worker is a separate thread with its own V8 isolate and libuv loop."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Never, because a blocked main thread stops all its workers",
+        "why": "Workers keep running; only messages to the main thread wait."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "After about 450 ms, the busy-wait plus the delay",
+        "why": "The worker's clock started when the worker ran its code, independently."
+      }
+    ],
+    "explanation": "Each Worker runs on its own OS thread with its own isolate and event loop, so its timers fire on time even while the main thread is stuck. Its message to the main thread is delivered once the main loop is free again. Verified on Node 24: the worker measured under 150 ms while the main thread was busy for 400 ms.",
+    "reference": "Node.js docs: Worker threads"
+  },
+  {
+    "id": "NJS-EVL-020",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 3,
+    "type": "order",
+    "stem": "You run this CommonJS script. Put the six lines in the order they are logged.\n\n```js\nprocess.nextTick(() => {\n  console.log('tick1');\n  process.nextTick(() => console.log('tick2'));\n  Promise.resolve().then(() => console.log('p-from-tick'));\n});\nPromise.resolve().then(() => {\n  console.log('p1');\n  process.nextTick(() => console.log('tick-from-p'));\n});\nconsole.log('sync');\n```",
+    "options": [
+      {
+        "id": "A",
+        "text": "p1"
+      },
+      {
+        "id": "B",
+        "text": "sync"
+      },
+      {
+        "id": "C",
+        "text": "tick-from-p"
+      },
+      {
+        "id": "D",
+        "text": "tick1"
+      },
+      {
+        "id": "E",
+        "text": "p-from-tick"
+      },
+      {
+        "id": "F",
+        "text": "tick2"
+      }
+    ],
+    "answerOrder": [
+      "B",
+      "D",
+      "F",
+      "A",
+      "E",
+      "C"
+    ],
+    "explanation": "Node drains the whole nextTick queue first, including ticks added while draining, so `tick1` then `tick2`. Then it drains the microtask queue: `p1` (queued first) and `p-from-tick`. A nextTick queued from a promise callback waits until the microtask queue is empty, so `tick-from-p` comes last. Node repeats ticks-then-microtasks until both queues are empty. Verified on Node 24.",
+    "reference": "Node.js docs: process"
+  },
+  {
+    "id": "NJS-EVL-021",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 3,
+    "type": "order",
+    "stem": "You run this CommonJS script. Put the six lines in the order they are logged.\n\n```js\nasync function f() {\n  console.log('f start');\n  await null;\n  console.log('f after await');\n  process.nextTick(() => console.log('tick from f'));\n  await null;\n  console.log('f end');\n}\nf();\nprocess.nextTick(() => console.log('main tick'));\nconsole.log('sync');\n```",
+    "options": [
+      {
+        "id": "A",
+        "text": "f after await"
+      },
+      {
+        "id": "B",
+        "text": "f start"
+      },
+      {
+        "id": "C",
+        "text": "tick from f"
+      },
+      {
+        "id": "D",
+        "text": "sync"
+      },
+      {
+        "id": "E",
+        "text": "f end"
+      },
+      {
+        "id": "F",
+        "text": "main tick"
+      }
+    ],
+    "answerOrder": [
+      "B",
+      "D",
+      "F",
+      "A",
+      "E",
+      "C"
+    ],
+    "explanation": "`f` runs synchronously until its first `await`. After the script, the nextTick queue runs `main tick`. Then microtasks run: `f` resumes and logs `f after await`, schedules a tick, and awaits again. The second continuation is another microtask, so it runs before Node returns to the nextTick queue: `f end` comes before `tick from f`. Verified on Node 24.",
+    "reference": "Node.js docs: process"
+  },
+  {
+    "id": "NJS-EVL-022",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "What happens when you run this CommonJS script?\n\n```js\nsetTimeout(() => console.log('fired'), 2 ** 31);\nsetTimeout(() => console.log('second'), 50);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Only `second` is logged, and the process then waits about 24.8 days",
+        "why": "Node can't store a delay that large, so it doesn't wait."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A TimeoutOverflowWarning, then `fired` at once, then `second`",
+        "why": "Delays above 2147483647 ms are replaced with 1 ms, with a warning."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A RangeError is thrown when the first timer is created",
+        "why": "Node warns but doesn't throw."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`second`, then `fired` after about 24.8 days",
+        "why": "The maximum is 2^31 − 1 ms; 2^31 overflows."
+      }
+    ],
+    "explanation": "Timer delays must fit in a signed 32-bit integer (at most 2,147,483,647 ms, about 24.8 days). Larger values trigger `TimeoutOverflowWarning: ... Timeout duration was set to 1`, and the timer fires after 1 ms. Verified on Node 24. To schedule something months away, chain shorter timers or use a job scheduler.",
+    "reference": "Node.js docs: Timers"
+  },
+  {
+    "id": "NJS-EVL-023",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "Two CommonJS scripts each register `setTimeout(report, 0)` and then start a recursive loop of one million steps. Script A recurses with `process.nextTick(step)`. Script B recurses with `setImmediate(step)`. When does `report` run in each?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "After all one million steps in both scripts",
+        "why": "Immediates scheduled during the check phase run in the next iteration, so timers get a turn."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A: after all million steps. B: after only a few steps",
+        "why": "nextTick keeps draining before the loop moves on; setImmediate yields to the loop each iteration."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A: after a few steps. B: after all million steps",
+        "why": "It is the other way round: nextTick is the one that starves the loop."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "After a few steps in both, because timers have the highest priority",
+        "why": "Timers only run when the loop reaches the timers phase, which nextTick prevents."
+      }
+    ],
+    "explanation": "Node drains the nextTick queue completely, including ticks added during draining, before the loop can advance. A recursive nextTick therefore starves timers and I/O until it stops. Measured on Node 24: the timer fired after all 1,000,000 ticks. Immediates added during the check phase wait for the next iteration, so timers and I/O run in between; the timer fired after about 3 immediates. Use `setImmediate` to split long work into chunks.",
+    "reference": "Node.js docs: The Node.js Event Loop"
+  },
+  {
+    "id": "NJS-EVL-024",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "A CommonJS script registers `setTimeout(report, 0)` and then runs a loop that schedules itself with `Promise.resolve().then(step)` until 100 ms have passed. When does `report` run?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "After the first few steps, because promises yield to timers",
+        "why": "Promise jobs are microtasks, which drain completely before the loop continues."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Only after the 100 ms promise loop finishes",
+        "why": "The microtask queue never empties, so the loop can't reach the timers phase."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "After exactly 1 ms, because timers preempt microtasks when due",
+        "why": "Nothing preempts JavaScript that is draining the microtask queue."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Never, because the microtask loop puts the timer to sleep permanently",
+        "why": "The timer runs once the microtask loop stops scheduling itself."
+      }
+    ],
+    "explanation": "Promise reactions are microtasks, and V8 keeps draining the microtask queue until it is empty, including jobs added along the way. A self-rescheduling `.then` loop therefore blocks the event loop just like synchronous code. Verified on Node 24: the timer ran after the loop had completed thousands of rounds. `await` in a loop does not yield to I/O unless something actually waits on I/O.",
+    "reference": "Node.js docs: The Node.js Event Loop"
+  },
+  {
+    "id": "NJS-EVL-025",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "What does this CommonJS script log?\n\n```js\nconst fs = require('fs');\nfs.readFile(__filename, () => {\n  setImmediate(() => {\n    console.log('i1');\n    setImmediate(() => console.log('i-nested'));\n    setTimeout(() => console.log('t-nested'), 0);\n  });\n  setImmediate(() => console.log('i2'));\n});\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`i1 i-nested i2 t-nested`",
+        "why": "An immediate added during the check phase is not run in that same phase."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`i1 i2 i-nested t-nested`, in that order every time",
+        "why": "The last two depend on whether 1 ms has passed when the next iteration starts."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`i1 i2`, then the last two in either order",
+        "why": "The nested immediate waits a whole iteration; the timer races it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`i1 i2 t-nested i-nested`, in that order every time",
+        "why": "Timers phase comes first, but the timer may not yet be due at that point."
+      }
+    ],
+    "explanation": "Both outer immediates are queued before the check phase starts, so `i1` and `i2` run back to back. `i-nested` was added during the check phase, so it waits for the next iteration's check phase. `t-nested` is a 1 ms timer: if 1 ms has passed when the next timers phase starts it runs first, otherwise `i-nested` wins. Measured on Node 24: both orders occurred across runs.",
+    "reference": "Node.js docs: The Node.js Event Loop"
+  },
+  {
+    "id": "NJS-EVL-026",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "A `setInterval(cb, 100)` callback busy-waits for 250 ms on its first run only. At roughly what times after start do the first four callbacks run?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "100, 200, 300, 400 ms, because intervals keep a fixed schedule",
+        "why": "A blocked thread can't run callbacks while it is busy."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "100, 350, 350, 350 ms: the missed runs fire together in a burst",
+        "why": "Node doesn't queue up missed interval runs."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "100, about 350, about 450, about 550 ms",
+        "why": "One overdue run fires as soon as the loop is free, then 100 ms spacing resumes."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "100, 450, 550, 650 ms: the next run waits a full interval after the slow one ends",
+        "why": "The next run was already overdue when the slow callback finished, so it fires at once."
+      }
+    ],
+    "explanation": "Node reschedules an interval from when its callback started. The first run starts at 100 ms and blocks until 350 ms, by which time the next run is overdue, so it fires immediately. After that, runs continue every 100 ms, around 450 and 550 ms. Missed runs are skipped, not stacked. Measured on Node 24: about 102, 352, 460 and 560 ms.",
+    "reference": "Node.js docs: Timers"
+  },
+  {
+    "id": "NJS-EVL-027",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 3,
+    "difficulty": 3,
+    "type": "multi",
+    "stem": "A Node.js API hashes passwords with async `crypto.pbkdf2` and resolves many hostnames through `http.get`. Under load, both logins and outbound calls become slow while CPU is only at 40% on a 16-core server. Which three changes address the cause? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Start the process with a larger `UV_THREADPOOL_SIZE`, such as 16",
+        "why": "Both workloads queue on the 4-thread pool, and there are idle cores to use."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Give the HTTP agent a `lookup` function that caches results or uses `dns.resolve`",
+        "why": "That takes repeated `getaddrinfo` calls off the shared pool."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Move hashing to a dedicated `worker_threads` pool sized for it",
+        "why": "Hashing then stops competing with DNS and file I/O for pool threads."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Switch `fs.readFile` calls to `fs.promises.readFile`",
+        "why": "The promise API still runs on the same thread pool."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Wrap each `pbkdf2` call in `setImmediate` so it runs later",
+        "why": "Deferring the start doesn't add pool capacity."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "Raise `--max-old-space-size` to give the heap more room",
+        "why": "This is queueing for pool threads, not memory pressure."
+      }
+    ],
+    "explanation": "pbkdf2 and `dns.lookup` (which `http.get` uses by default) share libuv's 4-thread pool, so they queue behind each other while most cores sit idle. Fixes add capacity (a bigger pool), take work off the pool (cached or c-ares DNS resolution), or isolate CPU-heavy work in its own worker pool. The promise-based fs API and `setImmediate` change nothing about pool usage.",
+    "reference": "Node.js docs: Don't Block the Event Loop"
+  },
+  {
+    "id": "NJS-EVL-028",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "What does this CommonJS script log?\n\n```js\nprocess.on('exit', () => console.log('exit'));\nprocess.on('beforeExit', () => {\n  if (!globalThis.revived) {\n    globalThis.revived = true;\n    console.log('beforeExit');\n    setTimeout(() => console.log('revived'), 0);\n  }\n});\nconsole.log('main');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`main`, `exit`",
+        "why": "`beforeExit` fires first, when the loop runs out of work."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`main`, `beforeExit`, `exit`, `revived`",
+        "why": "Once `exit` fires the loop is finished, and no timers can run after it."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`main`, `beforeExit`, `revived`, `exit`",
+        "why": "The timer scheduled in `beforeExit` keeps the process alive one more round."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`main`, `beforeExit`, `revived`, `beforeExit`, `exit`",
+        "why": "`beforeExit` does fire again, but the flag stops it logging a second time."
+      }
+    ],
+    "explanation": "`beforeExit` is emitted when the loop has no more work, and a listener may schedule new async work to keep going. Here the timer revives the process and logs `revived`. The loop empties again, `beforeExit` fires a second time (the flag suppresses output), and then `exit` fires, after which no async work can run. Verified on Node 24.",
+    "reference": "Node.js docs: process"
+  },
+  {
+    "id": "NJS-EVL-029",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "You run this ES module with Node 24. What happens?\n\n```js\nconsole.log('start');\nawait new Promise(() => {});\nconsole.log('never');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The process hangs forever waiting for the promise",
+        "why": "A promise that never settles is not a handle, so nothing keeps the loop alive."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It warns about an unsettled top-level await and exits with code 13",
+        "why": "Node detects that the module can never finish evaluating."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It logs `start` and exits with code 0",
+        "why": "Node treats an unsettled top-level await as a failure, not a clean exit."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A SyntaxError, because top-level await needs an async function around it",
+        "why": "Top-level await is valid in ES modules."
+      }
+    ],
+    "explanation": "The loop empties while the module is still suspended at its top-level `await`. Node prints `Warning: Detected unsettled top-level await at ...` and exits with code 13. Verified on Node 24. It usually means something forgot to resolve a promise, or the awaited work was never actually scheduled.",
+    "reference": "Node.js docs: Process exit codes"
+  },
+  {
+    "id": "NJS-EVL-030",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "What does this CommonJS script log?\n\n```js\nconst { AsyncLocalStorage } = require('async_hooks');\nconst als = new AsyncLocalStorage();\nals.run({ id: 1 }, () => {\n  setTimeout(() => console.log('timeout', als.getStore()?.id), 0);\n  setImmediate(() => console.log('immediate', als.getStore()?.id));\n});\nsetTimeout(() => console.log('outside', als.getStore()), 0);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`timeout undefined`, `immediate undefined`, `outside undefined`",
+        "why": "The store is captured when each callback is scheduled inside `run`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`timeout 1`, `immediate 1`, `outside undefined`",
+        "why": "Callbacks scheduled inside `run` keep its store; the outer one has none."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`timeout 1`, `immediate 1` and `outside 1`",
+        "why": "`run` only sets the store for code inside its callback."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Only `timeout 1`, because immediates don't carry async context",
+        "why": "Immediates propagate context just like timers."
+      }
+    ],
+    "explanation": "AsyncLocalStorage records the active store when an async resource such as a timer or immediate is created, and restores it when the callback runs. Both callbacks created inside `run` see `{ id: 1 }`. The outer timer was created outside, so it sees `undefined`. Logging order between the main-module timer and immediate isn't guaranteed, but the stored values are. Verified on Node 24.",
+    "reference": "Node.js docs: AsyncLocalStorage"
+  },
+  {
+    "id": "NJS-EVL-031",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 3,
+    "type": "truefalse",
+    "stem": "Since Node 11, if one timer callback schedules a `process.nextTick` and a promise callback, both run before the next timer callback that is due in the same timers phase.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: Node drains nextTick and microtasks after every individual timer callback."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "Before Node 11 that was true only between phases; now it happens between each callback."
+      }
+    ],
+    "explanation": "Node 11 aligned with browsers: microtasks (and nextTick) are drained after each `setTimeout`, `setInterval` and `setImmediate` callback, not only once per phase. So with two zero-delay timers, where the first schedules a tick and a promise, the output is `t1 n1 p1 t2`. Verified on Node 24.",
+    "reference": "Node.js docs: The Node.js Event Loop"
+  },
+  {
+    "id": "NJS-EVL-032",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 3,
+    "type": "fill",
+    "stem": "A histogram from `perf_hooks.monitorEventLoopDelay()` reports `h.max === 205000000`. In which unit are its values? Type the unit name.",
+    "options": [],
+    "accepted": [
+      "nanoseconds",
+      "nanosecond",
+      "ns"
+    ],
+    "explanation": "The histogram's `min`, `max`, `mean`, `stddev` and `percentile()` values are in nanoseconds, so 205,000,000 ns is 205 ms. Divide by 1e6 for milliseconds before putting it on a dashboard. A max of over 200 ms means at least one callback waited that long because something blocked the loop.",
+    "reference": "Node.js docs: perf_hooks.monitorEventLoopDelay"
+  },
+  {
+    "id": "NJS-EVL-033",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 3,
+    "type": "match",
+    "stem": "Match each production symptom with its most likely event-loop cause.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Synchronous CPU work on the main thread",
+        "why": "blocking"
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A saturated libuv thread pool",
+        "why": "pool"
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A recursive `process.nextTick` or promise loop",
+        "why": "starvation"
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A handle that was never closed or unref'd",
+        "why": "alive"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Every endpoint, even `/health`, stalls for 300 ms whenever someone uploads a large JSON body",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "File reads and DNS lookups slow down during password-hashing bursts, while sockets stay fast",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "A queue consumer's timers never fire, and loop delay grows while CPU is pinned",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "A CLI tool prints its result but never exits until you press Ctrl+C",
+        "answer": "D"
+      }
+    ],
+    "explanation": "`JSON.parse` of a huge body blocks the main thread, so even health checks wait. Contention only on fs and DNS points at the shared pool. Timers that never fire while CPU is busy suggest microtask or nextTick starvation. A process that won't exit has a referenced handle left open, such as an interval, a socket or a database pool.",
+    "reference": "Node.js docs: Don't Block the Event Loop"
+  },
+  {
+    "id": "NJS-EVL-034",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "What does this CommonJS script log on Node 24?\n\n```js\nprocess.on('exit', (code) => {\n  setTimeout(() => console.log('timer in exit'), 0);\n  process.nextTick(() => console.log('tick in exit'));\n  Promise.resolve().then(() => console.log('micro in exit'));\n  console.log('exit', code);\n});\nconsole.log('main');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`main`, `exit 0`, and nothing else, because no deferred work runs during exit",
+        "why": "The promise callback does run: V8 drains microtasks when the listener returns."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`main`, `exit 0`, `micro in exit`",
+        "why": "The timer and nextTick never run, but V8 still drains microtasks."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`main`, `exit 0`, `tick in exit`, `micro in exit`",
+        "why": "Node no longer processes the nextTick queue once it is exiting."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`main`, `exit 0`, `tick in exit`, `micro in exit`, `timer in exit`",
+        "why": "The loop has stopped, so timers can never fire."
+      }
+    ],
+    "explanation": "Once `exit` is emitted the event loop is done, so the timer never fires and Node no longer processes the nextTick queue. But the listener is a JavaScript call, and V8 drains the microtask queue when it returns, so the promise callback still runs. Verified on Node 24. Don't rely on this: anything async in an `exit` handler, such as flushing logs, should be done in `beforeExit` or in a shutdown routine.",
+    "reference": "Node.js docs: process"
+  },
+  {
+    "id": "NJS-EVL-035",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "You run this ES module with `node main.mjs`. What is logged?\n\n```js\nawait null;\nprocess.nextTick(() => console.log('tick'));\nPromise.resolve().then(() => console.log('promise'));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`tick` then `promise`, as in a CommonJS script",
+        "why": "This code runs in an ES module, as a microtask continuation."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`promise` then `tick`",
+        "why": "The code after `await` is itself a microtask, so the queue drains before nextTick."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Only `promise`, because nextTick is unavailable in ES modules",
+        "why": "nextTick works in ESM; only its timing relative to microtasks changes."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Either order, because module evaluation timing varies",
+        "why": "The order is deterministic."
+      }
+    ],
+    "explanation": "After `await null` the rest of the module body runs as a promise continuation, inside the microtask checkpoint. The new promise reaction joins the microtask queue being drained, so it runs immediately afterwards. Node only processes the nextTick queue once the microtask queue is empty. Verified on Node 24: `promise tick`. This is a common surprise when moving code from CommonJS to ESM.",
+    "reference": "Node.js docs: process"
+  },
+  {
+    "id": "NJS-EVL-036",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "What does this CommonJS script log?\n\n```js\nconst fs = require('fs');\nfs.readFile(__filename, () => console.log('read'));\nsetImmediate(() => console.log('immediate'));\nprocess.nextTick(() => console.log('tick'));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`tick`, `read`, `immediate`",
+        "why": "`readFile` needs several pool round trips, so it isn't done by the first poll phase."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`tick`, `immediate`, `read`",
+        "why": "nextTick runs first; the immediate runs in the first check phase, long before readFile completes."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`read`, `tick`, `immediate`",
+        "why": "No I/O callback can run before the script's nextTick queue is drained."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`immediate`, `tick`, `read`",
+        "why": "nextTick always beats immediates scheduled from the main script."
+      }
+    ],
+    "explanation": "`fs.readFile` is several separate pool operations (open, fstat, read, close), each with its own round trip to the main thread. The first check phase arrives long before the last one finishes. So the order is `tick` (after the script), `immediate` (first check phase), then `read`. Verified on Node 24.",
+    "reference": "Node.js docs: fs.readFile"
+  },
+  {
+    "id": "NJS-EVL-037",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 3,
+    "difficulty": 4,
+    "type": "multi",
+    "stem": "Which three statements about the poll phase of the Node.js event loop are true? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "When no immediates are pending, it blocks waiting for I/O, up to the time of the nearest timer",
+        "why": "libuv computes the poll timeout from the next expiring timer."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "When immediates are pending, it does not block; it polls and moves on to the check phase",
+        "why": "Pending immediates set the poll timeout to zero."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "It runs callbacks for completed I/O, such as finished file reads and incoming socket data",
+        "why": "Poll is where most I/O callbacks are delivered."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It runs every expired timer before checking for I/O",
+        "why": "Expired timers run in the timers phase at the start of the iteration."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "It always waits at least 1 ms so that the CPU can idle",
+        "why": "There is no minimum; the timeout is zero whenever work is pending."
+      },
+      {
+        "id": "F",
+        "correct": false,
+        "text": "It drains the nextTick queue once per iteration and only there",
+        "why": "nextTick is drained after every operation in every phase."
+      }
+    ],
+    "explanation": "The poll phase calculates how long to block: indefinitely if there is nothing else to do, until the nearest timer if timers are pending, or zero if immediates are queued. It then runs I/O callbacks as events arrive. This is why an idle Node process uses no CPU, and why `setImmediate` inside an I/O callback runs right after poll.",
+    "reference": "Node.js docs: The Node.js Event Loop"
+  },
+  {
+    "id": "NJS-EVL-038",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "An Express login route calls `crypto.scryptSync()` (about 150 ms per call). During login bursts the p99 latency of every route, including `/health`, rises by hundreds of milliseconds. What is the best fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Raise `UV_THREADPOOL_SIZE` so that more scrypt calls run in parallel",
+        "why": "`scryptSync` doesn't use the pool; it runs on the main thread."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Switch to async `crypto.scrypt` or a worker pool",
+        "why": "The main thread then keeps serving other routes while hashes run elsewhere."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Wrap the call in `setImmediate` so that it runs after other requests",
+        "why": "It still blocks the main thread for 150 ms when it runs."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Put `await` in front of `crypto.scryptSync()`",
+        "why": "`await` on a synchronous result does not move the work anywhere."
+      }
+    ],
+    "explanation": "Each `scryptSync` call blocks the only JavaScript thread, so concurrent requests, health checks included, wait behind it. Verified on Node 24 with a test server: `/health` waited behind a running `/login`. Async `crypto.scrypt` runs on the thread pool. For heavy hashing traffic, a dedicated worker pool such as piscina also stops it competing with fs and DNS.",
+    "reference": "Node.js docs: Don't Block the Event Loop"
+  },
+  {
+    "id": "NJS-EVL-039",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "This CommonJS script sets the thread-pool size from inside the code. On Node 24, what happens to the 8 hashes?\n\n```js\nprocess.env.UV_THREADPOOL_SIZE = '8'; // first line of the entry file\nconst crypto = require('crypto');\nfor (let i = 0; i < 8; i++) {\n  crypto.pbkdf2('pw', 'salt', 300000, 64, 'sha512', done);\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The setting is ignored; they run 4 at a time, because the size is fixed at process start",
+        "why": "The pool is created lazily on first use, and nothing used it yet."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "All 8 run at once, because the pool is created on first use and reads the variable then",
+        "why": "Setting it before anything uses the pool works."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A warning is printed and the size is capped at the CPU count",
+        "why": "Node doesn't cap the pool to the CPU count."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It throws, because `process.env` is read-only at runtime",
+        "why": "`process.env` values can be assigned at runtime."
+      }
+    ],
+    "explanation": "libuv creates the thread pool the first time something needs it, and reads `UV_THREADPOOL_SIZE` at that moment. If the assignment runs before any fs, DNS, crypto or zlib work, it takes effect. Measured on Node 24 (Windows, 8 cores): all 8 hashes finished together. If anything used the pool first, such as an import that touches the disk, it is too late. Setting it in the environment before starting the process is the reliable option.",
+    "reference": "Node.js docs: UV_THREADPOOL_SIZE"
+  },
+  {
+    "id": "NJS-EVL-040",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "What does this CommonJS script log?\n\n```js\nconst s = Date.now();\nsetTimeout(() => console.log('A'), 0);\nsetTimeout(() => console.log('B'), 1);\nsetTimeout(() => console.log('C'), 0);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`A C B`, because 0 ms timers run before 1 ms timers",
+        "why": "Node stores both 0 and 1 as 1 ms, so all three share one delay."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`A B C`",
+        "why": "All three are 1 ms timers, so they fire in the order they were created."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`B A C`, because explicit delays take priority",
+        "why": "There is no priority between timers with the same expiry."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The order varies from run to run",
+        "why": "Timers with the same delay, created in sequence, have a stable order."
+      }
+    ],
+    "explanation": "Node converts a delay of 0 to 1, so A, B and C all have a 1 ms delay. Timers with the same delay live in one list and fire in creation order. Verified on Node 24: `A B C` every run. Code that relies on `0` running before `1` works in some browsers but not in Node.",
+    "reference": "Node.js docs: Timers"
+  },
+  {
+    "id": "NJS-EVL-041",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "A request-logging module stores the request ID with AsyncLocalStorage. Listeners for a shared EventEmitter are registered while handling request 1, and the event is emitted later while handling request 2. What do the listeners see?\n\n```js\nals.run(\"req-1\", () => {\n  bus.on('done', () => log(als.getStore()));\n  bus.on('done', AsyncResource.bind(() => log(als.getStore())));\n});\nals.run(\"req-2\", () => setTimeout(() => bus.emit('done'), 0));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Both see `req-1`, because listeners remember the context they were added in",
+        "why": "A plain listener is just a function, called synchronously by `emit`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Both see `req-2`, because `emit` always runs in the caller's context",
+        "why": "`AsyncResource.bind` captures the context at bind time."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The plain listener sees `req-2`; the bound one sees `req-1`",
+        "why": "`emit` runs listeners in the emitter's context; `bind` restores the captured one."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Both see `undefined`, because EventEmitter breaks async context",
+        "why": "Context flows normally into synchronous calls."
+      }
+    ],
+    "explanation": "AsyncLocalStorage follows async resources, but `emit` is a synchronous call, so a plain listener runs in whatever context is active when `emit` is called (`req-2`). `AsyncResource.bind` (or `EventEmitterAsyncResource`) captures the context at bind time and restores it on each call. Verified on Node 24. This is the classic way logs get the wrong request ID when a connection pool or shared emitter is involved.",
+    "reference": "Node.js docs: AsyncLocalStorage (AsyncResource.bind)"
+  },
+  {
+    "id": "NJS-EVL-042",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 2,
+    "difficulty": 4,
+    "type": "multi",
+    "stem": "Inside an `fs.readFile` callback, code calls `setTimeout(a, 0)`, `setImmediate(b)` and `process.nextTick(c)`, in that order. Which two statements are guaranteed? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`c` runs before both `a` and `b`",
+        "why": "nextTick drains as soon as the I/O callback returns."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`b` runs before `a`",
+        "why": "Check comes right after poll; the timer has to wait for the next iteration."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`a` runs before `b`, since timers were registered first",
+        "why": "Registration order between different queues doesn't matter."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The order of `a` and `b` changes from run to run",
+        "why": "That nondeterminism only applies in the main module."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`a` and `b` run in the same phase, one after the other",
+        "why": "They run in different phases: check, then timers in the next iteration."
+      }
+    ],
+    "explanation": "The readFile callback runs in the poll phase. When it returns, the nextTick queue drains (`c`). The loop then enters the check phase (`b`) and only reaches the timers phase (`a`) in the next iteration. Verified on Node 24: `n i t` in every run.",
+    "reference": "Node.js docs: The Node.js Event Loop"
+  },
+  {
+    "id": "NJS-EVL-043",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 2,
+    "difficulty": 4,
+    "type": "multi",
+    "stem": "A service's event-loop delay p99 jumps to 900 ms several times an hour, while average CPU stays under 30%. Which two investigations are most likely to find the cause? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Record a CPU profile (`--cpu-prof` or the inspector) during a spike and look for long synchronous frames",
+        "why": "A blocked loop means one callback ran for a long time, which a profile shows."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Log the size and route of incoming payloads that hit `JSON.parse` or regex validation",
+        "why": "Rare huge bodies or catastrophic regex backtracking cause rare long blocks."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Increase the number of instances behind the load balancer",
+        "why": "That spreads load, but each instance still blocks for 900 ms on the same input."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Raise `UV_THREADPOOL_SIZE` from 4 to 64",
+        "why": "Pool size doesn't affect how long the main thread is blocked."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Switch every `setTimeout` to `setImmediate`",
+        "why": "Changing timer APIs doesn't remove whatever is blocking the thread."
+      }
+    ],
+    "explanation": "Low average CPU with rare huge loop delays points at occasional long synchronous work: parsing a giant JSON body, a pathological regex, sorting a huge array, or a sync crypto or zlib call. A CPU profile captured during a spike shows the frame, and correlating spikes with payload sizes and routes finds the trigger. Fixes include body-size limits, streaming parsers, safe regexes and moving work to worker threads.",
+    "reference": "Node.js docs: Don't Block the Event Loop"
+  },
+  {
+    "id": "NJS-EVL-044",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "A CommonJS CLI starts a `worker_threads` Worker that sets a 3-second timer, and the main thread then has nothing left to do. Which change lets the process exit as soon as the main thread is done, without waiting for the worker?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing, because a Worker never keeps the parent process alive",
+        "why": "A Worker is a referenced handle by default; the parent waits for it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Call `worker.unref()` after creating it",
+        "why": "An unref'd Worker no longer counts as work that keeps the loop alive."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Call `timer.unref()` on the main thread's copy of the worker's timer",
+        "why": "The timer lives in the worker's own loop; the main thread has no handle to it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Start the worker with `{ resourceLimits: { maxYoungGenerationSizeMb: 0 } }`",
+        "why": "Resource limits cap memory; they don't change whether the process waits."
+      }
+    ],
+    "explanation": "A Worker, like a server or a timer, is a handle that keeps the parent's event loop alive until the worker exits. Verified on Node 24: without `unref()` the process waited about 300 ms for a worker's 300 ms timer, and with `worker.unref()` it exited at once, ending the worker too. Use `unref()` for background helpers whose results don't matter at shutdown.",
+    "reference": "Node.js docs: Worker threads (worker.unref)"
+  },
+  {
+    "id": "NJS-EVL-045",
+    "domain": 1,
+    "skill": "event-loop",
+    "select": 1,
+    "difficulty": 4,
+    "type": "truefalse",
+    "stem": "Calling `server.unref()` inside the `listen` callback of a `net.Server` with no connections lets the process exit, even though the server is still listening.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "Correct: an unref'd server no longer keeps the event loop alive."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "It does exit: `unref()` works on servers just as on timers."
+      }
+    ],
+    "explanation": "`unref()` exists on servers, sockets, timers, workers and child processes. With the server unref'd and nothing else referenced, the loop finds no work and the process exits right after logging from the `listen` callback. Verified on Node 24. This is useful for test helpers or optional metrics endpoints that shouldn't hold a process open.",
+    "reference": "Node.js docs: net (server.unref)"
+  }
+]

@@ -1,0 +1,1648 @@
+[
+  {
+    "id": "NJS-STR-001",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "A service builds response bodies with `Buffer.allocUnsafe(size)` and then writes fewer than `size` bytes into each buffer before sending it. What is the risk?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Unwritten bytes may hold old memory and leak other data",
+        "why": "`allocUnsafe` skips zero-filling, so leftover bytes from earlier allocations can be sent to the client."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The buffer is garbage-collected before the response is sent",
+        "why": "A buffer stays alive while anything references it; allocation mode does not change its lifetime."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The call throws once `size` is larger than `Buffer.poolSize`",
+        "why": "Large sizes are simply allocated outside the pool; nothing throws."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Each buffer is shared with every other `allocUnsafe` caller",
+        "why": "Small buffers can share a pooled slab, but each gets its own byte range."
+      }
+    ],
+    "explanation": "`Buffer.alloc(size)` returns zero-filled memory. `Buffer.allocUnsafe(size)` is faster because it skips the fill, so the contents are whatever was there before, possibly secrets from other requests. Use `allocUnsafe` only when every byte is overwritten before the buffer is read, or prefer `Buffer.alloc`.",
+    "reference": "Node.js docs: Buffer.allocUnsafe()"
+  },
+  {
+    "id": "NJS-STR-002",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nconsole.log('héllo'.length, Buffer.byteLength('héllo'));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`5 5`",
+        "why": "That would hold if every character were one byte, but `é` needs two in UTF-8."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`5 6`",
+        "why": "`.length` counts UTF-16 code units (5); UTF-8 encodes `é` as 2 bytes, giving 6."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`6 6`",
+        "why": "The string still has 5 UTF-16 code units, so `.length` is 5."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`5 10`",
+        "why": "Node defaults to UTF-8, not UTF-16, when measuring a string as bytes."
+      }
+    ],
+    "explanation": "String length and byte length differ for anything outside ASCII. `Buffer.byteLength` measures the encoded size (UTF-8 by default), which is what matters for a `Content-Length` header or a size limit. Setting `Content-Length` to `str.length` truncates responses that contain non-ASCII text.",
+    "reference": "Node.js docs: Buffer.byteLength()"
+  },
+  {
+    "id": "NJS-STR-003",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 1,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "`buf.subarray(start, end)` returns an independent copy, so changing the result never affects `buf`.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "subarray (like the deprecated slice) returns a view over the same memory."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: writes through the view show up in the original buffer."
+      }
+    ],
+    "explanation": "`buf.subarray()` and the deprecated `buf.slice()` both create a view that shares memory with `buf`. To get an independent copy, use `Buffer.from(view)` or `Buffer.copyBytesFrom()`. Note that this differs from `TypedArray.prototype.slice`, which copies.",
+    "reference": "Node.js docs: buf.subarray()"
+  },
+  {
+    "id": "NJS-STR-004",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 1,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each object with the kind of stream it is.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Readable"
+      },
+      {
+        "id": "B",
+        "text": "Writable"
+      },
+      {
+        "id": "C",
+        "text": "Duplex"
+      },
+      {
+        "id": "D",
+        "text": "Transform"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`fs.createReadStream('log.txt')`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "The `res` object in an `http` request handler",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "A `net.Socket` from `net.connect()`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`zlib.createGzip()`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "A Readable produces data, a Writable consumes it, a Duplex has independent read and write sides (a TCP socket), and a Transform is a Duplex whose output is computed from its input (gzip). The HTTP `req` is a Readable and `res` is a Writable.",
+    "reference": "Node.js docs: Stream - Types of streams"
+  },
+  {
+    "id": "NJS-STR-005",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "In an `http.createServer((req, res) => { ... })` handler, how should the server read a large uploaded request body?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Read `req.body`, which Node fills with the parsed body before calling the handler",
+        "why": "Plain Node has no `req.body`; frameworks add it with body-parsing middleware."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Consume `req` as a Readable stream, e.g. with `for await` or `pipeline`",
+        "why": "`req` is an `IncomingMessage`, a Readable, so the body arrives in chunks."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Call `req.read()` once, which waits and returns the entire body as one Buffer",
+        "why": "`read()` returns whatever is buffered right now, or null; it never waits for the end."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Use `fs.readFileSync(req)`, since the request is backed by a temporary file on disk",
+        "why": "Request bodies come from the socket; there is no temporary file."
+      }
+    ],
+    "explanation": "An incoming request is a Readable stream of body chunks. Streaming it (for example `pipeline(req, fs.createWriteStream(path))`) keeps memory flat; collecting it with a size limit is fine for small JSON bodies. Frameworks such as Express only provide `req.body` after a body-parser runs.",
+    "reference": "Node.js docs: http.IncomingMessage"
+  },
+  {
+    "id": "NJS-STR-006",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 1,
+    "type": "fill",
+    "select": 1,
+    "stem": "How many bytes is `Buffer.from('👋')`? Type a number.",
+    "options": [],
+    "accepted": [
+      "4",
+      "4 bytes"
+    ],
+    "explanation": "The waving-hand emoji is code point U+1F44B, which UTF-8 encodes in 4 bytes. In JavaScript the string has `.length` 2, because it is stored as a UTF-16 surrogate pair. Neither number is the visible character count, which is 1.",
+    "reference": "Node.js docs: Buffers and character encodings"
+  },
+  {
+    "id": "NJS-STR-007",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 1,
+    "type": "single",
+    "select": 1,
+    "stem": "An endpoint serves 2 GB log files with `res.end(await fs.promises.readFile(path))`. Under load the process runs out of memory. What is the standard fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Raise `--max-old-space-size` so that more files fit in the heap at once",
+        "why": "Buffers live outside the JS heap, and holding whole files per request still scales with load."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Stream the file: `pipeline(fs.createReadStream(path), res, cb)`",
+        "why": "Only a small chunk per request sits in memory, and backpressure matches the client's speed."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Switch to `fs.readFileSync`, which frees the memory as soon as it returns",
+        "why": "The synchronous call loads the same 2 GB and also blocks the event loop."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Convert the file to a string first, since strings use less memory than Buffers",
+        "why": "A UTF-16 string is usually larger than the bytes, and it is still the whole file."
+      }
+    ],
+    "explanation": "Reading a whole file allocates its full size for every concurrent request. Streaming reads 64 KiB at a time and pauses when the socket cannot take more, so memory per request stays roughly constant regardless of file size. `pipeline` also cleans up the file stream if the client disconnects.",
+    "reference": "Node.js docs: stream.pipeline()"
+  },
+  {
+    "id": "NJS-STR-008",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 1,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two events does a Readable stream emit while you consume all of its data? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`'data'`",
+        "why": "Emitted for each chunk in flowing mode."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`'end'`",
+        "why": "Emitted once after the last chunk has been consumed."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`'drain'`",
+        "why": "A Writable event: its buffer has emptied and writing can resume."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`'finish'`",
+        "why": "A Writable event: `end()` was called and all data was flushed."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`'pipe'`",
+        "why": "Emitted on a Writable when a Readable is piped into it."
+      }
+    ],
+    "explanation": "Readable side: `data`, `readable`, `end`, `close`, `error`. Writable side: `drain`, `finish`, `pipe`, `unpipe`, `close`, `error`. Mixing them up (for example waiting for `finish` on a Readable) leaves code waiting forever.",
+    "reference": "Node.js docs: Readable streams events"
+  },
+  {
+    "id": "NJS-STR-009",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nconst b = Buffer.from('abc');\nconst s = b.slice(0, 1);\ns[0] = 0x78; // 'x'\nconsole.log(b.toString());\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`abc`, because `slice` copies the bytes like Array and TypedArray slice",
+        "why": "Buffer#slice is the exception: it shares memory, which is why it was deprecated."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`xbc`, because the slice is a view over the same memory as `b`",
+        "why": "Writing to the view changes the underlying bytes of `b`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`x`, because assigning through the slice truncates the original buffer",
+        "why": "A view cannot change the length of the buffer it points into."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A TypeError, because Buffer slices are read-only views",
+        "why": "Buffer views are writable."
+      }
+    ],
+    "explanation": "`Buffer.prototype.slice` predates and contradicts `TypedArray.prototype.slice`: it returns a view, not a copy. It is deprecated in favour of `subarray`, which has the same sharing behaviour under a name that makes it obvious. Use `Buffer.from(b.subarray(0, 1))` for a copy.",
+    "reference": "Node.js docs: buf.slice() (deprecated)"
+  },
+  {
+    "id": "NJS-STR-010",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A loop calls `writable.write(chunk)` and the call returns `false`. What does that mean and what should the producer do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The chunk was rejected, so write it again until the call returns `true`",
+        "why": "The chunk was accepted and buffered; writing it again duplicates data."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The buffer reached `highWaterMark`; pause until `'drain'`",
+        "why": "The chunk is queued, but the stream is asking the producer to pause."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The destination has closed, so the stream should be destroyed now",
+        "why": "A closed stream reports errors; `false` is only a backpressure signal."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Nothing: the return value only matters when the stream is in object mode",
+        "why": "Backpressure works the same in byte and object mode."
+      }
+    ],
+    "explanation": "`write()` always queues the chunk. Its return value says whether the buffered amount is still under `highWaterMark`. When it is `false`, wait for the `drain` event (for example `await once(stream, 'drain')`) before writing more; otherwise data piles up in memory.",
+    "reference": "Node.js docs: writable.write()"
+  },
+  {
+    "id": "NJS-STR-011",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A server copies a file to the client with `fs.createReadStream(path).pipe(res)`. When clients disconnect halfway, the process slowly runs out of file descriptors. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`pipe` reopens the file for every chunk it sends and never closes the extras",
+        "why": "A read stream opens the file once."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`pipe` never destroys the source on early close, so the file stays open",
+        "why": "The read stream is just unpiped and paused, keeping its descriptor."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The HTTP response keeps a duplicate of the descriptor until garbage collection runs",
+        "why": "The response holds a socket, not the file descriptor."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Read streams only close once a `'drain'` event has fired on the destination",
+        "why": "Read streams close after `end` or `destroy()`; drain is unrelated."
+      }
+    ],
+    "explanation": "With `.pipe()`, if the destination errors or closes early, the source is unpiped but not destroyed, so its file descriptor leaks. `stream.pipeline()` destroys every stream in the chain when any of them fails or closes prematurely, and reports the error once. Prefer `pipeline` in production code.",
+    "reference": "Node.js docs: stream.pipeline()"
+  },
+  {
+    "id": "NJS-STR-012",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 2,
+    "type": "order",
+    "select": 1,
+    "stem": "A Readable is piped into a Writable and both run to completion. Put these events in the order they fire.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Readable emits `'data'` for the last chunk"
+      },
+      {
+        "id": "B",
+        "text": "Readable emits `'end'`"
+      },
+      {
+        "id": "C",
+        "text": "Writable emits `'finish'`"
+      },
+      {
+        "id": "D",
+        "text": "Writable emits `'close'`"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "explanation": "After the last chunk the source emits `end`, and `pipe` responds by calling `end()` on the destination. Once the destination has flushed everything it emits `finish`, and with `autoDestroy` (the default) it is then destroyed and emits `close`.",
+    "reference": "Node.js docs: Event: 'finish' and Event: 'close'"
+  },
+  {
+    "id": "NJS-STR-013",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 2,
+    "type": "fill",
+    "select": 1,
+    "stem": "What is the default `highWaterMark`, in bytes, of a stream from `fs.createReadStream(path)`? Type a number.",
+    "options": [],
+    "accepted": [
+      "65536",
+      "65,536",
+      "64kb",
+      "64 kb",
+      "64kib",
+      "64 kib"
+    ],
+    "explanation": "File read streams read 64 KiB (65,536 bytes) at a time by default, larger than the 16 KiB default of a generic byte stream in Node 24. Tune it with the `highWaterMark` option: bigger chunks mean fewer syscalls, smaller ones mean lower memory per stream.",
+    "reference": "Node.js docs: fs.createReadStream()"
+  },
+  {
+    "id": "NJS-STR-014",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A Readable is created with `{ objectMode: true }` and no explicit `highWaterMark`. What does its default `highWaterMark` of 16 limit?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The stream buffers at most 16 bytes before it asks the source to pause",
+        "why": "In object mode the count is in objects, not bytes."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The stream buffers about 16 objects before it stops calling `_read()`",
+        "why": "Each pushed value counts as one, whatever its size."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The stream buffers up to 16 KiB of data, the same as in byte mode",
+        "why": "16 KiB is the byte-mode default, not the object-mode one."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Each object pushed into the stream may be at most 16 KiB in size",
+        "why": "There is no per-object size limit in object mode."
+      }
+    ],
+    "explanation": "In object mode the buffer is measured in items, so 16 large objects can still use a lot of memory. When objects are big, lower the `highWaterMark`; when they are tiny, raising it reduces overhead.",
+    "reference": "Node.js docs: Buffering (highWaterMark)"
+  },
+  {
+    "id": "NJS-STR-015",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 2,
+    "type": "multi",
+    "select": 3,
+    "stem": "A Readable starts in paused mode. Which three actions switch it into flowing mode? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Attaching a `'data'` listener",
+        "why": "Adding a data handler starts the flow automatically."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Calling `readable.pipe(dest)`",
+        "why": "pipe resumes the source to feed the destination."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "Calling `readable.resume()`",
+        "why": "resume explicitly switches to flowing mode."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Attaching a `'readable'` listener",
+        "why": "A readable listener keeps the stream paused; you pull with read()."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Attaching an `'end'` listener",
+        "why": "Listening for end alone never starts the data flowing."
+      }
+    ],
+    "explanation": "Flowing mode pushes data to listeners as fast as it arrives; paused mode waits for `read()` calls. A common bug is listening only for `end` and never consuming, so the stream sits paused forever. If a `readable` listener is attached, it takes precedence and the stream stays paused even with `data` listeners.",
+    "reference": "Node.js docs: Two reading modes"
+  },
+  {
+    "id": "NJS-STR-016",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 2,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "Consuming a Readable with `for await (const chunk of readable)` respects backpressure: the stream does not read further ahead while the loop body is still awaiting.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "The iterator pulls one chunk at a time, so slow loop bodies slow the source."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "Async iteration pulls on demand rather than flooding the loop."
+      }
+    ],
+    "explanation": "Async iteration is a pull-based way to consume streams. The stream only reads ahead up to its `highWaterMark`, and an `await` inside the loop body naturally pauses consumption. Exceptions thrown in the loop, or a `break`, destroy the stream.",
+    "reference": "Node.js docs: readable[Symbol.asyncIterator]()"
+  },
+  {
+    "id": "NJS-STR-017",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "A TCP handler decodes each chunk with `chunk.toString()`. Users report `�` characters in otherwise valid UTF-8 text, at random positions. What is the cause and fix?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The sender is using Latin-1, so decode every chunk with `'latin1'`",
+        "why": "The text is valid UTF-8; the corruption comes from how it is split."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Characters split across chunks; decode with a `StringDecoder`",
+        "why": "Both keep partial bytes until the rest of the character arrives."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "TCP drops bytes under load, so add a checksum to each message",
+        "why": "TCP is reliable and ordered; no bytes are lost."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The chunks arrive out of order, so sort them by sequence number first",
+        "why": "TCP delivers bytes in order."
+      }
+    ],
+    "explanation": "Chunk boundaries are arbitrary. If a 3-byte `€` is split after its first byte, decoding each half separately turns both halves into replacement characters. `socket.setEncoding('utf8')` or `new StringDecoder('utf8')` buffers incomplete sequences and emits whole characters.",
+    "reference": "Node.js docs: String decoder"
+  },
+  {
+    "id": "NJS-STR-018",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 2,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nconst b = Buffer.from([0xfb, 0xff]);\nconsole.log(b.toString('base64'), b.toString('base64url'));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`+/8= +/8=`",
+        "why": "base64url replaces `+` and `/` with `-` and `_`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`-_8= -_8=`",
+        "why": "Standard base64 uses `+` and `/`, not `-` and `_`."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`+/8= -_8`",
+        "why": "base64url swaps the two URL-unsafe characters and omits padding."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`+/8 -_8=`",
+        "why": "It is standard base64 that pads with `=`; base64url drops the padding."
+      }
+    ],
+    "explanation": "The two encodings share 62 characters. base64url (RFC 4648 §5) replaces `+` with `-` and `/` with `_`, and Node omits the `=` padding, so the output can go into URLs and JWTs unescaped. Decoding with `Buffer.from(str, 'base64url')` accepts both padded and unpadded input.",
+    "reference": "Node.js docs: Buffers and character encodings"
+  },
+  {
+    "id": "NJS-STR-019",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 2,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each method you implement in a custom stream with what it is responsible for.",
+    "options": [
+      {
+        "id": "A",
+        "text": "`_read(size)`"
+      },
+      {
+        "id": "B",
+        "text": "`_write(chunk, encoding, callback)`"
+      },
+      {
+        "id": "C",
+        "text": "`_transform(chunk, encoding, callback)`"
+      },
+      {
+        "id": "D",
+        "text": "`_flush(callback)`"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Fetch more data and `push()` it when the consumer asks for more",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Consume one chunk, then call the callback when it is safely handled",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Turn one input chunk into zero or more output chunks",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Emit any remaining output after the input has ended",
+        "answer": "D"
+      }
+    ],
+    "explanation": "Readable implements `_read`, Writable implements `_write` (and optionally `_writev` and `_final`), and Transform implements `_transform` plus optional `_flush`. Each callback-based method must call its callback exactly once, or the stream stalls or errors.",
+    "reference": "Node.js docs: API for stream implementers"
+  },
+  {
+    "id": "NJS-STR-020",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "This export job ignores the return value of `write()`:\n\n```js\nconst out = fs.createWriteStream('export.csv');\nfor (const row of millionRows) out.write(toCsv(row));\nout.end();\n```\n\nThe file is eventually complete and correct, but memory peaks at several GB. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Each write is rejected once the buffer is full and silently retried later",
+        "why": "No write is rejected; every chunk is accepted and queued."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The loop queues every row in memory before any reaches disk",
+        "why": "Ignoring `false` lets the internal buffer grow without limit."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The `fs` module keeps a second copy of the file contents in a page cache",
+        "why": "The OS page cache lives outside the Node process and does not cause this."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`out.end()` duplicates the buffered rows before it flushes them to disk",
+        "why": "end only queues a final chunk and marks the stream as ending."
+      }
+    ],
+    "explanation": "The loop runs to completion before any I/O callback can fire, so all rows sit in the stream's buffer at once. Correct code checks the return value and awaits `drain`, or uses `pipeline(Readable.from(rowsAsCsv()), out)`, which pauses the producer automatically.",
+    "reference": "Node.js docs: Backpressuring in streams"
+  },
+  {
+    "id": "NJS-STR-021",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 3,
+    "stem": "In `pipeline(source, transform, dest, callback)`, the transform calls its callback with an error. Which three things happen? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`source` is destroyed, which also closes its file descriptor",
+        "why": "pipeline destroys every stream in the chain on failure."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`dest` is destroyed even though it never failed itself",
+        "why": "Downstream streams are torn down too, so nothing is left half-open."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "The pipeline callback is called once, with that error",
+        "why": "Errors from any stream are funnelled into a single callback."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The error is also thrown as an uncaught exception",
+        "why": "pipeline attaches error handlers, so nothing goes uncaught."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The source keeps reading so that its buffered data is not lost",
+        "why": "The source is destroyed, not paused or drained."
+      }
+    ],
+    "explanation": "This is the main reason to prefer `pipeline` over chained `.pipe()` calls. With `.pipe()` each stream needs its own `error` handler, a failing stream does not tear down the others, and an unhandled `error` event crashes the process.",
+    "reference": "Node.js docs: stream.pipeline()"
+  },
+  {
+    "id": "NJS-STR-022",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What is written to `out` here?\n\n```js\nconst { pipeline } = require('node:stream/promises');\nconst seen = [];\nawait pipeline(\n  Readable.from(['a', 'b']),\n  async function* (source) {\n    for await (const chunk of source) yield chunk.toUpperCase();\n  },\n  new Writable({ objectMode: true, write(c, e, cb) { seen.push(c); cb(); } }),\n);\nconsole.log(seen.join(''));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`AB`",
+        "why": "The async generator acts as a transform; each yielded value flows downstream."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`ab`",
+        "why": "The generator's yields replace the original chunks."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A TypeError, because pipeline accepts only stream objects",
+        "why": "pipeline also accepts async generator functions as transforms."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`[object AsyncGenerator]`",
+        "why": "The generator function is run by pipeline; its output is iterated, not stringified."
+      }
+    ],
+    "explanation": "`stream.pipeline` (and its promise version) accepts async generator functions between the source and the destination. Each one receives the previous stage as an async iterable and yields output chunks, with backpressure handled for you. It is the most readable way to write a transform today.",
+    "reference": "Node.js docs: stream.pipeline() with async generators"
+  },
+  {
+    "id": "NJS-STR-023",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "Which two statements correctly contrast `src.pipe(dest)` with `stream.pipeline(src, dest, cb)`? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Only `pipeline` destroys every stream when one errors or closes early",
+        "why": "pipe leaves the other streams alive, leaking resources."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Only `pipeline` reports completion and errors in a single callback",
+        "why": "With pipe you must wire `error` and `finish` handlers yourself."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Only `pipeline` applies backpressure between source and destination",
+        "why": "pipe also pauses the source when the destination's buffer is full."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`pipe` is limited to object-mode streams",
+        "why": "pipe works with byte and object streams alike."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`pipeline` copies every chunk, so it uses twice the memory of pipe",
+        "why": "Neither copies chunks; both pass references through."
+      }
+    ],
+    "explanation": "Both handle backpressure. The difference is lifecycle: `pipeline` forwards errors, destroys all streams on failure (closing descriptors and sockets) and calls back once. That is why it is recommended over manual `.pipe()` chains.",
+    "reference": "Node.js docs: stream.pipeline()"
+  },
+  {
+    "id": "NJS-STR-024",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A cache stores 10-byte keys cut from large incoming buffers:\n\n```js\nsocket.on('data', (chunk) => {     // chunks of about 64 KiB\n  cache.set(chunk.subarray(0, 10), Date.now());\n});\n```\n\nMemory grows far faster than 10 bytes per key. Why?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Map keys are serialized to strings, and Buffers serialize to large JSON",
+        "why": "Map keys are compared by reference and never serialized."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Each 10-byte view keeps its whole parent chunk alive, because it shares that memory",
+        "why": "The parent cannot be freed while any view over it is reachable."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`Date.now()` values are boxed into objects that are much larger than a number",
+        "why": "Numbers stored in a Map are not the problem."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`subarray` silently copies the chunk and pads the copy up to 64 KiB",
+        "why": "subarray copies nothing; that is exactly why the parent is retained."
+      }
+    ],
+    "explanation": "A view (`subarray`, `slice`) references the parent's ArrayBuffer, so retaining 10 bytes retains the whole chunk (and possibly a pooled slab). For long-lived small pieces, copy them: `Buffer.from(chunk.subarray(0, 10))`. Here the key should probably be a string anyway.",
+    "reference": "Node.js docs: buf.subarray()"
+  },
+  {
+    "id": "NJS-STR-025",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nconst p = new PassThrough();\np.write('ab');\np.write('cd');\np.once('readable', () => {\n  const chunks = [];\n  let c;\n  while ((c = p.read()) !== null) chunks.push(c.toString());\n  console.log(chunks);\n});\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`['ab', 'cd']`, one entry per `write()` call",
+        "why": "In byte mode read() does not preserve write boundaries."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`['abcd']`, because `read()` with no size returns everything buffered",
+        "why": "Byte streams concatenate their buffer when read without a size."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`['a', 'b', 'c', 'd']`, one byte per `read()` call",
+        "why": "read() without a size argument is not byte by byte."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`[]`, because the first `read()` call returns `null`",
+        "why": "Data is already buffered when readable fires, so read() returns it."
+      }
+    ],
+    "explanation": "In byte mode the stream is a buffer of bytes, not a list of messages. `read()` with no argument returns all buffered data; `read(n)` returns exactly n bytes when available. Never rely on chunk boundaries for framing; use a length prefix or delimiter instead. Object-mode streams, by contrast, return one object per `read()`.",
+    "reference": "Node.js docs: readable.read()"
+  },
+  {
+    "id": "NJS-STR-026",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 3,
+    "type": "fill",
+    "select": 1,
+    "stem": "What does this log? Type the exact output.\n\n```js\nconsole.log(Buffer.concat([Buffer.from('ab'), Buffer.from('cd')], 3).toString());\n```",
+    "options": [],
+    "accepted": [
+      "abc"
+    ],
+    "explanation": "The second argument of `Buffer.concat` is the total length of the result. With 3, the 4 bytes are truncated to `abc`. A length larger than the input would pad the end with zero bytes. Passing an explicit length is a micro-optimisation that saves summing the lengths, but it must be right.",
+    "reference": "Node.js docs: Buffer.concat()"
+  },
+  {
+    "id": "NJS-STR-027",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "This Transform never calls its callback:\n\n```js\nconst t = new Transform({\n  objectMode: true,\n  transform(chunk, enc, cb) { this.push(chunk); },\n});\nReadable.from([1, 2, 3]).pipe(t).on('data', console.log);\n```\n\nWhich two statements describe what happens? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`1` is logged, and `transform` is never called for 2 or 3",
+        "why": "Without the callback the stream waits forever for the first chunk to finish."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`'finish'` and `'end'` never fire on `t`",
+        "why": "The writable side is stuck on the first chunk, so it never completes."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "All three values are logged, because `push()` already emits them",
+        "why": "push only emits the current output; it does not acknowledge the input chunk."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The stream throws `ERR_MULTIPLE_CALLBACK` after the first chunk",
+        "why": "That error is for calling the callback twice, not for never calling it."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Node calls the missing callback for you once `highWaterMark` is reached",
+        "why": "Node never infers completion; the stream simply stalls."
+      }
+    ],
+    "explanation": "The callback in `_transform` (or `_write`) is the signal that the chunk has been handled. Until it is called, the stream will not pass the next chunk in. Forgetting it is a classic cause of pipelines that hang with no error. Call it exactly once, optionally as `cb(null, output)` instead of `push` plus `cb()`.",
+    "reference": "Node.js docs: transform._transform()"
+  },
+  {
+    "id": "NJS-STR-028",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "A Transform counts the bytes that pass through it and must output a final `total=N` line after the last input chunk. Where does that line belong?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "In an `'end'` listener that calls `this.push()` on the transform",
+        "why": "By the time end fires, the readable side is finished and pushing is an error."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "In `flush(callback)`, by calling `callback(null, 'total=' + count)`",
+        "why": "flush runs after the last input chunk and before the readable side ends."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "In `final(callback)`, which runs after every chunk has been read downstream",
+        "why": "final is a Writable hook and cannot add output to a transform's readable side."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "In the last `transform()` call, detected by checking for a null chunk",
+        "why": "transform is never called with null; end of input is signalled through flush."
+      }
+    ],
+    "explanation": "`_flush` exists for exactly this: emitting trailing output (totals, closing brackets, a compressor's final block) once the input side has ended. Node calls it after the last `_transform` and ends the readable side when its callback runs.",
+    "reference": "Node.js docs: transform._flush()"
+  },
+  {
+    "id": "NJS-STR-029",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 3,
+    "type": "order",
+    "select": 1,
+    "stem": "You are writing to a stream by hand, without `pipeline`, and need to respect backpressure. Put the steps of the write loop in order.",
+    "options": [
+      {
+        "id": "A",
+        "text": "Call `stream.write(chunk)` for the next chunk"
+      },
+      {
+        "id": "B",
+        "text": "Check the return value; if it is `true`, continue with the next chunk"
+      },
+      {
+        "id": "C",
+        "text": "If it is `false`, stop producing and `await once(stream, 'drain')`"
+      },
+      {
+        "id": "D",
+        "text": "Resume writing the remaining chunks"
+      },
+      {
+        "id": "E",
+        "text": "Call `stream.end()` and await `'finish'` before reporting success"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "Write, check, wait for `drain` when the buffer is full, continue, then end. Awaiting `finish` (or using `stream/promises` `finished`) confirms the data was flushed, and you should also listen for `error`. In most code `pipeline(Readable.from(gen()), stream)` gives you all of this for free.",
+    "reference": "Node.js docs: Backpressuring in streams"
+  },
+  {
+    "id": "NJS-STR-030",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 3,
+    "type": "match",
+    "select": 1,
+    "stem": "Match each tool with the problem it solves.",
+    "options": [
+      {
+        "id": "A",
+        "text": "`readline.createInterface({ input })` with `for await`"
+      },
+      {
+        "id": "B",
+        "text": "`new StringDecoder('utf8')`"
+      },
+      {
+        "id": "C",
+        "text": "`stream.finished(stream, cb)`"
+      },
+      {
+        "id": "D",
+        "text": "`Readable.fromWeb(response.body)`"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "Process a 10 GB log file one line at a time without loading it all",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "Decode UTF-8 safely when characters are split across chunks",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "Get notified when a stream ends, errors or is closed prematurely",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "Feed a `fetch()` response body into a Node stream pipeline",
+        "answer": "D"
+      }
+    ],
+    "explanation": "`readline` splits a byte stream into lines (set `crlfDelay: Infinity` for Windows line endings). `StringDecoder` holds partial multi-byte sequences. `finished` (or `stream/promises` `finished`) is the reliable \"this stream is done\" signal. `fetch` returns a web ReadableStream, which `Readable.fromWeb` adapts for Node APIs.",
+    "reference": "Node.js docs: readline, string_decoder, stream"
+  },
+  {
+    "id": "NJS-STR-031",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 3,
+    "type": "truefalse",
+    "select": 1,
+    "stem": "In an HTTP handler, `res.write(hugeBuffer)` can return `false` when the client is reading slowly, and the handler should then wait for `res`'s `'drain'` event before writing more.",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "True",
+        "why": "res is a Writable over the socket, so it applies the same backpressure rules."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "False",
+        "why": "HTTP responses do signal backpressure through write()'s return value."
+      }
+    ],
+    "explanation": "`http.ServerResponse` is a Writable stream. When the socket cannot keep up, writes are buffered in memory and `write()` returns `false`. Streaming large responses without honouring that is a common cause of memory spikes on servers with slow clients; `pipeline(source, res)` handles it automatically.",
+    "reference": "Node.js docs: response.write()"
+  },
+  {
+    "id": "NJS-STR-032",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 3,
+    "type": "single",
+    "select": 1,
+    "stem": "How many chunks does this loop see?\n\n```js\nconst chunks = [];\nfor await (const c of Readable.from('abc')) chunks.push(c);\nconsole.log(chunks.length, chunks[0]);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`3 a`, because a string is iterable character by character",
+        "why": "Readable.from special-cases strings and does not iterate them."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`1 abc`, because `Readable.from` emits a string as one chunk",
+        "why": "Strings and Buffers are emitted whole, for performance."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`1 <Buffer 61 62 63>`, because strings are converted to bytes",
+        "why": "Readable.from creates an object-mode stream that emits the string itself."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`0 undefined`, because a string is not a valid stream source",
+        "why": "Strings are explicitly supported."
+      }
+    ],
+    "explanation": "`Readable.from(iterable)` creates an object-mode stream that emits each item. Strings and Buffers are the documented exception: they are emitted as a single chunk rather than iterated, so `Readable.from('abc')` emits `'abc'` once. To stream characters, pass an array or a generator.",
+    "reference": "Node.js docs: stream.Readable.from()"
+  },
+  {
+    "id": "NJS-STR-033",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 3,
+    "type": "multi",
+    "select": 2,
+    "stem": "`finished(stream, callback)` is attached to a PassThrough, and then `stream.destroy()` is called before anything was written or ended. Which two statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The callback receives an error with code `ERR_STREAM_PREMATURE_CLOSE`",
+        "why": "Closing before end or finish is reported as a premature close."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`finished` is a reliable way to detect end, error or premature close in one place",
+        "why": "It unifies the end, finish, error and close cases."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The callback is called with no error, because destroy() is a normal shutdown",
+        "why": "Destroying before completion is not a clean end."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The callback is never called, since neither `end` nor `finish` fired",
+        "why": "finished also watches for close and error."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`destroy()` throws synchronously when a finished listener is attached",
+        "why": "destroy never throws; the outcome goes to the callback."
+      }
+    ],
+    "explanation": "Detecting stream completion by hand means juggling `end`, `finish`, `error` and `close`, and missing the premature-close case. `stream.finished` (and `await finished(stream)` from `stream/promises`) handles all of them and reports a premature close as an `ERR_STREAM_PREMATURE_CLOSE` error.",
+    "reference": "Node.js docs: stream.finished()"
+  },
+  {
+    "id": "NJS-STR-034",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nconst r = Readable.from([1, 2, 3, 4]);\nfor await (const x of r) {\n  if (x === 2) break;\n}\nconsole.log(r.destroyed);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`false`, and iterating `r` again later yields 3 and 4",
+        "why": "Leaving the loop early does not just pause the stream."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`true`, because breaking out of the loop destroys the stream",
+        "why": "The iterator's return() destroys the stream to release its resources."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`false`, because only an exception thrown in the loop destroys it",
+        "why": "break, return and throw all destroy the stream."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It throws `ERR_STREAM_PREMATURE_CLOSE` at the `break`",
+        "why": "Breaking is a normal exit, not an error."
+      }
+    ],
+    "explanation": "Leaving a `for await` loop early calls the iterator's `return()`, and a stream's async iterator responds by destroying the stream (closing files and sockets). That is convenient for `head`-style reads, but surprising if you expected to resume. To read part of a stream and keep it, use `readable.iterator({ destroyOnReturn: false })`.",
+    "reference": "Node.js docs: readable[Symbol.asyncIterator]()"
+  },
+  {
+    "id": "NJS-STR-035",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An HTTP handler awaits a slow auth check before it starts reading the request body:\n\n```js\nasync function handler(req, res) {\n  await checkAuth(req.headers.authorization); // 300 ms\n  let body = '';\n  for await (const chunk of req) body += chunk;\n  // ...\n}\n```\n\nThe client finished sending the body within 50 ms. What happens to it?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The body is lost, since nobody was listening when the chunks arrived",
+        "why": "An unconsumed Readable stays paused and keeps its data buffered."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It is buffered, up to `highWaterMark` and then in the socket, and read normally later",
+        "why": "The stream starts paused, so the data simply waits for a consumer."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The request fails with `ERR_STREAM_PREMATURE_CLOSE` after the await",
+        "why": "Waiting before reading is not a premature close."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Only the last chunk survives, because each one overwrites the buffer",
+        "why": "Buffered chunks are queued, not overwritten."
+      }
+    ],
+    "explanation": "A Readable starts in paused mode and does not discard data, so reading after an `await` is safe. Once the stream buffer fills, it stops reading the socket, so TCP flow control holds the rest. The opposite bug is real, though: attaching a `data` listener late to a stream already in flowing mode does lose the chunks emitted in between.",
+    "reference": "Node.js docs: Two reading modes"
+  },
+  {
+    "id": "NJS-STR-036",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "Assume a Writable whose `_write` completes asynchronously. What does this log?\n\n```js\nconst w = new Writable({\n  objectMode: true,\n  highWaterMark: 3,\n  write(chunk, enc, cb) { setTimeout(cb, 10); },\n});\nconsole.log([1, 2, 3, 4, 5].map((x) => w.write(x)).join(','));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`true,true,true,false,false`",
+        "why": "`write()` returns false once the buffer reaches the limit, not after it exceeds it."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`true,true,false,false,false`",
+        "why": "After the third write the buffered count reaches 3, so write() returns false."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`true,true,true,true,true`",
+        "why": "That only happens if `_write` calls back synchronously and drains the buffer."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`false,false,false,false,false`",
+        "why": "The first writes are well under the limit of 3 objects."
+      }
+    ],
+    "explanation": "`write()` returns `buffered < highWaterMark` after adding the chunk. With the first write still in flight, the counts are 1, 2, 3, 4, 5, so the third call already returns `false`. If `_write` called its callback synchronously, each chunk would be handled before the next arrived and every call would return `true`, which is why backpressure only shows up with real I/O.",
+    "reference": "Node.js docs: writable.write()"
+  },
+  {
+    "id": "NJS-STR-037",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "An upload handler decompresses the request body:\n\n```js\nreq.pipe(zlib.createGunzip()).pipe(fs.createWriteStream(dest));\n```\n\nA client sends a body that is not valid gzip. What happens?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The bad bytes are written to `dest` unchanged, without any error",
+        "why": "Gunzip validates the header and rejects data it cannot decompress."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Gunzip emits `'error'` with no listener, so the whole process crashes",
+        "why": "Each piped stream needs its own error handler; pipe does not forward errors."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The error is forwarded through `.pipe()` to the write stream's handler",
+        "why": "pipe never forwards errors downstream."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Only this request fails, because each request has its own error domain",
+        "why": "An unhandled `error` event is an uncaught exception for the whole process."
+      }
+    ],
+    "explanation": "Gunzip emits `error` (`Z_DATA_ERROR`) and, with no listener, the error becomes an uncaught exception, so one bad request takes down the server. `pipeline(req, zlib.createGunzip(), fs.createWriteStream(dest), cb)` routes the error to `cb`, destroys all three streams and leaves the process running.",
+    "reference": "Node.js docs: zlib and stream.pipeline()"
+  },
+  {
+    "id": "NJS-STR-038",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nconst u8 = new Uint8Array([1, 2, 3]);\nconst shared = Buffer.from(u8.buffer);\nconst copied = Buffer.from(u8);\nu8[0] = 9;\nconsole.log(shared[0], copied[0]);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`1 1`, because `Buffer.from` always copies its input",
+        "why": "Only some overloads copy; the ArrayBuffer overload creates a view."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`9 1`, because the ArrayBuffer overload shares memory and the TypedArray one copies",
+        "why": "From an ArrayBuffer you get a view; from a TypedArray you get a copy."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`9 9`, because a Buffer is a view over the same underlying memory",
+        "why": "Passing the TypedArray itself copies its contents."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`1 9`, because the TypedArray overload creates the view",
+        "why": "It is the other way round."
+      }
+    ],
+    "explanation": "`Buffer.from(arrayBuffer[, byteOffset, length])` wraps existing memory with no copy, which is ideal for zero-copy interop with Web APIs. `Buffer.from(typedArray)`, `Buffer.from(array)` and `Buffer.from(buffer)` copy. Mixing them up causes either surprising mutations or unnecessary copies of large data.",
+    "reference": "Node.js docs: Buffer.from(arrayBuffer)"
+  },
+  {
+    "id": "NJS-STR-039",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "What does this log?\n\n```js\nconst p = new PassThrough();\np.on('readable', () => console.log('readable'));\np.on('data', (c) => console.log('data', c.toString()));\np.write('q');\np.end();\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`data q`, because a data listener always puts the stream in flowing mode",
+        "why": "A readable listener takes precedence and keeps the stream paused."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`readable` then `data q`",
+        "why": "data fires only when something reads; here nothing calls read()."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`readable` (once or more), and never `data q`",
+        "why": "With a readable listener the stream stays paused, and no handler calls read()."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An error, because the two listener types cannot be combined",
+        "why": "Both are allowed; readable simply wins."
+      }
+    ],
+    "explanation": "When a `readable` listener is attached, it controls the flow: the stream stays paused and `data` is emitted only as a side effect of `read()` calls. Here the readable handler never calls `read()`, so the chunk is never consumed and `data` never fires. Mixing the two styles is discouraged for exactly this reason.",
+    "reference": "Node.js docs: Event: 'readable'"
+  },
+  {
+    "id": "NJS-STR-040",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A service proxies a `fetch()` response into a Node pipeline. Which two statements are correct? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`response.body` is a web `ReadableStream`, not a Node Readable",
+        "why": "fetch follows the WHATWG Streams standard."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`Readable.fromWeb(response.body)` adapts it for `pipeline()` and `.pipe()`",
+        "why": "The adapter bridges web and Node streams in either direction."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`response.body.pipe(res)` works because web streams implement `pipe`",
+        "why": "Web streams use pipeTo and pipeThrough, not pipe."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Web streams cannot apply backpressure, so the whole body is buffered",
+        "why": "Web streams have their own backpressure through queuing strategies."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Converting with `fromWeb` reads the body fully into memory first",
+        "why": "The adapter streams chunks lazily."
+      }
+    ],
+    "explanation": "Node supports two stream families: classic Node streams and WHATWG web streams (fetch, CompressionStream, Blob.stream()). Bridge them with `Readable.fromWeb()`, `Readable.toWeb()`, `Writable.fromWeb()` and friends. Both families support backpressure, and the adapters preserve it.",
+    "reference": "Node.js docs: Web Streams API"
+  },
+  {
+    "id": "NJS-STR-041",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A byte-mode Writable has the default `highWaterMark` of 16 KiB and an asynchronous `_write`. The very first call is `w.write(Buffer.alloc(100_000))`. What does it return?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`true`, because the buffer was empty before the call",
+        "why": "The check happens after the chunk is added, not before."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`false`, because 100,000 queued bytes already exceed the 16 KiB limit",
+        "why": "A single oversized chunk puts the stream over its high-water mark."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It throws `ERR_OUT_OF_RANGE`, since the chunk is larger than the limit",
+        "why": "highWaterMark is a threshold, not a maximum chunk size."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`true`, because oversized chunks bypass the buffer and are written directly",
+        "why": "Every chunk counts toward the buffered length."
+      }
+    ],
+    "explanation": "`highWaterMark` is a threshold for advisory backpressure, not a cap. A single large chunk is accepted, and the returned `false` tells the producer to wait for `drain`. Producers that write few, large chunks therefore see backpressure on almost every write.",
+    "reference": "Node.js docs: Buffering (highWaterMark)"
+  },
+  {
+    "id": "NJS-STR-042",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 4,
+    "type": "fill",
+    "select": 1,
+    "stem": "What does this log? Type the exact output.\n\n```js\nconst e = Buffer.from('€'); // 3 bytes\nconst d = new StringDecoder('utf8');\nconsole.log(JSON.stringify(d.write(e.subarray(0, 2))) + d.write(e.subarray(2)));\n```",
+    "options": [],
+    "accepted": [
+      "\"\"€"
+    ],
+    "explanation": "The first `write` receives only 2 of the 3 bytes of `€`, so the decoder holds them and returns an empty string (logged as `\"\"`). The second `write` completes the character and returns `€`. Plain `toString()` on each half would instead produce replacement characters.",
+    "reference": "Node.js docs: stringDecoder.write()"
+  },
+  {
+    "id": "NJS-STR-043",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 4,
+    "type": "multi",
+    "select": 2,
+    "stem": "A Writable is destroyed with `w.destroy()`, and later some code calls `w.write('x', (err) => { ... })`. Which two statements describe what happens? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`write()` returns `false`",
+        "why": "A destroyed stream accepts nothing, and the return value reflects that."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The write callback receives an `ERR_STREAM_DESTROYED` error",
+        "why": "The failure is reported to the callback."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The stream emits `'error'` with `ERR_STREAM_WRITE_AFTER_END`",
+        "why": "That error is for writing after end(), not after destroy()."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The chunk is buffered and written if the stream is reopened",
+        "why": "A destroyed stream cannot be reopened."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The call throws `ERR_STREAM_DESTROYED` synchronously",
+        "why": "Nothing is thrown; the error goes to the callback."
+      }
+    ],
+    "explanation": "Writing after `destroy()` fails quietly: no `error` event, `write()` returns `false` and the callback gets `ERR_STREAM_DESTROYED`. Writing after `end()` is different and emits an `error` event with `ERR_STREAM_WRITE_AFTER_END`. Code that ignores write callbacks can therefore lose data silently after a stream was torn down.",
+    "reference": "Node.js docs: writable.destroy()"
+  },
+  {
+    "id": "NJS-STR-044",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 4,
+    "type": "single",
+    "select": 1,
+    "stem": "A download endpoint uses `pipeline(fs.createReadStream(file), res, cb)`. A client closes the connection halfway. What does `pipeline` do?",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Keeps reading the file to the end, then calls `cb` with no error",
+        "why": "pipeline stops as soon as a stream in the chain closes early."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Destroys the file stream and calls `cb` with `ERR_STREAM_PREMATURE_CLOSE`",
+        "why": "The early close of res is treated as a failure, and the file is closed."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Pauses the file stream so that it can resume if the client reconnects",
+        "why": "Each HTTP request is independent; nothing resumes."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Throws an uncaught exception, because `res` was closed by the client",
+        "why": "pipeline routes the failure to the callback instead of throwing."
+      }
+    ],
+    "explanation": "This is the scenario where `.pipe()` leaks file descriptors. `pipeline` sees the response close before finishing, destroys the read stream (closing the file) and reports `ERR_STREAM_PREMATURE_CLOSE`. Log that code at a low level, since client aborts are normal.",
+    "reference": "Node.js docs: stream.pipeline()"
+  },
+  {
+    "id": "NJS-STR-045",
+    "domain": 2,
+    "skill": "streams-buffers",
+    "difficulty": 4,
+    "type": "order",
+    "select": 1,
+    "stem": "In what order are these lines logged? Note that `write` completes asynchronously.\n\n```js\nconst t = new Transform({\n  transform(c, e, cb) { console.log('transform', String(c)); cb(null, c); },\n  flush(cb) { console.log('flush'); cb(); },\n});\nconst w = new Writable({\n  write(c, e, cb) { console.log('write', String(c)); setTimeout(cb, 5); },\n  final(cb) { console.log('final'); cb(); },\n});\nawait pipeline(Readable.from(['a', 'b']), t, w);\n```",
+    "options": [
+      {
+        "id": "A",
+        "text": "`transform a`"
+      },
+      {
+        "id": "B",
+        "text": "`write a`"
+      },
+      {
+        "id": "C",
+        "text": "`transform b`"
+      },
+      {
+        "id": "D",
+        "text": "`flush`"
+      },
+      {
+        "id": "E",
+        "text": "`write b`"
+      },
+      {
+        "id": "F",
+        "text": "`final`"
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "explanation": "Stages run concurrently. While `w` is still busy with `a` for 5 ms, the transform processes `b`, and its input has ended, so `flush` runs and the transform ends. When `a` completes, `w` writes the buffered `b`, then runs `final` before the pipeline resolves. With a synchronous `write`, `write b` would come before `flush`. Verified on Node 24.",
+    "reference": "Node.js docs: stream.pipeline() and transform._flush()"
+  }
+]

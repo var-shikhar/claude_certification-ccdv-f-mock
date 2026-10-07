@@ -1,0 +1,1700 @@
+[
+  {
+    "id": "NJS-ASY-001",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 1,
+    "type": "single",
+    "stem": "In the Node.js error-first callback convention, what does the callback receive as its first argument?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "An error object, or `null` when the operation succeeded",
+        "why": "Results follow in the later arguments, so callers must check the first one before using them."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "The result value, with any error passed as the last argument",
+        "why": "That reverses the convention. Node core APIs put the error first so it cannot be ignored by accident."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A status string such as `\"ok\"` or `\"error\"` describing the outcome",
+        "why": "Node core never uses status strings here; success is signalled by a nullish first argument."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The `this` value of the function that started the operation",
+        "why": "Callbacks get no implicit context argument; the first slot is reserved for the error."
+      }
+    ],
+    "explanation": "Node core callbacks look like `(err, result) => {}`. A truthy `err` means failure and the other arguments should be ignored. This shape is what `util.promisify` relies on: it rejects with the first argument when it is truthy and resolves with the second otherwise.",
+    "reference": "Node.js docs: Errors (error-first callbacks)"
+  },
+  {
+    "id": "NJS-ASY-002",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 1,
+    "type": "truefalse",
+    "stem": "`emitter.emit('event')` schedules the registered listeners to run on a later tick of the event loop, so code after `emit()` always runs before any listener.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "`emit()` calls every listener synchronously, in registration order, before it returns."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: listeners run synchronously inside `emit()`. Use `setImmediate` or `queueMicrotask` inside a listener if you need to defer work."
+      }
+    ],
+    "explanation": "EventEmitter is synchronous. In `console.log('before'); e.emit('x'); console.log('after')`, every `x` listener logs between `before` and `after`. Only work a listener schedules itself (timers, promises, I/O) happens later.",
+    "reference": "Node.js docs: Events (asynchronous vs. synchronous)"
+  },
+  {
+    "id": "NJS-ASY-003",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 1,
+    "type": "single",
+    "stem": "What happens when this script runs?\n\n```js\nconst { EventEmitter } = require('node:events');\nconst e = new EventEmitter();\ne.emit('error', new Error('boom'));\nconsole.log('unreached');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing is printed: an `error` event with no listeners is ignored, like any other event",
+        "why": "Most events with no listeners are silently ignored, but `error` is special-cased."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The error is thrown from `emit()`, so `unreached` never prints and the process exits with code 1",
+        "why": "With no `error` listener, `emit('error', err)` throws `err`; uncaught, it crashes the process."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "A warning is printed to stderr, then `unreached` is logged and the process exits with code 0",
+        "why": "There is no warning path; the emitter throws synchronously."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The error is turned into an unhandled promise rejection that crashes the process on the next tick",
+        "why": "No promise is involved; the throw happens synchronously inside `emit()`."
+      }
+    ],
+    "explanation": "If an EventEmitter emits `error` and nobody listens for it, Node throws the error (or an `ERR_UNHANDLED_ERROR` wrapper for non-Error values). That is why streams, sockets and servers should always have an `error` handler: one missing listener takes the whole process down.",
+    "reference": "Node.js docs: Events (Error events)"
+  },
+  {
+    "id": "NJS-ASY-004",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 1,
+    "type": "fill",
+    "stem": "Which function from `node:util` turns an error-first callback API such as `fs.readFile` into one that returns a promise? Type the function name.",
+    "options": [],
+    "accepted": [
+      "promisify",
+      "util.promisify",
+      "promisify()",
+      "util.promisify()"
+    ],
+    "explanation": "`util.promisify(fn)` returns a function that calls `fn` with an extra error-first callback appended, rejecting on a truthy error and resolving with the result. Many core modules also ship ready-made promise versions, such as `node:fs/promises` and `node:timers/promises`.",
+    "reference": "Node.js docs: util.promisify()"
+  },
+  {
+    "id": "NJS-ASY-005",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 1,
+    "type": "single",
+    "stem": "What does this script log after about 20 ms?\n\n```js\nconst { setTimeout: sleep } = require('node:timers/promises');\n\n(async () => {\n  const v = await sleep(20, 'val');\n  console.log(v);\n})();\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A `Timeout` object, the same handle the global `setTimeout` returns",
+        "why": "The callback-style global returns a handle; the promise version resolves with your value instead."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`undefined`, because a timer promise never carries a value",
+        "why": "The second argument is the value the promise fulfils with."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`val`",
+        "why": "The promise from `timers/promises` `setTimeout(delay, value)` fulfils with `value` after `delay` ms."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`20`, the delay that was waited",
+        "why": "The delay is not returned; the optional second argument is."
+      }
+    ],
+    "explanation": "`node:timers/promises` provides promise versions of `setTimeout` and `setImmediate`, plus an async-iterator `setInterval`. `setTimeout(delay, value, options)` resolves with `value`, and `options` can include an `AbortSignal` and `ref: false`.",
+    "reference": "Node.js docs: Timers Promises API"
+  },
+  {
+    "id": "NJS-ASY-006",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 1,
+    "type": "match",
+    "stem": "Match each `process` event with when it is emitted.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "An exception reached the event loop without being caught",
+        "why": "uncaughtException"
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "A promise rejected and no handler was attached in time",
+        "why": "unhandledRejection"
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The event loop has emptied and Node is about to exit on its own",
+        "why": "beforeExit"
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The process is exiting; only synchronous work can still run",
+        "why": "exit"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`uncaughtException`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`unhandledRejection`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`beforeExit`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`exit`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "`beforeExit` fires when the loop has nothing left to do, so a listener can schedule more work and keep the process alive. It is not emitted for `process.exit()` or fatal errors. `exit` fires on every exit, but by then the loop is gone, so timers and I/O scheduled there never run.",
+    "reference": "Node.js docs: Process events"
+  },
+  {
+    "id": "NJS-ASY-007",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 1,
+    "type": "single",
+    "stem": "You want promise-returning versions of `readFile`, `writeFile` and `mkdir`. Which import gives you that directly?",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`const fs = require('node:fs/promises');`",
+        "why": "This module exports the promise API, so `await fs.readFile(path)` works with no wrapping."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`const fs = require('node:fs').sync;`",
+        "why": "There is no `sync` export; synchronous variants are separate functions such as `readFileSync`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`const fs = require('node:fs', { promises: true });`",
+        "why": "`require` takes a single specifier; it has no options argument."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`const fs = require('node:fs-extra');`",
+        "why": "`fs-extra` is a third-party npm package, not a built-in `node:` module."
+      }
+    ],
+    "explanation": "`node:fs/promises` (also reachable as `require('node:fs').promises`) is the promise-based file system API. It also offers `FileHandle` objects from `fs.open()`, which you must close yourself, ideally in `finally`.",
+    "reference": "Node.js docs: fs Promises API"
+  },
+  {
+    "id": "NJS-ASY-008",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 2,
+    "difficulty": 1,
+    "type": "multi",
+    "stem": "Which statements about Node.js `EventEmitter` are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`emit()` returns `true` if the event had listeners and `false` if it had none",
+        "why": "Useful for checking whether anyone handled an event."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`on()` returns the emitter itself, so calls can be chained",
+        "why": "`e.on('a', f).on('b', g)` works because each call returns `e`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Listeners for one event run in parallel on the thread pool",
+        "why": "They run one after another on the main thread, in registration order."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Emitting an event that has no listeners throws a `TypeError`",
+        "why": "Only `error` throws without listeners; other events are ignored and `emit` returns `false`."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "A `once()` listener is removed only after the event loop finishes the current tick",
+        "why": "It is removed before it is called, during the same `emit`."
+      }
+    ],
+    "explanation": "Running `e.emit('nothing')` returns `false`, `e.on('x', fn) === e` is `true`, and `e.emit('x')` then returns `true`. Listeners are invoked synchronously and sequentially.",
+    "reference": "Node.js docs: Events"
+  },
+  {
+    "id": "NJS-ASY-009",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 2,
+    "type": "single",
+    "stem": "What does this script log?\n\n```js\nconst { EventEmitter } = require('node:events');\nconst e = new EventEmitter();\n\ne.on('x', () => console.log('L1'));\ne.prependListener('x', () => console.log('L0'));\ne.once('x', () => console.log('once'));\n\nconsole.log('before');\ne.emit('x');\nconsole.log('after');\ne.emit('x');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`before L1 L0 once after L1 L0 once`",
+        "why": "`prependListener` puts L0 first, and a `once` listener runs a single time."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`before L0 L1 once after L0 L1`",
+        "why": "Prepended first, then the others in order; the `once` listener is gone for the second emit."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`before after L0 L1 once L0 L1`",
+        "why": "Listeners run synchronously inside `emit()`, so they print before `after`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`before once L0 L1 after L0 L1`",
+        "why": "`once` listeners keep their registration position; they are not moved to the front."
+      }
+    ],
+    "explanation": "The listener array for `x` is `[L0, L1, once]`: `prependListener` inserted L0 at the front, and `once` was appended. The first `emit` runs all three synchronously and removes the `once` wrapper. The second `emit` runs only L0 and L1.",
+    "reference": "Node.js docs: emitter.prependListener()"
+  },
+  {
+    "id": "NJS-ASY-010",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 2,
+    "type": "single",
+    "stem": "What does this script log?\n\n```js\nconst util = require('node:util');\n\nfunction f(cb) {\n  cb(null, 1, 2);\n}\n\nutil.promisify(f)().then((v) => console.log('v', v));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`v [ 1, 2 ]`",
+        "why": "The generic promisify does not collect extra results into an array."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`v 1`",
+        "why": "It resolves with the first value after the error; later arguments are dropped."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`v 2`",
+        "why": "It is the first result argument, not the last, that becomes the value."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Nothing: the promise rejects because the callback got more than two arguments",
+        "why": "Extra arguments are not an error; they are silently discarded."
+      }
+    ],
+    "explanation": "`util.promisify` resolves with the single value after `err`. Core functions with several results, such as `dns.lookup`, provide a custom implementation via `util.promisify.custom` that resolves with an object instead. Your own APIs should do the same, or callback with one object.",
+    "reference": "Node.js docs: util.promisify()"
+  },
+  {
+    "id": "NJS-ASY-011",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 2,
+    "type": "single",
+    "stem": "A listener removes another listener for the same event while the event is being emitted. What does this log?\n\n```js\nconst { EventEmitter } = require('node:events');\nconst e = new EventEmitter();\n\nconst a = () => { console.log('a'); e.off('x', b); };\nconst b = () => console.log('b');\n\ne.on('x', a);\ne.on('x', b);\ne.emit('x');\ne.emit('x');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`a a`",
+        "why": "`b` is removed during the first emit, but that emit has already captured its listener list."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`a b a b`",
+        "why": "The removal does take effect from the second emit onwards."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`a b a`",
+        "why": "The first emit still calls `b`; the second no longer has it."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`a` then a `TypeError` about modifying listeners during emit",
+        "why": "Adding or removing listeners during an emit is allowed and never throws."
+      }
+    ],
+    "explanation": "`emit()` works on a copy of the listener array taken when it starts, so changes made by a listener apply only to later emits. The same rule means a listener added during an emit is not called by that emit.",
+    "reference": "Node.js docs: emitter.removeListener()"
+  },
+  {
+    "id": "NJS-ASY-012",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 2,
+    "difficulty": 2,
+    "type": "multi",
+    "stem": "A module calls `emitter.on('x', handler)` an 11th time on an emitter that uses the default settings. Which statements are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Node prints a `MaxListenersExceededWarning` mentioning a possible memory leak",
+        "why": "The default limit is 10 listeners per event; going past it triggers the warning."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The 11th listener is still added and will be called",
+        "why": "The limit only produces a warning; it never blocks registration."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The registration throws a `RangeError` and the listener is discarded",
+        "why": "Nothing throws; the warning is advisory."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The oldest listener is evicted to keep the count at 10",
+        "why": "Node never removes listeners on its own."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The warning can only be silenced by restarting Node with a CLI flag",
+        "why": "`emitter.setMaxListeners(n)` (0 means unlimited) or `EventEmitter.defaultMaxListeners` change the limit at runtime."
+      }
+    ],
+    "explanation": "The warning exists because adding a listener per request (and never removing it) is a classic leak. If the count is legitimate, raise the limit with `setMaxListeners`; if it keeps growing, find the missing `off()`.",
+    "reference": "Node.js docs: EventEmitter.defaultMaxListeners"
+  },
+  {
+    "id": "NJS-ASY-013",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 2,
+    "type": "single",
+    "stem": "What does this script print?\n\n```js\nprocess.on('exit', (code) => {\n  setTimeout(() => console.log('timer in exit'), 0);\n  console.log('exit', code);\n});\nprocess.on('beforeExit', (code) => console.log('beforeExit', code));\nconsole.log('main');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`main`, `beforeExit 0`, `exit 0`, `timer in exit`",
+        "why": "The timer is created after the event loop has stopped, so it never fires."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`main`, `beforeExit 0`, `exit 0`",
+        "why": "The loop empties, `beforeExit` fires, then `exit` runs synchronously and the process ends."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`main`, `exit 0`",
+        "why": "`beforeExit` does fire here, because the loop drained on its own."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`main`, `beforeExit 0`, `exit 0`, `beforeExit 0`, …, repeating forever",
+        "why": "Only work scheduled in `beforeExit` would revive the loop; nothing was scheduled there."
+      }
+    ],
+    "explanation": "`exit` listeners must be synchronous: the process exits as soon as they return, so timers and I/O they start are abandoned. `beforeExit` is the hook that can schedule more work, because the loop is still alive at that point.",
+    "reference": "Node.js docs: Event: 'exit'"
+  },
+  {
+    "id": "NJS-ASY-014",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 2,
+    "difficulty": 2,
+    "type": "multi",
+    "stem": "A service adds this handler so it \"never crashes\". Which statements are true? (Choose two.)\n\n```js\nprocess.on('uncaughtException', (err) => {\n  console.log('handled', err.message);\n});\nsetTimeout(() => console.log('timer still runs'), 10);\nthrow new Error('oops');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "The script logs `handled oops`, then `timer still runs`, and exits with code 0",
+        "why": "Registering a handler replaces the default crash, so the loop keeps running."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Node's docs advise using this event only for synchronous cleanup and then exiting",
+        "why": "After an unexpected throw, the application's state may be inconsistent."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The handler only sees errors thrown inside callbacks, not at the top level of the script",
+        "why": "It catches any exception that reaches the event loop uncaught, including top-level throws."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Node still exits with code 1 after the handler returns",
+        "why": "Having any listener for this event suppresses the default exit."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The handler resumes execution at the statement after the `throw`",
+        "why": "Execution never returns to the throwing code; that call stack is gone."
+      }
+    ],
+    "explanation": "An uncaught exception can leave half-finished work, held locks or corrupted in-memory state behind. The supported pattern is to log, flush what you can synchronously, exit non-zero, and let a supervisor (systemd, Kubernetes, PM2) start a clean process.",
+    "reference": "Node.js docs: Warning: Using 'uncaughtException' correctly"
+  },
+  {
+    "id": "NJS-ASY-015",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 2,
+    "type": "truefalse",
+    "stem": "A script's only pending work is `const s = AbortSignal.timeout(20)` plus an `abort` listener on `s`. Node keeps the process alive until the 20 ms timer fires and the listener runs.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "The internal timer behind `AbortSignal.timeout()` is unref'd, so it does not keep the loop alive."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: with nothing else pending, the process exits immediately and the listener never runs."
+      }
+    ],
+    "explanation": "`AbortSignal.timeout()` is meant to bound other work, such as a `fetch`, a `timers/promises` sleep or a stream. That work keeps the loop alive; the signal's own timer does not. The same applies to `AbortSignal.any()` that only combines a timeout signal.",
+    "reference": "Node.js docs: AbortSignal.timeout()"
+  },
+  {
+    "id": "NJS-ASY-016",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 2,
+    "type": "order",
+    "stem": "A request handler hits an unexpected exception in production. Put the steps of a safe crash-and-restart in order.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Log the error with its stack and request context",
+        "why": "First, so the evidence survives."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Stop accepting new connections (`server.close()`)",
+        "why": "New work should not land on a damaged process."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Give in-flight requests a short deadline to finish",
+        "why": "Graceful, but time-boxed."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Exit with a non-zero code",
+        "why": "Signals failure to the supervisor."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The supervisor or orchestrator starts a fresh process",
+        "why": "A clean process restores a known-good state."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "explanation": "Record the failure first, because later steps can fail too. Then stop taking new work and drain in-flight requests within a hard timeout (use an unref'd timer that forces exit). Exit with a non-zero code so systemd, Kubernetes or PM2 restarts the service. Run several instances so one restart does not cause downtime.",
+    "reference": "Node.js docs: Process (uncaughtException); Kubernetes: Pod lifecycle"
+  },
+  {
+    "id": "NJS-ASY-017",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 2,
+    "difficulty": 2,
+    "type": "multi",
+    "stem": "Which statements about `util.promisify` are true? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "`util.promisify(setTimeout)` returns the same function as `require('node:timers/promises').setTimeout`",
+        "why": "Core functions expose a custom implementation that `promisify` hands back."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "If `fn[util.promisify.custom]` is defined, `util.promisify(fn)` returns that implementation unchanged",
+        "why": "This lets a library supply its own promise version."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It resolves with an array whenever the callback receives more than one result",
+        "why": "Extra results are dropped unless a custom implementation handles them."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It works with any callback position, detecting which parameter is the callback",
+        "why": "It always appends the callback as the last argument."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "The promisified function is automatically bound to the object it was read from",
+        "why": "It forwards whatever `this` it is called with; detaching a method loses `this`."
+      }
+    ],
+    "explanation": "Running `util.promisify(setTimeout) === require('node:timers/promises').setTimeout` prints `true`. Custom implementations are how `promisify(setTimeout)` can resolve with a value, and how `dns.lookup` resolves with `{ address, family }`.",
+    "reference": "Node.js docs: util.promisify.custom"
+  },
+  {
+    "id": "NJS-ASY-018",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 2,
+    "type": "fill",
+    "stem": "What exit code does this script finish with? Type a number.\n\n```js\nprocess.exitCode = 3;\nsetTimeout(() => console.log('timer ran'), 10);\nconsole.log('main');\n```",
+    "options": [],
+    "accepted": [
+      "3"
+    ],
+    "explanation": "Setting `process.exitCode` does not end the process; it only sets the code used when the process exits naturally. The script prints `main`, waits for the timer to print `timer ran`, and then exits with 3. This is the graceful alternative to `process.exit(3)`, which would skip the pending timer.",
+    "reference": "Node.js docs: process.exitCode"
+  },
+  {
+    "id": "NJS-ASY-019",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 2,
+    "type": "single",
+    "stem": "What does this script log?\n\n```js\nconst { once, EventEmitter } = require('node:events');\nconst e = new EventEmitter();\n\nonce(e, 'ready')\n  .then((v) => console.log('resolved', v))\n  .catch((err) => console.log('rejected', err.message));\n\ne.emit('error', new Error('bad'));\ne.emit('ready', 1, 2);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`resolved [ 1, 2 ]`",
+        "why": "The promise had already settled when `ready` was emitted."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`rejected bad`",
+        "why": "`events.once` also listens for `error` and rejects with it."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "The process crashes with an unhandled `error` event",
+        "why": "`events.once` attaches a temporary `error` listener, so the emit does not throw."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`resolved 1`",
+        "why": "If it had resolved, the value would be an array of all arguments; here it rejected first."
+      }
+    ],
+    "explanation": "`events.once(emitter, name)` returns a promise that resolves with an array of the event's arguments, or rejects if `error` is emitted first, which makes it safe to `await`. When the awaited event is `error` itself, there is no special rejection.",
+    "reference": "Node.js docs: events.once()"
+  },
+  {
+    "id": "NJS-ASY-020",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "What does this script log?\n\n```js\nconst util = require('node:util');\nconst db = {\n  name: 'db',\n  get(cb) { cb(null, this && this.name); },\n};\n\nconst get = util.promisify(db.get);\nget().then((v) => console.log('a', v));\nutil.promisify(db.get).call(db).then((v) => console.log('b', v));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`a db` and `b db`",
+        "why": "`promisify` does not remember which object the method came from."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`a undefined` and `b db`",
+        "why": "The promisified function passes on its own `this`, which is only `db` when called with `.call(db)`."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`a db` and `b undefined`",
+        "why": "It is the bare call that loses the receiver, not the `.call(db)` one."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The first call rejects with `TypeError: this is undefined`",
+        "why": "The method guards with `this && this.name`, so it reports `undefined` instead of throwing."
+      }
+    ],
+    "explanation": "Reading `db.get` detaches the method. `util.promisify` calls the original with whatever `this` the wrapper received, which for a bare call is `undefined` (in sloppy mode it becomes `globalThis`, which has no `name`). Use `util.promisify(db.get.bind(db))` or `.call(db)`.",
+    "reference": "Node.js docs: util.promisify()"
+  },
+  {
+    "id": "NJS-ASY-021",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 3,
+    "type": "match",
+    "stem": "Match each `node:events` or `node:async_hooks` helper with what it is for.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "A promise for the next occurrence of one event",
+        "why": "events.once"
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "An async iterator that yields every occurrence of an event",
+        "why": "events.on"
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Wraps a callback so it runs in the async context where it was created",
+        "why": "AsyncResource.bind"
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Observes `error` events without counting as a handler",
+        "why": "events.errorMonitor"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`events.once(emitter, name)`",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`events.on(emitter, name)`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`AsyncResource.bind(fn)`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`events.errorMonitor`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "`events.once` and `events.on` adapt emitters to promises and `for await`, and both accept an `AbortSignal`. `AsyncResource.bind` fixes lost AsyncLocalStorage context in callback queues. A listener on `errorMonitor` runs before the regular `error` listeners, but does not stop an unhandled `error` from throwing.",
+    "reference": "Node.js docs: Events; Asynchronous context tracking"
+  },
+  {
+    "id": "NJS-ASY-022",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "A library tries to replay the latest value to anyone who subscribes to `data`. What does this log?\n\n```js\nconst { EventEmitter } = require('node:events');\nconst e = new EventEmitter();\n\ne.on('newListener', (event) => {\n  if (event === 'data') e.emit('data', 'replay');\n});\ne.on('data', (v) => console.log('data', v));\ne.emit('data', 'live');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`data replay` then `data live`",
+        "why": "The replay is emitted before the new listener is actually in the list."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`data live` only",
+        "why": "`newListener` fires before the listener is added, so the replay reaches nobody."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`data live` then `data replay`",
+        "why": "The replay happens during `on()`, before the later `emit`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Infinite recursion, because emitting inside `newListener` registers the listener again",
+        "why": "Emitting `data` does not add listeners, so nothing recurses."
+      }
+    ],
+    "explanation": "Node emits `newListener` before inserting the listener, precisely so a handler can react without the new listener being triggered by mistake. To replay, defer it, for example `process.nextTick(() => e.emit('data', last))`, or pass the value to the subscriber directly.",
+    "reference": "Node.js docs: Event: 'newListener'"
+  },
+  {
+    "id": "NJS-ASY-023",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "An async listener throws. The emitter was created with default options. What happens?\n\n```js\nconst { EventEmitter } = require('node:events');\nconst e = new EventEmitter();\n\ne.on('x', async () => { throw new Error('async boom'); });\ne.on('error', (err) => console.log('caught', err.message));\ne.emit('x');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`caught async boom` is logged, because emitters route listener errors to `error`",
+        "why": "That routing only happens for async listeners when `captureRejections` is enabled."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The rejected promise goes unhandled, so the process crashes and exits with code 1",
+        "why": "The emitter ignores the returned promise, so its rejection has no handler."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`emit()` throws `async boom` synchronously, which crashes the process",
+        "why": "An async function never throws synchronously; it returns a rejected promise."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Nothing happens; errors from async listeners are dropped silently",
+        "why": "Under the default `--unhandled-rejections=throw`, the rejection is fatal."
+      }
+    ],
+    "explanation": "By default `emit()` ignores listener return values. Create the emitter with `new EventEmitter({ captureRejections: true })` (or set `EventEmitter.captureRejections = true`) to have rejections from async listeners re-emitted as `error`. With that option, the same code logs `caught async boom`.",
+    "reference": "Node.js docs: Capture rejections of promises"
+  },
+  {
+    "id": "NJS-ASY-024",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "What does this script log?\n\n```js\nconst { setTimeout: sleep } = require('node:timers/promises');\n\nsleep(1000, 'v', { signal: AbortSignal.timeout(10) })\n  .then(console.log, (e) => console.log(e.name, e.cause?.name, e.code));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`TimeoutError undefined ABORT_ERR`",
+        "why": "The rejection itself is an `AbortError`; the timeout reason appears as its `cause`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`AbortError TimeoutError ABORT_ERR`",
+        "why": "Aborting rejects with an `AbortError` whose `cause` is the signal's `TimeoutError` reason."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`v` after one second",
+        "why": "The signal aborts after 10 ms, so the sleep rejects early."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Nothing, because an `AbortSignal.timeout` timer does not keep the process alive",
+        "why": "The pending 1-second sleep keeps the loop alive, so the abort is observed."
+      }
+    ],
+    "explanation": "Node's abortable APIs reject with an `AbortError` (`code: 'ABORT_ERR'`) and attach `signal.reason` as `cause`. A timeout signal's reason is a `TimeoutError` DOMException. Check `err.name === 'AbortError'` to tell cancellation from real failures, and look at `err.cause` to see why it was cancelled.",
+    "reference": "Node.js docs: timersPromises.setTimeout(); AbortSignal.timeout()"
+  },
+  {
+    "id": "NJS-ASY-025",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "A home-made connection pool batches queries and flushes them from one shared timer. Request handlers use AsyncLocalStorage for a request ID. What is logged, and what is the fix?\n\n```js\nconst { AsyncLocalStorage } = require('node:async_hooks');\nconst als = new AsyncLocalStorage();\nconst queue = []; let timer = null;\n\nfunction query(cb) {\n  queue.push(cb);\n  if (!timer) timer = setTimeout(() => {\n    timer = null;\n    queue.splice(0).forEach((f) => f());\n  }, 5);\n}\n\nals.run('req-1', () => query(() => console.log('cb1', als.getStore())));\nals.run('req-2', () => query(() => console.log('cb2', als.getStore())));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`cb1 req-1`, `cb2 req-2`; nothing needs fixing",
+        "why": "The callbacks run inside the timer created during req-1, not where they were queued."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`cb1 req-1`, `cb2 req-1`; wrap each callback with `AsyncResource.bind(cb)` when queuing it",
+        "why": "The shared timer carries req-1's context; binding captures each caller's own context."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`cb1 undefined`, `cb2 undefined`; call `als.enterWith()` inside the timer",
+        "why": "Context does survive into the timer, just the wrong one; `enterWith` there would not know which request to use."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`cb1 req-2`, `cb2 req-2`; replace `setTimeout` with `setImmediate`",
+        "why": "Any shared scheduling primitive has the same problem; the fix is binding the callbacks."
+      }
+    ],
+    "explanation": "AsyncLocalStorage follows async resources, not your logical intent. The timer was created inside `req-1`'s `run`, so everything it calls sees `req-1`. Libraries that queue user callbacks (pools, batchers, custom emitters) must bind them with `AsyncResource.bind` or `AsyncLocalStorage.bind`. After binding, the output is `cb1 req-1` and `cb2 req-2`.",
+    "reference": "Node.js docs: AsyncResource.bind(); Asynchronous context tracking"
+  },
+  {
+    "id": "NJS-ASY-026",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 3,
+    "type": "fill",
+    "stem": "This file is run as `node main.mjs`. It prints `start` and a warning about an unsettled top-level await. What exit code does the process end with? Type a number.\n\n```js\n// main.mjs\nconsole.log('start');\nawait new Promise(() => {});\nconsole.log('end');\n```",
+    "options": [],
+    "accepted": [
+      "13"
+    ],
+    "explanation": "The promise never settles and nothing else keeps the loop alive. Node notices that the entry module's top-level await can never finish, prints \"Warning: Detected unsettled top-level await\", and exits with code 13. A common real cause is awaiting an event that was emitted before the listener was attached.",
+    "reference": "Node.js docs: Exit codes (13 Unsettled Top-Level Await)"
+  },
+  {
+    "id": "NJS-ASY-027",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "This loader caches results. What does the script log?\n\n```js\nconst cache = new Map();\nfunction load(key, cb) {\n  if (cache.has(key)) return cb(null, cache.get(key));\n  setTimeout(() => { cache.set(key, 42); cb(null, 42); }, 5);\n}\n\nfunction test(label) {\n  let x = 'before';\n  load('k', () => console.log(label, x));\n  x = 'after';\n}\n\ntest('first');\nsetTimeout(() => test('second'), 20);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`first after`, `second after`",
+        "why": "On a cache hit the callback runs synchronously, before `x` is reassigned."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`first before`, `second before`",
+        "why": "On the first call the callback is asynchronous, so `x` is already `after`."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`first after`, `second before`",
+        "why": "Async on a miss, sync on a hit: the same caller sees different behaviour."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`first before`, `second after`",
+        "why": "That is the reverse of what a miss and a hit do here."
+      }
+    ],
+    "explanation": "This is \"releasing Zalgo\": an API that sometimes calls back synchronously and sometimes asynchronously. Callers cannot reason about ordering, and code after the call may or may not have run. Make it consistently async, for example `process.nextTick(cb, null, cache.get(key))` on the cache-hit path.",
+    "reference": "Node.js docs: process.nextTick() (Why use it?)"
+  },
+  {
+    "id": "NJS-ASY-028",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "A buggy callback API calls its callback twice. What happens when it is promisified?\n\n```js\nconst util = require('node:util');\nfunction bad(cb) {\n  cb(null, 'one');\n  cb(null, 'two');\n}\nutil.promisify(bad)().then((v) => console.log('got', v));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`got one` then `got two`",
+        "why": "A promise settles once; `then` callbacks never run twice."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`got one`, and the second call is silently ignored",
+        "why": "Later resolve calls on a settled promise do nothing, so the bug is hidden."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`got two`, because the last call wins",
+        "why": "The first call settles the promise; the second is a no-op."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An `ERR_MULTIPLE_CALLBACK` error rejects the promise",
+        "why": "That error comes from some stream internals, not from `promisify`."
+      }
+    ],
+    "explanation": "The error-first contract says the callback is called exactly once. Promisifying a misbehaving API hides double calls, which in callback code would often run side effects twice, such as sending two HTTP responses (\"headers already sent\"). Fix the source with a guard flag or an early `return cb(...)`.",
+    "reference": "Node.js docs: util.promisify()"
+  },
+  {
+    "id": "NJS-ASY-029",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "What does this script print, and how does it end?\n\n```js\nconst { on, EventEmitter } = require('node:events');\nconst e = new EventEmitter();\n\n(async () => {\n  for await (const x of on(e, 'msg')) console.log(x);\n  console.log('after loop');\n})();\nconsole.log('main done');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`main done`, then it hangs forever waiting for `msg`",
+        "why": "An emitter and a pending promise do not keep the event loop alive."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`main done`, then the process exits with code 0",
+        "why": "Nothing holds the loop open, so Node exits while the loop is still waiting."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`main done`, then `after loop`",
+        "why": "`events.on` never ends by itself; the loop body is still waiting."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`main done`, then exit code 13 for an unsettled await",
+        "why": "Code 13 applies only to unsettled top-level await in an ES module, not to an async function."
+      }
+    ],
+    "explanation": "Only active handles such as sockets, servers, timers and file operations keep a Node process alive. A plain EventEmitter is just an object. Iterators from `events.on` never finish unless you pass an `AbortSignal`, call `return()` or `break`, or the emitter emits `error`. Inside a long-lived server, a forgotten iterator is a leak.",
+    "reference": "Node.js docs: events.on()"
+  },
+  {
+    "id": "NJS-ASY-030",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "What does this script log?\n\n```js\nconst { EventEmitter, errorMonitor } = require('node:events');\nconst e = new EventEmitter();\n\ne.on(errorMonitor, (err) => console.log('monitor', err.message));\ntry {\n  e.emit('error', new Error('x'));\n} catch (err) {\n  console.log('thrown', err.message);\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`monitor x` only, because the monitor counts as an `error` handler",
+        "why": "A monitor observes errors but does not count as handling them."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`monitor x` then `thrown x`",
+        "why": "The monitor runs first; with no real `error` listener, `emit` then throws."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`thrown x` only, because monitors run on the next tick",
+        "why": "Monitor listeners run synchronously, before the throw."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`thrown x` then `monitor x`",
+        "why": "The monitor is called before Node decides whether to throw."
+      }
+    ],
+    "explanation": "`events.errorMonitor` lets telemetry or logging code see every `error` without changing behaviour. An unhandled error still throws as before. You still need a normal `error` listener to actually handle it.",
+    "reference": "Node.js docs: events.errorMonitor"
+  },
+  {
+    "id": "NJS-ASY-031",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 3,
+    "type": "truefalse",
+    "stem": "An `async` listener for `process.on('exit')` can safely `await` a network call that flushes logs to a remote server, and Node waits for it before the process ends.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "True",
+        "why": "`exit` listeners must do their work synchronously; the process ends once they return."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "False",
+        "why": "Correct: the event loop has stopped, so the network I/O never completes. Flush in a signal handler or `beforeExit`, before exiting."
+      }
+    ],
+    "explanation": "Node calls `exit` listeners and then terminates without running the event loop again, so pending timers and I/O are abandoned. Do asynchronous shutdown work, such as closing servers, draining queues and flushing loggers, when you receive SIGTERM or before calling `process.exit()`.",
+    "reference": "Node.js docs: Event: 'exit'"
+  },
+  {
+    "id": "NJS-ASY-032",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 2,
+    "difficulty": 3,
+    "type": "multi",
+    "stem": "Which statements about this script are true? (Choose two.)\n\n```js\nprocess.on('beforeExit', () => console.log('beforeExit'));\nprocess.on('exit', (code) => console.log('exit', code));\nsetTimeout(() => process.exit(2), 5);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "It logs only `exit 2`",
+        "why": "`beforeExit` is skipped when the process ends by calling `process.exit()`."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The process exits with code 2",
+        "why": "The code passed to `process.exit` is the exit code."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It logs `beforeExit` and then `exit 2`",
+        "why": "`beforeExit` fires only when the loop drains by itself."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "The exit code is 0, because `process.exit` ran inside a timer callback",
+        "why": "Where `process.exit` is called does not change the code it sets."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "`process.exit` waits for already-scheduled timers before exiting",
+        "why": "It ends the process as soon as `exit` listeners return, dropping pending work."
+      }
+    ],
+    "explanation": "`process.exit()` is abrupt: pending timers, I/O and unflushed asynchronous writes to pipes are abandoned. Prefer setting `process.exitCode` and letting the loop drain, or close your servers and resources first.",
+    "reference": "Node.js docs: process.exit()"
+  },
+  {
+    "id": "NJS-ASY-033",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 3,
+    "type": "single",
+    "stem": "What does this script log?\n\n```js\nconst { EventEmitter } = require('node:events');\nconst e = new EventEmitter();\n\ne.on('x', () => { console.log('L1'); throw new Error('L1 failed'); });\ne.on('x', () => console.log('L2'));\n\ntry { e.emit('x'); } catch (err) { console.log('caught', err.message); }\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`L1`, `L2`, `caught L1 failed`",
+        "why": "The throw stops `emit` immediately, so L2 is never called."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`L1`, `caught L1 failed`",
+        "why": "An exception in a listener propagates out of `emit()` and skips the remaining listeners."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`L1`, `L2`, then the error is re-emitted as an `error` event",
+        "why": "Synchronous throws are not converted to `error` events."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`L1`, then the process crashes, because errors in listeners cannot be caught",
+        "why": "Since `emit` is synchronous, a surrounding try/catch does catch it."
+      }
+    ],
+    "explanation": "One faulty listener can stop the others from running and break whoever called `emit()`. Code that dispatches events from shared infrastructure often wraps each listener in its own try/catch, or emits from a fresh tick so a failure is isolated.",
+    "reference": "Node.js docs: Events"
+  },
+  {
+    "id": "NJS-ASY-034",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 4,
+    "type": "order",
+    "stem": "Put the lines this script logs in order.\n\n```js\nconst { AsyncLocalStorage } = require('node:async_hooks');\nconst { EventEmitter } = require('node:events');\nconst als = new AsyncLocalStorage();\nconst bus = new EventEmitter();\n\nbus.on('job', () => console.log('listener sees', als.getStore()));\n\nals.run('A', () => {\n  setTimeout(() => console.log('timeout sees', als.getStore()), 5);\n  Promise.resolve().then(() => console.log('then sees', als.getStore()));\n});\nals.run('B', () => bus.emit('job'));\nconsole.log('outside', als.getStore());\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`listener sees B`",
+        "why": "Runs synchronously inside `run('B')`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`outside undefined`",
+        "why": "Synchronous, after both `run` calls returned."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`then sees A`",
+        "why": "A microtask; it keeps the store from where the promise was created."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`timeout sees A`",
+        "why": "A 5 ms timer; it also keeps context `A`."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "explanation": "The emitter listener runs synchronously during `emit()`, so it sees the context active at emit time (here `B`), not at registration time. Outside any `run`, the store is undefined. The promise reaction runs in the microtask queue after the main script, and the timer runs last. Both keep `A`, because AsyncLocalStorage propagates through promises and timers created inside `run`.",
+    "reference": "Node.js docs: AsyncLocalStorage"
+  },
+  {
+    "id": "NJS-ASY-035",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "What does this script print, and when does it exit?\n\n```js\nconst { setTimeout: sleep } = require('node:timers/promises');\n\nsleep(10_000, null, { ref: false }).then(() => console.log('woke'));\nconsole.log('main');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`main`, then `woke` after 10 seconds, then exit",
+        "why": "With `ref: false`, the timer does not keep the process alive."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`main`, then exit code 0 at once; `woke` never prints",
+        "why": "Nothing else is pending, so the process ends without waiting for the unref'd timer."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`main`, then exit code 13 because a promise never settled",
+        "why": "Code 13 is only for unsettled top-level await in an ES module."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`woke` immediately, because an unref'd timer resolves at once",
+        "why": "Unref changes whether the timer keeps the loop alive, not its delay."
+      }
+    ],
+    "explanation": "`ref: false` is how you schedule optional background work, such as metrics flushes or periodic cleanup, that should not prevent shutdown. The global API equivalent is `setTimeout(...).unref()`. If something else keeps the loop alive past 10 seconds, the timer still fires.",
+    "reference": "Node.js docs: timersPromises.setTimeout() options"
+  },
+  {
+    "id": "NJS-ASY-036",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "With default flags on Node.js 22 or later, what does this script print?\n\n```js\nprocess.on('unhandledRejection', () => console.log('UR fired'));\nprocess.on('rejectionHandled', () => console.log('rejectionHandled fired'));\n\nconst p = Promise.reject(new Error('late'));\nsetTimeout(() => p.catch(() => console.log('caught late')), 10);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`caught late` only, because the rejection is handled within 10 ms",
+        "why": "Node decides a rejection is unhandled once the current microtasks drain, long before the timer."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`UR fired`, then a crash with exit code 1",
+        "why": "Having an `unhandledRejection` listener stops the default `throw` mode from crashing."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`UR fired`, `caught late`, `rejectionHandled fired`",
+        "why": "Reported as unhandled first, then retracted when a handler arrives later."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`UR fired`, `rejectionHandled fired`, `caught late`",
+        "why": "`rejectionHandled` is emitted after the late handler runs."
+      }
+    ],
+    "explanation": "Node keeps a list of rejections that had no handler at the end of a tick and emits `unhandledRejection` for each. Attaching `catch` later emits `rejectionHandled`. Tools that track \"possibly unhandled\" rejections use the pair. Without the listener, the default mode would have crashed before the timer ran.",
+    "reference": "Node.js docs: Event: 'rejectionHandled'"
+  },
+  {
+    "id": "NJS-ASY-037",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "The script below is run with `node --unhandled-rejections=strict app.js`. What happens?\n\n```js\nprocess.on('unhandledRejection', (r) => console.log('UR', r.message));\nPromise.reject(new Error('nope'));\nsetTimeout(() => console.log('alive'), 10);\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`UR nope` then `alive`, exit code 0",
+        "why": "That is the behaviour of the default `throw` mode when a listener exists."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "It crashes with the `nope` error and exit code 1, without logging `UR nope`",
+        "why": "Strict mode raises the rejection as an uncaught exception, before `unhandledRejection` is emitted."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`UR nope`, then a crash with exit code 1",
+        "why": "In strict mode the listener is not reached when the uncaught exception is unhandled."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "A warning is printed, then `alive`, exit code 0",
+        "why": "Warning and continuing is the `warn` mode."
+      }
+    ],
+    "explanation": "In `strict` mode the rejection is raised as an uncaught exception first; only if an `uncaughtException` handler deals with it is `unhandledRejection` emitted. The default `throw` mode emits `unhandledRejection` first and crashes only when nobody listens. Both modes differ from `warn`, which logs and continues.",
+    "reference": "Node.js docs: --unhandled-rejections=mode"
+  },
+  {
+    "id": "NJS-ASY-038",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "What does this script print, and with what exit code?\n\n```js\nprocess.on('uncaughtExceptionMonitor', (err, origin) => {\n  console.log('monitor', err.message, origin);\n});\nPromise.reject(new Error('r'));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Nothing from the monitor: it only sees thrown exceptions, then a crash with code 1",
+        "why": "Under the default mode an unhandled rejection is turned into an uncaught exception, which the monitor sees."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`monitor r unhandledRejection`, then a crash with exit code 1",
+        "why": "The monitor observes the fatal error and its origin, but does not prevent the crash."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`monitor r uncaughtException`, then exit code 0",
+        "why": "The `origin` argument reports `unhandledRejection` here, and a monitor never suppresses the exit."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "`monitor r unhandledRejection`, then exit code 0",
+        "why": "Unlike an `uncaughtException` listener, a monitor does not handle the error."
+      }
+    ],
+    "explanation": "`uncaughtExceptionMonitor` is for crash reporters: it runs just before Node handles a fatal error, and `origin` tells you whether that error came from a throw or an unhandled rejection. Because it is only a monitor, the default crash and exit code 1 still happen.",
+    "reference": "Node.js docs: Event: 'uncaughtExceptionMonitor'"
+  },
+  {
+    "id": "NJS-ASY-039",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 4,
+    "type": "order",
+    "stem": "Put the lines this script logs in order.\n\n```js\nconst { EventEmitter } = require('node:events');\nconst e = new EventEmitter();\n\ne.on('x', async () => { await null; console.log('async listener'); });\ne.on('x', () => console.log('sync listener'));\n\ne.emit('x');\nconsole.log('after emit');\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "`sync listener`",
+        "why": "The second listener runs synchronously during `emit`."
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "`after emit`",
+        "why": "Runs when `emit` returns, still in the same tick."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`async listener`",
+        "why": "Its continuation after `await` is a microtask."
+      }
+    ],
+    "answerOrder": [
+      "A",
+      "B",
+      "C"
+    ],
+    "explanation": "`emit` calls the async listener first, but that listener only runs up to its first `await` and returns a promise that the emitter ignores. The sync listener and the code after `emit` then finish the current tick before the async continuation runs. An `async` listener therefore cannot delay the emitter, and its errors need `captureRejections` or their own try/catch.",
+    "reference": "Node.js docs: Events (async listeners)"
+  },
+  {
+    "id": "NJS-ASY-040",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 2,
+    "difficulty": 4,
+    "type": "multi",
+    "stem": "A script's only pending work is the code below. Which statements are true? (Choose two.)\n\n```js\nconst s = AbortSignal.any([AbortSignal.timeout(20), new AbortController().signal]);\ns.addEventListener('abort', () => console.log('aborted:', s.reason.name));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Nothing is printed and the process exits right away with code 0",
+        "why": "No ref'd handle exists, so Node does not wait for the 20 ms timer."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "If a 1-second `fetch` or sleep used `s` as its signal, it would print `aborted: TimeoutError`",
+        "why": "The pending operation keeps the loop alive, so the timeout fires and the combined signal takes on its reason."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "It prints `aborted: TimeoutError` after 20 ms",
+        "why": "The timeout's internal timer is unref'd, so the process exits first."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It prints `aborted: AbortError`, because `AbortSignal.any` replaces the reason",
+        "why": "The combined signal keeps the reason of whichever input aborted first."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "It throws, because one of the input signals can never abort",
+        "why": "Inputs that never abort are allowed; `any` waits for the first one that does."
+      }
+    ],
+    "explanation": "Timeout signals bound other work; they are not work themselves. `AbortSignal.any` copies the first input's reason, so callers can still tell a timeout (`TimeoutError`) from a user cancellation (`AbortError`, or whatever reason was passed to `abort()`).",
+    "reference": "Node.js docs: AbortSignal.any(); AbortSignal.timeout()"
+  },
+  {
+    "id": "NJS-ASY-041",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 2,
+    "difficulty": 4,
+    "type": "multi",
+    "stem": "On a Linux server with `ulimit -n 1024`, a job runs `await Promise.all(paths.map((p) => fs.readFile(p)))` over 50,000 paths and fails with `EMFILE: too many open files`. Which two changes fix the root cause without blocking the event loop? (Choose two.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Process the paths with a concurrency limit, for example a pool of 64 workers pulling from a shared index",
+        "why": "At most 64 files are open at once, well under the descriptor limit."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "Iterate in fixed-size batches, awaiting `Promise.all` on each batch of a few hundred paths",
+        "why": "Batching bounds open descriptors too, though it is slower than a rolling pool."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Switch to `Promise.allSettled`, so the failures stop rejecting the whole job",
+        "why": "It still starts all 50,000 reads at once; most would still fail with EMFILE."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Raise `UV_THREADPOOL_SIZE` to 128 so more reads finish in parallel",
+        "why": "The thread-pool size does not change the per-process file-descriptor limit."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Replace `fs.readFile` with `fs.readFileSync` inside the `map`",
+        "why": "That avoids EMFILE but blocks the event loop for the whole job."
+      }
+    ],
+    "explanation": "`Promise.all` over a huge array starts every operation immediately. Each open file holds a descriptor until its read finishes, so you hit the OS limit. Bounding concurrency fixes it, whether with a small worker pool, `p-limit`, batches, or `stream.Readable.from(paths).map(fn, { concurrency })`. Raising `ulimit` only moves the cliff.",
+    "reference": "Node.js docs: fs Promises API; Linux getrlimit(2)"
+  },
+  {
+    "id": "NJS-ASY-042",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "The caller aborts the signal 120 ms after calling `retry`, while it is in the 200 ms backoff wait. What happens?\n\n```js\nasync function retry(fn, { retries = 3, signal } = {}) {\n  for (let i = 0; ; i++) {\n    try { return await fn(signal); }\n    catch (err) {\n      if (i >= retries || signal?.aborted) throw err;\n      await new Promise((r) => setTimeout(r, 2 ** i * 100));\n    }\n  }\n}\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "The wait stops at once and `retry` rejects with an `AbortError` at about 120 ms",
+        "why": "The plain `setTimeout` promise does not know about the signal."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "The full wait finishes; the abort is noticed only on the next attempt, around 300 ms",
+        "why": "The abort is checked only after `fn` fails again, so the backoff delays cancellation."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`retry` keeps going through all retries, because the signal is only read once",
+        "why": "`signal?.aborted` is checked in every catch, so it stops after the next failure."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An unhandled rejection crashes the process when the signal aborts mid-wait",
+        "why": "Aborting a signal never rejects anything by itself."
+      }
+    ],
+    "explanation": "With the plain timer, cancellation waits out the whole backoff: in a test, the abort at 120 ms was only observed around 300 ms. Use an abortable sleep: `await sleep(delay, undefined, { signal })` from `node:timers/promises`. It rejects with an `AbortError` as soon as the signal fires. Also add jitter to the delay so many clients do not retry in lockstep.",
+    "reference": "Node.js docs: timersPromises.setTimeout()"
+  },
+  {
+    "id": "NJS-ASY-043",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 3,
+    "difficulty": 4,
+    "type": "multi",
+    "stem": "Which statements about `AsyncLocalStorage` in Node.js are true? (Choose three.)",
+    "options": [
+      {
+        "id": "A",
+        "correct": true,
+        "text": "Promise callbacks and timers created inside `als.run(store, fn)` see `store`",
+        "why": "Context flows through async resources created in that scope."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "A callback queued by a library and later invoked from a timer the library started during another request sees that other request's store",
+        "why": "Context follows the timer that ran the callback, not the place where it was queued."
+      },
+      {
+        "id": "C",
+        "correct": true,
+        "text": "`AsyncResource.bind(fn)` captures the current context, so `fn` sees it wherever it is called later",
+        "why": "This is how pools and batchers preserve request context."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "An EventEmitter listener sees the store that was active when the listener was registered",
+        "why": "Listeners run synchronously during `emit()`, in the emitter's current context."
+      },
+      {
+        "id": "E",
+        "correct": false,
+        "text": "Calling `als.getStore()` outside any `run` throws an `ERR_ASYNC_CONTEXT` error",
+        "why": "It simply returns `undefined`."
+      }
+    ],
+    "explanation": "AsyncLocalStorage is how Node frameworks attach request IDs, tracing spans and auth info without passing them around. Its contexts follow async resources, so code that manages its own queues must bind callbacks, or logs end up tagged with the wrong request. Prefer `run()` to `enterWith()`, which changes the context for the rest of the current synchronous execution.",
+    "reference": "Node.js docs: Asynchronous context tracking"
+  },
+  {
+    "id": "NJS-ASY-044",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 4,
+    "type": "single",
+    "stem": "What does the callback log?\n\n```js\nconst util = require('node:util');\nconst cbified = util.callbackify(async () => { throw null; });\ncbified((err) => console.log(err.message, '|', err.reason));\n```",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "It never logs, because a `null` rejection reaches the callback as `err === null` and `.message` throws",
+        "why": "`callbackify` deliberately wraps falsy rejection values so the callback still gets a real error."
+      },
+      {
+        "id": "B",
+        "correct": true,
+        "text": "`Promise was rejected with falsy value | null`",
+        "why": "Falsy reasons are wrapped in an Error whose `reason` property holds the original value."
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "`null | undefined`",
+        "why": "The callback receives an Error object, not the raw `null`."
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "It logs nothing, because `callbackify` swallows falsy rejections",
+        "why": "It still reports them as errors through the callback."
+      }
+    ],
+    "explanation": "An error-first callback treats a falsy first argument as success, so passing `null` through unchanged would make a failure look like success. `util.callbackify` therefore wraps falsy rejection values in an Error with the message \"Promise was rejected with falsy value\" and keeps the original value on `err.reason`.",
+    "reference": "Node.js docs: util.callbackify()"
+  },
+  {
+    "id": "NJS-ASY-045",
+    "domain": 2,
+    "skill": "async-patterns",
+    "select": 1,
+    "difficulty": 4,
+    "type": "match",
+    "stem": "This script has no `unhandledRejection` listener:\n\n```js\nPromise.reject(new Error('nope'));\nsetTimeout(() => console.log('alive'), 10);\n```\nMatch each `--unhandled-rejections` mode with what happens.",
+    "options": [
+      {
+        "id": "A",
+        "correct": false,
+        "text": "Crashes with the error before `alive`; exit code 1",
+        "why": "throw"
+      },
+      {
+        "id": "B",
+        "correct": false,
+        "text": "Prints a warning, then `alive`; exit code 0",
+        "why": "warn"
+      },
+      {
+        "id": "C",
+        "correct": false,
+        "text": "Prints a warning, then `alive`; exit code 1",
+        "why": "warn-with-error-code"
+      },
+      {
+        "id": "D",
+        "correct": false,
+        "text": "Prints only `alive`; exit code 0",
+        "why": "none"
+      }
+    ],
+    "prompts": [
+      {
+        "id": "P1",
+        "text": "`throw` (the default)",
+        "answer": "A"
+      },
+      {
+        "id": "P2",
+        "text": "`warn`",
+        "answer": "B"
+      },
+      {
+        "id": "P3",
+        "text": "`warn-with-error-code`",
+        "answer": "C"
+      },
+      {
+        "id": "P4",
+        "text": "`none`",
+        "answer": "D"
+      }
+    ],
+    "explanation": "With no listener, `throw` (the default since Node 15) raises the rejection as an uncaught exception. `warn` logs and continues. `warn-with-error-code` also continues, but makes the process finish with exit code 1, which is handy in CI. `none` silences the warning entirely, which is rarely wise in production. `strict` would crash like `throw`, but it raises the exception even when an `unhandledRejection` listener exists.",
+    "reference": "Node.js docs: --unhandled-rejections=mode"
+  }
+]
