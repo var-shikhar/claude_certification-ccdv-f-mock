@@ -7,6 +7,7 @@ import { JsonLd } from '@/components/seo/json-ld';
 import { graph, organizationLd, websiteLd } from '@/lib/seo';
 import { SITE_NAME, siteUrl } from '@/lib/site';
 import { cn } from '@/lib/utils';
+import { Analytics } from "@vercel/analytics/next"
 import './globals.css';
 
 const sans = Geist({ subsets: ['latin'], variable: '--font-sans' });
@@ -41,6 +42,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <JsonLd data={graph(organizationLd(), websiteLd())} />
         <Providers nonce={nonce}>{children}</Providers>
         <SpeedInsights />
+	<Analytics />
       </body>
     </html>
   );
