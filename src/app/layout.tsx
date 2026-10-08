@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Bricolage_Grotesque, Geist, Geist_Mono } from 'next/font/google';
 import { headers } from 'next/headers';
 import { SpeedInsights } from '@vercel/speed-insights/next';
+import { Analytics } from '@vercel/analytics/next';
 import { Providers } from '@/components/providers/providers';
 import { JsonLd } from '@/components/seo/json-ld';
 import { graph, organizationLd, websiteLd } from '@/lib/seo';
@@ -41,6 +42,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="min-h-dvh">
         <JsonLd data={graph(organizationLd(), websiteLd())} />
         <Providers nonce={nonce}>{children}</Providers>
+        <Analytics />
         <SpeedInsights />
 	<Analytics />
       </body>
